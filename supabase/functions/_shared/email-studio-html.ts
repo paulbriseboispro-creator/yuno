@@ -147,6 +147,8 @@ export interface StudioRenderCtx {
   emailType: 'promotional' | 'informational';
   /** E-mail pratique aux détenteurs d'une soirée (Yuno CRM) : son titre. Miroir de render.ts. */
   practicalFor?: string | null;
+  /** « Vos clients » : la soirée où il a pris une place, et quand. Miroir de render.ts. */
+  customerReason?: { night: string; when: string } | null;
   /** Langue de l'e-mail (pied de page, balises). Absent = français. */
   language?: SmartLang | string | null;
   subject: string;
@@ -1206,15 +1208,17 @@ function footerSigner(ctx: Pick<StudioRenderCtx, 'legalName' | 'venueName'>): st
 
 /** Miroir EXACT de FOOTER_WORDS (render.ts) : mentions légales dans la langue de l'e-mail. */
 const FOOTER_WORDS = {
-  fr: { promo: 'vous êtes abonné à sa newsletter', info: 'vous avez acheté un billet', practical: (t: string) => `vous avez un billet pour « ${t} ». C'est un e-mail pratique sur cette soirée, sans publicité`, sent: (e: string, r: string) => `Cet email a été envoyé à ${e} car ${r}.`, rights: (y: number, n: string) => `© ${y} ${n}. Tous droits réservés.`, unsub: 'Se désabonner' },
-  en: { promo: 'you subscribed to its newsletter', info: 'you bought a ticket', practical: (t: string) => `you hold a ticket for “${t}”. This is a practical email about that night, with no advertising`, sent: (e: string, r: string) => `This email was sent to ${e} because ${r}.`, rights: (y: number, n: string) => `© ${y} ${n}. All rights reserved.`, unsub: 'Unsubscribe' },
-  es: { promo: 'te suscribiste a su newsletter', info: 'compraste una entrada', practical: (t: string) => `tienes una entrada para «${t}». Es un email práctico sobre ese evento, sin publicidad`, sent: (e: string, r: string) => `Este email se ha enviado a ${e} porque ${r}.`, rights: (y: number, n: string) => `© ${y} ${n}. Todos los derechos reservados.`, unsub: 'Darse de baja' },
+  fr: { customer: (t: string, w: string) => t ? `vous avez pris une place pour « ${t} »${w ? ` (${w})` : ''} : nous vous annonçons nos prochaines soirées, et vous pouvez vous désinscrire en un clic` : `vous avez pris une place à l'une de nos soirées : nous vous annonçons les prochaines, et vous pouvez vous désinscrire en un clic`, promo: 'vous êtes abonné à sa newsletter', info: 'vous avez acheté un billet', practical: (t: string) => `vous avez un billet pour « ${t} ». C'est un e-mail pratique sur cette soirée, sans publicité`, sent: (e: string, r: string) => `Cet email a été envoyé à ${e} car ${r}.`, rights: (y: number, n: string) => `© ${y} ${n}. Tous droits réservés.`, unsub: 'Se désabonner' },
+  en: { customer: (t: string, w: string) => t ? `you got a place for “${t}”${w ? ` (${w})` : ''}: we let you know about our next nights, and you can unsubscribe in one click` : `you got a place at one of our nights: we let you know about the next ones, and you can unsubscribe in one click`, promo: 'you subscribed to its newsletter', info: 'you bought a ticket', practical: (t: string) => `you hold a ticket for “${t}”. This is a practical email about that night, with no advertising`, sent: (e: string, r: string) => `This email was sent to ${e} because ${r}.`, rights: (y: number, n: string) => `© ${y} ${n}. All rights reserved.`, unsub: 'Unsubscribe' },
+  es: { customer: (t: string, w: string) => t ? `conseguiste una entrada para «${t}»${w ? ` (${w})` : ''}: te avisamos de nuestras próximas fiestas y puedes darte de baja con un clic` : `conseguiste una entrada para una de nuestras fiestas: te avisamos de las próximas y puedes darte de baja con un clic`, promo: 'te suscribiste a su newsletter', info: 'compraste una entrada', practical: (t: string) => `tienes una entrada para «${t}». Es un email práctico sobre ese evento, sin publicidad`, sent: (e: string, r: string) => `Este email se ha enviado a ${e} porque ${r}.`, rights: (y: number, n: string) => `© ${y} ${n}. Todos los derechos reservados.`, unsub: 'Darse de baja' },
 } as const;
 
 function renderFooter(theme: StudioTheme, ctx: StudioRenderCtx, socialAbove: boolean): string {
   const year = (ctx.now || new Date()).getFullYear();
   const w = FOOTER_WORDS[smartLang(ctx.language)];
   const reason = ctx.practicalFor ? w.practical(esc(ctx.practicalFor))
+    // « Vos clients » : la soirée où la personne a pris une place, pas un abonnement.
+    : ctx.customerReason ? w.customer(esc(ctx.customerReason.night || ''), esc(ctx.customerReason.when || ''))
     : ctx.emailType === 'promotional' ? w.promo : w.info;
   const unsub = ctx.emailType === 'promotional' && !ctx.practicalFor && ctx.unsubscribeUrl
     // Miroir de render.ts : lien lisible sur le fond du pied de page.

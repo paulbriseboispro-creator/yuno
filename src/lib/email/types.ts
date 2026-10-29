@@ -681,6 +681,12 @@ export interface RenderCtx {
    * page dit pourquoi la personne le reçoit sans être inscrite (miroir Deno).
    */
   practicalFor?: string | null;
+  /**
+   * « Vos clients » (Yuno CRM, exception clients) : ce destinataire reçoit
+   * l'e-mail parce qu'il a pris une place à cette soirée, ce mois-là. Le pied de
+   * page le dit à la place de « abonné à sa newsletter » (miroir Deno).
+   */
+  customerReason?: { night: string; when: string } | null;
   /** Langue de l'e-mail (pied de page, balises). Absent = français. */
   language?: EmailLanguage | null;
   subject: string;
