@@ -43,6 +43,21 @@ Le schéma du banc s'arrête avant les Scénarios : `traffic.mjs` recopie de la 
 les migrations du Trafic. `smoke/traffic-capture.sql` rend (annulé) les réponses
 réelles du compte démo, pour un banc d'écran.
 
+## « Vos acheteurs » (exception clients, lot 1, 29/10)
+
+```bash
+node customer-basis.mjs roots    # racines lues dans la migration 20261114100000
+node customer-basis.mjs dump     # définitions de la prod (lecture seule)
+node customer-basis.mjs          # 63 vérifications : éligibilité, déclaration, oppositions, garde, droits
+node rehearse.mjs smoke/customer-basis.sql 20261114100000_crm_customer_basis.sql   # la prod, annulée
+```
+
+Le compte synthétique couvre chaque cas de la règle (champ absent, jamais coché,
+accord retiré, soirée co-organisée, invitation, entrée gratuite, plus de 36 mois,
+adresse supprimée, désabonné dans la Billetterie, accord, opposition transmise,
+remboursé, effacé, casse). La répétition rend, par espace, les comptes et le temps
+du calcul (0,6 s sur 46 000 billets).
+
 ## Ce que contient le schéma
 
 1. `schema/prelude.sql` : ce que Supabase fournit autour de `public` (rôles,
