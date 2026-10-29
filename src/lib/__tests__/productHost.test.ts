@@ -61,6 +61,10 @@ describe('productHostDecision on crm.yunoapp.eu', () => {
       .toEqual({ kind: 'cross', origin: TICKETING_ORIGIN, path: '/open/suite' });
     expect(productHostDecision(at('crm.yunoapp.eu', '/legal/cgu')))
       .toEqual({ kind: 'cross', origin: TICKETING_ORIGIN, path: '/legal/cgu' });
+    // Les textes qu'un client du CRM accepte restent sur place, à la DA du CRM.
+    for (const doc of ['cgv-crm', 'dpa', 'privacy', 'cookies']) {
+      expect(productHostDecision(at('crm.yunoapp.eu', `/legal/${doc}`))).toEqual({ kind: 'stay' });
+    }
   });
 
   it('under vite dev, the ticketing side is plain localhost on the same port', () => {

@@ -20,7 +20,7 @@ import {
   type CustomerBasis, type CustomerCheckKey,
 } from '@/crm/data/customerBasis';
 
-const LEGAL_URL = 'https://yunoapp.eu/legal/cgv-crm';
+const LEGAL_URL = '/legal/cgv-crm';
 const YUNO_CONTACT = 'contact@yunoapp.eu';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const card: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 16, padding: 'clamp(20px,2.4vw,28px)', borderRadius: 28, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)', animation: `yc-rise 800ms ${EASE} 560ms both` };

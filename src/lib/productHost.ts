@@ -43,6 +43,12 @@ export const SHARED_PATH_PREFIXES = [
   '/mfa-disable-confirm',
   '/account-suspended',
   '/connect-ai',
+  // Textes légaux d'un client du CRM : sur crm.yunoapp.eu ils restent sur place, à la DA
+  // du CRM (CrmLegalPage). Ceux de la Billetterie (CGU, CGV…) repartent sur yunoapp.eu.
+  '/legal/cgv-crm',
+  '/legal/dpa',
+  '/legal/privacy',
+  '/legal/cookies',
 ] as const;
 
 function cleanPath(pathname: string): string {

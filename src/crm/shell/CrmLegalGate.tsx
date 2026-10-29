@@ -22,7 +22,8 @@ import { useCrmScope } from '@/crm/scope';
 import { useCrmT } from '@/crm/i18n';
 import { Check, CtaButton, Modal } from '@/crm/ui/kit';
 
-const LEGAL_ORIGIN = 'https://yunoapp.eu';
+// Sur place : crm.yunoapp.eu sert les textes légaux à la DA du CRM (CrmLegalPage).
+const LEGAL_ORIGIN = '';
 const noop = () => {};
 
 export function CrmLegalGate() {
