@@ -80,6 +80,8 @@ interface Recipient {
   conds?: Set<string>;
   /** Variables Yuno CRM ({{artiste}}, {{1re_soiree}}, {{nb_soirees}}), résolues par lot. */
   crm?: CrmRecipientVars;
+  /** « Vos clients » : la soirée où la personne a pris une place, et quand (pied de page). */
+  customerReason?: { night: string; when: string } | null;
   /** Clé d'idempotence du lot, posée par la réclamation (MAIL-03). Absente sur une base d'avant. */
   batch_key?: string | null;
 }
@@ -190,6 +192,46 @@ async function practicalRefusal(admin: Admin, campaignId: string): Promise<{ cod
   if (!check.practical || check.ok) return null;
   if ((check.issues || []).length > 0) return { code: 'crm_practical_content', check };
   return { code: `crm_practical_${check.night?.reason || 'event'}`, check };
+}
+
+interface CustomerCheck { customer?: boolean; open?: boolean; ok?: boolean; issues?: { code: string }[] }
+
+/**
+ * « Vos clients » (exception clients) : base ouverte et contenu limité aux soirées
+ * de l'espace, revérifiés AVANT un test ou une mise en file
+ * (crm_customer_email_check, la règle de la garde guard_crm_customer_basis).
+ */
+async function customerRefusal(admin: Admin, campaignId: string): Promise<{ code: string; check: CustomerCheck } | null> {
+  const { data, error } = await admin.rpc('crm_customer_email_check', { p_campaign_id: campaignId });
+  if (error) throw new Error(`crm_customer_email_check: ${error.message}`);
+  const check = (data || {}) as CustomerCheck;
+  if (!check.customer || check.ok) return null;
+  if ((check.issues || []).length > 0) return { code: 'crm_customer_content', check };
+  return { code: 'crm_customer_basis_closed', check };
+}
+
+/** Mois et année d'une place, dans la langue de l'e-mail (« octobre 2026 »). */
+function customerWhen(at: string | null, language: string | null): string {
+  if (!at) return '';
+  const d = new Date(at);
+  if (Number.isNaN(d.getTime())) return '';
+  const lang = language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR';
+  return new Intl.DateTimeFormat(lang, { month: 'long', year: 'numeric', timeZone: 'Europe/Paris' }).format(d);
+}
+
+/** La raison de chaque destinataire « clients » d'un lot. Échec ⇒ map vide (le pied de page dit alors « l'une de nos soirées »). */
+async function fetchCustomerReasons(admin: Admin, campaignId: string, emails: string[], language: string | null): Promise<Map<string, { night: string; when: string }>> {
+  const map = new Map<string, { night: string; when: string }>();
+  if (emails.length === 0) return map;
+  const { data, error } = await admin.rpc('get_recipient_customer_reasons', { p_campaign_id: campaignId, p_emails: emails });
+  if (error) {
+    console.error('get_recipient_customer_reasons failed:', error.message);
+    return map;
+  }
+  for (const row of (data || []) as { email: string; night: string | null; at: string | null }[]) {
+    map.set(String(row.email || '').toLowerCase(), { night: (row.night || '').trim(), when: customerWhen(row.at, language) });
+  }
+  return map;
 }
 
 // Désabonnement en un clic (RFC 8058) : l'en-tête pointe sur la fonction qui
@@ -394,6 +436,7 @@ async function makeStudioHtmlBuilder(
     // E-mail pratique : la carte de la soirée sans prix ni bouton d'achat, et
     // le pied de page qui dit pourquoi la personne le reçoit.
     practicalFor: practical ? practicalTitle : null,
+    customerReason: r.customerReason ?? null,
     // Langue de l'e-mail (posée par le MCP) : pied de page légal et balises.
     language: (campaign.language as string | null) || null,
     subject: subjectForRecipient(campaign, r),
@@ -633,6 +676,11 @@ async function drainSlice(
     if (usedCrmVars) {
       const varMap = await fetchRecipientCrmVars(admin, campaignId, sendable.map((r) => r.email));
       for (const r of sendable) r.crm = varMap.get(r.email.toLowerCase());
+    }
+    // « Vos clients » : le pied de page dit pourquoi la personne reçoit l'e-mail.
+    if (campaign.legal_basis === 'customer') {
+      const reasons = await fetchCustomerReasons(admin, campaignId, sendable.map((r) => r.email), (campaign.language as string | null) || null);
+      for (const r of sendable) r.customerReason = reasons.get(r.email.toLowerCase()) ?? null;
     }
 
     // 4. Rendu + calibrage du lot. Un HTML riche (images inline, longs blocs)
@@ -913,12 +961,21 @@ async function sendTest(
   // Test : tous les blocs sont rendus, y compris les conditionnels — le pro
   // doit voir l'email complet.
   const buildHtml = await makeBuilder(admin, campaign, sender, { ignoreConds: true, trackedLinks: false });
+  let customerSampleNight = '';
+  if (campaign.legal_basis === 'customer' && campaign.event_id) {
+    const { data: ev } = await admin.from('events').select('title').eq('id', campaign.event_id as string).maybeSingle();
+    customerSampleNight = ((ev?.title as string | undefined) || '').trim();
+  }
   const payload: ResendEmail[] = targets.map((email) => {
     const tr: Recipient = {
       email,
       first_name: me?.first_name,
       last_name: me?.last_name,
       unsubscribe_token: '00000000-0000-0000-0000-000000000000',
+      // « Vos clients » : le test montre la phrase qu'un client lira, sur la soirée de la campagne.
+      customerReason: campaign.legal_basis === 'customer'
+        ? { night: customerSampleNight, when: customerWhen(new Date().toISOString(), (campaign.language as string | null) || null) }
+        : null,
     };
     return {
       from: sender.from,
@@ -1148,6 +1205,23 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({
           error: refusal.code, code: refusal.code,
           issues: refusal.check.issues ?? [], night: refusal.check.night ?? null,
+        }), { status: 402, headers: jsonHeaders });
+      }
+    }
+
+    // ── « Vos clients » : base ouverte, contenu limité aux soirées de l'espace ──
+    // Test compris, comme l'e-mail pratique : le pro apprend tout de suite ce qui bloque.
+    if (campaign_id && campaign.legal_basis === 'customer' && mode !== 'drain') {
+      const refusal = await customerRefusal(admin, campaign_id as string);
+      // Un test part au pro lui-même : seul le contenu le bloque, pas une base encore fermée.
+      if (refusal && !(send_test && refusal.code === 'crm_customer_basis_closed')) {
+        if (!send_test && ['sending', 'scheduled'].includes(String(campaign.status))) {
+          await admin.from('email_campaigns')
+            .update({ status: 'draft', scheduled_at: null, paused_reason: null, error_message: refusal.code })
+            .eq('id', campaign_id).in('status', ['sending', 'scheduled']);
+        }
+        return new Response(JSON.stringify({
+          error: refusal.code, code: refusal.code, issues: refusal.check.issues ?? [],
         }), { status: 402, headers: jsonHeaders });
       }
     }
