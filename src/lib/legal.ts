@@ -30,8 +30,8 @@ export const LEGAL_VERSIONS: Record<LegalDocType, string> = {
   confidentiality: '2026-07-06',
   demo_confidentiality: '2026-07-06',
   privacy: '2026-07-06',
-  terms_crm: '2026-10-08',
-  dpa: '2026-10-08',
+  terms_crm: '2026-10-29',
+  dpa: '2026-10-29',
 };
 
 /** SHA-256 hex du contenu accepté (preuve de la version exacte du texte). */
