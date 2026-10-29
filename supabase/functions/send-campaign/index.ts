@@ -54,6 +54,14 @@ const corsHeaders = {
 const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+// « Vos clients » (exception clients) : un compte Resend et un domaine À PART. Une base
+// qui se passe mal (plaintes) ne peut ainsi jamais couper les billets ni les campagnes
+// à l'accord. Sans les deux, aucun lot « clients » ne part (jamais par le compte principal).
+const RESEND_API_KEY_CUSTOMER = Deno.env.get('RESEND_API_KEY_CRM_CUSTOMER');
+const CUSTOMER_EMAIL_DOMAIN = (Deno.env.get('CRM_CUSTOMER_EMAIL_DOMAIN') || '').trim().toLowerCase();
+const customerInfraReady = (): boolean => !!RESEND_API_KEY_CUSTOMER && /^[a-z0-9.-]+\.[a-z]{2,}$/.test(CUSTOMER_EMAIL_DOMAIN);
+/** Même expéditeur (nom, adresse locale), domaine « clients ». */
+const customerFrom = (from: string): string => from.replace(/@[^@>\s]+>$/, `@${CUSTOMER_EMAIL_DOMAIN}>`);
 const PUBLIC_URL = Deno.env.get('PUBLIC_APP_URL') || 'https://yunoapp.eu';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -543,6 +551,13 @@ async function drainSlice(
   let detail: string | undefined;
   let status = 'sending';
 
+  // « Vos clients » sans compte Resend ni domaine à part : la campagne attend, rien ne part.
+  if (campaign.legal_basis === 'customer' && !customerInfraReady()) {
+    await admin.from('email_campaigns').update({ status: 'paused', paused_reason: 'customer_infra' })
+      .eq('id', campaignId).eq('status', 'sending');
+    return { sent: 0, failed: 0, remaining: -1, status: 'paused', stopped: 'paused', detail: 'customer_infra' };
+  }
+
   while (true) {
     // 1. La campagne est-elle toujours en vol ? (pause manuelle, disjoncteur,
     //    annulation depuis l'app pendant qu'on envoie)
@@ -683,17 +698,31 @@ async function drainSlice(
       for (const r of sendable) r.customerReason = reasons.get(r.email.toLowerCase()) ?? null;
     }
 
+    // « Vos clients » : la réclamation ne mêle jamais deux bases légales ; ce lot
+    // part par le compte et le domaine de SA base.
+    let customerBatch = false;
+    if (campaign.legal_basis === 'customer') {
+      const { data: lb, error: lbErr } = await admin.from('email_campaign_recipients')
+        .select('legal_basis').eq('campaign_id', campaignId).eq('email', sendable[0].email.toLowerCase()).maybeSingle();
+      if (lbErr) { stopped = 'error'; detail = `legal_basis: ${lbErr.message}`; break; }
+      customerBatch = lb?.legal_basis === 'customer';
+    }
+    const batchFrom = customerBatch ? customerFrom(sender.from) : sender.from;
+    const batchApiKey = customerBatch ? RESEND_API_KEY_CUSTOMER! : RESEND_API_KEY!;
+
     // 4. Rendu + calibrage du lot. Un HTML riche (images inline, longs blocs)
     //    peut faire exploser la taille du payload : on adapte plutôt que de se
     //    prendre un 413 en pleine campagne.
     const payload: ResendEmail[] = sendable.map((r) => ({
-      from: sender.from,
+      from: batchFrom,
       to: [addressOf.get(r.email)!],
       subject: buildHtml.subject ? buildHtml.subject(r) : subjectForRecipient(campaign, r),
       html: buildHtml(r),
       reply_to: sender.replyTo || undefined,
       headers: unsubHeaders(r.unsubscribe_token, campaignId),
-      tags: [{ name: 'campaign_id', value: campaignId }],
+      tags: customerBatch
+        ? [{ name: 'campaign_id', value: campaignId }, { name: 'yuno_basis', value: 'customer' }]
+        : [{ name: 'campaign_id', value: campaignId }],
     }));
 
     const approxBytes = payload.reduce((n, p) => n + p.html.length + 200, 0);
@@ -705,7 +734,7 @@ async function drainSlice(
     // 5. Envoi. Un 422 (adresse que Resend refuse malgré le tri) isole la
     //    fautive par bissection : les autres partent, elle seule échoue.
     const result = await sendBatchIsolating(
-      (p, k) => sendResendBatch(RESEND_API_KEY!, p, { idempotencyKey: k }),
+      (p, k) => sendResendBatch(batchApiKey, p, { idempotencyKey: k }),
       batchKey, payload, sendable.map((r) => r.email), () => sleep(BATCH_SPACING_MS),
     );
 
@@ -1212,7 +1241,9 @@ Deno.serve(async (req) => {
     // ── « Vos clients » : base ouverte, contenu limité aux soirées de l'espace ──
     // Test compris, comme l'e-mail pratique : le pro apprend tout de suite ce qui bloque.
     if (campaign_id && campaign.legal_basis === 'customer' && mode !== 'drain') {
-      const refusal = await customerRefusal(admin, campaign_id as string);
+      const refusal = !send_test && !customerInfraReady()
+        ? { code: 'crm_customer_infra', check: {} as CustomerCheck }
+        : await customerRefusal(admin, campaign_id as string);
       // Un test part au pro lui-même : seul le contenu le bloque, pas une base encore fermée.
       if (refusal && !(send_test && refusal.code === 'crm_customer_basis_closed')) {
         if (!send_test && ['sending', 'scheduled'].includes(String(campaign.status))) {

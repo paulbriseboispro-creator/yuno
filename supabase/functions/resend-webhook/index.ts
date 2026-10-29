@@ -9,6 +9,9 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const WEBHOOK_SECRET = Deno.env.get('RESEND_WEBHOOK_SECRET'); // Svix secret from Resend dashboard (whsec_...)
+// « Vos clients » : le compte Resend à part (exception clients) a son propre point de webhook,
+// donc son propre secret. Ses événements suivent exactement le même chemin.
+const WEBHOOK_SECRET_CUSTOMER = Deno.env.get('RESEND_WEBHOOK_SECRET_CRM_CUSTOMER');
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -18,7 +21,10 @@ Deno.serve(async (req) => {
     // Signature Svix obligatoire (audit du 18/10, MAIL-10) : sans secret posé,
     // on refuse (503 : Resend réessaiera une fois le secret posé) au lieu
     // d'accepter une charge que n'importe qui peut forger.
-    const verdict = await verifySvixSignature(WEBHOOK_SECRET, rawBody, req.headers).catch(() => 'bad_signature' as const);
+    let verdict = await verifySvixSignature(WEBHOOK_SECRET, rawBody, req.headers).catch(() => 'bad_signature' as const);
+    if (verdict !== 'ok' && verdict !== 'no_secret' && WEBHOOK_SECRET_CUSTOMER) {
+      verdict = await verifySvixSignature(WEBHOOK_SECRET_CUSTOMER, rawBody, req.headers).catch(() => 'bad_signature' as const);
+    }
     if (verdict === 'no_secret') {
       console.error('resend-webhook: RESEND_WEBHOOK_SECRET not set — refusing unverified payload');
       return new Response(JSON.stringify({ error: 'webhook_not_configured' }), { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
