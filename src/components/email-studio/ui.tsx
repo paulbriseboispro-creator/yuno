@@ -2,6 +2,8 @@ import {
   CSSProperties, InputHTMLAttributes, ReactNode, TextareaHTMLAttributes,
   forwardRef, useEffect, useLayoutEffect, useRef, useState,
 } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
+import type { StudioEvent } from './hooks';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Email Studio — tokens UI + primitives.
@@ -414,5 +416,25 @@ export function ShortcutRow({ keys, label }: { keys: string; label: string }) {
         borderRadius: 5, padding: '1px 6px', whiteSpace: 'nowrap',
       }}>{keys}</span>
     </div>
+  );
+}
+
+/**
+ * Options d'un sélecteur de soirée du Studio : à venir, puis passées (un
+ * remerciement, une info d'après-soirée). Sans soirée passée, pas de groupe.
+ */
+export function StudioEventOptions({ events }: { events: StudioEvent[] }) {
+  const { t } = useLanguage();
+  const option = (e: StudioEvent) => (
+    <option key={e.id} value={e.id}>{e.title} — {new Date(e.start_at).toLocaleDateString()}</option>
+  );
+  const upcoming = events.filter((e) => !e.past);
+  const past = events.filter((e) => e.past);
+  if (!past.length) return <>{upcoming.map(option)}</>;
+  return (
+    <>
+      {upcoming.length > 0 && <optgroup label={t('studio.events.upcoming')}>{upcoming.map(option)}</optgroup>}
+      <optgroup label={t('studio.events.past')}>{past.map(option)}</optgroup>
+    </>
   );
 }

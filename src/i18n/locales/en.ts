@@ -13354,6 +13354,8 @@ const en: Record<string, string> = {
   'studio.aud.type': "Email type",
   'studio.aud.event': "Campaign event",
   'studio.aud.eventNone': "No event",
+  'studio.events.upcoming': "Upcoming events",
+  'studio.events.past': "Past events",
   'studio.aud.tickets': "Tickets",
   'studio.aud.ticketsHint': "Pick a ticket or an entry time to write only to the people who hold it (the buyer and the people named on the ticket).",
   'studio.aud.ticketsAll': "All tickets",

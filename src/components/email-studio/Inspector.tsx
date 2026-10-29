@@ -28,6 +28,7 @@ import { blockBgColor } from './blocks/common';
 import {
   BORDER, FONT_UI, Help, IconBtn, MicroLabel, MONO, OptionPills, PanelCard, POS,
   RED, SUBTLE, T1, T3, TextArea, TextInput, ToggleRow, inputStyle,
+  StudioEventOptions,
 } from './ui';
 
 /** Or VIP — même signal que le rendu : ambre = restriction / rareté. */
@@ -451,9 +452,7 @@ function EventPicker({ value, events, onChange }: {
         style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%' }}
       >
         <option value="">{t('studio.inspector.eventNone')}</option>
-        {events.map((e) => (
-          <option key={e.id} value={e.id}>{e.title} — {new Date(e.start_at).toLocaleDateString()}</option>
-        ))}
+        <StudioEventOptions events={events} />
       </select>
     </div>
   );

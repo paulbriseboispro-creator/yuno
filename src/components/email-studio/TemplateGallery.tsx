@@ -18,6 +18,7 @@ import { DeleteTemplateDialog, RenameTemplateDialog } from './TemplateDialogs';
 import {
   APP_BG, BORDER, BORDER_FAINT, FONT_UI, FLOW_CARD_BG, FLOW_CARD_SHADOW, GhostBtn, PAGE_HALO,
   PrimaryBtn, RED, SUBTLE, T1, T2, T3, TextInput, TOPBAR_BG, useShellHeight,
+  StudioEventOptions,
 } from './ui';
 
 /** Thème du club mémorisé par le panneau Thème — sinon le preset par défaut. */
@@ -466,11 +467,7 @@ function EventSelect({ events, value, onChange }: {
       }}
     >
       <option value="">{t('studio.tpl.eventNone')}</option>
-      {events.map((e) => (
-        <option key={e.id} value={e.id}>
-          {e.title} — {new Date(e.start_at).toLocaleDateString()}
-        </option>
-      ))}
+      <StudioEventOptions events={events} />
     </select>
   );
 }

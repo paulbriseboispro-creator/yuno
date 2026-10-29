@@ -19,6 +19,7 @@ import {
 import {
   BORDER, FlowCard, FONT_UI, Help, MicroLabel, NEG, POS, RED, RED_SOFT_GRAD, SegBtns,
   SUBTLE, Switch, T1, T2, T3, WARN, inputStyle,
+  StudioEventOptions,
 } from './ui';
 import { formatMoneyAuto } from '@/lib/money';
 
@@ -413,9 +414,7 @@ export default function AudienceStep({ scope, events, segments }: {
               style={{ ...inputStyle, appearance: 'auto' as const }}
             >
               <option value="">{t('studio.aud.eventNone')}</option>
-              {events.map((e) => (
-                <option key={e.id} value={e.id}>{e.title} — {new Date(e.start_at).toLocaleDateString()}</option>
-              ))}
+              <StudioEventOptions events={events} />
             </select>
           </div>
 

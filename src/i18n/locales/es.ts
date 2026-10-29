@@ -13696,6 +13696,8 @@ const es: Record<string, string> = {
   'studio.aud.type': "Tipo de email",
   'studio.aud.event': "Evento de la campaña",
   'studio.aud.eventNone': "Sin evento",
+  'studio.events.upcoming': "Próximos eventos",
+  'studio.events.past': "Eventos pasados",
   'studio.aud.tickets': "Entradas",
   'studio.aud.ticketsHint': "Marca una entrada o una hora de acceso para escribir solo a quienes la tienen (el comprador y las personas nombradas en la entrada).",
   'studio.aud.ticketsAll': "Todas las entradas",

@@ -44,43 +44,69 @@ export interface StudioEvent {
   id: string;
   title: string;
   start_at: string;
+  /** Soirée commencée avant aujourd'hui : rangée sous « Soirées passées ». */
+  past?: boolean;
 }
 
-/** Soirées à venir du scope (+ celle déjà liée à la campagne, même passée). */
+/** Jours de soirées passées proposées (un e-mail de remerciement, une info d'après-soirée). */
+const PAST_EVENTS_DAYS = 60;
+
+/**
+ * Soirées du scope : à venir d'abord, puis celles des 60 derniers jours (la plus
+ * récente en premier, `past: true`), + celle déjà liée à la campagne.
+ */
 export function useStudioEvents(scope: StudioScope, pinnedEventId?: string | null): StudioEvent[] {
-  const [events, setEvents] = useState<StudioEvent[]>([]);
+  const [listed, setListed] = useState<StudioEvent[]>([]);
+  const [pinned, setPinned] = useState<StudioEvent | null>(null);
   const scopeId = studioScopeId(scope);
 
   useEffect(() => {
+    let cancelled = false;
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
-    let q = supabase.from('events').select('id,title,start_at')
-      .gte('start_at', todayStart.toISOString())
-      .order('start_at', { ascending: true }).limit(80);
+    const pastFrom = new Date(todayStart.getTime() - PAST_EVENTS_DAYS * 86_400_000);
     // Portée plateforme : Yuno peut mettre N'IMPORTE QUELLE soirée à venir dans
     // sa newsletter — c'est tout l'intérêt d'un « à l'affiche cette semaine ».
-    // Les soirées Shotgun (miroirs) s'annoncent aussi par e-mail (Yuno CRM).
     // Deux outils séparés : le Studio de la Billetterie n'annonce que des soirées Yuno (jamais les soirées
     // miroir de Yuno CRM, qui ont leur propre éditeur dans la Console CRM).
-    if (scope.kind === 'venue') q = q.or(venueEventsOr(scopeId));
-    else if (scope.kind === 'organizer') q = q.or(orgEventsOr(scopeId));
-    else q = q.is('external_source', null);
-    q.then(({ data }) => setEvents((data || []) as StudioEvent[]));
+    const scoped = () => {
+      const q = supabase.from('events').select('id,title,start_at');
+      if (scope.kind === 'venue') return q.or(venueEventsOr(scopeId));
+      if (scope.kind === 'organizer') return q.or(orgEventsOr(scopeId));
+      return q.is('external_source', null);
+    };
+    Promise.all([
+      scoped().gte('start_at', todayStart.toISOString())
+        .order('start_at', { ascending: true }).limit(80),
+      scoped().gte('start_at', pastFrom.toISOString()).lt('start_at', todayStart.toISOString())
+        .order('start_at', { ascending: false }).limit(40),
+    ]).then(([upcoming, past]) => {
+      if (cancelled) return;
+      setListed([
+        ...((upcoming.data || []) as StudioEvent[]),
+        ...((past.data || []) as StudioEvent[]).map((e) => ({ ...e, past: true })),
+      ]);
+    });
+    return () => { cancelled = true; };
   }, [scope.kind, scopeId]);
 
+  // La soirée déjà liée à la campagne, même plus ancienne que la fenêtre.
   useEffect(() => {
-    if (!pinnedEventId) return;
-    setEvents((prev) => {
-      if (prev.some((e) => e.id === pinnedEventId)) return prev;
-      supabase.from('events').select('id,title,start_at').eq('id', pinnedEventId).maybeSingle()
-        .then(({ data }) => {
-          if (data) setEvents((p) => (p.some((e) => e.id === data.id) ? p : [data as StudioEvent, ...p]));
-        });
-      return prev;
-    });
+    if (!pinnedEventId) { setPinned(null); return; }
+    let cancelled = false;
+    supabase.from('events').select('id,title,start_at').eq('id', pinnedEventId).maybeSingle()
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        const row = data as StudioEvent;
+        setPinned({ ...row, past: new Date(row.start_at).getTime() < new Date().setHours(0, 0, 0, 0) });
+      });
+    return () => { cancelled = true; };
   }, [pinnedEventId]);
 
-  return events;
+  return useMemo(
+    () => (pinned && !listed.some((e) => e.id === pinned.id) ? [...listed, pinned] : listed),
+    [listed, pinned],
+  );
 }
 
 /**
