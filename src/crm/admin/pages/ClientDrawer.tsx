@@ -23,6 +23,7 @@ import { Avatar, HealthRing, StateBadge, useAgo } from '../ui';
 import { NoteCard } from './AccountPage';
 import { AnalysisCard } from './AnalysisCard';
 import { SmsAccessCard } from './SmsAccessCard';
+import { CustomerBasisAdminCard } from './CustomerBasisAdmin';
 
 const box = { display: 'flex', flexDirection: 'column', gap: 8, padding: 16, borderRadius: 18, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)' } as const;
 
@@ -140,6 +141,7 @@ export default function ClientDrawer({ account, onClose }: { account: AdminAccou
                 ))}
               </div>
               <SmsAccessCard scopeKey={a.id} name={a.name} />
+              <CustomerBasisAdminCard scopeKey={a.id} />
               <AnalysisCard scopeKey={a.id} />
               {d ? <NoteCard d={d} compact /> : <Skel h={140} r={18} />}
               <Link to={ADMIN_ROUTES.account(a.id)} style={{ alignSelf: 'flex-start', fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{t('adm.crm.dr.full')}</Link>
