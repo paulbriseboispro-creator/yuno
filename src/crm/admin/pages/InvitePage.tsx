@@ -3,8 +3,8 @@
  * organisateur sur Yuno CRM (migration 20261019420000). L'invitation porte un
  * PRÉ-PROFIL (type, structure, contact, e-mail, téléphone, ville, langue) qui
  * remplit l'inscription ; elle part par e-mail (edge admin-account-recovery,
- * crm-invite-email) ou par WhatsApp. L'offre fondateurs (5 places, 6 mois,
- * 15 000 Yunits) s'y choisit en un clic ; l'accès démo et la proposition
+ * crm-invite-email) ou par WhatsApp. L'offre fondateurs (5 places : 2 à 6 mois,
+ * les 3 dernières à 2 mois ; 15 000 Yunits) s'y choisit en un clic ; l'accès démo et la proposition
  * d'accès assisté s'y ajoutent. Remplace l'onglet Vente › Offre fondateurs.
  */
 import { useMemo, useState } from 'react';

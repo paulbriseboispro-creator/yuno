@@ -792,6 +792,11 @@ Rien à voir avec le prix de lancement des 50 premiers PAYANTS (24 €,
 `price_switch_at`) : un compte fondateur ne paie pas, il n'entre pas dans
 `crm_paying_accounts`. Règles :
 
+- **Durée : 6 mois pour les 2 premières places (3 AM, Le Light), 2 mois pour les 3
+  dernières (WOH / Kevin et les deux suivants), décision de Paul du 01/11** (migration
+  `20261116100000` : `free_months` = 2 dans la config). La durée est COPIÉE sur chaque
+  invitation à sa création, donc les deux premières gardent leurs 6 mois ; les Yunits
+  offerts ne changent pas (15 000).
 - **5 places, une porte : `_crm_offer_seats_taken`** (compte ouvert + lien en
   attente non expiré ; révoquer ou laisser expirer à 30 j rend la place), sous
   verrou consultatif. Réglages dans `crm_founder_offer_config()` (5 places,
