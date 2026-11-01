@@ -25,7 +25,7 @@ import { legalContent } from '@/data/legalContent';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { useCrmScope } from '@/crm/scope';
 import { useCrmT } from '@/crm/i18n';
-import { CRM_LEGAL_DOCS, CRM_LEGAL_RECORDED, actingName, fillWord, legalGateNeeded } from '@/crm/lib/legalGate';
+import { CRM_LEGAL_DOCS, CRM_LEGAL_RECORDED, actingName, fillWord, legalGateNeeded, recordContext } from '@/crm/lib/legalGate';
 import { Check, CtaButton, Portal, useFocusTrap } from '@/crm/ui/kit';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
@@ -88,7 +88,7 @@ export function CrmLegalGate() {
     const email = user?.email ?? undefined;
     const context = { surface: 'crm_gate', scope: space.key };
     const results = await Promise.all(
-      CRM_LEGAL_RECORDED.map((d) => recordLegalAcceptance({ docType: d.docType, docContent: legalContent[d.section][lang].content, email, context })),
+      CRM_LEGAL_RECORDED.map((d) => recordLegalAcceptance({ docType: d.docType, docContent: legalContent[d.section][lang].content, email, context: recordContext(d, context) })),
     );
     setSaving(false);
     // L'enregistrement est la preuve, et c'est lui que lit l'identité de

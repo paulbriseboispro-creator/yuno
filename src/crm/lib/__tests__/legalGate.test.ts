@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CRM_LEGAL_DOCS, CRM_LEGAL_RECORDED, actingName, fillWord, legalGateNeeded } from '../legalGate';
+import { CRM_LEGAL_DOCS, CRM_LEGAL_RECORDED, actingName, fillWord, legalGateNeeded, recordContext } from '../legalGate';
 import { LEGAL_VERSIONS } from '@/lib/legal';
 import { legalContent } from '@/data/legalContent';
 
@@ -36,6 +36,16 @@ describe('CRM_LEGAL_DOCS', () => {
     const parent = CRM_LEGAL_DOCS.find((d) => d.id === m?.extractOf);
     expect(m?.docType).toBe(parent?.docType);
     expect(m?.path).toBe(parent?.path);
+  });
+
+  it('consigne l’Accord marketing sur la ligne des Conditions, et sur elle seule', () => {
+    const base = { surface: 'crm_gate', scope: 'venue:1' };
+    const ctx = (id: string) => recordContext(CRM_LEGAL_DOCS.find((d) => d.id === id)!, base);
+    expect(ctx('terms')).toEqual({ ...base, includes: [{ id: 'marketing', article: '7' }] });
+    expect(ctx('dpa')).toEqual(base);
+    expect(ctx('privacy')).toEqual(base);
+    // reste sous la limite de 2 048 octets de la fonction d'enregistrement
+    expect(JSON.stringify(ctx('terms')).length).toBeLessThan(2048);
   });
 
   it('a des identifiants uniques', () => {

@@ -34,6 +34,8 @@ export interface CrmLegalDoc {
    * passage est déjà dans le texte haché du document).
    */
   extractOf?: CrmLegalDoc['id'];
+  /** Article du document dont la carte est l'extrait (preuve : ce que l'écran a montré). */
+  article?: string;
 }
 
 export const CRM_LEGAL_DOCS: readonly CrmLegalDoc[] = [
@@ -41,11 +43,22 @@ export const CRM_LEGAL_DOCS: readonly CrmLegalDoc[] = [
   { id: 'dpa', docType: 'dpa', section: 'dpa', path: '/legal/dpa', icon: 'shield', titleKey: 'yc.legal.doc.dpa', summaryKey: 'yc.legal.gate.d.dpa', contractual: true },
   { id: 'privacy', docType: 'privacy', section: 'privacy', path: '/legal/privacy', icon: 'lock', titleKey: 'yc.legal.doc.privacy', summaryKey: 'yc.legal.gate.d.privacy', contractual: false },
   // « Accord marketing » : l'article 7 des Conditions (envois d'e-mails et de SMS), montré à part.
-  { id: 'marketing', docType: 'terms_crm', section: 'cgv-crm', path: '/legal/cgv-crm', icon: 'send', titleKey: 'yc.legal.doc.marketing', summaryKey: 'yc.legal.gate.d.marketing', contractual: false, extractOf: 'terms' },
+  { id: 'marketing', docType: 'terms_crm', section: 'cgv-crm', path: '/legal/cgv-crm', icon: 'send', titleKey: 'yc.legal.doc.marketing', summaryKey: 'yc.legal.gate.d.marketing', contractual: false, extractOf: 'terms', article: '7' },
 ];
 
 /** Les documents qui laissent une preuve d'acceptation (les extraits n'en ont pas). */
 export const CRM_LEGAL_RECORDED: readonly CrmLegalDoc[] = CRM_LEGAL_DOCS.filter((d) => !d.extractOf);
+
+/**
+ * Contexte de la ligne de preuve d'un document : celui de l'écran, plus les
+ * extraits que l'écran a montrés avec lui (`includes`). C'est ce qui permet de
+ * retrouver qui a accepté l'« Accord marketing » : sa carte n'a pas de ligne à
+ * elle, elle est consignée sur la ligne des Conditions dont elle est l'article 7.
+ */
+export function recordContext(doc: CrmLegalDoc, base: Record<string, unknown>): Record<string, unknown> {
+  const includes = CRM_LEGAL_DOCS.filter((d) => d.extractOf === doc.id).map((d) => ({ id: d.id, article: d.article ?? null }));
+  return includes.length ? { ...base, includes } : base;
+}
 
 /** L'écran s'ouvre si un document contractuel n'a pas été accepté dans sa version courante. */
 export function legalGateNeeded(accepted: Partial<Record<LegalDocType, boolean>>): boolean {
