@@ -1,0 +1,45 @@
+import { describe, expect, it } from 'vitest';
+import { CRM_LEGAL_DOCS, actingName, fillWord, legalGateNeeded } from '../legalGate';
+import { LEGAL_VERSIONS } from '@/lib/legal';
+import { legalContent } from '@/data/legalContent';
+
+describe('legalGateNeeded', () => {
+  it('s’ouvre dès qu’un document contractuel manque', () => {
+    expect(legalGateNeeded({})).toBe(true);
+    expect(legalGateNeeded({ terms_crm: true })).toBe(true);
+    expect(legalGateNeeded({ dpa: true })).toBe(true);
+  });
+
+  it('ne redemande rien quand les deux documents contractuels sont acceptés', () => {
+    expect(legalGateNeeded({ terms_crm: true, dpa: true })).toBe(false);
+    expect(legalGateNeeded({ terms_crm: true, dpa: true, privacy: false })).toBe(false);
+  });
+});
+
+describe('CRM_LEGAL_DOCS', () => {
+  it('ne cite que des types versionnés et des textes qui existent dans les trois langues', () => {
+    for (const d of CRM_LEGAL_DOCS) {
+      expect(LEGAL_VERSIONS[d.docType]).toBeTruthy();
+      for (const lang of ['en', 'fr', 'es'] as const) {
+        expect(legalContent[d.section][lang].content.length).toBeGreaterThan(200);
+      }
+      expect(d.path).toBe(`/legal/${d.section}`);
+    }
+  });
+
+  it('a des identifiants uniques', () => {
+    expect(new Set(CRM_LEGAL_DOCS.map((d) => d.id)).size).toBe(CRM_LEGAL_DOCS.length);
+  });
+});
+
+describe('textes', () => {
+  it('nomme l’espace, sinon la formule neutre', () => {
+    expect(actingName('  Amoris ', 'ma structure')).toBe('Amoris');
+    expect(actingName('', 'ma structure')).toBe('ma structure');
+    expect(actingName(null, 'ma structure')).toBe('ma structure');
+  });
+
+  it('remplace chaque {w}', () => {
+    expect(fillWord('au nom de {w}', 'Amoris')).toBe('au nom de Amoris');
+  });
+});

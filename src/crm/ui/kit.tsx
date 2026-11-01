@@ -300,7 +300,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
  * UI-05) : il y entre à l'ouverture, Tab et Maj+Tab tournent dans ses
  * éléments, et il revient à ce qui l'avait ouverte à la fermeture.
  */
-function useFocusTrap(ref: { current: HTMLElement | null }, open: boolean) {
+export function useFocusTrap(ref: { current: HTMLElement | null }, open: boolean) {
   useEffect(() => {
     if (!open) return;
     const before = document.activeElement as HTMLElement | null;
