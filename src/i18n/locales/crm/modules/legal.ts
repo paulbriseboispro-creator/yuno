@@ -44,6 +44,11 @@ const dict: CrmDict = {
     'Ce que Yuno collecte sur vous, pourquoi, combien de temps, et comment exercer vos droits.',
     'Lo que Yuno recopila sobre usted, por qué, durante cuánto tiempo y cómo ejercer sus derechos.',
   ],
+  'yc.legal.gate.d.marketing': [
+    'You only write to people who agreed to hear from you. An email opt-in doesn’t cover SMS, and every message carries its unsubscribe link or STOP.',
+    'Vous n’écrivez qu’aux personnes qui ont donné leur accord. L’accord e-mail ne vaut pas pour le SMS, et chaque message porte son lien de désinscription ou son STOP.',
+    'Solo escribe a quienes han dado su consentimiento. El de e-mail no vale para SMS, y cada mensaje incluye su baja o su STOP.',
+  ],
   'yc.legal.gate.read': ['Read', 'Lire', 'Leer'],
   'yc.legal.gate.org': ['my organisation', 'ma structure', 'mi estructura'],
   // {w} = le nom de l'espace (ou « ma structure »).
@@ -65,6 +70,7 @@ const dict: CrmDict = {
   'yc.legal.gate.later': ['Later', 'Plus tard', 'Más tarde'],
   'yc.legal.doc.terms': ['Yuno CRM Terms', 'Conditions Yuno CRM', 'Condiciones de Yuno CRM'],
   'yc.legal.doc.dpa': ['Data Processing Agreement', 'Accord de sous-traitance des données', 'Acuerdo de encargo del tratamiento'],
+  'yc.legal.doc.marketing': ['Marketing agreement', 'Accord marketing', 'Acuerdo de marketing'],
   'yc.legal.doc.template': ['Notice template for your customers', 'Modèle d’information pour vos clients', 'Modelo de información para sus clientes'],
   'yc.legal.doc.privacy': ['Yuno privacy policy', 'Politique de confidentialité de Yuno', 'Política de privacidad de Yuno'],
   'yc.legal.back': ['Back', 'Retour', 'Volver'],

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CRM_LEGAL_DOCS, actingName, fillWord, legalGateNeeded } from '../legalGate';
+import { CRM_LEGAL_DOCS, CRM_LEGAL_RECORDED, actingName, fillWord, legalGateNeeded } from '../legalGate';
 import { LEGAL_VERSIONS } from '@/lib/legal';
 import { legalContent } from '@/data/legalContent';
 
@@ -25,6 +25,17 @@ describe('CRM_LEGAL_DOCS', () => {
       }
       expect(d.path).toBe(`/legal/${d.section}`);
     }
+  });
+
+  it('l’Accord marketing est un extrait des Conditions : affiché, sans preuve à part', () => {
+    const m = CRM_LEGAL_DOCS.find((d) => d.id === 'marketing');
+    expect(m?.extractOf).toBe('terms');
+    expect(m?.contractual).toBe(false);
+    expect(CRM_LEGAL_RECORDED.map((d) => d.id)).toEqual(['terms', 'dpa', 'privacy']);
+    // un extrait renvoie au même texte que son document
+    const parent = CRM_LEGAL_DOCS.find((d) => d.id === m?.extractOf);
+    expect(m?.docType).toBe(parent?.docType);
+    expect(m?.path).toBe(parent?.path);
   });
 
   it('a des identifiants uniques', () => {

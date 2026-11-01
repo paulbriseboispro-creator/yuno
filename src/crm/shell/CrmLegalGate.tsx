@@ -2,7 +2,7 @@
  * Acceptation des documents de Yuno CRM par le TITULAIRE d'un espace, d'un
  * seul geste, juste après la création du compte : les Conditions Yuno CRM,
  * l'Accord de sous-traitance (chapitre 12 « Yuno CRM ») et la politique de
- * confidentialité (liste : `CRM_LEGAL_DOCS`). Une fois par version
+ * confidentialité (liste : `CRM_LEGAL_DOCS`, plus l'« Accord marketing » = l'article 7 des Conditions mis en avant). Une fois par version
  * (LEGAL_VERSIONS), preuve dans legal_acceptances (version, empreinte du texte,
  * IP, user-agent, espace) — une ligne par document.
  *
@@ -25,7 +25,7 @@ import { legalContent } from '@/data/legalContent';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { useCrmScope } from '@/crm/scope';
 import { useCrmT } from '@/crm/i18n';
-import { CRM_LEGAL_DOCS, actingName, fillWord, legalGateNeeded } from '@/crm/lib/legalGate';
+import { CRM_LEGAL_DOCS, CRM_LEGAL_RECORDED, actingName, fillWord, legalGateNeeded } from '@/crm/lib/legalGate';
 import { Check, CtaButton, Portal, useFocusTrap } from '@/crm/ui/kit';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
@@ -88,7 +88,7 @@ export function CrmLegalGate() {
     const email = user?.email ?? undefined;
     const context = { surface: 'crm_gate', scope: space.key };
     const results = await Promise.all(
-      CRM_LEGAL_DOCS.map((d) => recordLegalAcceptance({ docType: d.docType, docContent: legalContent[d.section][lang].content, email, context })),
+      CRM_LEGAL_RECORDED.map((d) => recordLegalAcceptance({ docType: d.docType, docContent: legalContent[d.section][lang].content, email, context })),
     );
     setSaving(false);
     // L'enregistrement est la preuve, et c'est lui que lit l'identité de
@@ -166,32 +166,34 @@ export function CrmLegalGate() {
           </section>
 
           {/* Ce que le pro accepte, d'un seul geste. */}
-          <section className="yc-lgl yc-lgl-card" style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: 'clamp(20px,3vw,30px)', borderRadius: 28, background: '#fff', boxShadow: 'var(--shadow-md), 0 0 0 1px var(--sand-200)', ...rise(1) }}>
+          <section className="yc-lgl yc-lgl-card" style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 'clamp(18px,2.4vw,26px)', borderRadius: 28, background: '#fff', boxShadow: 'var(--shadow-md), 0 0 0 1px var(--sand-200)', ...rise(1) }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {CRM_LEGAL_DOCS.map((d) => (
                 <div
                   key={d.id}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 14, padding: '14px 14px 14px 16px', borderRadius: 18,
+                    display: 'flex', alignItems: 'center', gap: 14, padding: '12px 14px 12px 14px', borderRadius: 18,
                     background: checked ? 'var(--green-50)' : 'var(--sand-50)',
                     boxShadow: `inset 0 0 0 1px ${checked ? 'rgba(23,163,74,.28)' : 'var(--sand-200)'}`,
                     transition: 'background 280ms, box-shadow 280ms',
                   }}
                 >
-                  <span style={{ flex: 'none', width: 44, height: 44, borderRadius: 14, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)', display: 'grid', placeItems: 'center', color: 'var(--red-500)' }}>
+                  <span style={{ flex: 'none', width: 42, height: 42, borderRadius: 13, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)', display: 'grid', placeItems: 'center', color: 'var(--red-500)' }}>
                     <Icon name={d.icon} size={20} />
                   </span>
-                  <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <span style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 600, letterSpacing: '-.01em', lineHeight: 1.2 }}>{t(d.titleKey)}</span>
+                  <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <span style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 10, rowGap: 2 }}>
+                      <span style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 600, letterSpacing: '-.01em', lineHeight: 1.2 }}>{t(d.titleKey)}</span>
+                      <Hv
+                        as="a" href={`${LEGAL_ORIGIN}${d.path}`} target="_blank" rel="noopener noreferrer"
+                        aria-label={`${t('yc.legal.gate.read')} : ${t(d.titleKey)}`}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12.5, fontWeight: 600, color: 'var(--sand-500)', textDecoration: 'underline', textUnderlineOffset: 3, textDecorationColor: 'var(--sand-300)' }}
+                        hover={{ color: 'var(--red-600)', textDecorationColor: 'var(--red-600)' }}
+                      >
+                        {t('yc.legal.gate.read')}<Icon name="maximize" size={11} />
+                      </Hv>
+                    </span>
                     <span style={{ fontSize: 13.5, lineHeight: 1.45, color: 'var(--sand-600)', textWrap: 'pretty' }}>{t(d.summaryKey)}</span>
-                    <Hv
-                      as="a" href={`${LEGAL_ORIGIN}${d.path}`} target="_blank" rel="noopener noreferrer"
-                      aria-label={`${t('yc.legal.gate.read')} : ${t(d.titleKey)}`}
-                      style={{ alignSelf: 'flex-start', marginTop: 2, display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 600, color: 'var(--ink)', textDecoration: 'underline', textUnderlineOffset: 3, textDecorationColor: 'var(--sand-300)' }}
-                      hover={{ color: 'var(--red-600)', textDecorationColor: 'var(--red-600)' }}
-                    >
-                      {t('yc.legal.gate.read')}<Icon name="maximize" size={12} />
-                    </Hv>
                   </span>
                   <span
                     aria-hidden
