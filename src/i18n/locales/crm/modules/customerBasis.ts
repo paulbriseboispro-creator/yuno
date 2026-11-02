@@ -114,14 +114,14 @@ const dict: CrmDict = {
   ],
   'yc.cb.m.engage': ['To open it, you commit to:', 'Pour l’ouvrir, vous vous engagez à :', 'Para abrirlo, se compromete a:'],
   'yc.cb.m.c.seller': [
-    'being the organiser who sold these places (not a partner or a co-organiser);',
-    'être l’organisateur qui a vendu ces places (pas un partenaire ni un co-organisateur) ;',
-    'ser el organizador que vendió estas entradas (no un socio ni un coorganizador);',
+    'being the organiser who sold these places, or one of the organisers of a night you co-organise, presented as such to buyers;',
+    'être l’organisateur qui a vendu ces places, ou l’un des organisateurs d’une soirée que vous co-organisez, présenté comme tel aux acheteurs ;',
+    'ser el organizador que vendió estas entradas, o uno de los organizadores de una fiesta que coorganiza, presentado como tal a los compradores;',
   ],
   'yc.cb.m.c.own_nights_only': [
-    'only talking about your own nights in these emails: no other brand, no partner;',
-    'ne parler, dans ces e-mails, que de vos propres soirées : pas d’autre marque, pas de partenaire ;',
-    'hablar en estos e-mails solo de sus propias fiestas: ni otra marca, ni socios;',
+    'only talking about your own nights in these emails, including those you co-organise: no other brand, no partner;',
+    'ne parler, dans ces e-mails, que de vos propres soirées, y compris celles que vous co-organisez : pas d’autre marque, pas de partenaire ;',
+    'hablar en estos e-mails solo de sus propias fiestas, incluidas las que coorganiza: ni otra marca, ni socios;',
   ],
   'yc.cb.m.c.informed': [
     'having told your customers about this use, or publishing today the notice Yuno gives you;',
