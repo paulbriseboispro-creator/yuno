@@ -15,6 +15,7 @@ const dict: CrmDict = {
   'yc.cb.n.extra': ['more customers (places taken in the last {m} months)', 'clients en plus (places prises ces {m} derniers mois)', 'clientes más (entradas de los últimos {m} meses)'],
   'yc.cb.n.never': ['never contacted', 'jamais contactés', 'nunca contactados'],
   'yc.cb.n.neverX': ['never contacted: {x}', 'jamais contactés : {x}', 'nunca contactados: {x}'],
+  'yc.cb.x.declined': ['said no to communication on your ticketing platform', 'ont répondu non à la communication chez votre billetterie', 'respondieron no a la comunicación en su ticketera'],
   'yc.cb.x.withdrawn': ['withdrew their agreement on your ticketing platform', 'ont retiré leur accord chez votre billetterie', 'retiraron su consentimiento en su ticketera'],
   'yc.cb.x.unsub': ['unsubscribed', 'se sont désinscrits', 'se dieron de baja'],
   'yc.cb.x.suppressed': ['address bounces or complained', 'adresse en échec ou plainte', 'dirección que falla o queja'],

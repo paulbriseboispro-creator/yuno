@@ -17,7 +17,7 @@ export type CustomerSuspendReason = 'complaints' | 'bounces' | 'admin' | 'versio
 export interface CustomerBasisCounts {
   consent: number;
   extra: number;
-  excluded: { provider_withdrawn: number; unsubscribe: number; suppressed: number; reported: number };
+  excluded: { provider_withdrawn: number; provider_declined?: number; unsubscribe: number; suppressed: number; reported: number };
 }
 
 export interface CustomerBasis {

@@ -54,7 +54,7 @@ function Counts({ b }: { b: CustomerBasis }) {
   const { t, n } = useCrmT();
   const x = b.counts.excluded;
   const never = [
-    [x.provider_withdrawn, 'yc.cb.x.withdrawn'], [x.unsubscribe, 'yc.cb.x.unsub'],
+    [x.provider_declined ?? 0, 'yc.cb.x.declined'], [x.provider_withdrawn, 'yc.cb.x.withdrawn'], [x.unsubscribe, 'yc.cb.x.unsub'],
     [x.suppressed, 'yc.cb.x.suppressed'], [x.reported, 'yc.cb.x.reported'],
   ].filter(([v]) => Number(v) > 0) as [number, string][];
   return (
