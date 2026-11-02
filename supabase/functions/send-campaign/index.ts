@@ -54,12 +54,15 @@ const corsHeaders = {
 const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-// « Vos clients » (exception clients) : un compte Resend et un domaine À PART. Une base
-// qui se passe mal (plaintes) ne peut ainsi jamais couper les billets ni les campagnes
-// à l'accord. Sans les deux, aucun lot « clients » ne part (jamais par le compte principal).
+// « Vos clients » (exception clients) : un compte Resend et un domaine À PART quand ils
+// sont posés, pour qu'une base qui se passe mal (plaintes) ne touche jamais les billets.
+// Sans eux (décision de Paul du 02/11 : pas de second compte), les lots « clients »
+// partent par le compte et le domaine marketing habituels ; le disjoncteur de la base
+// clients (0,1 % de plaintes) reste le garde-fou.
 const RESEND_API_KEY_CUSTOMER = Deno.env.get('RESEND_API_KEY_CRM_CUSTOMER');
 const CUSTOMER_EMAIL_DOMAIN = (Deno.env.get('CRM_CUSTOMER_EMAIL_DOMAIN') || '').trim().toLowerCase();
-const customerInfraReady = (): boolean => !!RESEND_API_KEY_CUSTOMER && /^[a-z0-9.-]+\.[a-z]{2,}$/.test(CUSTOMER_EMAIL_DOMAIN);
+const customerSeparateInfra = (): boolean => !!RESEND_API_KEY_CUSTOMER && /^[a-z0-9.-]+\.[a-z]{2,}$/.test(CUSTOMER_EMAIL_DOMAIN);
+const customerInfraReady = (): boolean => customerSeparateInfra() || !!RESEND_API_KEY;
 /** Même expéditeur (nom, adresse locale), domaine « clients ». */
 const customerFrom = (from: string): string => from.replace(/@[^@>\s]+>$/, `@${CUSTOMER_EMAIL_DOMAIN}>`);
 const PUBLIC_URL = Deno.env.get('PUBLIC_APP_URL') || 'https://yunoapp.eu';
@@ -551,7 +554,7 @@ async function drainSlice(
   let detail: string | undefined;
   let status = 'sending';
 
-  // « Vos clients » sans compte Resend ni domaine à part : la campagne attend, rien ne part.
+  // « Vos clients » sans aucune clé Resend : la campagne attend, rien ne part.
   if (campaign.legal_basis === 'customer' && !customerInfraReady()) {
     await admin.from('email_campaigns').update({ status: 'paused', paused_reason: 'customer_infra' })
       .eq('id', campaignId).eq('status', 'sending');
@@ -707,8 +710,9 @@ async function drainSlice(
       if (lbErr) { stopped = 'error'; detail = `legal_basis: ${lbErr.message}`; break; }
       customerBatch = lb?.legal_basis === 'customer';
     }
-    const batchFrom = customerBatch ? customerFrom(sender.from) : sender.from;
-    const batchApiKey = customerBatch ? RESEND_API_KEY_CUSTOMER! : RESEND_API_KEY!;
+    const separate = customerBatch && customerSeparateInfra();
+    const batchFrom = separate ? customerFrom(sender.from) : sender.from;
+    const batchApiKey = separate ? RESEND_API_KEY_CUSTOMER! : RESEND_API_KEY!;
 
     // 4. Rendu + calibrage du lot. Un HTML riche (images inline, longs blocs)
     //    peut faire exploser la taille du payload : on adapte plutôt que de se
