@@ -22,7 +22,7 @@ const autoKeyOf = (a: CrmAudience): Key | null => (!a.segmentId && a.def?.seg &&
 
 export function AudienceStep({
   options, audiences, onAudiences, preview, calc, previewError, onRetryPreview, eventTitle, excludeBuyers, onExcludeBuyers, recentDays, onRecentDays,
-  basisPicker, netOverride,
+  basisPicker,
 }: {
   options: SendOptions | undefined;
   audiences: CrmAudience[];
@@ -40,12 +40,10 @@ export function AudienceStep({
   onRecentDays: (v: number) => void;
   /** « Vos clients » : la ligne sous le chiffre (ce qui écarte les « Pas de mention », ou ce que la signature ajoute). */
   basisPicker?: ReactNode;
-  /** Clients « Pas de mention » compris : le compte serveur de la campagne (un seul nombre) remplace l'aperçu. */
-  netOverride?: number;
 }) {
   const { t, tp, n, pct } = useCrmT();
-  const net = netOverride ?? preview?.net ?? 0;
-  const reach = Math.max(1, preview?.reach ?? 0, net + (excludeBuyers ? preview?.x_buyers ?? 0 : 0) + (preview?.x_recent ?? 0));
+  const net = preview?.net ?? 0;
+  const reach = Math.max(1, preview?.reach ?? 0);
   const xb = excludeBuyers ? preview?.x_buyers ?? 0 : 0;
   const xr = preview?.x_recent ?? 0;
   const rules = options?.rules;

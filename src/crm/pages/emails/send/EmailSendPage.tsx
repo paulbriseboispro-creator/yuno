@@ -179,6 +179,11 @@ export default function EmailSendPage() {
   // quand les clients y sont, l'aperçu d'audience sinon.
   const counted = practical ? pNight.data : customer ? unified.data : preview.data;
   const counting = practical ? pNight.isFetching : preview.isFetching || unified.isFetching;
+  // Le bandeau de l'étape Audience lit la MÊME population que le chiffre : avec les
+  // clients, base, exclusions et net viennent tous de la campagne enregistrée.
+  const audPreview = customer && unified.data?.total !== undefined
+    ? { reach: unified.data.reach ?? unified.data.total, x_buyers: unified.data.x_buyers ?? 0, x_recent: unified.data.x_recent ?? 0, net: unified.data.total }
+    : preview.data;
   const balance = shell.data?.wallet.balance ?? 0;
   // Ce qui reste vraiment pour cet envoi : les campagnes programmées ont déjà
   // réservé leur part (celle-ci exceptée si elle l'est elle-même).
@@ -366,9 +371,8 @@ export default function EmailSendPage() {
                 options={options.data}
                 audiences={draft.audiences}
                 onAudiences={(a) => update({ audiences: a })}
-                preview={preview.data}
+                preview={audPreview}
                 calc={preview.isFetching || unified.isFetching}
-                netOverride={customer ? unified.data?.total : undefined}
                 basisPicker={<CustomerReachNote basis={basis.data} unified={unified.data} />}
                 previewError={preview.isError ? preview.error : null}
                 onRetryPreview={() => { void preview.refetch(); }}

@@ -138,6 +138,10 @@ export interface UnifiedAudience {
   reason: 'closed' | 'feature' | 'content' | 'scope' | null;
   issues?: { code: string; block?: string; type?: string; url?: string; field?: string }[];
   total?: number;
+  /** Même lecture que crm_email_audience_preview : base avant exclusions, et ce que chacune retire. */
+  reach?: number;
+  x_buyers?: number;
+  x_recent?: number;
   /** Clients que la montée progressive laisse partir les jours suivants. */
   ramp_waiting?: number;
 }
