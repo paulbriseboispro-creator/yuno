@@ -11,6 +11,7 @@ import { Icon } from '@/crm/ui/Icon';
 import { EASE } from '@/crm/ui/motion';
 import type { useCrmT } from '@/crm/i18n';
 import type { AutoRecipe, Automations } from '@/crm/data/automations';
+import { recipeEventTemplates, type EventTemplate } from '@/crm/data/eventTemplates';
 import { autoState, quietSendAt, recipeHours, type CrmAutoKind, type CrmAutoState } from '@/crm/lib/automations';
 import { AU_IC, KIND_IC, linkLabel, whenLabel } from './autoFmt';
 import { Flow, GreenSwitch, Pills, SectionHead, StateBadge, SubjectText } from './autoUi';
@@ -21,6 +22,7 @@ const cl01 = (x: number) => Math.max(0, Math.min(1, x));
 
 export function AutoCards({
   d, T, money, c, g, canWrite, open, onOpen, hl, busy, rates, onToggle, onEdit, onEditMail, onRecharge, onCustomize,
+  eventTpls, onAddEventTpl, onOpenEventTpl, onRemoveEventTpl,
 }: {
   d: Automations; T: T; money: boolean; c: number; g: number; canWrite: boolean;
   open: CrmAutoKind | null; onOpen: (k: CrmAutoKind | null) => void; hl: CrmAutoKind | null; busy: CrmAutoKind | null;
@@ -30,6 +32,11 @@ export function AutoCards({
   onCustomize?: (r: AutoRecipe) => void;
   /** Seulement pour qui gère la facturation. */
   onRecharge?: () => void;
+  /** Modèles propres à une soirée (20261123100000) : tous ceux de l'espace. */
+  eventTpls: EventTemplate[];
+  onAddEventTpl: (r: AutoRecipe) => void;
+  onOpenEventTpl: (r: AutoRecipe, tpl: EventTemplate) => void;
+  onRemoveEventTpl: (r: AutoRecipe, tpl: EventTemplate) => void;
 }) {
   const { t } = T;
   const [filter, setFilter] = useState<Filter>('all');
@@ -67,6 +74,10 @@ export function AutoCards({
             onToggle={() => onToggle(r)} onEdit={() => onEdit(r)} onEditMail={() => onEditMail(r)}
             onCustomize={onCustomize ? () => onCustomize(r) : undefined}
             onRecharge={onRecharge}
+            eventTpls={recipeEventTemplates(eventTpls, r.id)}
+            onAddEventTpl={() => onAddEventTpl(r)}
+            onOpenEventTpl={(x) => onOpenEventTpl(r, x)}
+            onRemoveEventTpl={(x) => onRemoveEventTpl(r, x)}
           />
         ))}
         {list.length === 0 && (
@@ -79,10 +90,12 @@ export function AutoCards({
 
 function Card({
   r, idx, d, T, money, c, g, canWrite, open, hl, busy, rates, onOpen, onToggle, onEdit, onEditMail, onRecharge, onCustomize,
+  eventTpls, onAddEventTpl, onOpenEventTpl, onRemoveEventTpl,
 }: {
   r: AutoRecipe; idx: number; d: Automations; T: T; money: boolean; c: number; g: number; canWrite: boolean;
   open: boolean; hl: boolean; busy: boolean; rates: { email: number; sms: number };
   onOpen: () => void; onToggle: () => void; onEdit: () => void; onEditMail: () => void; onRecharge?: () => void; onCustomize?: () => void;
+  eventTpls: EventTemplate[]; onAddEventTpl: () => void; onOpenEventTpl: (x: EventTemplate) => void; onRemoveEventTpl: (x: EventTemplate) => void;
 }) {
   const { t, tp, n, eur, dShort, time } = T;
   const st = autoState(r) as Exclude<CrmAutoState, 'none'>;
@@ -244,6 +257,10 @@ function Card({
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--sand-500)' }}>{t('yc.au.x.who')}</span>
                 <span style={{ fontSize: 14, lineHeight: 1.5, color: 'var(--sand-700)', textWrap: 'pretty' }}>{t(`yc.au.r.${r.kind}.target`)}</span>
               </div>
+              <RecipeModels
+                T={T} baseName={r.template_name} list={eventTpls} canAdd={canWrite && !!r.id && !!r.template_id}
+                onAdd={onAddEventTpl} onOpen={onOpenEventTpl} onRemove={canWrite ? onRemoveEventTpl : undefined}
+              />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '12px 14px', borderRadius: 14, background: '#fff', border: '1px solid var(--sand-200)', fontSize: 13.5, lineHeight: 1.45, color: 'var(--sand-600)' }}>
                 <span><b style={{ color: 'var(--ink)' }}>{t('yc.au.x.costL')}</b> {t('yc.au.x.costV', { e: rates.email })}</span>
                 <span>{t('yc.au.x.smsSoon')}</span>
@@ -270,5 +287,45 @@ function Card({
         </div>
       </div>
     </article>
+  );
+}
+
+/**
+ * « Modèles » d'une recette : le modèle de BASE (toutes les soirées), puis les
+ * modèles propres à une soirée, qui le remplacent pour cette soirée seulement et
+ * s'effacent seuls après elle.
+ */
+function RecipeModels({ T, baseName, list, canAdd, onAdd, onOpen, onRemove }: {
+  T: T; baseName: string | null; list: EventTemplate[]; canAdd: boolean;
+  onAdd: () => void; onOpen: (x: EventTemplate) => void; onRemove?: (x: EventTemplate) => void;
+}) {
+  const { t, dShort } = T;
+  const link = { padding: 0, border: 0, background: 'none', font: 'inherit', fontSize: 13, fontWeight: 600, color: 'var(--ink)', textDecoration: 'underline', cursor: 'pointer' } as const;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--sand-500)' }}>{t('yc.au.et.label')}</span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 14, lineHeight: 1.45 }}>
+        <span><b style={{ fontWeight: 600 }}>{t('yc.au.et.base')}</b> · {baseName || '—'}</span>
+        <span style={{ fontSize: 13, color: 'var(--sand-600)' }}>{t(list.length ? 'yc.au.et.baseExcept' : 'yc.au.et.baseAll')}</span>
+      </div>
+      {list.map((x) => (
+        <div key={x.id} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '10px 12px', borderRadius: 12, background: '#fff', border: '1px solid var(--sand-200)', fontSize: 13.5, lineHeight: 1.45 }}>
+          <span style={{ fontWeight: 600, overflowWrap: 'anywhere' }}>{x.event_title ?? '—'}{x.event_start ? ` · ${dShort(x.event_start)}` : ''}</span>
+          <span style={{ color: 'var(--sand-600)', overflowWrap: 'anywhere' }}>{x.name}</span>
+          <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>
+            {x.expires_at ? t('yc.au.et.until', { date: dShort(x.expires_at) }) : ''}{x.sent > 0 ? ` · ${t('yc.au.et.sent', { n: T.n(x.sent) })}` : ''}
+          </span>
+          <span style={{ display: 'flex', gap: 14 }}>
+            <button type="button" onClick={() => onOpen(x)} style={link}>{t('yc.au.et.open')}</button>
+            {onRemove && <button type="button" onClick={() => onRemove(x)} style={{ ...link, color: 'var(--sand-600)' }}>{t('yc.au.et.remove')}</button>}
+          </span>
+        </div>
+      ))}
+      {canAdd && (
+        <Hv as="button" type="button" onClick={onAdd} style={{ alignSelf: 'flex-start', height: 38, padding: '0 14px', borderRadius: 99, background: 'transparent', borderWidth: 1, borderStyle: 'dashed', borderColor: 'var(--sand-300)', color: 'var(--ink)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }} hover={{ borderColor: 'var(--sand-400)', background: 'var(--paper)' }}>
+          {t('yc.au.et.add')}
+        </Hv>
+      )}
+    </div>
   );
 }

@@ -666,7 +666,9 @@ export function useEmailTemplates(scope: StudioScope) {
       .order('updated_at', { ascending: false })
       .limit(60)
       // Bibliothèque de la Billetterie : les modèles de Yuno CRM (product = 'crm') n'y figurent pas.
-      .is('product' as never, null);
+      .is('product' as never, null)
+      // Un modèle propre à une soirée (20261123100000) n'entre jamais dans la bibliothèque.
+      .is('for_event_id' as never, null);
     const { data } = scopeKind === 'venue'
       ? await q.eq('venue_id', scopeId)
       : scopeKind === 'organizer'

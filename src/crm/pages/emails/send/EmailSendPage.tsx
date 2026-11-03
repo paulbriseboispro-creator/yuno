@@ -400,7 +400,7 @@ export default function EmailSendPage() {
               <>
                 <PlanStep plan={draft.plan} onPlan={(p) => update((d) => ({ plan: { ...d.plan, ...p } }))} best={best} abOn={draft.abOn} abPct={draft.abPct} abHours={draft.abHours} whenText={whenText} relText={relText} />
                 {!practical && (
-                  <FollowupCard value={draft.followup} hasEvent={!!draft.eventId} disabled={readOnly}
+                  <FollowupCard value={draft.followup} eventId={draft.eventId} campaignId={draft.id} disabled={readOnly}
                     onChange={(f) => update((d) => ({ followup: { ...d.followup, ...f } }))} />
                 )}
               </>

@@ -34,6 +34,9 @@ import { useScenarioActions } from '@/crm/data/scenarios';
 import { recipeToGraph } from '@/crm/lib/scenarioTemplates';
 import { ScenariosTab } from './scenarios/ScenariosTab';
 import { CreateWithAiButton } from './scenarios/CreateWithAi';
+import { EventTemplateDialog } from '@/crm/components/EventTemplateDialog';
+import { recipeEventTemplates, useEventTemplates, useSetEventTemplate, type EventTemplate } from '@/crm/data/eventTemplates';
+import { eventTemplateStudioHref } from '@/crm/lib/eventTemplateHref';
 
 export default function AutomationsPage() {
   const T = useCrmT();
@@ -57,6 +60,10 @@ export default function AutomationsPage() {
   const setTab = (v: 'recipes' | 'scenarios') => setSp((p) => { const n = new URLSearchParams(p); if (v === 'recipes') n.delete('tab'); else n.set('tab', v); return n; }, { replace: true });
   const [gallery, setGallery] = useState(false);
   const scn = useScenarioActions();
+  // Modèles propres à une soirée (20261123100000).
+  const evTpls = useEventTemplates();
+  const setEvTpl = useSetEventTemplate();
+  const [etFor, setEtFor] = useState<AutoRecipe | null>(null);
 
   const d = q.data;
   const loading = !d || (q.isFetching && q.isPlaceholderData);
@@ -136,6 +143,23 @@ export default function AutomationsPage() {
 
   const editMail = (r: AutoRecipe) => {
     if (r.template_id) navigate(`${CRM_ROUTES.emailStudio(r.template_id)}?template=${r.kind}`);
+  };
+
+  /** Le modèle propre d'une soirée vient d'être créé : il remplace le modèle de base pour elle, puis s'ouvre. */
+  const linkEventTpl = async (r: AutoRecipe, templateId: string, eventId: string) => {
+    if (!r.id) return;
+    await setEvTpl.mutateAsync({ automationId: r.id, eventId, templateId });
+    setEtFor(null);
+    toast(t('yc.au.et.created'));
+    navigate(eventTemplateStudioHref(templateId, r.kind, CRM_ROUTES.automations));
+  };
+
+  const removeEventTpl = async (r: AutoRecipe, x: EventTemplate) => {
+    if (!r.id) return;
+    try {
+      await setEvTpl.mutateAsync({ automationId: r.id, eventId: x.event_id, templateId: null });
+      toast(t('yc.au.et.removed', { night: x.event_title ?? '' }));
+    } catch (e) { fail(e); }
   };
 
   /** « Personnaliser » : la recette devient un scénario qui fait la même chose (publier le scénario l'éteint). */
@@ -231,6 +255,10 @@ export default function AutomationsPage() {
               onEditMail={editMail}
               onCustomize={(r) => void customize(r)}
               onRecharge={caps.billing ? () => navigate(CRM_ROUTES.yunits) : undefined}
+              eventTpls={evTpls.data ?? []}
+              onAddEventTpl={(r) => setEtFor(r)}
+              onOpenEventTpl={(r, x) => navigate(eventTemplateStudioHref(x.id, r.kind, CRM_ROUTES.automations))}
+              onRemoveEventTpl={(r, x) => void removeEventTpl(r, x)}
             />
           )}
           {hasAny && <HoldoutResults recipes />}
@@ -248,6 +276,14 @@ export default function AutomationsPage() {
 
       {modal && d && (
         <AutoModal m={modal} setM={setModal} d={d} T={T} balance={balance} rate={rates.email} smsRate={rates.sms} busy={!!busy} onClose={() => setModal(null)} onSave={(m) => void submit(m)} />
+      )}
+      {etFor && (
+        <EventTemplateDialog
+          open onClose={() => setEtFor(null)} kind={etFor.kind} label={t(`yc.au.r.${etFor.kind}.name`)}
+          baseTemplateId={etFor.template_id}
+          excludeEventIds={recipeEventTemplates(evTpls.data, etFor.id).map((x) => x.event_id)}
+          onCreated={(id, ev) => linkEventTpl(etFor, id, ev)}
+        />
       )}
     </main>
   );

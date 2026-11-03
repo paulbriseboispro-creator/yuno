@@ -208,7 +208,9 @@ export function useScenarioEmailTemplates() {
     queryKey: ['crm', qk, 'scenario-email-templates'],
     staleTime: 60_000,
     queryFn: async () => {
-      let q = supabase.from('email_campaign_templates').select('id, name, subject, updated_at').eq('product' as never, 'crm' as never).order('updated_at', { ascending: false }).limit(200);
+      let q = supabase.from('email_campaign_templates').select('id, name, subject, updated_at').eq('product' as never, 'crm' as never)
+        // Un modèle propre à une soirée n'entre dans aucune bibliothèque (20261123100000).
+        .is('for_event_id' as never, null).order('updated_at', { ascending: false }).limit(200);
       q = space.venueId ? q.eq('venue_id', space.venueId) : q.is('venue_id', null).eq('organizer_user_id', space.organizerUserId as string);
       const { data, error } = await q;
       if (error) throw error;

@@ -33,6 +33,7 @@ import { useStudioLiveData, type StudioScope } from '@/components/email-studio/h
 import { adoptAiVersion, useAiDraftSync } from '@/components/email-studio/aiSync';
 import type { EmailBlock } from '@/lib/email/types';
 import { useTemplateDraft } from '../templateDraft';
+import { safeCrmBack } from '@/crm/lib/eventTemplateHref';
 import { decorateBlock } from './catalog';
 import { StudioTopBar } from './StudioTopBar';
 import { StudioLeft } from './StudioLeft';
@@ -174,6 +175,7 @@ function TemplateLoader({ id }: { id: string }) {
   const [missing, setMissing] = useState(false);
   const [loadError, setLoadError] = useState<unknown>(null);
   const [attempt, setAttempt] = useState(0);
+  const [eventTpl, setEventTpl] = useState<EventTpl | null>(null);
   const env = useRef({ t, space });
   env.current = { t, space };
   // L'aperçu se relie à la prochaine soirée, comme les vignettes de modèles ;
@@ -193,20 +195,22 @@ function TemplateLoader({ id }: { id: string }) {
       const { data, error } = await supabase.from('email_campaign_templates').select('*').eq('id', id).maybeSingle();
       if (off) return;
       if (error) { setLoadError(error); return; }
-      const tpl = data as (Record<string, unknown> & { id: string; name: string; venue_id: string | null; organizer_user_id: string | null; product?: string | null }) | null;
+      const tpl = data as (Record<string, unknown> & { id: string; name: string; venue_id: string | null; organizer_user_id: string | null; product?: string | null; for_event_id?: string | null; expires_at?: string | null }) | null;
       const mine = !!tpl && (tpl.venue_id ?? null) === sp.venueId && (tpl.organizer_user_id ?? null) === sp.organizerUserId && tpl.product === 'crm';
       if (!tpl || !mine) { setMissing(true); return; }
       const row = {
         id: tpl.id, name: tpl.name, type: (tpl.type as string) || 'promotional', status: 'draft',
         subject: (tpl.subject as string) || '', subject_b: null, ab_enabled: false, preheader: (tpl.preheader as string) || '',
         blocks_json: tpl.blocks_json, blocks_version: (tpl.blocks_version as number) ?? 2, theme_json: tpl.theme_json,
-        social_links_json: tpl.social_links_json, logo_url: (tpl.logo_url as string) ?? null, event_id: nextNight.current,
+        // Un modèle propre à une soirée (20261123100000) s'affiche sur SA soirée.
+        social_links_json: tpl.social_links_json, logo_url: (tpl.logo_url as string) ?? null, event_id: tpl.for_event_id ?? nextNight.current,
         audience_type: null, segment_id: null, audiences_json: [], exclusions_json: {}, scheduled_at: null,
         throttle_per_hour: null, throttle_window_minutes: null, throttle_plan: null, quiet_hours: true,
         followup_enabled: false, followup_delay_hours: null, followup_template_id: null, parent_campaign_id: null,
         resend_enabled: false, resend_delay_hours: null, resend_subject: null,
       } as CampaignRow;
       const decorate = (b: EmailBlock) => decorateBlock(b, env.current.t, null);
+      setEventTpl(tpl.for_event_id ? { eventId: tpl.for_event_id, expiresAt: tpl.expires_at ?? null } : null);
       setStore(createStudioStore(rowToCampaign(row, sp.name), { venueName: sp.name, logoUrl: sp.logoUrl ?? undefined }, decorate));
     })();
     return () => { off = true; };
@@ -228,7 +232,7 @@ function TemplateLoader({ id }: { id: string }) {
   return (
     <StudioStoreContext.Provider value={store}>
       <StudioProvider>
-        <StudioBody template />
+        <StudioBody template eventTpl={eventTpl} />
       </StudioProvider>
     </StudioStoreContext.Provider>
   );
@@ -244,7 +248,10 @@ function useNarrow(px: number) {
   return narrow;
 }
 
-function StudioBody({ template = false }: { template?: boolean }) {
+/** Modèle propre à une soirée : sa soirée et sa date d'expiration. */
+interface EventTpl { eventId: string; expiresAt: string | null }
+
+function StudioBody({ template = false, eventTpl = null }: { template?: boolean; eventTpl?: EventTpl | null }) {
   const { t } = useCrmT();
   const toast = useCrmToast();
   const nav = useNavigate();
@@ -256,6 +263,9 @@ function StudioBody({ template = false }: { template?: boolean }) {
   const readOnly = !useCrmCaps().write;
   const narrow = useNarrow(1100);
   const [failed, setFailed] = useState(false);
+  const [sp] = useSearchParams();
+  // Modèle de soirée ouvert depuis une campagne : « Terminé » ramène à sa page d'envoi.
+  const back = template ? safeCrmBack(sp.get('back')) ?? CRM_ROUTES.automations : null;
 
   // ── Sauvegarde ────────────────────────────────────────────────────────────
   const saveNow = useCallback(async (): Promise<boolean> => {
@@ -267,10 +277,11 @@ function StudioBody({ template = false }: { template?: boolean }) {
       ? { kind: 'venue', venueId: space.venueId, name: space.name }
       : { kind: 'organizer', organizerId: space.organizerUserId ?? '', name: space.name };
     // L'e-mail d'une automatisation s'écrit dans son modèle, sans soirée
-    // figée : le moteur la relie à chaque envoi.
+    // figée : le moteur la relie à chaque envoi. Un modèle propre à une soirée
+    // garde, lui, ses blocs reliés à SA soirée.
     const { data, error } = template
       ? await supabase.from('email_campaign_templates').update({
-        ...templateContentToRow({ type: c.type, subject: c.subject, preheader: c.preheader, blocks: stripEventBindings(c.blocks), theme: c.theme, socialLinks: c.socialLinks, logoUrl: c.logoUrl }),
+        ...templateContentToRow({ type: c.type, subject: c.subject, preheader: c.preheader, blocks: eventTpl ? c.blocks : stripEventBindings(c.blocks), theme: c.theme, socialLinks: c.socialLinks, logoUrl: c.logoUrl }),
         name: (c.name || '').trim().slice(0, 80) || 'Automatisation',
       } as never).eq('id', c.id).select('id')
       // Garde anti-course : on n'écrit que sur une campagne encore modifiable,
@@ -294,7 +305,7 @@ function StudioBody({ template = false }: { template?: boolean }) {
     api.getState().markSaved();
     invalidate();
     return true;
-  }, [api, readOnly, space.venueId, space.organizerUserId, space.name, toast, t, invalidate, template]);
+  }, [api, readOnly, space.venueId, space.organizerUserId, space.name, toast, t, invalidate, template, eventTpl]);
 
   // L'IA du pro modifie le brouillon (MCP) : le Studio ouvert suit.
   useAiDraftSync(api, {
@@ -325,10 +336,10 @@ function StudioBody({ template = false }: { template?: boolean }) {
 
   const goStep = useCallback(async (step: 'aud' | 'plan' | 'check' | null) => {
     if (api.getState().dirty) await saveNow();
-    if (template) { nav(CRM_ROUTES.automations); return; }
+    if (template) { nav(back ?? CRM_ROUTES.automations); return; }
     const id = api.getState().campaign.id;
     nav(`${CRM_ROUTES.emailSend(id)}${step ? `?step=${step}` : ''}`);
-  }, [api, nav, saveNow, template]);
+  }, [api, nav, saveNow, template, back]);
 
   // ── Clavier ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -390,11 +401,11 @@ function StudioBody({ template = false }: { template?: boolean }) {
 
   return (
     <div className="yc" style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'radial-gradient(55% 40% at 90% -5%,rgba(255,107,53,.08),transparent 70%),radial-gradient(45% 40% at 0% 0%,rgba(227,20,27,.05),transparent 70%),var(--paper)' }}>
-      <StudioTopBar narrow={narrow} readOnly={readOnly} failed={failed} onStep={goStep} onTest={() => void openTest()} template={template} />
+      <StudioTopBar narrow={narrow} readOnly={readOnly} failed={failed} onStep={goStep} onTest={() => void openTest()} template={template} backTo={back ?? undefined} eventTplUntil={eventTpl ? eventTpl.expiresAt ?? '' : undefined} />
       <div style={{ flex: 1, minHeight: 0, display: 'flex', position: 'relative' }}>
         {!narrow && !readOnly && <StudioLeft collapsed={preview} />}
         <StudioCanvas live={live} readOnly={readOnly} narrow={narrow} />
-        {!readOnly && <StudioInspector collapsed={preview} narrow={narrow} live={live} template={template} />}
+        {!readOnly && <StudioInspector collapsed={preview} narrow={narrow} live={live} template={template && !eventTpl} />}
       </div>
       <StudioTestModal />
     </div>

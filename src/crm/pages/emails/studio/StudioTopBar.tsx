@@ -27,8 +27,14 @@ const IC = {
 
 type Step = 'aud' | 'plan' | 'check';
 
-export function StudioTopBar({ narrow, readOnly, failed, onStep, onTest, template = false }: { narrow: boolean; readOnly: boolean; failed: boolean; onStep: (s: Step | null) => void; onTest: () => void; template?: boolean }) {
-  const { t } = useCrmT();
+export function StudioTopBar({ narrow, readOnly, failed, onStep, onTest, template = false, backTo, eventTplUntil }: {
+  narrow: boolean; readOnly: boolean; failed: boolean; onStep: (s: Step | null) => void; onTest: () => void; template?: boolean;
+  /** Mode modèle : la page où revenir (Automatisations par défaut, ou l'envoi d'une campagne). */
+  backTo?: string;
+  /** Modèle propre à une soirée : sa date d'expiration ('' si inconnue) ; absent = modèle de base. */
+  eventTplUntil?: string;
+}) {
+  const { t, dShort } = useCrmT();
   const api = useStudioApi();
   const name = useStudio((s) => s.campaign.name);
   const status = useStudio((s) => s.campaign.status);
@@ -71,7 +77,7 @@ export function StudioTopBar({ narrow, readOnly, failed, onStep, onTest, templat
     <>
       <header style={{ flex: 'none', height: 64, boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: phone ? 8 : 16, padding: narrow ? '0 12px' : '0 20px', background: 'rgba(252,250,249,.9)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderBottom: '1px solid var(--sand-100)', position: 'relative', zIndex: 40 }}>
         <div style={{ flex: '1 1 0', minWidth: phone ? 60 : 120, display: 'flex', alignItems: 'center', gap: phone ? 8 : 12 }}>
-          <Hv as={Link} to={template ? CRM_ROUTES.automations : CRM_ROUTES.emailCampaigns} aria-label={t(template ? 'yc.au.tpl.back' : 'yc.em.st.back')} title={t(template ? 'yc.au.tpl.back' : 'yc.em.st.back')} style={{ flex: 'none', width: phone ? 36 : 40, height: phone ? 36 : 40, borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', color: 'var(--ink)', display: 'grid', placeItems: 'center', textDecoration: 'none' }} hover={{ background: 'var(--sand-50)', color: 'var(--ink)' }}>
+          <Hv as={Link} to={template ? backTo ?? CRM_ROUTES.automations : CRM_ROUTES.emailCampaigns} aria-label={t(template ? 'yc.au.tpl.back' : 'yc.em.st.back')} title={t(template ? 'yc.au.tpl.back' : 'yc.em.st.back')} style={{ flex: 'none', width: phone ? 36 : 40, height: phone ? 36 : 40, borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', color: 'var(--ink)', display: 'grid', placeItems: 'center', textDecoration: 'none' }} hover={{ background: 'var(--sand-50)', color: 'var(--ink)' }}>
             <Icon name="arrowLeft" size={17} stroke={2.3} />
           </Hv>
           <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -86,7 +92,7 @@ export function StudioTopBar({ narrow, readOnly, failed, onStep, onTest, templat
               />
               {!narrow && (
                 <span style={{ flex: 'none', height: 22, padding: '0 9px', borderRadius: 99, background: template ? 'var(--red-50)' : sched ? 'var(--green-50)' : 'var(--amber-50)', color: template ? 'var(--red-700)' : sched ? 'var(--green-700)' : 'var(--amber-700)', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
-                  {t(template ? 'yc.au.tpl.badge' : sched ? 'yc.em.st.status.scheduled' : 'yc.em.st.status.draft')}
+                  {t(template ? (eventTplUntil !== undefined ? 'yc.au.et.badge' : 'yc.au.tpl.badge') : sched ? 'yc.em.st.status.scheduled' : 'yc.em.st.status.draft')}
                 </span>
               )}
             </div>
@@ -197,7 +203,9 @@ export function StudioTopBar({ narrow, readOnly, failed, onStep, onTest, templat
       )}
       {template && (
         <div style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '9px 20px', background: 'var(--sand-50)', color: 'var(--sand-600)', fontSize: 13.5, fontWeight: 500, borderBottom: '1px solid var(--sand-100)', textAlign: 'center' }}>
-          <Icon name="zap" size={14} stroke={2.2} />{t('yc.au.tpl.note')}
+          <Icon name="zap" size={14} stroke={2.2} />{eventTplUntil !== undefined
+            ? t(eventTplUntil ? 'yc.au.et.note' : 'yc.au.et.noteNoDate', { date: eventTplUntil ? dShort(eventTplUntil) : '' })
+            : t('yc.au.tpl.note')}
         </div>
       )}
     </>

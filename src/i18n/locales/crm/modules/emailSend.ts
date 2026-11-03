@@ -248,6 +248,32 @@ const dict: CrmDict = {
   'yc.em.sd.fu.create': ['Create the Yuno follow-up', 'Créer la relance Yuno', 'Crear el seguimiento Yuno'],
   'yc.em.sd.fu.created': ['Follow-up template created: you can edit it in Templates.', 'Modèle de relance créé : vous pouvez le modifier dans Modèles.', 'Plantilla de seguimiento creada: puede editarla en Plantillas.'],
   'yc.em.sd.fu.err': ['The template could not be created. Try again.', 'Le modèle n’a pas pu être créé. Réessayez.', 'No se pudo crear la plantilla. Inténtelo de nuevo.'],
+  'yc.em.sd.fu.groupNight': ['For this night', 'Pour cette soirée', 'Para esta fiesta'],
+  'yc.em.sd.fu.groupLib': ['Your templates', 'Vos modèles', 'Sus plantillas'],
+  'yc.em.sd.fu.own': ['Template for this night', 'Modèle propre à cette soirée', 'Plantilla propia de esta fiesta'],
+  'yc.em.sd.fu.ownNote': [
+    'Template for this night only: it disappears on {date} and never joins your templates.',
+    'Modèle propre à cette soirée : il s’efface le {date} et n’entre jamais dans vos modèles.',
+    'Plantilla propia de esta fiesta: desaparece el {date} y nunca entra en sus plantillas.',
+  ],
+  'yc.em.sd.fu.ownNoteNoDate': [
+    'Template for this night only: it never joins your templates.',
+    'Modèle propre à cette soirée : il n’entre jamais dans vos modèles.',
+    'Plantilla propia de esta fiesta: nunca entra en sus plantillas.',
+  ],
+  'yc.em.sd.fu.ownEdit': ['Edit it', 'Le modifier', 'Editarla'],
+  'yc.em.sd.fu.otherNight': [
+    'This template belongs to another night: choose a template for this night, otherwise nothing leaves.',
+    'Ce modèle est propre à une autre soirée : choisissez un modèle pour cette soirée, sinon rien ne part.',
+    'Esta plantilla es de otra fiesta: elija una plantilla para esta fiesta; si no, no sale nada.',
+  ],
+  'yc.em.sd.fu.test': ['Send me a test of the follow-up', 'M’envoyer un test de la relance', 'Enviarme una prueba del seguimiento'],
+  'yc.em.sd.fu.testOk': ['Test sent to {to}.', 'Test envoyé à {to}.', 'Prueba enviada a {to}.'],
+  'yc.em.sd.fu.testErr': [
+    'The test didn’t leave. Check the sender identity in Settings › Sending, then try again.',
+    'Le test n’est pas parti. Vérifiez l’identité de l’expéditeur dans Réglages › Envoi, puis réessayez.',
+    'La prueba no salió. Compruebe la identidad del remitente en Ajustes › Envío y vuelva a intentarlo.',
+  ],
   'yc.em.sd.fu.missing': ['Choose or create a follow-up email: without it, nothing leaves.', 'Choisissez ou créez un e-mail de relance : sans lui, rien ne part.', 'Elija o cree un e-mail de seguimiento: sin él, no sale nada.'],
   'yc.em.sd.fu.who': [
     'Who receives it: each person who clicked through to the night’s page and still has no place, {h} h after their click, once. Never in the 2 hours before the night, never to someone who unsubscribed; Yuno’s sending rules apply.',
