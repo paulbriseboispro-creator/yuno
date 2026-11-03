@@ -88,7 +88,7 @@ function Line({ big, text, strong, muted }: { big: string; text: string; strong?
 }
 
 function OffBody({ b, onOpen }: { b: CustomerBasis; onOpen: () => void }) {
-  const { t } = useCrmT();
+  const { t, n } = useCrmT();
   const blocked = isPreviewActive() || isSupportSessionActive();
   return (
     <>
