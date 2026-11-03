@@ -6688,3 +6688,14 @@ envois en bloc du fichier importé de WOH (01/09, 09/09, 08/10). Règles :
   niveau au plus par 7 jours si toutes les conditions passent, descend sur un signal.
   Pendant la reprise Gmail la montée automatique s'arrête au niveau 3 ; le niveau 5
   (« tout d'un coup ») n'est jamais automatique (`admin_set_sender_burst`).
+- **Google Postmaster est lu chaque matin** (migration `20261127160000`, cron
+  `gmail-postmaster-daily` 09:20 UTC → tâche `gmail_postmaster` de
+  `process-scheduled-campaigns`, module `_shared/gmail-postmaster.ts`, API v2, jeton en
+  LECTURE SEULE de Paul posé par `scripts/postmaster/authorize.mjs`, secrets
+  `POSTMASTER_*`). Gmail ne transmet AUCUNE plainte une par une : le compteur
+  « plaintes » de Yuno ne voit que Yahoo / Microsoft. Le seul chiffre Gmail est
+  `gmail_postmaster_daily.spam_ratio` (ratio : 0,01 = 1 %), par domaine et par jour.
+  Au-dessus de 0,1 % (`google_spam_watch`), alerte `admin_email_google_spam` qui nomme
+  les comptes ayant écrit à Gmail ce jour-là (`_gmail_senders_on`, une estimation : le
+  domaine est partagé). Carte Admin › Santé technique › Google Postmaster. Resend passe
+  par Amazon SES, qui pose son propre `Feedback-ID` : on ne peut pas en poser un à nous.
