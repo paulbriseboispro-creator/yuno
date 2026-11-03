@@ -66,7 +66,6 @@ function MiniFrame({ id, width, height }: { id: string; width: number; height: n
       srcDoc={q.data}
       tabIndex={-1}
       sandbox=""
-      loading="lazy"
       style={{ position: 'absolute', top: 0, left: 0, width: 600, height: Math.ceil(height / scale) + 20, border: 0, transform: `scale(${scale})`, transformOrigin: 'top left', pointerEvents: 'none', background: '#fff' }}
     />
   );
