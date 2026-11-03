@@ -38,6 +38,8 @@ export const CRM_ROUTES = {
   nightsPast: '/crm/nights/past',
   night: (id: string) => `/crm/nights/${id}`,
   nightPlan: (id: string) => `/crm/nights/${id}/plan`,
+  plans: '/crm/plans',
+  plan: (id: string) => `/crm/plans/${id}`,
   review: '/crm/review',
   signupPages: '/crm/signup-pages',
   clients: '/crm/clients',
@@ -55,7 +57,7 @@ export const CRM_ROUTES = {
 /** Identifiant de l'écran courant, tel que le menu le connaît. */
 export type CrmScreen =
   | 'accueil' | 'ventes' | 'trafic' | 'communaute' | 'guestlist' | 'parcours'
-  | 'emails' | 'sms' | 'auto' | 'instagram'
+  | 'plans' | 'emails' | 'sms' | 'auto' | 'instagram'
   | 'avenir' | 'passees'
   | 'inscriptions' | 'clients' | 'segments' | 'imports'
   | 'connecteurs' | 'reglages' | 'aide' | 'compte' | 'notifications' | 'yunits' | '';
@@ -66,7 +68,7 @@ export function screenFor(pathname: string): CrmScreen {
   const rules: [string, CrmScreen][] = [
     ['/crm/analytics/sales', 'ventes'], ['/crm/analytics/traffic', 'trafic'], ['/crm/analytics/community', 'communaute'], ['/crm/analytics/guestlist', 'guestlist'],
     ['/crm/analytics', 'ventes'], ['/crm/journey', 'parcours'],
-    ['/crm/emails', 'emails'], ['/crm/sms', 'sms'], ['/crm/automations', 'auto'], ['/crm/instagram', 'instagram'],
+    ['/crm/plans', 'plans'], ['/crm/emails', 'emails'], ['/crm/sms', 'sms'], ['/crm/automations', 'auto'], ['/crm/instagram', 'instagram'],
     ['/crm/nights/past', 'passees'], ['/crm/nights', 'avenir'],
     ['/crm/signup-pages', 'inscriptions'], ['/crm/clients', 'clients'], ['/crm/segments', 'segments'], ['/crm/imports', 'imports'],
     ['/crm/connectors', 'connecteurs'], ['/crm/settings', 'reglages'], ['/crm/account/help', 'aide'], ['/crm/account', 'compte'],
@@ -80,7 +82,7 @@ export type NavGroupKey = 'analyses' | 'campagnes' | 'soirees' | 'clients';
 
 export const NAV_GROUP_CHILDREN: Record<NavGroupKey, CrmScreen[]> = {
   analyses: ['ventes', 'trafic', 'communaute', 'guestlist', 'parcours'],
-  campagnes: ['emails', 'sms', 'auto', 'instagram'],
+  campagnes: ['plans', 'emails', 'sms', 'auto', 'instagram'],
   soirees: ['avenir', 'passees'],
   clients: ['clients', 'segments', 'imports'],
 };

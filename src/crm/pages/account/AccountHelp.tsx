@@ -76,6 +76,7 @@ const FAQ: { id: string; c: Exclude<Cat, 'all'>; to?: string }[] = [
   { id: 'scenariotips', c: 'start', to: `${CRM_ROUTES.automations}?tab=scenarios` },
   // Plan de soirée (agents, lot A1) et « Préparer avec mon IA » (l'IA du pro, par le MCP).
   { id: 'nightplan', c: 'clients', to: CRM_ROUTES.nights },
+  { id: 'nightplans', c: 'clients', to: CRM_ROUTES.plans },
   { id: 'weekly', c: 'clients', to: CRM_ROUTES.review },
   { id: 'chances', c: 'clients', to: CRM_ROUTES.nights },
   // « 10 % non contactés, pour mesurer l'effet réel » (20261013120000).

@@ -5,12 +5,12 @@
  * porte, le moment et l'angle conseillés. « Leur écrire » ouvre WriteModal sur
  * le filtre `ntgt` (même porte serveur que les chiffres), la soirée reliée.
  */
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Badge, PillButton, Skel } from '@/crm/ui/kit';
 import { useCrmToast } from '@/crm/ui/toast';
 import { useCrmT } from '@/crm/i18n';
-import { useCrmCaps } from '@/crm/scope';
+import { useCrmCaps, useCrmScope } from '@/crm/scope';
 import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { WriteModal } from '@/crm/components/WriteModal';
@@ -23,6 +23,11 @@ import type { NightTargetAudience, NightTargets as Targets } from '@/crm/data/an
 import { useSaveSegment } from '@/crm/data/clients';
 import type { ClientFilterDef } from '@/crm/data/clients';
 import { targetRuleText } from './targetText';
+import { useLaunchNightPlan, useNightPlanState, launchContent } from '@/crm/data/nightPlans';
+import { toTemplateNight, useTemplateDraft } from '@/crm/pages/emails/templateDraft';
+import { buildCrmTemplate } from '@/crm/lib/emailTemplates';
+import { templateFor } from '@/crm/lib/nightPlan';
+import { useNightPlan } from '@/crm/data/plan';
 
 type T = ReturnType<typeof useCrmT>;
 
@@ -48,6 +53,14 @@ function Note({ text }: { text: string }) {
 function Body({ d, T }: { d: Targets; T: T }) {
   const { t, n } = T;
   const auds = (d.audiences ?? []).filter((a) => a.n > 0);
+  const eventId = d.event?.id ?? null;
+  const planQ = useNightPlanState(eventId);
+  const livePlan = planQ.data?.plan && ['setup', 'active', 'paused'].includes(planQ.data.plan.status) ? planQ.data.plan : null;
+  // Plans de soirée : les envois gardés (tous ceux qui ont quelqu'un à qui écrire, d'office).
+  const writable = auds.filter((a) => a.email > 0);
+  const [dropped, setDropped] = useState<Set<string>>(() => new Set());
+  const kept = writable.filter((a) => !dropped.has(a.key));
+  const toggleKeep = (key: string) => setDropped((s0) => { const s1 = new Set(s0); if (s1.has(key)) s1.delete(key); else s1.add(key); return s1; });
   return (
     <>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -59,6 +72,7 @@ function Body({ d, T }: { d: Targets; T: T }) {
           </div>
         )}
       </div>
+      {livePlan && eventId && <LivePlanBanner eventId={eventId} plan={livePlan} T={T} />}
       {!d.computed ? <Note text={t('yc.tgt.notComputed')} />
         : auds.length === 0 ? <Note text={t('yc.tgt.empty')} />
           : (
@@ -81,11 +95,86 @@ function Body({ d, T }: { d: Targets; T: T }) {
                 </div>
               )}
               {auds.length > 1 && auds.some((a) => a.order) && <Note text={t('yc.tgt.orderHint')} />}
-              {auds.map((a) => <AudienceCard key={a.key} a={a} d={d} T={T} />)}
+              {auds.map((a) => (
+                <AudienceCard key={a.key} a={a} d={d} T={T}
+                  keep={livePlan || a.email === 0 ? undefined : { on: !dropped.has(a.key), toggle: () => toggleKeep(a.key) }} />
+              ))}
+              {!livePlan && !planQ.isLoading && writable.length > 0 && eventId && <PrepareBar eventId={eventId} kept={kept} T={T} />}
             </>
           )}
       {d.event?.id && <HoldoutResults eventId={d.event.id} />}
     </>
+  );
+}
+
+/** Un plan existe pour la soirée : on y mène, on ne propose pas d'en refaire un. */
+function LivePlanBanner({ eventId, plan, T }: { eventId: string; plan: NonNullable<NonNullable<ReturnType<typeof useNightPlanState>['data']>['plan']>; T: T }) {
+  const { t, dWeek, time } = T;
+  const next = plan.campaigns.filter((c) => c.status === 'scheduled' && c.scheduled_at).map((c) => c.scheduled_at as string).sort()[0];
+  const line = plan.status === 'setup' ? t('yc.np.s.setup')
+    : plan.status === 'paused' ? t('yc.np.live.paused')
+      : next ? t('yc.np.live.next', { d: `${dWeek(next)} · ${time(next)}` }) : t('yc.np.live.none');
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '14px 16px', borderRadius: 16, background: 'var(--ink)', color: '#fff' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+        <span style={{ fontSize: 15, fontWeight: 600 }}>{t('yc.np.live.t')}</span>
+        <span style={{ fontSize: 13.5, opacity: 0.78 }}>{line}</span>
+      </div>
+      <PillButton size="sm" to={CRM_ROUTES.plan(eventId)}>{t('yc.np.live.open')}</PillButton>
+    </div>
+  );
+}
+
+/** La barre du bas : ce que l'on garde, puis « Préparer ces envois » (étape 1 → 2). */
+function PrepareBar({ eventId, kept, T }: { eventId: string; kept: NightTargetAudience[]; T: T }) {
+  const { t, tp, n } = T;
+  const caps = useCrmCaps();
+  const toast = useCrmToast();
+  const nav = useNavigate();
+  const { space } = useCrmScope();
+  const td = useTemplateDraft(eventId);
+  const launch = useLaunchNightPlan();
+  // Chaque personne une fois, dans sa meilleure audience (crm_night_plan.first_email).
+  const plan = useNightPlan(eventId);
+  const reach = useMemo(() => {
+    const first = new Map<string, number>();
+    for (const st of plan.data?.steps ?? []) for (const x of st.audiences) first.set(x.key, x.first_email);
+    return kept.reduce((s0, a) => s0 + (first.get(a.key) ?? a.email), 0);
+  }, [kept, plan.data]);
+  const go = async () => {
+    if (!kept.length || !td.ready) return;
+    const contents: Record<string, unknown> = {};
+    for (const a of kept) {
+      const kind = templateFor(a.key);
+      const label = t(`yc.tgt.aud.${a.key}.name`);
+      const title = td.night?.title ?? '';
+      // Tout modèle de la Console, ceux des recettes compris (« retour », « dernier appel »).
+      const content = buildCrmTemplate(kind, {
+        venueName: space.name, lang: T.lang, t, night: toTemplateNight(td.night), second: toTemplateNight(td.second), last: toTemplateNight(td.last),
+      });
+      contents[a.key] = launchContent(content, `${label}${title ? ` · ${title}` : ''}`.slice(0, 200), label, kind);
+    }
+    try {
+      const r = await launch.mutateAsync({ eventId, audiences: kept.map((a) => a.key), contents });
+      if (!r.ok) {
+        if (r.error === 'plan_exists') { nav(CRM_ROUTES.plan(eventId)); return; }
+        toast(t(`yc.np.err.${r.error && ['support_session', 'no_audience'].includes(r.error) ? r.error : 'other'}`));
+        return;
+      }
+      nav(CRM_ROUTES.plan(eventId));
+    } catch (e) {
+      toast(t(String((e as Error)?.message ?? '').includes('too_late') ? 'yc.np.err.too_late' : 'yc.np.err.other'));
+    }
+  };
+  return (
+    <div style={{ position: 'sticky', bottom: 0, zIndex: 2, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '12px 14px', borderRadius: 18, background: '#fff', boxShadow: 'var(--shadow-md), 0 0 0 1px var(--sand-200)' }}>
+      <span style={{ fontSize: 14, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+        {kept.length ? tp('yc.np.bar', kept.length, { n: n(kept.length), e: n(reach) }) : t('yc.np.bar.none')}
+      </span>
+      <PillButton tone="dark" onClick={go} disabled={!kept.length || !caps.write || launch.isPending || !td.ready}>
+        {launch.isPending ? t('yc.np.m.launching') : t('yc.np.prepare')}
+      </PillButton>
+    </div>
   );
 }
 
@@ -94,7 +183,7 @@ function orderLabel(k: number, T: T): string {
   return k <= 3 ? T.t(`yc.tgt.order.${k}`) : T.t('yc.tgt.order.n', { n: T.n(k) });
 }
 
-function AudienceCard({ a, d, T }: { a: NightTargetAudience; d: Targets; T: T }) {
+function AudienceCard({ a, d, T, keep }: { a: NightTargetAudience; d: Targets; T: T; keep?: { on: boolean; toggle: () => void } }) {
   const { t, tp, n, dShort, time } = T;
   const caps = useCrmCaps();
   const toast = useCrmToast();
@@ -151,8 +240,14 @@ function AudienceCard({ a, d, T }: { a: NightTargetAudience; d: Targets; T: T })
         <span>{when}</span>
         <span>{t(`yc.tgt.angle.${a.key}`)}</span>
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingTop: 4 }}>
-        <PillButton tone="dark" onClick={() => setWriting(true)} disabled={!caps.write}>{t('yc.tgt.write')}</PillButton>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingTop: 4 }}>
+        {keep && (
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginRight: 'auto', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+            <input type="checkbox" checked={keep.on} onChange={keep.toggle} disabled={!caps.write} style={{ width: 18, height: 18, accentColor: 'var(--ink)' }} />
+            {t('yc.np.keep')}
+          </label>
+        )}
+        <PillButton tone={keep ? 'light' : 'dark'} onClick={() => setWriting(true)} disabled={!caps.write}>{t('yc.tgt.write')}</PillButton>
         {a.key === 'concept' && !savedId && caps.write && (
           <PillButton tone="ghost" onClick={saveSegment} disabled={save.isPending}>{t('yc.tgt.save')}</PillButton>
         )}

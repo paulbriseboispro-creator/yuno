@@ -63,6 +63,7 @@ export function Sidebar({
       type: 'group', key: 'campagnes', t: t('yc.nav.campaigns'), icon: 'send',
       badge: badges.campaigns ? { n: badges.campaigns, tone: 'red' } : undefined,
       subs: [
+        { id: 'plans', t: t('yc.nav.plans'), to: CRM_ROUTES.plans },
         { id: 'emails', t: t('yc.nav.emails'), to: CRM_ROUTES.emails },
         // SMS en bêta privée (ouvert compte par compte) : la pastille reste, accès ouvert ou non.
         { id: 'sms', t: t('yc.nav.sms'), to: CRM_ROUTES.sms, tag: t('yc.nav.beta') },

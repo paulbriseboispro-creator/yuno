@@ -44,6 +44,7 @@ import aiConnect from './aiConnect';
 import firstSteps from './firstSteps';
 import customerBasis from './customerBasis';
 import plan from './plan';
+import nightPlans from './nightPlans';
 
 /** Toutes les clés de la Console Yuno CRM, un module par écran. */
 export const CRM_DICT: CrmDict = {
@@ -92,6 +93,7 @@ export const CRM_DICT: CrmDict = {
   ...firstSteps,
   ...customerBasis,
   ...plan,
+  ...nightPlans,
 };
 
 export function pickLanguage(index: 0 | 1 | 2): Record<string, string> {
