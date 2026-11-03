@@ -63,6 +63,7 @@ import {
 	ShirtIcon,
 	Martini,
 	TagIcon,
+	ActivityIcon,
 } from "lucide-react";
 import { SidebarProThemeSwitch } from "@/components/ProThemeSwitch";
 import { buildCrmNavGroups } from "@/components/crm/crmNav";
@@ -190,6 +191,7 @@ function buildOrgNavGroups(tt: TT, t: (key: string) => string, metaLive: boolean
 						{ title: t('sidebar.emailCampaigns'), path: "/organizer-app/campaigns", icon: <MailIcon /> },
 						{ title: t('sidebar.emailAutomations'), path: "/organizer-app/campaigns/automations", icon: <ZapIcon /> },
 						{ title: t('sidebar.contactBase'), path: "/organizer-app/campaigns/contacts", icon: <UsersIcon /> },
+						{ title: t('sidebar.emailHealth'), path: "/organizer-app/campaigns/health", icon: <ActivityIcon /> },
 					],
 				},
 				{ title: t('sidebar.smsMarketing'), path: "/organizer-app/sms", icon: <MessageSquareIcon />, badge: SMS_MARKETING_LIVE ? undefined : tt("Bientôt", "Soon") },

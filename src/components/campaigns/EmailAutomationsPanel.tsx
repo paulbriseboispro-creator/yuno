@@ -68,7 +68,7 @@ const HOW_RULES = [
 
 const SKIP_REASONS: readonly AutomationSkipReason[] = [
   'bought', 'guest_list', 'has_table', 'unsubscribed', 'suppressed', 'no_consent', 'cooldown', 'event_over',
-  'already_event', 'pressure_24h', 'pressure_7d', 'fatigue', 'averse',
+  'already_event', 'pressure_24h', 'pressure_7d', 'fatigue', 'averse', 'gmail_cold',
 ];
 
 interface ChildRow {

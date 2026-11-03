@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import EmailHealthPanel from '@/components/campaigns/EmailHealthPanel';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, ArrowLeft, Database, Loader2, Mail, Plus, Sparkles, Trash2, Upload, Zap } from 'lucide-react';
@@ -568,4 +569,11 @@ export function OwnerEmailAutomations() {
       }}
     />
   );
+}
+
+/** E-mails › Santé des envois (`/owner/campaigns/health`). */
+export function OwnerEmailHealth() {
+  const { venueId, venue, loading } = useVenueContext();
+  if (loading || !venueId) return <OwnerPageSkeleton />;
+  return <EmailHealthPanel basePath="/owner/campaigns" scope={{ kind: 'venue', venueId, name: venue?.name || 'Mon club' }} />;
 }

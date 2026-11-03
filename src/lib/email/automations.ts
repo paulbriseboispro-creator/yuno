@@ -127,6 +127,8 @@ export type AutomationSkipReason =
   | 'bought' | 'guest_list' | 'unsubscribed' | 'suppressed' | 'no_consent' | 'cooldown' | 'event_over'
   // Règles Yuno (email_send_policy) et « une soirée, un message » entre expéditeurs.
   | 'already_event' | 'pressure_24h' | 'pressure_7d' | 'fatigue' | 'averse'
+  // Mode reprise Gmail : adresse Gmail sans ouverture ni clic récent.
+  | 'gmail_cold'
   // table_upsell : déjà une table (réservée ou en cours) pour la soirée.
   | 'has_table';
 

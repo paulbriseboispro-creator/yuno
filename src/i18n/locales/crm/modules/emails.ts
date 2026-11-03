@@ -6,6 +6,7 @@ const dict: CrmDict = {
   'yc.em.tab.home': ['Overview', 'Vue d’ensemble', 'Vista general'],
   'yc.em.tab.campaigns': ['Campaigns', 'Campagnes', 'Campañas'],
   'yc.em.tab.analysis': ['Analysis', 'Analyse', 'Análisis'],
+  'yc.em.tab.health': ['Health', 'Santé', 'Salud'],
   'yc.em.tab.templates': ['Templates', 'Modèles', 'Plantillas'],
   'yc.em.tab.settings': ['Sending settings', 'Réglages d’envoi', 'Ajustes de envío'],
   'yc.em.tabs': ['Emails section', 'Section E-mails', 'Sección E-mails'],

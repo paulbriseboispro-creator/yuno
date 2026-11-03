@@ -208,6 +208,10 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   admin_payments_switch:     { icon: Siren,         category: 'system',    label: 'notif.type.admin_payments_switch' },
   admin_security_burst:      { icon: ShieldAlert,   category: 'system',    label: 'notif.type.admin_security_burst' },
   admin_meta_token_invalid:  { icon: AlertTriangle, category: 'system',    label: 'notif.type.admin_meta_token_invalid' },
+  // Délivrabilité e-mail (20261127110000) : envoi froid arrêté, compte à l'écart, Gmail qui range en spam.
+  admin_email_cold_halted:      { icon: AlertTriangle, category: 'system', label: 'notif.type.admin_email_cold_halted' },
+  admin_email_sender_probation: { icon: ShieldAlert,   category: 'system', label: 'notif.type.admin_email_sender_probation' },
+  admin_email_gmail_drop:       { icon: Siren,         category: 'system', label: 'notif.type.admin_email_gmail_drop' },
   admin_ticketing_token_invalid: { icon: AlertTriangle, category: 'system', label: 'notif.type.admin_ticketing_token_invalid' },
   admin_ticketing_sync_failing:  { icon: AlertTriangle, category: 'system', label: 'notif.type.admin_ticketing_sync_failing' },
   // Yuno CRM : le titulaire demande la suppression de son espace (à confirmer
@@ -648,6 +652,12 @@ function adminNotifLink(n: AppNotif): string | null {
 
     case 'admin_new_agency':
       return '/admin/agencies';
+
+    // Délivrabilité e-mail : la carte « Reprise Gmail » de Santé technique.
+    case 'admin_email_cold_halted':
+    case 'admin_email_sender_probation':
+    case 'admin_email_gmail_drop':
+      return '/admin/system';
 
     // Quota email : atterrir sur la fiche du compte concerné.
     case 'admin_email_quota_80':

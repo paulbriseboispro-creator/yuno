@@ -79,6 +79,7 @@ const dict: AdminDict = {
   'adm.crm.lc.reason.suppressed': ['address suppressed', 'adresse supprimée', 'dirección suprimida'],
   'adm.crm.lc.reason.no_email': ['no e-mail', 'pas d’e-mail', 'sin e-mail'],
   'adm.crm.lc.reason.fatigue': ['too many unopened e-mails', 'trop d’e-mails non ouverts', 'demasiados e-mails sin abrir'],
+  'adm.crm.lc.reason.gmail_cold': ['Gmail, no recent open', 'Gmail sans ouverture récente', 'Gmail sin apertura reciente'],
   'adm.crm.lc.reason.pressure_24h': ['already e-mailed today', 'déjà écrit aujourd’hui', 'ya escrito hoy'],
   'adm.crm.lc.reason.pressure_7d': ['already e-mailed this week', 'déjà écrit cette semaine', 'ya escrito esta semana'],
   'adm.crm.lc.confirm': ['Confirm', 'Confirmer', 'Confirmar'],

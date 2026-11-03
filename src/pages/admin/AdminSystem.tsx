@@ -4,6 +4,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { MaintenanceToggle } from '@/components/admin/MaintenanceToggle';
 import { PaymentsToggle } from '@/components/admin/PaymentsToggle';
 import { MetaConnectionCard } from '@/components/integrations/MetaConnectionCard';
+import { GmailRecoveryCard } from '@/components/admin/GmailRecoveryCard';
+import { EmailSendersCard } from '@/components/admin/EmailSendersCard';
 import {
   Activity, Bell, Bot, Clock, CreditCard, Database, Mail, RefreshCw, Shield, Smartphone, Package, TriangleAlert, FlaskConical,
 } from 'lucide-react';
@@ -66,6 +68,8 @@ export default function AdminSystem() {
           <PaymentsToggle />
           {/* Pixel Meta de Yuno lui-même (portée plateforme : les deux ids NULL) — acquisition Yuno, même chaîne que les pros. */}
           <MetaConnectionCard scope={{}} live returnTo="/admin/system" />
+          <GmailRecoveryCard />
+          <EmailSendersCard />
         </div>
         <div className="flex items-center gap-2 flex-wrap mt-3" style={{ color: T3, fontSize: 11.5 }}>
           <Pill tone={data.settings.demo_live ? 'accent' : 'muted'} icon={FlaskConical}>{data.settings.demo_live ? t('adm.system.demoLive') : t('adm.system.demoOff')}</Pill>

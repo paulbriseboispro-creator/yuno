@@ -85,6 +85,7 @@ const dict: CrmDict = {
   'yc.em.sd.wave': ['Send in waves', 'Envoyer par vagues', 'Enviar por oleadas'],
   'yc.em.sd.waveOn': ['Sending spreads from {from} to {to}. Avoids a sudden spike.', 'L’envoi s’étale de {from} à {to}. Évite un pic brutal.', 'El envío se reparte de {from} a {to}. Evita un pico brusco.'],
   'yc.em.sd.waveOff': ['All emails leave at the same time.', 'Tous les e-mails partent en même temps.', 'Todos los e-mails salen a la vez.'],
+  'yc.em.sd.waveForced': ['Spread sending is required on your account for now (at most {n} e-mails per hour): it is what gets your e-mails into the inbox.', 'L’envoi réparti est obligatoire sur votre compte pour le moment (au plus {n} e-mails par heure) : c’est ce qui fait arriver vos e-mails en boîte de réception.', 'El envío repartido es obligatorio en su cuenta por ahora (como máximo {n} e-mails por hora): es lo que hace llegar sus e-mails a la bandeja de entrada.'],
   'yc.em.sd.waveLen': ['Duration', 'Durée', 'Duración'],
   'yc.em.sd.w.30': ['30 min', '30 min', '30 min'],
   'yc.em.sd.w.60': ['1 hour', '1 heure', '1 hora'],

@@ -20,6 +20,7 @@ import { useStudioLiveData, type StudioScope as SenderScope } from '@/components
 import FollowupSettings from './FollowupSettings';
 import ResendSettings from './ResendSettings';
 import CampaignImpactCard from '@/components/contacts/CampaignImpactCard';
+import SendRulesNotice from './SendRulesNotice';
 import {
   hasPillarActivity, pillarLines, pillarSummary,
   type CampaignAttribution, type PillarKey,
@@ -791,6 +792,7 @@ export default function CampaignReport({ scope, basePath }: Props) {
                       )}
                     </div>
                   )}
+                  {id && <div className="mt-4"><SendRulesNotice campaignId={id} /></div>}
                 </div>
 
                 {/* Liens les plus cliqués : où l'audience est vraiment allée */}

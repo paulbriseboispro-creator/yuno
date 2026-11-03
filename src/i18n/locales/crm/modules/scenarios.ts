@@ -835,6 +835,7 @@ const dict: CrmDict = {
   'yc.scn.why.pressure_24h': ['already a message in the last 24 h', 'déjà un message dans les 24 h', 'ya un mensaje en las últimas 24 h'],
   'yc.scn.why.pressure_7d': ['already 3 messages this week', 'déjà 3 messages cette semaine', 'ya 3 mensajes esta semana'],
   'yc.scn.why.fatigue': ['no longer opens', 'n’ouvre plus', 'ya no abre'],
+  'yc.scn.why.gmail_cold': ['Gmail address with no recent open', 'adresse Gmail sans ouverture récente', 'dirección Gmail sin apertura reciente'],
   'yc.scn.why.averse': ['unsubscribes often', 'se désabonne souvent', 'se da de baja a menudo'],
   'yc.scn.why.suppressed': ['address blocked', 'adresse bloquée', 'dirección bloqueada'],
   'yc.scn.why.pressure_sms': ['weekly SMS limit', 'plafond SMS de la semaine', 'límite semanal de SMS'],

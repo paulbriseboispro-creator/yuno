@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import EmailHealthPanel from '@/components/campaigns/EmailHealthPanel';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, ArrowLeft, BarChart3, Database, Loader2, Mail, Plus, Sparkles, Trash2, Upload, Zap } from 'lucide-react';
 import { toast } from 'sonner';
@@ -384,4 +385,13 @@ export function OrgAppEmailAutomations() {
       }}
     />
   );
+}
+
+/** E-mails › Santé des envois (`/organizer-app/campaigns/health`). */
+export function OrgAppEmailHealth() {
+  const { organizerId, organizationName, loading } = useActingOrganizer();
+  if (!organizerId || loading) {
+    return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+  }
+  return <EmailHealthPanel basePath="/organizer-app/campaigns" scope={{ kind: 'organizer', organizerId, name: organizationName || 'Mon organisation' }} />;
 }

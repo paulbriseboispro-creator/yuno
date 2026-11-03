@@ -19,6 +19,7 @@ export const CRM_ROUTES = {
   emailCampaigns: '/crm/emails/campaigns',
   emailTemplates: '/crm/emails/templates',
   emailAnalysis: '/crm/emails/analysis',
+  emailHealth: '/crm/emails/health',
   emailSettings: '/crm/emails/settings',
   emailResults: (id: string) => `/crm/emails/results/${id}`,
   emailStudio: (id: string) => `/crm/emails/studio/${id}`,

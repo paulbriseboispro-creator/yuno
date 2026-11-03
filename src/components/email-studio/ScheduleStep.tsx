@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle, CalendarClock, ChevronDown, Clock3, Eye, Info, Loader2, MailOpen, Plus, Repeat, ShieldCheck, Sparkles, Split, Waves, Zap,
 } from 'lucide-react';
@@ -16,6 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { RESEND_DELAYS, type SendTimeInsights } from '@/lib/email';
 import { useStudio } from './store';
 import { useAudienceCount, useEmailQuota, useEmailTemplates, type EmailQuota, type StudioScope } from './hooks';
+import { useSenderSendMode } from '@/lib/email/sendRules';
 import {
   BORDER, CARD_INNER, FlowCard, FONT_UI, MicroLabel, OptionPills, POS, RED, RED_SOFT_GRAD, StatusBadge,
   SUBTLE, Switch, T1, T2, T3, ToggleRow, WARN, inputStyle,
@@ -53,14 +54,33 @@ export default function ScheduleStep({ scope, basePath }: { scope: StudioScope; 
   const throttleOn = campaign.throttlePerHour != null;
   const plan: ThrottlePlan = campaign.throttlePlan || { mode: 'day', days: MIN_DAYS, custom: false };
 
-  const enableThrottle = () => {
+  const enableThrottle = useCallback(() => {
     const reco = recommendPlan(net ?? 0, quota?.dayCap);
     patchCampaign({
       throttlePerHour: suggestRate({ total: net ?? 0, start, mode: reco.mode, days: reco.days, quietHours: campaign.quietHours }),
       throttleWindowMinutes: reco.mode === 'hour' ? 15 : 60,
       throttlePlan: { ...reco, custom: false },
     });
-  };
+  }, [net, quota?.dayCap, start, campaign.quietHours, patchCampaign]);
+
+  // Envoi réparti obligatoire (20261127110000) : un compte que Yuno n'a pas
+  // autorisé « tout d'un coup » répartit toujours une campagne de plus de
+  // `min_audience` personnes, au plus `max_per_hour` par heure. Le serveur
+  // l'impose de toute façon ; l'écran montre ce qui se passera vraiment.
+  const sendMode = useSenderSendMode(
+    scope.kind === 'venue' ? scope.venueId : null,
+    scope.kind === 'organizer' ? scope.organizerId : null,
+  );
+  const spreadForced = !!sendMode?.force_spread && (net ?? 0) >= (sendMode?.min_audience ?? Infinity);
+  useEffect(() => {
+    if (!spreadForced || !sendMode) return;
+    if (!throttleOn) { enableThrottle(); return; }
+    const window = campaign.throttleWindowMinutes || 60;
+    const cap = Math.max(10, Math.floor((sendMode.max_per_hour * window) / 60));
+    if ((campaign.throttlePerHour ?? 0) > cap) {
+      patchCampaign({ throttlePerHour: cap, throttlePlan: { ...(campaign.throttlePlan || { mode: 'day', days: MIN_DAYS }), custom: true } });
+    }
+  }, [spreadForced, sendMode, throttleOn, enableThrottle, campaign.throttlePerHour, campaign.throttleWindowMinutes, campaign.throttlePlan, patchCampaign]);
 
   // Tant que le pro n'a pas fixé son propre plafond, la proposition suit
   // l'audience, l'heure de départ, la nuit et le cadre choisi.
@@ -224,13 +244,16 @@ export default function ScheduleStep({ scope, basePath }: { scope: StudioScope; 
         })()}
 
         <ToggleRow
-          checked={throttleOn}
+          checked={throttleOn || spreadForced}
+          disabled={spreadForced}
           onChange={(v) => {
             if (v) enableThrottle();
             else patchCampaign({ throttlePerHour: null, throttlePlan: null, throttleWindowMinutes: 60 });
           }}
           label={t('studio.sched.throttle')}
-          help={t('studio.sched.throttleHelp')}
+          help={spreadForced
+            ? t('studio.sched.throttleForced').replace('{n}', String(sendMode?.max_per_hour ?? 1000))
+            : t('studio.sched.throttleHelp')}
         />
         {throttleOn && (
           <ThrottlePlanner

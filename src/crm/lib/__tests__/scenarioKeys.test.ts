@@ -56,7 +56,7 @@ describe('textes des Scénarios', () => {
     for (const w of ['entered', 'absent_buyers', 'all']) want.push(`yc.scn.v.who.${w}`);
     for (const k of ['annonce', 'lastcall', 'retour', 'manque', 'merci', 'bienvenue', 'relance', 'vide']) want.push(`yc.scn.email.kind.${k}`);
     for (const b of ['events', 'signups', 'absence', 'clicks']) want.push(`yc.scn.pub.basis.${b}`);
-    for (const r of ['queued', 'late', 'no_consent', 'no_event', 'no_template', 'already_sent', 'spacing', 'pressure_24h', 'pressure_7d', 'fatigue', 'averse',
+    for (const r of ['queued', 'late', 'no_consent', 'no_event', 'no_template', 'already_sent', 'spacing', 'pressure_24h', 'pressure_7d', 'fatigue', 'averse', 'gmail_cold',
       'suppressed', 'pressure_sms', 'yunits', 'plan_paused', 'frozen', 'sms_identity', 'retry', 'other']) want.push(`yc.scn.why.${r}`);
     for (const x of ['end', 'goal', 'archived', 'erased', 'optout', 'suppressed', 'unsubscribed', 'stop', 'event_cancelled']) want.push(`yc.scn.exit.${x}`);
     for (const c of ['bad_version', 'bad_trigger', 'soon', 'bad_entry', 'bad_reentry', 'bad_goal', 'no_nodes', 'too_many_nodes', 'bad_start', 'bad_node_id',

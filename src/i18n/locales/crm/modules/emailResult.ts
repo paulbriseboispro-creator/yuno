@@ -171,6 +171,23 @@ const dict: CrmDict = {
   'yc.em.rs.r.subjectDefault': ['Did you see this, {{prénom}}?', 'Vous l’avez vu, {{prénom}} ?', '¿Lo vio, {{prénom}}?'],
   'yc.em.rs.dupDone': ['Copy created: it opens in the Studio.', 'Copie créée : elle s’ouvre dans le Studio.', 'Copia creada: se abre en el Studio.'],
   'yc.em.rs.notFound': ['This email doesn’t exist or hasn’t left yet.', 'Cet e-mail n’existe pas ou n’est pas encore parti.', 'Este e-mail no existe o aún no ha salido.'],
+
+  // Règles d'envoi Yuno (envoi progressif, reprise Gmail — 20261127110000)
+  'yc.em.rules.title': ['Yuno sending rules', 'Règles d’envoi Yuno', 'Reglas de envío Yuno'],
+  'yc.em.rules.testing': ['Gradual sending: {cold} addresses had never received an e-mail from you. They go out in waves (wave {r} of {t}): each wave opens the next only if e-mails are delivered and opened.', 'Envoi progressif : {cold} adresses n’avaient jamais reçu d’e-mail de votre part. Elles partent par vagues (vague {r} sur {t}) : chaque vague n’ouvre la suivante que si les e-mails sont bien reçus et ouverts.', 'Envío progresivo: {cold} direcciones nunca habían recibido un e-mail suyo. Salen por oleadas (oleada {r} de {t}): cada oleada abre la siguiente solo si los e-mails se reciben y se abren.'],
+  'yc.em.rules.nextCheck': ['Next check around {time}.', 'Prochain contrôle vers {time}.', 'Próximo control hacia las {time}.'],
+  'yc.em.rules.done': ['Gradual sending finished: the {cold} new addresses went out in waves with no incident.', 'Envoi progressif terminé : les {cold} nouvelles adresses sont parties par vagues, sans incident.', 'Envío progresivo terminado: las {cold} direcciones nuevas salieron por oleadas, sin incidentes.'],
+  'yc.em.rules.halted': ['Gradual sending stopped: the test wave got {why}. The remaining addresses were not contacted and their Yunits were refunded, to protect delivery of all your e-mails.', 'Envoi progressif arrêté : la vague de test a reçu {why}. Les adresses restantes n’ont pas été contactées et leurs Yunits vous sont rendus, pour protéger la livraison de tous vos e-mails.', 'Envío progresivo detenido: la oleada de prueba recibió {why}. Las direcciones restantes no se contactaron y sus Yunits se le devuelven, para proteger la entrega de todos sus e-mails.'],
+  'yc.em.rules.why.bounces': ['too many invalid addresses', 'trop d’adresses invalides', 'demasiadas direcciones inválidas'],
+  'yc.em.rules.why.complaints': ['too many spam reports', 'trop de signalements en spam', 'demasiados reportes de spam'],
+  'yc.em.rules.why.no_opens': ['almost no opens', 'presque aucune ouverture', 'casi ninguna apertura'],
+  'yc.em.rules.why.gmail_spam': ['almost no opens at Gmail (filed as spam)', 'presque aucune ouverture chez Gmail (classée en spam)', 'casi ninguna apertura en Gmail (clasificado como spam)'],
+  'yc.em.rules.why.sender_frozen': ['a warning signal on your account', 'un signal d’alerte sur votre compte', 'una señal de alerta en su cuenta'],
+  'yc.em.rules.skip.gmail_cold': ['{n} Gmail addresses with no recent open kept aside during the Gmail recovery (no Yunits used).', '{n} adresses Gmail sans ouverture récente gardées de côté pendant la reprise Gmail (aucun Yunit utilisé).', '{n} direcciones Gmail sin apertura reciente apartadas durante la recuperación de Gmail (sin Yunits usados).'],
+  'yc.em.rules.skip.cold_wave_halted': ['{n} new addresses not contacted after gradual sending stopped.', '{n} nouvelles adresses non contactées après l’arrêt de l’envoi progressif.', '{n} direcciones nuevas no contactadas tras detenerse el envío progresivo.'],
+  'yc.em.rules.skip.cold_frozen': ['{n} new addresses not contacted: sending to new addresses is paused on your account for a few days.', '{n} nouvelles adresses non contactées : l’envoi aux nouvelles adresses est en pause sur votre compte pendant quelques jours.', '{n} direcciones nuevas no contactadas: el envío a direcciones nuevas está en pausa en su cuenta durante unos días.'],
+  'yc.em.rules.skip.event_started': ['{n} people not contacted: the night had started before spread sending finished (no Yunits used).', '{n} personnes non contactées : la soirée avait commencé avant la fin de l’envoi réparti (aucun Yunit utilisé).', '{n} personas no contactadas: la noche había empezado antes de terminar el envío repartido (sin Yunits usados).'],
+  'yc.em.rules.skip.cold_wave_late': ['{n} new addresses not contacted: the night started too soon to finish gradual sending.', '{n} nouvelles adresses non contactées : la soirée commençait trop tôt pour finir l’envoi progressif.', '{n} direcciones nuevas no contactadas: la noche empezaba demasiado pronto para terminar el envío progresivo.'],
 };
 
 export default dict;

@@ -15,12 +15,13 @@ import { useCrmT } from '@/crm/i18n';
 import { useCrmCaps } from '@/crm/scope';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 
-export type EmailsTab = 'home' | 'campaigns' | 'analysis' | 'templates' | 'settings';
+export type EmailsTab = 'home' | 'campaigns' | 'analysis' | 'health' | 'templates' | 'settings';
 
 const TABS: { k: EmailsTab; to: string; d: string }[] = [
   { k: 'home', to: CRM_ROUTES.emails, d: 'M3 3v16a2 2 0 0 0 2 2h16M18 17V9M13 17V5M8 17v-3' },
   { k: 'campaigns', to: CRM_ROUTES.emailCampaigns, d: 'm22 2-7 20-4-9-9-4ZM22 2 11 13' },
   { k: 'analysis', to: CRM_ROUTES.emailAnalysis, d: 'M12 20V10M18 20V4M6 20v-4' },
+  { k: 'health', to: CRM_ROUTES.emailHealth, d: 'M22 12h-4l-3 9L9 3l-3 9H2' },
   { k: 'templates', to: CRM_ROUTES.emailTemplates, d: 'M3 3h18v18H3zM3 9h18M9 21V9' },
   { k: 'settings', to: CRM_ROUTES.emailSettings, d: 'M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4' },
 ];

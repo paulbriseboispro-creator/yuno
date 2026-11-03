@@ -261,6 +261,7 @@ export function buildNavGroups(t: (key: string) => string, metaLive: boolean = M
 						{ title: t('sidebar.emailCampaigns'), path: "/owner/campaigns", icon: <MailIcon /> },
 						{ title: t('sidebar.emailAutomations'), path: "/owner/campaigns/automations", icon: <ZapIcon /> },
 						{ title: t('sidebar.contactBase'), path: "/owner/campaigns/contacts", icon: <UsersIcon /> },
+						{ title: t('sidebar.emailHealth'), path: "/owner/campaigns/health", icon: <ActivityIcon /> },
 					],
 				},
 				{

@@ -33,6 +33,7 @@ import { useAudiencePreview, useEmailAnalysis, useEmailSettings, useInvalidateEm
 import { fromLine, isIdentityRefusal, previewIdentity } from '@/crm/lib/emailIdentity';
 import { MARKETING_DOMAIN } from '@/crm/lib/emails';
 import { isUnscheduleTooLate, unscheduleCampaign } from '@/crm/data/emailActions';
+import { spreadMinutes, useSenderSendMode } from '@/lib/email/sendRules';
 import { availableYunits, bestSlots, effectiveSendAt, sendChecks, verdict, waveMinutesOf, waveThrottle } from '@/crm/lib/emailSend';
 import { normalizeV2Blocks } from '@/lib/email/migrate';
 import type { EmailBlock } from '@/lib/email/types';
@@ -115,7 +116,7 @@ export default function EmailSendPage() {
   const toast = useCrmToast();
   const qc = useQueryClient();
   const { user } = useAuth();
-  const { space, qk } = useCrmScope();
+  const { space, qk, rpc: scopeArgs } = useCrmScope();
   const invalidate = useInvalidateEmails();
   const [params, setParams] = useSearchParams();
   const step: Step = STEPS.includes(params.get('step') as Step) ? (params.get('step') as Step) : 'aud';
@@ -184,6 +185,7 @@ export default function EmailSendPage() {
   }, () => flushRef.current());
   const customer = !practical && !!unified.data?.include;
   const net = practical ? pNight.data?.reachable ?? 0 : customer ? unified.data?.total ?? 0 : preview.data?.net ?? 0;
+  const sendMode = useSenderSendMode(scopeArgs.p_venue_id, scopeArgs.p_organizer_user_id);
   // Le compte qui fait foi : les détenteurs pour un e-mail pratique, la campagne enregistrée
   // quand les clients y sont, l'aperçu d'audience sinon.
   const counted = practical ? pNight.data : customer ? unified.data : preview.data;
@@ -398,7 +400,8 @@ export default function EmailSendPage() {
             )}
             {step === 'plan' && (
               <>
-                <PlanStep plan={draft.plan} onPlan={(p) => update((d) => ({ plan: { ...d.plan, ...p } }))} best={best} abOn={draft.abOn} abPct={draft.abPct} abHours={draft.abHours} whenText={whenText} relText={relText} />
+                <PlanStep plan={draft.plan} onPlan={(p) => update((d) => ({ plan: { ...d.plan, ...p } }))} best={best} abOn={draft.abOn} abPct={draft.abPct} abHours={draft.abHours} whenText={whenText} relText={relText}
+                  spread={sendMode && !practical ? { forced: sendMode.force_spread && net >= sendMode.min_audience, minutes: spreadMinutes(sendMode, net, draft.plan.wave ? draft.plan.waveMin : null), maxPerHour: sendMode.max_per_hour } : undefined} />
                 {!practical && (
                   <FollowupCard value={draft.followup} eventId={draft.eventId} campaignId={draft.id} disabled={readOnly}
                     onChange={(f) => update((d) => ({ followup: { ...d.followup, ...f } }))} />

@@ -25,7 +25,7 @@ export interface PlanState {
 }
 
 export function PlanStep({
-  plan, onPlan, best, abOn, abPct, abHours, whenText, relText,
+  plan, onPlan, best, abOn, abPct, abHours, whenText, relText, spread,
 }: {
   plan: PlanState;
   onPlan: (p: Partial<PlanState>) => void;
@@ -35,6 +35,8 @@ export function PlanStep({
   abHours: number;
   whenText: (d: Date) => string;
   relText: (d: Date) => string;
+  /** Envoi réparti imposé par Yuno (compte non autorisé « tout d'un coup ») : durée réelle en minutes. */
+  spread?: { forced: boolean; minutes: number | null; maxPerHour: number };
 }) {
   const { t, time, locale } = useCrmT();
   const chosen = new Date(`${plan.date}T${plan.time}:00`);
@@ -54,7 +56,9 @@ export function PlanStep({
   const quick = ['08:00', `${two(bestHour)}:00`, '12:30', '18:00', '20:00'].filter((v, i, a) => a.indexOf(v) === i);
   const pl = (h: number) => `${(h / 24) * 100}%`;
   const markerH = eff.at.getHours() + eff.at.getMinutes() / 60;
-  const endAt = new Date(eff.at.getTime() + plan.waveMin * 60_000);
+  const forced = !!spread?.forced;
+  const waveOn = plan.wave || forced;
+  const endAt = new Date(eff.at.getTime() + (forced && spread?.minutes != null ? spread.minutes : plan.waveMin) * 60_000);
 
   const modes = [
     { k: 'now' as const, l: t('yc.em.sd.m.now'), s: t('yc.em.sd.m.nowSub'), d: 'm22 2-7 20-4-9-9-4ZM22 2 11 13' },
@@ -181,8 +185,10 @@ export function PlanStep({
         <CardHead title={t('yc.em.sd.how.t')} sub={t('yc.em.sd.how.s')} />
         <Row
           title={t('yc.em.sd.wave')}
-          sub={plan.wave ? t('yc.em.sd.waveOn', { from: time(eff.at), to: time(endAt) }) : t('yc.em.sd.waveOff')}
-          right={<Toggle48 on={plan.wave} onChange={(v) => onPlan({ wave: v })} label={t('yc.em.sd.wave')} />}
+          sub={waveOn
+            ? `${t('yc.em.sd.waveOn', { from: time(eff.at), to: time(endAt) })}${forced ? ` ${t('yc.em.sd.waveForced', { n: spread?.maxPerHour ?? 1000 })}` : ''}`
+            : t('yc.em.sd.waveOff')}
+          right={<Toggle48 on={waveOn} onChange={(v) => { if (!forced) onPlan({ wave: v }); }} label={t('yc.em.sd.wave')} />}
         />
         {plan.wave && (
           <div style={{ alignSelf: 'flex-start', margin: '0 0 10px', animation: `yc-pop 220ms ${EASE} both` }}>

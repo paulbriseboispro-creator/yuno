@@ -26,6 +26,7 @@ import { ResultSummary } from './ResultSummary';
 import { ResultLinks } from './ResultLinks';
 import { ResultWho, type ResendState } from './ResultWho';
 import { ResendModal } from './ResendModal';
+import { SendRulesBanner } from './SendRulesBanner';
 
 type Tab = 'sum' | 'links' | 'who';
 const TABS: Tab[] = ['sum', 'links', 'who'];
@@ -171,6 +172,7 @@ function ResultView({ r }: { r: EmailResult }) {
             <span style={{ width: 8, height: 8, borderRadius: 99, background: 'currentColor', animation: 'yc-pulse 1.4s ease-in-out infinite' }} />{t('yc.em.rs.sending')}
           </div>
         )}
+        <SendRulesBanner campaignId={r.id} />
       </div>
 
       {s && tab === 'sum' && <ResultSummary r={r} s={s} html={html.data} onZoom={() => setZoom(true)} />}
