@@ -33,6 +33,8 @@ import { handleMcpRoute, isMcpRoute } from './mcp';
 import { GO_PATH_RE, TRACKED_PATH_RE, handleGoLink } from './goLink';
 // Formes décoratives des e-mails (vagues, festons, damiers…) en PNG.
 import { SHAPE_PATH_RE, handleShapeRequest } from './emailShape';
+// Images des e-mails servies depuis yunoapp.eu (jamais supabase.co dans un e-mail).
+import { handleEmailImage } from './emailImage';
 
 interface Env {
   ASSETS: { fetch: (req: Request) => Promise<Response> };
@@ -1705,6 +1707,16 @@ export default {
       if (hit) return hit;
       const res = await handleShapeRequest(url);
       if (cache && res.ok) ctx.waitUntil(cache.put(request, res.clone()));
+      return res;
+    }
+
+    // Images des e-mails : relues dans le stockage public, puis cache Cloudflare.
+    if (url.pathname.startsWith('/email-img/') && (request.method === 'GET' || request.method === 'HEAD')) {
+      const cache = G.caches?.default;
+      const hit = cache && request.method === 'GET' ? await cache.match(request) : undefined;
+      if (hit) return hit;
+      const res = await handleEmailImage(request, env.SUPABASE_URL, url.pathname);
+      if (cache && res.ok && request.method === 'GET') ctx.waitUntil(cache.put(request, res.clone()));
       return res;
     }
 

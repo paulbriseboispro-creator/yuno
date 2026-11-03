@@ -46,6 +46,7 @@ import { demoPreviewGuard, demoMarketingScopeState } from "../_shared/demo-guard
 import { listUnsubscribeHeaders } from '../_shared/one-click-unsubscribe.ts';
 import { DEMO_SCOPE_UNKNOWN, scheduledSendRefusal } from '../_shared/scheduled-email-campaigns.ts';
 import { dropBlocksOutsideScope } from '../_shared/email-block-scope.ts';
+import { rehostEmailImages } from '../_shared/email-image-host.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -479,10 +480,12 @@ async function makeBuilder(
   sender: Sender,
   opts: { ignoreConds?: boolean; trackedLinks?: boolean } = {},
 ): Promise<Builder> {
-  if (Number(campaign.blocks_version || 1) >= 2) {
-    return makeStudioHtmlBuilder(admin, campaign, sender, opts);
-  }
-  return makeHtmlBuilder(admin, campaign, sender);
+  const inner: Builder = Number(campaign.blocks_version || 1) >= 2
+    ? await makeStudioHtmlBuilder(admin, campaign, sender, opts)
+    : await makeHtmlBuilder(admin, campaign, sender);
+  // Images servies par yunoapp.eu : une image sur supabase.co fait classer en Spam.
+  const build = (r: Recipient) => rehostEmailImages(inner(r), SUPABASE_URL, PUBLIC_URL);
+  return inner.subject ? Object.assign(build, { subject: inner.subject }) : build;
 }
 
 async function makeHtmlBuilder(admin: Admin, campaign: Record<string, unknown>, sender: Sender) {
