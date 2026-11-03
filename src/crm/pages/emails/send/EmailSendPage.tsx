@@ -41,6 +41,7 @@ import { PlanStep, type PlanState } from './PlanStep';
 import { CheckStep } from './CheckStep';
 import { PracticalAudienceStep } from './PracticalAudienceStep';
 import { CustomerReachNote } from './CustomerBasisPicker';
+import { FOLLOWUP_DELAYS, FollowupCard, type FollowupState } from './FollowupCard';
 import { customerRefusalKey, useCustomerBasis, useUnifiedAudience } from '@/crm/data/customerBasis';
 import { usePracticalCheck, usePracticalNight } from '@/crm/data/practical';
 import { hasPracticalTodo, practicalIssueKey, practicalReasonKey, practicalRefusalKey } from '@/crm/lib/practicalEmail';
@@ -59,6 +60,7 @@ interface Row {
   venue_id: string | null; organizer_user_id: string | null; total_recipients: number | null;
   practical: boolean | null;
   legal_basis: string | null;
+  followup_enabled: boolean | null; followup_delay_hours: number | null; followup_template_id: string | null;
 }
 
 interface Draft {
@@ -67,6 +69,8 @@ interface Draft {
   recentDays: number; excludeBuyers: boolean; plan: PlanState;
   /** E-mail pratique aux détenteurs de `eventId` (Yuno CRM) : audience fixe. */
   practical: boolean;
+  /** Relance après clic (collect_campaign_followups) : délai et modèle du compte. */
+  followup: FollowupState;
 }
 
 /** Créneau proposé par défaut : demain 10 h (ou le prochain meilleur jour). */
@@ -95,6 +99,11 @@ function rowToDraft(r: Row): Draft {
       wave: r.throttle_per_hour != null,
       waveMin: waveMinutesOf(r.throttle_per_hour, r.throttle_window_minutes, r.total_recipients ?? 0),
       quiet: r.quiet_hours ?? true,
+    },
+    followup: {
+      on: !!r.followup_enabled,
+      delay: (FOLLOWUP_DELAYS as readonly number[]).includes(r.followup_delay_hours ?? 0) ? r.followup_delay_hours as number : 24,
+      templateId: r.followup_template_id,
     },
   };
 }
@@ -198,6 +207,10 @@ export default function EmailSendPage() {
       audiences_json: d.audiences,
       audience_type: d.audiences.length ? 'imported_list' : null,
       exclusions_json: { recentDays: d.recentDays || null, excludeEventBuyers: d.excludeBuyers },
+      // Relance : seulement avec une soirée reliée et un modèle (sans modèle, rien ne part).
+      followup_enabled: d.followup.on && !!d.followup.templateId && !!d.eventId,
+      followup_delay_hours: d.followup.delay,
+      followup_template_id: d.followup.templateId,
     };
     return {
       ...audience,
@@ -384,7 +397,13 @@ export default function EmailSendPage() {
               />
             )}
             {step === 'plan' && (
-              <PlanStep plan={draft.plan} onPlan={(p) => update((d) => ({ plan: { ...d.plan, ...p } }))} best={best} abOn={draft.abOn} abPct={draft.abPct} abHours={draft.abHours} whenText={whenText} relText={relText} />
+              <>
+                <PlanStep plan={draft.plan} onPlan={(p) => update((d) => ({ plan: { ...d.plan, ...p } }))} best={best} abOn={draft.abOn} abPct={draft.abPct} abHours={draft.abHours} whenText={whenText} relText={relText} />
+                {!practical && (
+                  <FollowupCard value={draft.followup} hasEvent={!!draft.eventId} disabled={readOnly}
+                    onChange={(f) => update((d) => ({ followup: { ...d.followup, ...f } }))} />
+                )}
+              </>
             )}
             {step === 'check' && <CheckStep checks={checks} campaignId={draft.id} dateText={dateText} identityText={identityText} texts={practicalTexts} onGo={go} />}
 

@@ -230,6 +230,30 @@ const dict: CrmDict = {
   'yc.em.sd.err.none': ['No one to send to: every address was excluded by the sending rules.', 'Personne à qui envoyer : toutes les adresses ont été écartées par les règles d’envoi.', 'Nadie a quien enviar: todas las direcciones fueron excluidas por las reglas de envío.'],
   'yc.em.sd.err.generic': ['The send couldn’t start. Nothing left. Try again in a moment.', 'L’envoi n’a pas pu démarrer. Rien n’est parti. Réessayez dans un instant.', 'El envío no pudo empezar. No salió nada. Inténtelo en un momento.'],
   'yc.em.sd.err.gone': ['This email is no longer a draft: it may already be leaving.', 'Cet e-mail n’est plus un brouillon : il est peut-être déjà en train de partir.', 'Este e-mail ya no es un borrador: puede que ya esté saliendo.'],
+  // ── Relance après clic (étape « Quand ») ──────────────────────────────────
+  'yc.em.sd.fu.t': ['Follow up after a click', 'Relance après clic', 'Seguimiento tras un clic'],
+  'yc.em.sd.fu.s': [
+    'A second email to the people who clicked through to the night’s page without taking a place.',
+    'Un second e-mail aux personnes qui ont cliqué vers la page de la soirée sans y prendre de place.',
+    'Un segundo e-mail a las personas que hicieron clic hacia la página de la fiesta sin conseguir entrada.',
+  ],
+  'yc.em.sd.fu.toggle': ['Follow up those who click without taking a place', 'Relancer ceux qui cliquent sans prendre de place', 'Recordar a quienes hacen clic sin conseguir entrada'],
+  'yc.em.sd.fu.on': ['On: {h} h after their click', 'Activée : {h} h après leur clic', 'Activado: {h} h después de su clic'],
+  'yc.em.sd.fu.off': ['Off', 'Désactivée', 'Desactivado'],
+  'yc.em.sd.fu.noEvent': ['Link this email to a night to follow up its clicks.', 'Reliez cet e-mail à une soirée pour relancer ses clics.', 'Vincule este e-mail a una fiesta para recordar sus clics.'],
+  'yc.em.sd.fu.delay': ['Delay after the click', 'Délai après le clic', 'Plazo tras el clic'],
+  'yc.em.sd.fu.h': ['{h} h', '{h} h', '{h} h'],
+  'yc.em.sd.fu.model': ['Follow-up email', 'E-mail de relance', 'E-mail de seguimiento'],
+  'yc.em.sd.fu.pick': ['Choose a template…', 'Choisir un modèle…', 'Elegir una plantilla…'],
+  'yc.em.sd.fu.create': ['Create the Yuno follow-up', 'Créer la relance Yuno', 'Crear el seguimiento Yuno'],
+  'yc.em.sd.fu.created': ['Follow-up template created: you can edit it in Templates.', 'Modèle de relance créé : vous pouvez le modifier dans Modèles.', 'Plantilla de seguimiento creada: puede editarla en Plantillas.'],
+  'yc.em.sd.fu.err': ['The template could not be created. Try again.', 'Le modèle n’a pas pu être créé. Réessayez.', 'No se pudo crear la plantilla. Inténtelo de nuevo.'],
+  'yc.em.sd.fu.missing': ['Choose or create a follow-up email: without it, nothing leaves.', 'Choisissez ou créez un e-mail de relance : sans lui, rien ne part.', 'Elija o cree un e-mail de seguimiento: sin él, no sale nada.'],
+  'yc.em.sd.fu.who': [
+    'Who receives it: each person who clicked through to the night’s page and still has no place, {h} h after their click, once. Never in the 2 hours before the night, never to someone who unsubscribed; Yuno’s sending rules apply.',
+    'Qui la reçoit : chaque personne qui a cliqué vers la page de la soirée et n’y a toujours pas de place, {h} h après son clic, une seule fois. Jamais dans les 2 h avant la soirée, jamais à quelqu’un qui s’est désinscrit ; les règles d’envoi de Yuno s’appliquent.',
+    'Quién lo recibe: cada persona que hizo clic hacia la página de la fiesta y aún no tiene entrada, {h} h después de su clic, una sola vez. Nunca en las 2 h antes de la fiesta, nunca a quien se dio de baja; se aplican las reglas de envío de Yuno.',
+  ],
 };
 
 export default dict;
