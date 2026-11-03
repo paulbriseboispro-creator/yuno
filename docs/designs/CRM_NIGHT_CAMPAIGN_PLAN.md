@@ -275,3 +275,43 @@ banc et à corriger séparément.
   entrée « Plans de soirée » en tête de Campagnes. **Le nom reste à confirmer.**
 - **D4. La relance « A cliqué sans acheter »** (validé) : s'allume pour tout le compte, et
   l'écran le dit avant de l'allumer.
+
+## 8. Ce qui est construit (03/11, branche `crm/night-campaign`)
+
+Demande ajoutée par Paul en cours de route : une étape pour retoucher le design par défaut, à la main
+ou par Claude (MCP), et passer seul à la suite quand c'est fait. Le parcours a donc TROIS étapes, et
+c'est cette version qui est construite (elle remplace la fenêtre de lancement du § 3.1) :
+
+1. **Les envois** : dans « Qui cibler », une case « Garder dans le plan » par audience joignable,
+   une barre « N envois · X joignables » et « Préparer ces envois ». Yuno crée UN BROUILLON par
+   audience (modèle de la Console selon l'angle, relié à la soirée), plan au statut `setup`, rien
+   n'est programmé.
+2. **Le design** (`/crm/plans/<soirée>`) : chaque brouillon en vignette (vrai rendu), « Modifier
+   dans le Studio », « Préparer avec mon IA » (demande qui cite l'id du brouillon ; l'IA du pro le
+   retouche par `update_email_draft`), « Garder tel quel ». Un e-mail est relu quand il a été
+   retouché (Studio : `updated_at`, IA : `ai_updated_at`) ou gardé (`crm_night_plan_review`). La
+   page relit l'état toutes les 5 s : quand le dernier e-mail est relu, l'étape 3 s'ouvre seule.
+3. **Programmer** : les dates, les protections, la relance « A cliqué sans acheter » (allumée pour
+   le compte si le pro la garde), le coût et le solde, l'identité d'expéditeur ;
+   `crm_night_plan_schedule` vérifie identité et Yunits puis programme chaque e-mail (au plus tôt
+   15 min après, dans l'ordre, à 15 min d'écart, jamais dans les 2 h avant la soirée).
+
+Puis le suivi sur la même page : phrase-réponse, envois (état, envoyés, ouverts, cliqués, acheteurs,
+protégés et pourquoi, témoin), contre le témoin (verdict de `holdoutVerdict`), pause / reprise /
+arrêt, « Modifier l'e-mail », « Décaler », « Ne pas envoyer ». Page « Plans de soirée »
+(`/crm/plans`) en tête de Campagnes : en cours (préparation comprise), à préparer, terminés.
+
+Base : migration `20261122100000_crm_night_plans.sql`, répétée sur la prod en transaction annulée
+(`scripts/crm-bench/smoke/night-plans.sql` : brouillons, relecture par l'IA et à la main,
+programmation, trois mises en file, garde de l'audience, 36 h, témoin commun, pause, balayage ;
+`collect_email_automations` rejoué après la retouche de « Dernier appel »).
+
+Écarts avec le § 3 :
+- La garde de l'audience vaut pour TOUT écrivain (Studio, IA par le MCP), sauf les RPC du plan
+  (`yuno.night_plan_write`) : une IA qui retouche un brouillon ne peut pas changer qui le reçoit.
+- La relance « A cliqué sans acheter » garde ses règles de recette (palier urgent 2 / 24 h, une fois
+  par personne et par soirée) ; elle n'entre pas dans le plafond du plan.
+- Pas d'arrêt automatique sur « soirée complète » : Shotgun ne donne pas de signal fiable. Arrêt
+  automatique seulement sur soirée annulée ou commencée (`crm_night_plan_sweep`, toutes les 15 min).
+- La notification avant départ est celle qui existait déjà (« un envoi programmé dans l'heure »).
+- Pas de SMS dans le plan pour l'instant (bêta privée) ; pas de tâche sur l'Accueil.

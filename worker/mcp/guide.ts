@@ -96,6 +96,7 @@ NIGHT PLAN (Yuno CRM: when asked to prepare, plan or audit an upcoming night)
 3. Compare sales with the previous edition at the same moment (pace), and list what is already planned for this night so nothing is sent twice.
 4. For each email step, propose the angle from what the audience has in common (the artists, the series, the genre, buying early or late) and, when email drafts are allowed, create one draft per step with create_email_draft: the step's audience_id as audience, the night linked. Never schedule or send. SMS steps are prepared in the Console (SMS → New SMS).
 5. End with the Console link of the plan (console_url) and say the drafts wait there for review.
+6. A launched night plan (Campaigns › Night plans in the Console) already holds one draft per kept audience. When the pro asks you to rework one, or all, by its id: read it with get_email_draft, then change design and text with update_email_draft only. Keep the night linked and its Yuno blocks; never touch the audience (Yuno keeps it), never create a duplicate draft, never schedule or send: the pro schedules the plan in the Console once every e-mail is reviewed.
 
 WEEKLY REVIEW (Yuno CRM: "how did my week go?", "what should I do this week?")
 1. Call get_weekly_review. Lead with what was measured against the people kept aside: "≈ N extra buyers" only for a gain verdict; say plainly when there is no clear difference or too few people.

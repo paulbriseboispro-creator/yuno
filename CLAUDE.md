@@ -6563,6 +6563,40 @@ Paul. Migrations `20261112100000` → `130000`. Règles :
   (redéployer `owner-assistant`). Démo : `scripts/demo/seed-crm-links.sql` (heure,
   appareil, pays, `in_app`, clics du bouton /j/).
 
+## Yuno CRM — Plans de soirée : « Qui cibler » préparé, retouché, programmé (2026-11-03)
+
+Plan : `docs/designs/CRM_NIGHT_CAMPAIGN_PLAN.md` (§ 8 = ce qui est construit). Migration
+`20261122100000_crm_night_plans.sql`, règles pures `src/crm/lib/nightPlan.ts` (testées), pages
+`src/crm/pages/plans/*` (`/crm/plans`, `/crm/plans/:soirée`, en tête de Campagnes), textes `yc.np.*`.
+Règles :
+
+- **Un plan = `crm_night_plans` (portée, soirée miroir) + une campagne e-mail CRM ORDINAIRE par
+  audience gardée** (`email_campaigns.night_plan_id`, `night_plan_step` = clé d'audience, audience
+  `ntgt`, `excludeEventBuyers`). Elle part par le chemin de toujours (cron → send-campaign → enqueue
+  → claim) : Yunits, identité, gel, heures calmes, base « Vos clients », règles Yuno sans réécriture.
+  Un plan vivant par (portée, soirée) : `setup` → `active` ⇄ `paused` → `done` | `stopped`.
+- **Trois étapes** : `crm_night_plan_launch` crée les BROUILLONS (`setup`, rien de programmé) ;
+  le pro retouche chacun (Studio, ou son IA par le MCP : brouillon ordinaire, `update_email_draft`)
+  ou le garde (`crm_night_plan_review`) ; `crm_night_plan_schedule` vérifie identité et Yunits puis
+  programme. « Relu » = `ai_updated_at`, `updated_at` > création + 10 s, ou gardé (`config.reviewed`).
+- **Les protections sont dans la BASE** (`_crm_night_plan_filter`, appelée par
+  `enqueue_campaign_recipients` avant le témoin et le débit) : place prise = rien (revérifié par
+  `claim_campaign_recipients`, `policy:plan_holder_after_queue`), plafond `cap` (2 sous 7 jours, 3
+  sinon), 36 h entre deux e-mails du plan (20 h pour `last_minute`), mesurés depuis le départ de
+  l'e-mail. Témoin tiré pour TOUT le plan (`_crm_holdout_pick('plan:<id>')`). Règles : une seule
+  définition, `crm_night_plan_rules()` ⇄ `NIGHT_PLAN_RULES` (testé). Enqueue, claim et
+  `collect_email_automations` ont été patchés par remplacement ciblé : toute réécriture de ces
+  fonctions garde ces blocs.
+- **La garde `guard_crm_night_plan_campaign` (INVOKER)** rétablit audience, exclusions et soirée d'un
+  e-mail du plan pour TOUT écrivain (Studio, IA), sauf les RPC du plan (`yuno.night_plan_write`) ;
+  un client ne change jamais `night_plan_id`. « Dernier appel » saute une soirée dont le plan a sa
+  dernière ligne droite. `crm_night_plan_sweep` (15 min) : soirée annulée → arrêté, commencée → fini,
+  e-mail dans les 2 h avant le début → brouillon (`night_plan_late`).
+- Le calendrier des moments vient de `crm_night_targets` (lot 0, `20261121100000`, seuils 38 h / 22 h).
+  Panier abandonné impossible avec Shotgun : la relance proposée est la recette `click_no_buy`.
+  Aide : FAQ `yc.faq.nightplans`, article `crm-night-plans` (redéployer `owner-assistant`), consigne
+  NIGHT PLAN n° 6 du MCP (`worker/mcp/guide.ts`).
+
 ## Yuno CRM — les liens suivis sont PRÊTS sans rien créer (2026-11-03)
 
 Décision de Paul : « le max de data sans effort ». Migration `20261120100000_crm_ready_links.sql`,
