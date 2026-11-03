@@ -1466,7 +1466,9 @@ describe('theme fonts, page and footer (design skill)', () => {
   it('sets the page padding and the footer font, icons and divider', () => {
     const t = { ...theme, pagePadding: 0, fonts: ['Inter'], footerFont: 'Inter', footerSocialStyle: 'plain' as const, footerDivider: false };
     const html = renderEmailHtml([], t, { ...ctx, socialLinks: { instagram: 'https://instagram.com/x' } });
-    expect(html).toContain('style="padding:0px 8px;"');
+    // Page sans marge : la colonne touche aussi les bords d'un téléphone.
+    expect(html).toContain('style="padding:0px 0px;"');
+    expect(renderEmailHtml([], theme, ctx)).toMatch(/<td align="center" style="padding:\d+px 8px;">/);
     expect(html).toContain("font-family:'Inter','Helvetica Neue'");
     expect(html).toContain('width="22" height="22"');
     expect(html).not.toContain('border-radius:50%');

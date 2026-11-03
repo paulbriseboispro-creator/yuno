@@ -21,7 +21,7 @@ import type {
   HtmlBlock, DividerBlock,
   GuestListBlock, LineupBlock, LineupArtist,
 } from './types';
-import { blockPadDefaults, LOGO_SIZES, SPACER_SIZES, themePagePadding, themeRadius } from './types';
+import { blockPadDefaults, LOGO_SIZES, SPACER_SIZES, themePageGutter, themePagePadding, themeRadius } from './types';
 import { buildSmartData, renderSmartSection, smartLang } from './smart';
 import {
   isPricedRow, priceFromLabel, SOLD_OUT_CHIP, soldOutSub, splitFromLabel, eventSelectionUrl,
@@ -1293,7 +1293,7 @@ ${emailFontLinks(theme.fonts)}
 <body class="yn-bg" style="margin:0;padding:0;background:${theme.bg};font-family:${FONT};-webkit-text-size-adjust:100%;">
 ${preheader}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="yn-bg" style="background:${theme.bg};">
-  <tr><td align="center" style="padding:${themePagePadding(theme)}px 8px;">
+  <tr><td align="center" style="padding:${themePagePadding(theme)}px ${themePageGutter(theme)}px;">
     <table role="presentation" width="600" cellpadding="0" cellspacing="0" class="yn-container" style="width:600px;max-width:600px;background:${theme.card};border-radius:${themeRadius(theme)}px;overflow:hidden;${theme.dark && theme.card.toLowerCase() !== theme.bg.toLowerCase() ? 'border:1px solid rgba(255,255,255,0.06);' : ''}">
 ${blocksHtml}
 ${chrome}

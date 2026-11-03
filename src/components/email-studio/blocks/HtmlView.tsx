@@ -51,7 +51,7 @@ export default function HtmlView({ block, theme, ctx, mobile }: { block: HtmlBlo
 html,body{margin:0;padding:0;background:transparent;font-family:${FONT};-webkit-text-size-adjust:100%;}
 table{border-collapse:collapse;}img{-ms-interpolation-mode:bicubic;}a{text-decoration:none;}
 ${mobile ? RESPONSIVE_UTILITY_CSS : ''}
-</style></head><body>${html}</body></html>`, [html, mobile, fontLinks]);
+</style></head><body><div id="yn-root" style="display:flow-root">${html}</div></body></html>`, [html, mobile, fontLinks]);
 
   const frame = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(60);
@@ -59,20 +59,26 @@ ${mobile ? RESPONSIVE_UTILITY_CSS : ''}
     const el = frame.current;
     if (!el) return undefined;
     let ro: ResizeObserver | null = null;
+    // La hauteur se lit sur le CONTENU (une enveloppe en flow-root, qui garde
+    // les marges de ses enfants), jamais sur la page de l'iframe : celle-ci
+    // vaut au moins la hauteur de l'iframe, qui ne pouvait donc que grandir.
+    // Une section haute une fois (vue téléphone, texte qui charge) gardait sa
+    // hauteur et laissait un grand vide que l'e-mail envoyé n'a pas.
+    const root = () => el.contentDocument?.getElementById('yn-root') ?? null;
     const measure = () => {
-      const d = el.contentDocument;
-      if (!d?.body) return;
-      setHeight(Math.max(24, Math.ceil(d.documentElement.scrollHeight)));
+      const r = root();
+      if (!r) return;
+      setHeight(Math.max(24, Math.ceil(r.getBoundingClientRect().height)));
     };
     const onLoad = () => {
       measure();
-      const d = el.contentDocument;
-      if (d?.body && typeof ResizeObserver !== 'undefined') {
+      const r = root();
+      if (r && typeof ResizeObserver !== 'undefined') {
         ro = new ResizeObserver(measure);
-        ro.observe(d.body);
+        ro.observe(r);
       }
       // Les images arrivent après le chargement du document.
-      d?.querySelectorAll('img').forEach((img) => img.addEventListener('load', measure));
+      el.contentDocument?.querySelectorAll('img').forEach((img) => img.addEventListener('load', measure));
     };
     el.addEventListener('load', onLoad);
     return () => { el.removeEventListener('load', onLoad); ro?.disconnect(); };

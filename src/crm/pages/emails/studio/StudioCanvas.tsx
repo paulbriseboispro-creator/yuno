@@ -23,7 +23,7 @@ import { blockBgColor, type CanvasCtx } from '@/components/email-studio/blocks/c
 import { Wordmark } from '@/components/brand/Wordmark';
 import {
   FOOTER_WORDS, bindBlocksToEvent, contrastText, footerSocialEnabled, isHexColor, renderEmailHtml, socialChip, socialLabel,
-  type LiveData, type SocialLinks,
+  themePageGutter, themePagePadding, type LiveData, type SocialLinks,
 } from '@/lib/email';
 import { PaletteModal } from './StudioLeft';
 import { useInsertBlock } from './insert';
@@ -116,7 +116,13 @@ export function StudioCanvas({ live, readOnly, narrow }: { live: LiveData; readO
   const footerDark = isHexColor(theme.footerBg) && contrastText(theme.footerBg) === '#ffffff';
   const footerBorder = footerDark ? 'none' : `1px solid ${theme.divider}`;
   const footerWords = FOOTER_WORDS[campaign.language === 'en' || campaign.language === 'es' ? campaign.language : 'fr'];
-  const width = (mob ? 375 : 600) + 48;
+  // Le cadre est la page de l'e-mail, au pixel : sa marge du haut et du bas
+  // est celle du thème, ses côtés aussi sur ordinateur ; sur téléphone, la
+  // colonne prend toute la largeur d'un écran de 375 px, à la marge latérale
+  // près (8 px, 0 pour une page sans marge), comme dans la boîte de réception.
+  const padY = themePagePadding(theme);
+  const padX = mob ? themePageGutter(theme) : padY;
+  const width = mob ? 375 : 600 + padX * 2;
   // La barre d'un bloc se pose à droite de l'e-mail quand la place existe,
   // sinon dans le bloc (petit écran, panneaux ouverts sur un écran moyen).
   const [box, setBox] = useState<HTMLElement | null>(null);
@@ -127,8 +133,8 @@ export function StudioCanvas({ live, readOnly, narrow }: { live: LiveData; readO
     ro.observe(box);
     return () => ro.disconnect();
   }, [box]);
-  // Il faut ~50 px à droite de l'e-mail : la marge du centre plus son rembourrage (24 px).
-  const outside = !narrow && (room - width) / 2 + 24 >= 52;
+  // Il faut ~50 px à droite de l'e-mail : la marge du centre plus celle de la page.
+  const outside = !narrow && (room - width) / 2 + padX >= 52;
 
   return (
     <section
@@ -159,7 +165,7 @@ export function StudioCanvas({ live, readOnly, narrow }: { live: LiveData; readO
           <iframe title={t('yc.em.st.preview')} srcDoc={html} sandbox="" style={{ display: 'block', width: '100%', height: 'calc(100vh - 190px)', minHeight: 480, border: 0, background: theme.bg }} />
         </div>
       ) : (
-        <div style={{ flex: 'none', width, maxWidth: '100%', boxSizing: 'border-box', background: theme.bg, padding: mob || narrow ? 12 : 24, borderRadius: 20, boxShadow: 'var(--shadow-md),0 0 0 1px var(--sand-200)', transition: `width 360ms ${EASE}`, animation: `yc-rise 800ms ${EASE} 250ms both` }}>
+        <div style={{ flex: 'none', width, maxWidth: '100%', boxSizing: 'border-box', background: theme.bg, padding: `${padY}px ${padX}px`, borderRadius: padX > 0 ? 20 : 0, boxShadow: 'var(--shadow-md),0 0 0 1px var(--sand-200)', transition: `width 360ms ${EASE}`, animation: `yc-rise 800ms ${EASE} 250ms both` }}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', background: theme.card }}>
             {campaign.blocks.map((b, i) => {
               const sel = selectedId === b.id;
@@ -183,7 +189,7 @@ export function StudioCanvas({ live, readOnly, narrow }: { live: LiveData; readO
                     // dedans masquait le texte qu'on venait de sélectionner.
                     <div style={!outside
                       ? { position: 'absolute', top: 8, right: 8, zIndex: 8, display: 'flex', alignItems: 'center', gap: 2, padding: 4, borderRadius: 99, background: 'var(--ink)', boxShadow: 'var(--shadow-md)', animation: `yc-pop 140ms ${EASE}` }
-                      : { position: 'absolute', top: 0, left: `calc(100% + ${mob ? 22 : 34}px)`, zIndex: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: 4, borderRadius: 99, background: 'var(--ink)', boxShadow: 'var(--shadow-md)', animation: `yc-pop 140ms ${EASE}` }}>
+                      : { position: 'absolute', top: 0, left: `calc(100% + ${padX + 10}px)`, zIndex: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: 4, borderRadius: 99, background: 'var(--ink)', boxShadow: 'var(--shadow-md)', animation: `yc-pop 140ms ${EASE}` }}>
                       <span
                         draggable
                         onDragStart={(e) => {

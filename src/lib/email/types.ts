@@ -536,6 +536,15 @@ export function themePagePadding(theme: Pick<EmailTheme, 'pagePadding'>): number
   return Number.isFinite(p) ? Math.max(0, Math.min(64, Math.round(p))) : 24;
 }
 
+/**
+ * Marge latérale de la page, visible sur un téléphone (la colonne y prend toute
+ * la largeur) : 8 px, ou moins quand le thème demande une page sans marge. Un
+ * thème à 0 colle les bandes de couleur aux bords de l'écran.
+ */
+export function themePageGutter(theme: Pick<EmailTheme, 'pagePadding'>): number {
+  return Math.min(8, themePagePadding(theme));
+}
+
 /** Coins du conteneur : le réglage du thème, borné, 12 par défaut. */
 export function themeRadius(theme: Pick<EmailTheme, 'radius'>): number {
   const r = Number(theme.radius);

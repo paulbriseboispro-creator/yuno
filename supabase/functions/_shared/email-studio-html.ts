@@ -47,6 +47,11 @@ function themePagePadding(theme: Pick<StudioTheme, 'pagePadding'>): number {
   return Number.isFinite(p) ? Math.max(0, Math.min(64, Math.round(p))) : 24;
 }
 
+/** Miroir de themePageGutter (types.ts) : 8 px, moins pour une page sans marge. */
+function themePageGutter(theme: Pick<StudioTheme, 'pagePadding'>): number {
+  return Math.min(8, themePagePadding(theme));
+}
+
 /** Miroir de themeRadius (types.ts). */
 function themeRadius(theme: Pick<StudioTheme, 'radius'>): number {
   const r = Number(theme.radius);
@@ -1283,7 +1288,7 @@ ${emailFontLinks(theme.fonts)}
 <body class="yn-bg" style="margin:0;padding:0;background:${theme.bg};font-family:${FONT};-webkit-text-size-adjust:100%;">
 ${preheader}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="yn-bg" style="background:${theme.bg};">
-  <tr><td align="center" style="padding:${themePagePadding(theme)}px 8px;">
+  <tr><td align="center" style="padding:${themePagePadding(theme)}px ${themePageGutter(theme)}px;">
     <table role="presentation" width="600" cellpadding="0" cellspacing="0" class="yn-container" style="width:600px;max-width:600px;background:${theme.card};border-radius:${themeRadius(theme)}px;overflow:hidden;${theme.dark && theme.card.toLowerCase() !== theme.bg.toLowerCase() ? 'border:1px solid rgba(255,255,255,0.06);' : ''}">
 ${blocksHtml}
 ${chrome}
