@@ -73,6 +73,14 @@ describe('sendChecks', () => {
     expect(c.find((x) => x.id === 'link')?.level).toBe('bad');
     expect(c.find((x) => x.id === 'night')?.level).toBe('bad');
   });
+  it('counts a link inside a custom HTML section as a tracked button', () => {
+    const html = (code: string) => ({ id: 'h', type: 'html', code } as EmailBlock);
+    const level = (code: string) => sendChecks({ ...base, blocks: [html(code)] }).find((x) => x.id === 'cta')?.level;
+    expect(level('<table><tr><td><a href="https://shotgun.live/x" style="color:#fff">Réserver</a></td></tr></table>')).toBe('ok');
+    expect(level("<a class=\"b\" href='https://shotgun.live/x'>Réserver</a>")).toBe('ok');
+    expect(level('<a href="{{event.tickets_url}}">Billets</a>')).toBe('ok');
+    expect(level('<p>Pas de lien</p><a href="#">ancre</a><a href="mailto:a@b.fr">écrire</a>')).toBe('warn');
+  });
   it('blocks a past date and warns on a demo account', () => {
     const c = sendChecks({ ...base, past: true, demo: true, blocks: [cta] });
     expect(c.find((x) => x.id === 'date')?.level).toBe('bad');
