@@ -151,6 +151,10 @@ const dict: CrmDict = {
   'yc.nf.t.undo': ['Undo', 'Annuler', 'Deshacer'],
   'yc.nf.t.err': ['That didn’t go through. Try again.', 'L’action n’a pas abouti. Réessayez.', 'No se completó. Inténtelo de nuevo.'],
   // Accès SMS ouvert par l’équipe Yuno (bêta privée, 20261029100000).
+  'yc.notif.subscribe_nudge.title': ['{name} asks you to subscribe', '{name} vous demande de prendre l’abonnement', '{name} le pide que contrate la suscripción'],
+  'yc.notif.subscribe_nudge.titleAnon': ['Your team asks you to subscribe', 'Votre équipe vous demande de prendre l’abonnement', 'Su equipo le pide que contrate la suscripción'],
+  'yc.notif.subscribe_nudge.body': ['The Console is paused for the whole team until you subscribe.', 'La Console est en pause pour toute l’équipe tant que vous n’êtes pas abonné.', 'La Consola está en pausa para todo el equipo hasta que se suscriba.'],
+  'yc.notif.subscribe_nudge.action': ['Choose my plan', 'Choisir mon abonnement', 'Elegir mi plan'],
   'yc.notif.sms_access_granted.title': ['Your SMS access is open', 'Votre accès SMS est ouvert', 'Su acceso SMS está abierto'],
   'yc.notif.sms_access_granted.body': ['Set your sender name, then get a first free test text.', 'Réglez votre nom d’expéditeur, puis recevez un premier SMS de test, gratuit.', 'Configure su nombre de remitente y reciba un primer SMS de prueba, gratis.'],
   'yc.notif.sms_access_granted.action': ['Open SMS', 'Ouvrir les SMS', 'Abrir los SMS'],

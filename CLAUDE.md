@@ -63,8 +63,9 @@ vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
 
 - **Prix : UN abonnement + une monnaie, révisé par Paul le 04/10.**
   24 € HT / mois au lancement (garanti tant que l'abonnement vit), 34 € ensuite
-  pour les nouveaux comptes ; annuel = 288 € HT (12 mois) + 30 000 Yunits offerts,
-  sans remise. Pas de compte gratuit : essai 14 jours sans carte (2 000 Yunits),
+  pour les nouveaux comptes ; **annuel = 10 mois, « 2 mois offerts »** (240 € HT au
+  lancement, 340 € au prix public ; décision de Paul du 03/11, plus de bonus de
+  Yunits à l'annuel). Pas de compte gratuit : essai 14 jours sans carte (2 000 Yunits),
   puis compte EN PAUSE (base lisible et exportable, ni synchro ni envoi). Tout ce
   qui fait envoyer est dans le socle (automatisations, A/B, Meta, IA, équipe sans
   limite) : brider une fonction qui fait envoyer, c'est brider le revenu.
@@ -72,7 +73,7 @@ vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
   jamais appelés « crédits » à l'écran : 1 e-mail = 1, DM Instagram = 10, SMS
   France = 35 / segment (40 jusqu'au 08/10), étranger = 70, WhatsApp = 100 ; **rien d'offert chaque mois** (décision de Paul, 06/10 : l'abonnement est déjà
   rentable, ce sont les Yunits qui rémunèrent Yuno) : 10 000 offerts UNE fois à
-  l'abonnement mensuel, 30 000 d'un coup à l'annuel, 2 000 pendant l'essai (clé
+  l'abonnement, mensuel comme annuel (03/11), 2 000 pendant l'essai (clé
   `monthly_yunits` = « une fois », lot `grant`/`welcome`, migration
   `20261009100000`) ; **recharge au CURSEUR, jamais de pack pré-créé** (décision de
   Paul, 05/10) : 5 000 à 300 000 Yunits par pas de 5 000, 500 par euro HT,
@@ -89,7 +90,7 @@ vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
   `lookup_key` (`yuno_crm_base_<month|year>_<launch|public>`, publics INACTIFS
   jusqu'au passage au prix public ; les anciens produits `yuno_crm_pack_*`
   sont ARCHIVÉS depuis le 05/10). Stripe live est à
-  24 / 34 / 288 depuis le 04/10 (`scripts/stripe/create-crm-prices.mjs` en est le
+  24 / 34 / 240 / 340 depuis le 03/11 (`scripts/stripe/create-crm-prices.mjs` en est le
   miroir idempotent) ; produits, surnoms de prix et métadonnées y disent
   « Yunits » depuis le 05/10 (`yunits_*`, aucun code ne les lit). **Seuil validé par Paul le 05/10 : le prix public (34 €) s'applique au 50ᵉ compte payant** (`price_switch_at = 50`, réglable dans Admin CRM › Réglages). Le lot 4b est fait : `club-subscription/crm.ts`
   (`crm_checkout`, `crm_portal`), webhook → `crm_apply_stripe_subscription`. Ne
@@ -220,6 +221,41 @@ vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
   d'offre) ; le webhook route `metadata.yuno_product = 'crm'` vers
   `crm_apply_stripe_subscription` AVANT la logique club. Sans prix créés,
   `crm_checkout` répond `billing_not_configured`. Démo : socle accordé un an.
+
+## Yuno CRM — l'abonnement dans la Console : bandeau, choix, pause (2026-11-03)
+
+Maquettes validées par Paul (canevas « Yuno CRM — Abonnement et paiement »).
+Migration `20261118100000`, règles pures `src/crm/lib/plan.ts` (testées),
+composants `src/crm/shell/plan/*`. Règles :
+
+- **Un bandeau sous la barre du haut** (`PlanBanner`, `planBanner`) : essai neutre
+  et masquable jusqu'au lendemain, ambre à J-3, rouge le dernier jour ; offre
+  fondateur seulement les 14 derniers jours offerts ; paiement refusé ; abonnement
+  résilié les 7 derniers jours. Rien quand la carte est enregistrée pendant
+  l'essai. Un membre de l'équipe voit l'essai sans bouton de paiement :
+  « Prévenir le titulaire » (`crm_nudge_owner_subscribe`, 1 / 24 h, notification
+  `subscribe_nudge` du titulaire).
+- **Le choix de la formule s'ouvre par l'adresse** (`?subscribe=1|month|year`,
+  `PlanChooser`, monté une fois dans `CrmLayout`) : bandeau, menu, pause,
+  notification y mènent tous. « 0 € aujourd'hui » se décide par `chargedToday`,
+  miroir EXACT de `stripeTrialEnd` (48 h, testé ensemble).
+- **La pause est un ÉCRAN, pas une page** (`PauseScreen` à la place de l'`Outlet`
+  quand `effective_plan = 'paused'`). Restent ouverts (`openWhilePaused`) : Clients,
+  Compte, Notifications — les Conditions CRM promettent « base lisible et
+  exportable » : fermer Clients ou l'export demande d'abord une nouvelle version
+  des Conditions. Jamais d'écran de pause en démo, aperçu, accès assisté ni pour
+  le super admin (bande `PauseExemptNote`). Données : `crm_pause_summary`
+  (comptages seulement).
+- **Retour de Stripe** = `SubscribedCard` (page Abonnement, `?checkout=success`) :
+  relit l'abonnement toutes les 2 s, jamais un succès avant que la base l'ait vu.
+- **Stripe** : `crm_portal` passe par un portail PROPRE au CRM (configuration
+  retrouvée par `metadata.yuno_product = 'crm'`, sinon créée) ; le checkout parle la
+  langue de la Console et dit sous le bouton ce qui est prélevé. TVA : quand
+  `crm_pricing.vat_rate = 0` (franchise 293 B), l'écran dit « TVA non applicable »
+  au lieu de « HT », `automatic_tax` est coupé et chaque facture porte la mention.
+  Un abonnement `unpaid` (toutes les relances échouées) met le compte en pause.
+- Le compte démo CRM a un accès offert jusqu'en 2036 : une démo de vente ne
+  tombe jamais sur l'écran de pause.
 
 ## Yuno Tickets et Yuno CRM : deux produits SÉPARÉS (2026-10-20)
 
@@ -823,7 +859,7 @@ Rien à voir avec le prix de lancement des 50 premiers PAYANTS (24 €,
 - **Yunits** : lot `grant` / `founder_offer` (15 000, 12 mois). Il REMPLACE
   l'essai (le lot d'essai jamais entamé est retiré) et le cadeau de
   l'abonnement mensuel (`crm_yunits_ensure_allowance` le traite comme `welcome`) ;
-  le bonus annuel reste celui de tout le monde.
+  plus de bonus annuel depuis le 03/11 (`annual_bonus_yunits` = 0).
 - Console : carte « Offre fondateur » en tête de Compte › Abonnement
   (`FounderOfferCard`), pastille, bouton « Enregistrer ma carte · 0 € aujourd'hui »,
   FAQ `yc.faq.founder`. Alerte super admin `admin_crm_offer_claimed`.

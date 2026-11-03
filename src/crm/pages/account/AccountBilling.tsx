@@ -25,6 +25,8 @@ import {
   type BillingCustomer, type BillingOverview, type CrmBilling,
 } from '@/crm/data/account';
 import { Card, CardHead, Field, inputCss } from './accountUi';
+import { annualFreeMonths, chargedToday } from '@/crm/lib/plan';
+import { SubscribedCard } from './SubscribedCard';
 
 type Interval = 'month' | 'year';
 const BRANDS: Record<string, string> = { visa: 'Visa', mastercard: 'Mastercard', amex: 'American Express', cartes_bancaires: 'CB', discover: 'Discover', sepa: 'SEPA' };
@@ -79,7 +81,7 @@ export function AccountBilling() {
 }
 
 function BillingView({ b, demo }: { b: CrmBilling; demo: boolean }) {
-  const { t, n, eur2, locale } = useCrmT();
+  const { t, n, eur, eur2, locale, lang } = useCrmT();
   const toast = useCrmToast();
   const [params, setParams] = useSearchParams();
   const manage = b.can_manage && !demo;
@@ -91,6 +93,8 @@ function BillingView({ b, demo }: { b: CrmBilling; demo: boolean }) {
   const extend = useTrialExtension();
   const [busy, setBusy] = useState<string | null>(null);
   const [cancelAsk, setCancelAsk] = useState(false);
+  // Retour de Stripe : l'écran « C'est fait », le temps que le webhook confirme l'abonnement.
+  const [welcome, setWelcome] = useState(false);
   const o = ov.data;
   const sub = o?.subscription ?? null;
   const dFull = (d: string) => new Date(d).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
@@ -100,7 +104,7 @@ function BillingView({ b, demo }: { b: CrmBilling; demo: boolean }) {
     const c = params.get('checkout');
     const card = params.get('card');
     if (!c && !card) return;
-    if (c === 'success') toast(t('yc.acc.b.checkoutOk'));
+    if (c === 'success') setWelcome(true);
     if (card === 'updated') toast(t('yc.acc.b.cardUpdated'));
     const next = new URLSearchParams(params);
     next.delete('checkout'); next.delete('card');
@@ -116,6 +120,8 @@ function BillingView({ b, demo }: { b: CrmBilling; demo: boolean }) {
   const unit = sub && sub.interval === sel && sub.unit_amount != null ? sub.unit_amount / 100 : annual ? b.pricing.price_year : b.pricing.price_month;
   const price = useTween(unit);
   const monthlyOfYear = Math.round((b.pricing.price_year / 12) * 100) / 100;
+  const freeMonths = annualFreeMonths(b.pricing.price_month, b.pricing.price_year);
+  const vat = b.pricing.vat_rate;
   const ending = !!sub?.cancel_at_period_end;
   const periodEnd = sub?.period_end ?? b.subscription?.current_period_end ?? null;
   const live = !!sub;
@@ -167,7 +173,7 @@ function BillingView({ b, demo }: { b: CrmBilling; demo: boolean }) {
         : {
           label: t(to === 'year' ? 'yc.acc.b.cta.toYear' : 'yc.acc.b.cta.toMonth'),
           note: trialing ? t('yc.acc.b.note.trial')
-            : to === 'year' ? t('yc.acc.b.note.toYear', { date: at, b: n(b.pricing.annual_bonus_yunits), n: n(b.pricing.monthly_yunits) })
+            : to === 'year' ? t('yc.acc.b.note.toYear', { date: at, paid: 12 - freeMonths })
               : t('yc.acc.b.note.toMonth', { date: at }),
           to,
         };
@@ -180,7 +186,8 @@ function BillingView({ b, demo }: { b: CrmBilling; demo: boolean }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {founder && offer && <FounderOfferCard offer={offer} b={b} hasCard={!!b.subscription?.has_stripe} dFull={dFull} />}
+      {welcome && <SubscribedCard b={b} onClose={() => setWelcome(false)} />}
+      {founder && offer && !welcome && <FounderOfferCard offer={offer} b={b} hasCard={!!b.subscription?.has_stripe} dFull={dFull} />}
       {manage && ending && periodEnd && (
         <div role="status" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px 20px', padding: '16px 20px', borderRadius: 20, background: 'var(--amber-50)', boxShadow: 'inset 0 0 0 1px rgba(229,154,11,.35)', animation: `yc-rise 600ms ${EASE} both` }}>
           <div style={{ flex: '1 1 280px', display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -222,16 +229,16 @@ function BillingView({ b, demo }: { b: CrmBilling; demo: boolean }) {
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
               <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(68px,8vw,96px)', lineHeight: 0.9, letterSpacing: '-.055em', fontVariantNumeric: 'tabular-nums' }}>{n(price)}</span>
               <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(30px,3.4vw,40px)', letterSpacing: '-.04em' }}>€</span>
-              <span style={{ fontSize: 15.5, fontWeight: 500, color: 'var(--sand-600)' }}>{t('yc.acc.b.ht')} / {t(`yc.acc.b.per.${sel}`)}</span>
+              <span style={{ fontSize: 15.5, fontWeight: 500, color: 'var(--sand-600)' }}>{vat > 0 ? `${t('yc.acc.b.ht')} ` : ''}/ {t(`yc.acc.b.per.${sel}`)}</span>
             </div>
             <span style={{ fontSize: 14, lineHeight: 1.45, color: 'var(--sand-500)', textWrap: 'pretty' }}>
-              {annual ? t('yc.acc.b.sub.year', { m: n(monthlyOfYear) }) : (sub?.tier ?? 'launch') === 'launch' ? t('yc.acc.b.sub.launch') : t('yc.acc.b.sub.month')}
+              {annual ? t('yc.acc.b.sub.year', { m: Number.isInteger(monthlyOfYear) ? eur(monthlyOfYear) : eur2(monthlyOfYear), paid: 12 - freeMonths }) : (sub?.tier ?? 'launch') === 'launch' ? t('yc.acc.b.sub.launch') : t('yc.acc.b.sub.month')}
             </span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <Row l={t('yc.acc.b.row.yunits')} v={annual ? t('yc.acc.b.row.yunitsYear', { n: n(b.pricing.monthly_yunits), b: n(b.pricing.annual_bonus_yunits) }) : offer?.yunits ? t('yc.acc.b.row.yunitsFounder', { n: n(offer.yunits) }) : t('yc.acc.b.row.yunitsMonth', { n: n(b.pricing.monthly_yunits) })} />
+            <Row l={t('yc.acc.b.row.yunits')} v={offer?.yunits ? t('yc.acc.b.row.yunitsFounder', { n: n(offer.yunits) }) : annual ? t('yc.acc.b.row.yunitsYear', { n: n(b.pricing.monthly_yunits) }) : t('yc.acc.b.row.yunitsMonth', { n: n(b.pricing.monthly_yunits) })} />
             {nextRow && <Row l={t('yc.acc.b.row.next')} v={nextRow} />}
-            <Row l={t('yc.acc.b.row.tax')} v={t('yc.acc.b.row.taxVal', { n: b.pricing.vat_rate })} />
+            <Row l={t('yc.acc.b.row.tax')} v={vat > 0 ? t('yc.acc.b.row.taxVal', { n: vat }) : t('yc.plan.vatNone')} />
           </div>
 
           {o?.scheduled && sel === target && !ending && (
@@ -264,9 +271,9 @@ function BillingView({ b, demo }: { b: CrmBilling; demo: boolean }) {
               </span>
               <div>
                 <BrandButton
-                  label={busy === 'crm_checkout' ? t('yc.acc.b.redirect') : founder ? t('yc.acc.b.founderCta') : `${t('yc.acc.b.subscribe')} · ${n(unit)} € ${t('yc.acc.b.ht')} / ${t(`yc.acc.b.per.${sel}`)}`}
+                  label={busy === 'crm_checkout' ? t('yc.acc.b.redirect') : founder ? t('yc.acc.b.founderCta') : !chargedToday(b.subscription) ? t('yc.acc.b.subscribeFree') : `${t('yc.acc.b.subscribe')} · ${eur(unit)}${vat > 0 ? ` ${t('yc.acc.b.ht')}` : ''} / ${t(`yc.acc.b.per.${sel}`)}`}
                   busy={busy === 'crm_checkout'}
-                  onClick={() => void run('crm_checkout', { interval: sel })}
+                  onClick={() => void run('crm_checkout', { interval: sel, lang })}
                 />
               </div>
               {trialing && (b.subscription?.trial_extensions_left ?? 0) > 0 && (

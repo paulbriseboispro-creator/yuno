@@ -8,6 +8,7 @@
  * que le serveur, qui le refait de toute façon. Au retour de Stripe, l'écran
  * attend que le webhook ait crédité la session, puis fête la recharge.
  */
+import { annualFreeMonths } from '@/crm/lib/plan';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -559,16 +560,16 @@ function SubscriptionCard({ b, dFull }: { b: CrmBilling; dFull: (d: string) => s
         <span style={mono}>{t('yc.yu.sub.t')}</span>
         <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 20, letterSpacing: '-.02em' }}>{title}</span>
         <span style={{ fontSize: 13.5, lineHeight: 1.5, color: 'var(--sand-600)' }}>
-          {annual ? t('yc.yu.sub.yearNote', { b: n(b.pricing.annual_bonus_yunits) }) : t('yc.yu.sub.launch')}
+          {annual ? t('yc.yu.sub.yearNote', { paid: 12 - annualFreeMonths(b.pricing.price_month, b.pricing.price_year) }) : t('yc.yu.sub.launch')}
           {s?.has_stripe && s.current_period_end && !paused ? ` ${t('yc.yu.sub.next', { date: dFull(s.current_period_end) })}` : ''}
         </span>
       </div>
       {!annual && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '14px 16px', borderRadius: 16, background: 'var(--sand-50)' }}>
           <span style={{ fontSize: 14.5, fontWeight: 600, lineHeight: 1.35 }}>
-            {t('yc.yu.promo.t')}<span style={{ background: 'var(--gradient-brand)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>{t('yc.yu.promo.b', { b: n(b.pricing.annual_bonus_yunits) })}</span>
+            {t('yc.yu.promo.t')}<span style={{ background: 'var(--gradient-brand)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>{t('yc.yu.promo.b', { m: annualFreeMonths(b.pricing.price_month, b.pricing.price_year) })}</span>
           </span>
-          <span style={{ fontSize: 13, color: 'var(--sand-600)', lineHeight: 1.45 }}>{t('yc.yu.promo.s', { price: n(b.pricing.price_year) })}</span>
+          <span style={{ fontSize: 13, color: 'var(--sand-600)', lineHeight: 1.45 }}>{t('yc.yu.promo.s', { price: n(b.pricing.price_year), full: n(b.pricing.price_month * 12) })}</span>
           <Hv as={Link} to={CRM_ROUTES.accountSection('billing')} style={{ alignSelf: 'flex-start', fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }} hover={{ textDecoration: 'none' }}>
             {s?.has_stripe ? t('yc.yu.promo.cta') : t('yc.yu.subscribe')}<Icon name="arrowRight" size={15} stroke={2.4} />
           </Hv>

@@ -15,7 +15,7 @@ export const NOTIF_KINDS = [
   'send_soon', 'yunits_short', 'sync_broken', 'contacts_unreadable', 'trial_ending', 'account_paused',
   'send_done', 'send_report', 'send_blocked', 'import_done', 'sync_resolved', 'yunits_low', 'recharge_done',
   'team_joined', 'new_device', 'scenario_notify', 'night_plan_ready', 'weekly_review',
-  'support_request', 'support_live', 'sms_access_granted',
+  'support_request', 'support_live', 'sms_access_granted', 'subscribe_nudge',
 ] as const;
 
 export const NOTIF_ICON: Record<string, IconName> = {
@@ -23,7 +23,7 @@ export const NOTIF_ICON: Record<string, IconName> = {
   sync_broken: 'plug', sync_resolved: 'plug', contacts_unreadable: 'upload', import_done: 'upload',
   send_report: 'chart', send_blocked: 'alert', team_joined: 'users', new_device: 'shield',
   trial_ending: 'card', account_paused: 'lock', scenario_notify: 'zap', night_plan_ready: 'sparkles', weekly_review: 'chart',
-  support_request: 'shield', support_live: 'shield', sms_access_granted: 'message',
+  support_request: 'shield', support_live: 'shield', sms_access_granted: 'message', subscribe_nudge: 'card',
 };
 
 export const NOTIF_TONE_COLORS: Record<string, [string, string]> = {
@@ -54,7 +54,9 @@ export function notifCopy(item: CrmNotif, t: T, f: CrmFormatters): { title: stri
   const p = fmtParams(item.params, f);
   if (!known) return { title: t('yc.notif.generic.title'), body: '', action: null, href: item.href };
   // L'étape « Me prévenir » d'un scénario : le titre est le libellé choisi par le pro.
-  const title = item.kind === 'scenario_notify' && p.label ? p.label : t(`yc.notif.${item.kind}.title`, p);
+  const title = item.kind === 'scenario_notify' && p.label ? p.label
+    : item.kind === 'subscribe_nudge' && !p.name ? t('yc.notif.subscribe_nudge.titleAnon')
+      : t(`yc.notif.${item.kind}.title`, p);
   // Les achats d'un bilan se calculent à part : tant qu'ils manquent, la phrase s'en passe.
   const body = item.kind === 'send_report' ? reportBody(item.params, t, f)
     : item.kind === 'scenario_notify' ? scenarioBody(item.params, t, f)
@@ -84,6 +86,8 @@ function defaultHref(kind: string, p: CrmNotif['params']): string | null {
     case 'support_live': return CRM_ROUTES.accountSection('support');
     // SMS en bêta privée (20261029100000) : l'accès du compte vient d'être ouvert.
     case 'sms_access_granted': return CRM_ROUTES.smsSettings;
+    // Un membre de l'équipe demande l'abonnement (20261118100000) : la fenêtre de choix s'ouvre.
+    case 'subscribe_nudge': return `${CRM_ROUTES.accountSection('billing')}?subscribe=1`;
     default: return null;
   }
 }

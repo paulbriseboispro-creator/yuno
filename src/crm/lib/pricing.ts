@@ -13,7 +13,7 @@ export interface CrmPricingConfig {
   price_year: number;
   /** Yunits offerts UNE fois à l'abonnement mensuel (jamais chaque mois). */
   monthly_yunits: number;
-  /** Yunits offerts d'un coup à l'abonnement annuel. */
+  /** Ancien bonus de l'annuel : 0 depuis le 03/11 (l'annuel coûte 10 mois). */
   annual_bonus_yunits: number;
   trial_days: number;
   trial_yunits: number;
@@ -30,11 +30,13 @@ export interface CrmPricingConfig {
 
 /**
  * Les prix montrés à un nouveau compte selon le niveau (seuil des 50) : au
- * niveau public, le mensuel est `price_month_next` et l'annuel douze fois ce
- * prix (miroir des prix Stripe publics et de get_crm_billing).
+ * niveau public, le mensuel est `price_month_next` et l'annuel garde le rapport
+ * du lancement (miroir des prix Stripe publics et de get_crm_billing).
  */
 export function pricesForTier<T extends Pick<CrmPricingConfig, 'price_month' | 'price_month_next' | 'price_year'>>(cfg: T, tier: 'launch' | 'public'): T & { tier: 'launch' | 'public' } {
-  return tier === 'public' ? { ...cfg, tier, price_month: cfg.price_month_next, price_year: cfg.price_month_next * 12 } : { ...cfg, tier };
+  // L'annuel public garde le rapport du lancement (10 mois payés : 34 × 240 / 24 = 340), miroir de get_crm_billing.
+  const year = cfg.price_month > 0 ? Math.round((cfg.price_month_next * cfg.price_year) / cfg.price_month) : cfg.price_month_next * 12;
+  return tier === 'public' ? { ...cfg, tier, price_month: cfg.price_month_next, price_year: year } : { ...cfg, tier };
 }
 
 /** Recharges montrées en exemple : de vraies tranches de la page Yunits (sans bonus, puis les deux paliers). */
@@ -47,7 +49,7 @@ export function rechargeExamples(): CrmRechargeQuote[] {
 export interface MonthEstimate {
   /** Yunits consommés par les envois du mois. */
   used: number;
-  /** Ce qu'il faut acheter : l'abonnement n'offre plus de Yunits chaque mois (10 000 une fois, 30 000 à l'annuel). */
+  /** Ce qu'il faut acheter : l'abonnement n'offre plus de Yunits chaque mois (10 000 une fois, aux deux formules). */
   need: number;
   /** La recharge la moins chère qui couvre le besoin (null : aucune). */
   recharge: CrmRechargeQuote | null;

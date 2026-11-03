@@ -37,6 +37,11 @@ import { GuideCoach } from '@/crm/guide/GuideCoach';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { screenFor } from './nav';
+import { PlanBanner } from './plan/PlanBanner';
+import { PlanChooser } from './plan/PlanChooser';
+import { PauseExemptNote, PauseScreen } from './plan/PauseScreen';
+import { usePlan } from './plan/usePlan';
+import { openWhilePaused } from '@/crm/lib/plan';
 import { rememberCrmProduct } from '@/lib/productHint';
 
 const FONTS_HREF = 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=swap';
@@ -178,6 +183,9 @@ export function CrmLayout() {
   const balance = shell.data?.wallet.balance ?? null;
   const mood = moodFor(balance, shell.data?.wallet.low_balance ?? 2000);
   const badges = shell.data?.badges ?? { campaigns: 0, clients: 0 };
+  // Abonnement : la Console en pause ne montre que la base, le compte et les notifications.
+  const plan = usePlan();
+  const locked = plan.paused && !plan.exempt && !openWhilePaused(pathname);
 
   useEffect(() => { setMobileOpen(false); }, [pathname]);
   // Repère « client CRM » sur yunoapp.eu : l'autorisation d'une IA s'ouvrira ici, connecté.
@@ -217,8 +225,13 @@ export function CrmLayout() {
           <TopBar shell={shell.data} showMenuButton={narrow} onOpenMenu={() => setMobileOpen(true)} />
           <OfflineBar />
         </div>
-        <CrmErrorBoundary resetKey={pathname}><Outlet /></CrmErrorBoundary>
+        <PlanBanner />
+        {plan.paused && plan.exempt && <PauseExemptNote />}
+        <CrmErrorBoundary resetKey={pathname}>
+          {plan.loading ? null : locked ? <PauseScreen /> : <Outlet />}
+        </CrmErrorBoundary>
       </div>
+      <PlanChooser />
       <div id="yc-portal" className="yc" />
     </div>
     </GuideProvider>

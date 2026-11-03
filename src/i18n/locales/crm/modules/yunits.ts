@@ -98,10 +98,10 @@ const dict: CrmDict = {
   'yc.yu.sub.paused': ['Paused', 'En pause', 'En pausa'],
   'yc.yu.sub.launch': ['Launch price kept as long as you stay subscribed.', 'Prix de lancement conservé tant que vous restez abonné.', 'Precio de lanzamiento mantenido mientras siga suscrito.'],
   'yc.yu.sub.next': ['Next invoice on {date}.', 'Prochaine facture le {date}.', 'Próxima factura el {date}.'],
-  'yc.yu.sub.yearNote': ['{b} free Yunits at once every paid year.', '{b} Yunits offerts d’un coup à chaque année payée.', '{b} Yunits gratis de golpe cada año pagado.'],
+  'yc.yu.sub.yearNote': ['12 months for the price of {paid}.', '12 mois pour le prix de {paid}.', '12 meses por el precio de {paid}.'],
   'yc.yu.promo.t': ['Switch to yearly: ', 'Passez à l’annuel : ', 'Pase a anual: '],
-  'yc.yu.promo.b': ['{b} free Yunits', '{b} Yunits offerts', '{b} Yunits gratis'],
-  'yc.yu.promo.s': ['{price} € excl. VAT per year, the same price, and about two more months of sends.', '{price} € HT par an, soit le même prix, et environ deux mois d’envois en plus.', '{price} € sin IVA al año, el mismo precio, y unos dos meses más de envíos.'],
+  'yc.yu.promo.b': ['{m} months free', '{m} mois offerts', '{m} meses gratis'],
+  'yc.yu.promo.s': ['{price} € excl. VAT per year instead of {full} €, with the same free Yunits.', '{price} € HT par an au lieu de {full} €, avec les mêmes Yunits offerts.', '{price} € sin IVA al año en lugar de {full} €, con los mismos Yunits gratis.'],
   'yc.yu.promo.cta': ['Change plan', 'Changer de formule', 'Cambiar de plan'],
   'yc.yu.subscribe': ['Subscribe', 'S’abonner', 'Suscribirse'],
 

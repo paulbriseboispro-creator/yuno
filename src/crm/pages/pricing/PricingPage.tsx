@@ -19,6 +19,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { PRO_SIGNUP_ORIGIN, proSignupUrl } from '@/lib/proSignup';
 import { META_INTEGRATION_LIVE } from '@/lib/metaIntegration';
+import { annualFreeMonths } from '@/crm/lib/plan';
 import { CRM_RECHARGE, crmRechargeQuote } from '@/lib/crmBilling';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
@@ -108,8 +109,8 @@ function Pricing({ cfg }: { cfg: CrmPricingConfig }) {
 
   const tryHref = proSignupUrl(lang, { product: 'crm', source: 'crm_pricing' });
   const productHref = `${PRO_SIGNUP_ORIGIN}${lang === 'fr' ? '/fr' : lang === 'es' ? '/es' : ''}/crm`;
-  // Mois de prix que valent les Yunits offerts à l'annuel (au tarif de recharge).
-  const freeMonths = Math.max(1, Math.round(cfg.annual_bonus_yunits / cfg.yunits_per_euro / cfg.price_month));
+  // L'annuel coûte 10 mois : les mois offerts (décision du 03/11).
+  const freeMonths = annualFreeMonths(cfg.price_month, cfg.price_year);
   // Le bouton d'essai d'un visiteur ouvre la Console de quelqu'un de connecté, libellé compris.
   const cta: Cta = (label, style, hover, decorate) => {
     const text = signedIn ? t('yc.pr.openConsole') : label;
@@ -171,7 +172,7 @@ function Pricing({ cfg }: { cfg: CrmPricingConfig }) {
               ))}
             </div>
             <span style={{ fontSize: 14, color: 'var(--sand-600)' }}>
-              {t('yc.pr.yearlyNote.a')}<b style={{ color: 'var(--ink)', fontWeight: 600 }}>{t('yc.pr.yearlyNote.b', { n: n(cfg.annual_bonus_yunits) })}</b>{t('yc.pr.yearlyNote.c', { m: freeMonths })}
+              {t('yc.pr.yearlyNote.a')}<b style={{ color: 'var(--ink)', fontWeight: 600 }}>{t('yc.pr.yearlyNote.b', { m: freeMonths })}</b>{t('yc.pr.yearlyNote.c', { paid: 12 - freeMonths })}
             </span>
           </Reveal>
           <Reveal i={4} style={{ width: '100%', marginTop: 18 }}>
@@ -232,8 +233,10 @@ type Cta = (label: string, style: CSSProperties, hover: CSSProperties, decorate?
 
 // ── Carte prix ─────────────────────────────────────────────────────────────
 function PriceCard({ cfg, annual, cta }: { cfg: CrmPricingConfig; annual: boolean; cta: Cta }) {
-  const { t, n } = usePrT();
+  const { t, n, eur, eur2 } = usePrT();
   const price = useTween(annual ? cfg.price_year : cfg.price_month, 800);
+  const free = annualFreeMonths(cfg.price_month, cfg.price_year);
+  const perMonth = cfg.price_year / 12;
   const feats: { k: string; soon: boolean; dBeta?: boolean }[] = [
     // Le connecteur Shotgun est ouvert à tout compte Yuno CRM (CRM_CONNECTORS_LIVE ne garde que la carte de la Billetterie).
     { k: 'shotgun', soon: false },
@@ -260,18 +263,18 @@ function PriceCard({ cfg, annual, cta }: { cfg: CrmPricingConfig; annual: boolea
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(84px,11vw,124px)', lineHeight: 0.9, letterSpacing: '-.06em', fontVariantNumeric: 'tabular-nums' }}>{n(price)}</span>
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 44, letterSpacing: '-.03em' }}>€</span>
-          <span style={{ fontSize: 16, color: 'var(--sand-600)' }}>{t(annual ? 'yc.pr.card.per.year' : 'yc.pr.card.per.month')}</span>
+          <span style={{ fontSize: 16, color: 'var(--sand-600)' }}>{t(`yc.pr.card.${cfg.vat_rate > 0 ? 'per' : 'perNv'}.${annual ? 'year' : 'month'}`)}</span>
         </div>
         <p style={{ margin: 0, fontSize: 16, lineHeight: 1.55, color: 'var(--sand-700)', textWrap: 'pretty', minHeight: 50 }}>
-          {annual ? t('yc.pr.card.subYear', { p: n(cfg.price_month) }) : cfg.tier === 'public' ? t('yc.pr.card.subMonthPublic') : t('yc.pr.card.subMonth', { p: n(cfg.price_month), next: n(cfg.price_month_next) })}
+          {annual ? t('yc.pr.card.subYear', { p: Number.isInteger(perMonth) ? eur(perMonth) : eur2(perMonth), paid: 12 - free }) : cfg.tier === 'public' ? t('yc.pr.card.subMonthPublic') : t('yc.pr.card.subMonth', { p: n(cfg.price_month), next: n(cfg.price_month_next) })}
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '14px 16px', borderRadius: 18, background: 'var(--sand-50)' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 15.5, fontWeight: 600 }}>
-            <img src={TOKEN} alt="" style={{ width: 32, height: 32, flex: 'none' }} />{annual ? t('yc.pr.card.bonus', { n: n(cfg.annual_bonus_yunits) }) : t('yc.pr.card.monthly', { n: n(cfg.monthly_yunits) })}
+            <img src={TOKEN} alt="" style={{ width: 32, height: 32, flex: 'none' }} />{t('yc.pr.card.monthly', { n: n(cfg.monthly_yunits) })}
           </span>
           <div style={{ display: 'grid', gridTemplateRows: annual ? '1fr' : '0fr', transition: `grid-template-rows 420ms ${EASE}` }}>
             <span style={{ overflow: 'hidden', minHeight: 0, paddingLeft: 44, fontSize: 14.5, color: 'var(--sand-700)' }}>
-              {t('yc.pr.card.bonusEq', { e: n(cfg.annual_bonus_yunits / cfg.yunits_per_euro) })}
+              {t('yc.pr.card.yearSave', { e: eur(cfg.price_month * 12 - cfg.price_year) })}
             </span>
           </div>
         </div>
@@ -607,10 +610,11 @@ function InfoCard({ icon, t: title, d, soon }: { icon: 'clock' | 'refresh'; t: s
 
 // ── Annuel ─────────────────────────────────────────────────────────────────
 function Annual({ cfg, freeMonths, signedIn, onChoose }: { cfg: CrmPricingConfig; freeMonths: number; signedIn: boolean; onChoose: () => void }) {
-  const { t, n } = usePrT();
+  const { t, n, eur } = usePrT();
   const [ref, seen] = useSeen<HTMLDivElement>();
-  const unit = 56;
-  const bars = [cfg.annual_bonus_yunits, cfg.monthly_yunits];
+  // Ce que coûte une année : l'annuel (10 mois), puis 12 mois au mensuel.
+  const bars = [cfg.price_year, cfg.price_month * 12];
+  const top = Math.max(1, ...bars);
   const btn: CSSProperties = { alignSelf: 'flex-start', height: 50, padding: '0 24px', border: 0, borderRadius: 99, background: '#fff', color: 'var(--ink)', fontSize: 15.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', textDecoration: 'none', cursor: 'pointer', transition: `transform 220ms ${SPRING}` };
   return (
     <section style={{ padding: 'clamp(72px,10vw,130px) clamp(12px,3vw,60px) 0' }}>
@@ -619,15 +623,15 @@ function Annual({ cfg, freeMonths, signedIn, onChoose }: { cfg: CrmPricingConfig
           <div style={{ flex: '1 1 380px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 18 }}>
             <span style={{ alignSelf: 'flex-start', height: 30, padding: '0 13px', borderRadius: 99, background: 'rgba(255,255,255,.08)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.14)', fontSize: 13.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center' }}>{t('yc.pr.a.chip', { p: n(cfg.price_year) })}</span>
             <h2 style={{ ...h2, color: '#fff' }}><Accent a={t('yc.pr.a.h.a', { m: freeMonths })} b={t('yc.pr.a.h.b')} c={t('yc.pr.a.h.c')} /></h2>
-            <p style={{ ...lead, color: 'var(--text-on-night-2)' }}>{t('yc.pr.a.sub', { n: n(cfg.annual_bonus_yunits) })}</p>
+            <p style={{ ...lead, color: 'var(--text-on-night-2)' }}>{t('yc.pr.a.sub', { paid: 12 - freeMonths, n: n(cfg.monthly_yunits) })}</p>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '14px 0', borderTop: '1px solid rgba(255,255,255,.1)', fontSize: 15.5 }}>
-                <span style={{ color: 'var(--text-on-night-2)' }}>{t('yc.pr.a.m', { n: n(cfg.monthly_yunits) })}</span>
-                <b style={{ flex: 'none', fontWeight: 600, whiteSpace: 'nowrap' }}>{t('yc.pr.s.yunits', { n: n(cfg.monthly_yunits) })}</b>
+                <span style={{ color: 'var(--text-on-night-2)' }}>{t('yc.pr.a.m', { p: eur(cfg.price_month) })}</span>
+                <b style={{ flex: 'none', fontWeight: 600, whiteSpace: 'nowrap' }}>{eur(cfg.price_month * 12)}</b>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '14px 0', borderTop: '1px solid rgba(255,255,255,.1)', borderBottom: '1px solid rgba(255,255,255,.1)', fontSize: 15.5 }}>
-                <span>{t('yc.pr.a.y', { b: n(cfg.annual_bonus_yunits) })}</span>
-                <b style={{ flex: 'none', fontWeight: 600, color: 'var(--tangerine-400)', whiteSpace: 'nowrap' }}>{t('yc.pr.s.yunits', { n: n(cfg.annual_bonus_yunits) })}</b>
+                <span>{t('yc.pr.a.y', { paid: 12 - freeMonths })}</span>
+                <b style={{ flex: 'none', fontWeight: 600, color: 'var(--tangerine-400)', whiteSpace: 'nowrap' }}>{eur(cfg.price_year)}</b>
               </div>
             </div>
             {signedIn
@@ -638,8 +642,8 @@ function Annual({ cfg, freeMonths, signedIn, onChoose }: { cfg: CrmPricingConfig
             <div style={{ height: 220, display: 'flex', alignItems: 'flex-end', gap: 'clamp(4px,.8vw,9px)' }}>
               {bars.map((v, i) => (
                 <div key={i} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', opacity: seen ? 1 : 0, transition: `opacity 400ms ${700 + i * 70}ms` }}>{n(v)}</span>
-                  <div style={{ width: '100%', height: seen ? Math.min(180, unit * (v / Math.max(1, cfg.monthly_yunits))) : 0, borderRadius: 10, background: i === 0 ? 'var(--gradient-brand)' : 'rgba(255,255,255,.22)', transition: `height 800ms ${EASE} ${i * 70}ms` }} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#fff', whiteSpace: 'nowrap', opacity: seen ? 1 : 0, transition: `opacity 400ms ${700 + i * 70}ms` }}>{eur(v)}</span>
+                  <div style={{ width: '100%', height: seen ? Math.round(180 * (v / top)) : 0, borderRadius: 10, background: i === 0 ? 'var(--gradient-brand)' : 'rgba(255,255,255,.22)', transition: `height 800ms ${EASE} ${i * 70}ms` }} />
                 </div>
               ))}
             </div>
