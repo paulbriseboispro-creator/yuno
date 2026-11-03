@@ -11,6 +11,7 @@ import { EASE } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
 import type { NightDetail, NightRow } from '@/crm/data/nights';
 import { dayIn, daysUntil, fillOf, pickMessage, type UpKind } from '@/crm/lib/nights';
+import { PosterFit } from '@/crm/components/PosterFit';
 import { TicketSplit } from '@/crm/components/TicketSplit';
 import { SalesCurve } from './SalesCurve';
 import type { DrawerView } from './NightDrawer';
@@ -70,11 +71,14 @@ export function NightHero({ night: h, detail, detailFailed = false, onRetryDetai
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,430px),1fr))', gap: '28px 40px' }}>
         {/* Identité */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 22, minWidth: 0 }}>
-          <div style={{ display: 'flex', gap: 20, alignItems: 'stretch' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {/* Shotgun ne rend que le visuel 16:9 : il garde SES proportions, jamais une tranche d'un cadre vertical. */}
             {h.cover_url ? (
-              <img src={h.cover_url} alt="" style={{ flex: 'none', width: 'clamp(112px,12vw,148px)', minHeight: 196, maxHeight: 220, objectFit: 'cover', borderRadius: 20, boxShadow: 'inset 0 0 0 1px var(--sand-200)', background: 'var(--sand-100)' }} />
+              <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', borderRadius: 20, overflow: 'hidden', background: 'var(--sand-100)', boxShadow: 'inset 0 0 0 1px var(--sand-200)' }}>
+                <PosterFit src={h.cover_url} />
+              </div>
             ) : (
-              <div style={{ flex: 'none', width: 'clamp(112px,12vw,148px)', minHeight: 196, borderRadius: 20, background: 'repeating-linear-gradient(135deg,var(--sand-50) 0 9px,var(--sand-100) 9px 18px)', boxShadow: 'inset 0 0 0 1px var(--sand-200)', display: 'grid', placeItems: 'end start', padding: 12, boxSizing: 'border-box' }}>
+              <div style={{ width: '100%', aspectRatio: '16 / 9', borderRadius: 20, background: 'repeating-linear-gradient(135deg,var(--sand-50) 0 9px,var(--sand-100) 9px 18px)', boxShadow: 'inset 0 0 0 1px var(--sand-200)', display: 'grid', placeItems: 'end start', padding: 12, boxSizing: 'border-box' }}>
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--sand-500)', lineHeight: 1.3 }}>{t('yc.ni.poster')}</span>
               </div>
             )}

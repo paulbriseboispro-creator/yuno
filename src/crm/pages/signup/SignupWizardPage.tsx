@@ -12,6 +12,7 @@ import type { CSSProperties } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { CrmLoadError } from '@/crm/errors/CrmLoadError';
+import { PosterFit } from '@/crm/components/PosterFit';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmCaps, useCrmScope } from '@/crm/scope';
 import { Modal, PillButton, Skel } from '@/crm/ui/kit';
@@ -387,7 +388,7 @@ function Wizard({ page, kind, nights, canPublish, review, onStale }: {
                       onDragOver={(e: React.DragEvent) => e.preventDefault()} onDrop={(e: React.DragEvent) => { e.preventDefault(); void uploadPoster(e.dataTransfer.files?.[0]); }}>
                       <input ref={fileRef} type="file" accept="image/*" onChange={(e) => { void uploadPoster(e.target.files?.[0]); }} style={{ display: 'none' }} />
                       {cfg.poster ? (
-                        <span aria-hidden style={{ flex: 'none', display: 'block', width: 64, height: 80, borderRadius: 10, backgroundColor: 'var(--sand-100)', backgroundImage: `url(${cfg.poster})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                        <span aria-hidden style={{ flex: 'none', position: 'relative', display: 'block', overflow: 'hidden', width: 64, height: 80, borderRadius: 10, backgroundColor: 'var(--sand-100)' }}><PosterFit src={cfg.poster} /></span>
                       ) : (
                         <span style={{ flex: 'none', width: 64, height: 80, borderRadius: 10, background: 'repeating-linear-gradient(135deg,#f1eeed 0 8px,#e9e5e4 8px 16px)', display: 'grid', placeItems: 'center', color: 'var(--sand-500)' }}><SpSvg d={SP_ICON.img} size={20} sw={2} /></span>
                       )}

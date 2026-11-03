@@ -14,6 +14,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useCrmT } from '@/crm/i18n';
+import { PosterFit } from '@/crm/components/PosterFit';
 import {
   COUNTRIES, composePhone, countryByCode, countryFromInternationalInput, countryFromTimezone,
 } from '@/lib/countries';
@@ -320,7 +321,7 @@ export default function FanPage({ cfg, scene: sceneProp = 'form', mode = 'previe
   const showCal = isNoted && (mode !== 'live' || !!cfg.eventStart) && !isComm;
 
   // ── Blocs réutilisés par les mises en page ────────────────────────────────
-  const posterImg = <img src={poster} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />;
+  const posterImg = <PosterFit src={poster} />;
   const ph = (top: string, label = t('yc.sp.fan.poster')) => (
     <div style={{ position: 'absolute', inset: 0, background: phBg }}><span style={{ position: 'absolute', left: 0, right: 0, top, textAlign: 'center', fontFamily: "'Geist Mono'", fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: K.inkF }}>{label}</span></div>
   );
@@ -704,7 +705,7 @@ export default function FanPage({ cfg, scene: sceneProp = 'form', mode = 'previe
             <span style={{ fontSize: 12, color: K.inkM }}>[{badge}]</span>
             {showPoster && (
               <div style={{ position: 'relative', height: 96, border: `1px dashed ${K.a}`, overflow: 'hidden' }}>
-                {poster ? <img src={poster} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: 0.85 }} />
+                {poster ? <PosterFit src={poster} opacity={0.85} />
                   : <span style={{ position: 'absolute', left: 0, right: 0, top: '40%', textAlign: 'center', fontSize: 11.5, color: K.inkF }}>{t('yc.sp.fan.posterFile')}</span>}
               </div>
             )}
