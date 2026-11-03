@@ -592,7 +592,7 @@ export default function FanPage({ cfg, scene: sceneProp = 'form', mode = 'previe
               <span style={{ padding: '5px 10px', border: '2px solid #1C1517', background: K.a, color: K.aFg, fontFamily: "'Geist Mono'", fontSize: 12, fontWeight: 700, textTransform: 'uppercase', transform: 'rotate(3deg)', boxShadow: '3px 3px 0 #1C1517' }}>{badge}</span>
             </div>
             {showPoster && (
-              <div style={{ position: 'relative', height: 168, border: '3px solid #1C1517', borderRadius: 14, boxShadow: '6px 6px 0 #1C1517', overflow: 'hidden', background: '#fff' }}>
+              <div style={{ position: 'relative', aspectRatio: '16 / 9', border: '3px solid #1C1517', borderRadius: 14, boxShadow: '6px 6px 0 #1C1517', overflow: 'hidden', background: '#fff' }}>
                 {poster ? posterImg : hatch('.05', '.12', '44%', t('yc.sp.fan.posterShort'), true)}
               </div>
             )}
@@ -611,7 +611,7 @@ export default function FanPage({ cfg, scene: sceneProp = 'form', mode = 'previe
             <h1 style={h1Style}>{title}</h1>
             {showPoster && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                <div style={{ position: 'relative', height: 150, border: `1px solid ${K.ink}`, overflow: 'hidden' }}>
+                <div style={{ position: 'relative', aspectRatio: '16 / 9', border: `1px solid ${K.ink}`, overflow: 'hidden' }}>
                   {poster ? posterImg : <div style={{ position: 'absolute', inset: 0, background: phBg }} />}
                 </div>
                 <span style={{ fontFamily: F.f + ',sans-serif', fontStyle: 'italic', fontSize: 12.5, color: K.inkF }}>{t('yc.sp.fan.posterCaption')}</span>
@@ -624,7 +624,7 @@ export default function FanPage({ cfg, scene: sceneProp = 'form', mode = 'previe
           <div style={{ flex: 'none', padding: '54px 16px 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>{clubChip(K.a)}{badgePill({ boxShadow: `inset 0 0 0 1px ${K.ink}` })}</div>
             <div style={{ marginBottom: -14, background: '#FFFBF2', color: '#1C1517', borderRadius: '18px 18px 0 0', overflow: 'hidden' }}>
-              {showPoster && <div style={{ position: 'relative', height: 112, overflow: 'hidden' }}>{poster ? posterImg : hatch('.05', '.11', '42%', t('yc.sp.fan.poster'))}</div>}
+              {showPoster && <div style={{ position: 'relative', aspectRatio: '16 / 9', overflow: 'hidden' }}>{poster ? posterImg : hatch('.05', '.11', '42%', t('yc.sp.fan.poster'))}</div>}
               <div style={{ padding: '16px 18px 18px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <span style={{ fontFamily: "'Geist Mono'", fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'rgba(28,21,23,.6)' }}>{kicker}</span>
                 <h1 style={h1Style}>{title}</h1>
@@ -641,7 +641,7 @@ export default function FanPage({ cfg, scene: sceneProp = 'form', mode = 'previe
             <div style={{ position: 'relative', padding: '16px 20px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
               <span style={{ maxWidth: '58%', fontFamily: "'Geist Mono'", fontSize: 11.5, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: K.inkM }}>{kicker}</span>
               {showPoster && (
-                <div style={{ position: 'absolute', right: 18, top: 12, width: 100, height: 128, border: `3px solid ${K.ink}`, transform: 'rotate(5deg)', overflow: 'hidden', background: K.bg, zIndex: 1 }}>
+                <div style={{ position: 'absolute', right: 18, top: 12, width: 124, aspectRatio: '16 / 9', border: `3px solid ${K.ink}`, transform: 'rotate(5deg)', overflow: 'hidden', background: K.bg, zIndex: 1 }}>
                   {poster ? posterImg : <div style={{ position: 'absolute', inset: 0, background: phBg }} />}
                 </div>
               )}
@@ -654,7 +654,7 @@ export default function FanPage({ cfg, scene: sceneProp = 'form', mode = 'previe
           <div style={{ flex: 'none', padding: '54px 18px 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>{clubChip(K.a)}{badgePill({ background: `rgba(${K.inkRgb},.1)`, boxShadow: `inset 0 0 0 1px ${K.line}` })}</div>
             {showPoster && (
-              <div style={{ position: 'relative', height: 176, borderRadius: 26, overflow: 'hidden', boxShadow: `inset 0 0 0 1px ${K.line},0 18px 40px -16px rgba(0,0,0,.5)` }}>{poster ? posterImg : ph('44%')}</div>
+              <div style={{ position: 'relative', aspectRatio: '16 / 9', borderRadius: 26, overflow: 'hidden', boxShadow: `inset 0 0 0 1px ${K.line},0 18px 40px -16px rgba(0,0,0,.5)` }}>{poster ? posterImg : ph('44%')}</div>
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '0 4px' }}>{monoKicker(K.inkM)}<h1 style={h1Style}>{title}</h1></div>
           </div>
@@ -666,7 +666,7 @@ export default function FanPage({ cfg, scene: sceneProp = 'form', mode = 'previe
               <span style={{ width: 26, height: 26, borderRadius: 99, background: K.a, color: K.aFg, display: 'grid', placeItems: 'center', fontSize: 10.5, fontWeight: 700 }}>{ini}</span>
               <b style={{ fontSize: 14, fontWeight: 600 }}>{club}</b>
             </span>
-            {showPoster && <div style={{ position: 'relative', width: 164, height: 206, borderRadius: 26, overflow: 'hidden', boxShadow: '0 22px 40px -20px rgba(28,21,23,.45)' }}>{poster ? posterImg : ph('44%', t('yc.sp.fan.posterShort'))}</div>}
+            {showPoster && <div style={{ position: 'relative', width: 200, aspectRatio: '16 / 9', borderRadius: 26, overflow: 'hidden', boxShadow: '0 22px 40px -20px rgba(28,21,23,.45)' }}>{poster ? posterImg : ph('44%', t('yc.sp.fan.posterShort'))}</div>}
             <span style={{ height: 24, padding: '0 11px', borderRadius: 99, boxShadow: `inset 0 0 0 1px ${K.line}`, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: K.inkM }}>
               <span style={{ width: 6, height: 6, borderRadius: 99, background: dot, animation: dotAnim }} />{badge}
             </span>
@@ -681,7 +681,7 @@ export default function FanPage({ cfg, scene: sceneProp = 'form', mode = 'previe
             <span style={{ position: 'absolute', right: 16, top: 52, zIndex: 3, width: 76, height: 76, border: '3px solid #1C1517', borderRadius: 99, background: K.a, color: K.aFg, display: 'grid', placeItems: 'center', textAlign: 'center', padding: 6, boxSizing: 'border-box', transform: 'rotate(12deg)', fontFamily: F.f + ',sans-serif', fontSize: 13, lineHeight: 1, textTransform: 'uppercase', boxShadow: '0 4px 0 #1C1517' }}>{badge}</span>
             {showPoster && (
               <div style={{ alignSelf: 'flex-start', marginLeft: 8, width: 196, padding: '8px 8px 24px', background: '#fff', boxShadow: '6px 6px 0 #1C1517', border: '2.5px solid #1C1517', transform: 'rotate(-3deg)' }}>
-                <div style={{ position: 'relative', height: 178, border: '2px solid #1C1517', overflow: 'hidden' }}>{poster ? posterImg : hatch('.06', '.14', '44%', t('yc.sp.fan.posterShort'), true)}</div>
+                <div style={{ position: 'relative', aspectRatio: '16 / 9', border: '2px solid #1C1517', overflow: 'hidden' }}>{poster ? posterImg : hatch('.06', '.14', '44%', t('yc.sp.fan.posterShort'), true)}</div>
               </div>
             )}
             <h1 style={{ ...h1Style, margin: '6px 0 0', lineHeight: 1.08 }}>
@@ -704,7 +704,7 @@ export default function FanPage({ cfg, scene: sceneProp = 'form', mode = 'previe
             <span style={{ fontSize: 12.5, color: K.a }}>// {kicker}</span>
             <span style={{ fontSize: 12, color: K.inkM }}>[{badge}]</span>
             {showPoster && (
-              <div style={{ position: 'relative', height: 96, border: `1px dashed ${K.a}`, overflow: 'hidden' }}>
+              <div style={{ position: 'relative', aspectRatio: '16 / 9', border: `1px dashed ${K.a}`, overflow: 'hidden' }}>
                 {poster ? <PosterFit src={poster} opacity={0.85} />
                   : <span style={{ position: 'absolute', left: 0, right: 0, top: '40%', textAlign: 'center', fontSize: 11.5, color: K.inkF }}>{t('yc.sp.fan.posterFile')}</span>}
               </div>

@@ -54,7 +54,7 @@ export default function OfferCardView(p: OfferCardViewProps) {
 
   const coverEl = p.coverUrl ? (
     <img src={p.coverUrl} alt="" style={{
-      display: 'block', width: '100%', height: 'auto',
+      display: 'block', width: '100%', height: 'auto', aspectRatio: '16 / 9', objectFit: 'cover',
       borderRadius: (layout === 'minimal' || layout === 'split') ? 12 : undefined,
     }} />
   ) : p.coverFallback ?? null;

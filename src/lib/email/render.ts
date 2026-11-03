@@ -371,10 +371,29 @@ function renderHeader(b: HeaderBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pa
   return td(logo + name, `padding:${pad.py}px ${pad.px}px;text-align:center;background:${headerBg};`);
 }
 
+/**
+ * L'affiche d'une soirée est toujours un 16:9 dans un e-mail : Shotgun ne rend
+ * que ce format, et un visuel vertical posé tel quel étire la carte. L'image est
+ * recadrée au centre (`object-fit: cover`) dans un cadre 16:9 ; sur mobile
+ * (`.yn-cover`) la hauteur redevient automatique et `aspect-ratio` tient le
+ * cadre. Outlook (moteur Word) ignore `object-fit` : il reçoit l'image à sa
+ * largeur, sans hauteur imposée, plutôt qu'un visuel écrasé.
+ */
+export function coverFrameImg(url: string, alt: string, width: number, radiusCss: string): string {
+  const h = Math.round((width * 9) / 16);
+  const src = escapeHtml(url);
+  const a = escapeHtml(alt);
+  const plain = `<img src="${src}" alt="${a}" width="${width}" style="width:100%;height:auto;display:block;border:0;${radiusCss}" class="yn-img" />`;
+  const framed = `<img src="${src}" alt="${a}" width="${width}" height="${h}" style="width:100%;height:${h}px;aspect-ratio:16/9;object-fit:cover;display:block;border:0;${radiusCss}" class="yn-img yn-cover" />`;
+  return `<!--[if mso]>${plain}<![endif]--><!--[if !mso]><!-->${framed}<!--<![endif]-->`;
+}
+
 function renderImage(b: ImageBlock, theme: EmailTheme, ctx: RenderCtx, pad: Pad, bg: string): string {
   if (!b.url) return '';
   const radius = typeof b.radius === 'number' && b.radius > 0 ? `border-radius:${Math.min(40, b.radius)}px;` : '';
-  const img = `<img src="${escapeHtml(b.url)}" alt="${escapeHtml(b.label)}" width="600" style="width:100%;height:auto;display:block;border:0;${radius}" class="yn-img" />`;
+  const img = b.ratio === '16:9'
+    ? coverFrameImg(b.url, b.label, 600, radius)
+    : `<img src="${escapeHtml(b.url)}" alt="${escapeHtml(b.label)}" width="600" style="width:100%;height:auto;display:block;border:0;${radius}" class="yn-img" />`;
   const linked = b.linkUrl
     ? `<a href="${escapeHtml(trackUrl(b.linkUrl, ctx))}" target="_blank" rel="noreferrer">${img}</a>`
     : img;
@@ -852,7 +871,7 @@ export function offerCard(o: OfferCardOpts): string {
     ? 'border-radius:12px;'
     : coverAtTop ? 'border-radius:14px 14px 0 0;' : '';
   const coverImg = o.coverUrl
-    ? `<img src="${escapeHtml(o.coverUrl)}" alt="${escapeHtml(titleText || o.coverAlt || '')}" width="${layout === 'split' ? 232 : 560}" style="width:100%;height:auto;display:block;border:0;${coverRadius}" class="yn-img" />`
+    ? coverFrameImg(o.coverUrl, titleText || o.coverAlt || '', layout === 'split' ? 232 : 560, coverRadius)
     : '';
   // Côte à côte SANS affiche : il n'y a rien à poser à gauche, la carte
   // retombe sur une colonne plutôt que d'ouvrir une demi-largeur vide.
@@ -1264,6 +1283,7 @@ export const RESPONSIVE_UTILITY_CSS = `.yn-col{display:block!important;width:100
     .yn-stack{display:block!important;width:100%!important;}
     .yn-hide-sm{display:none!important;max-height:0!important;overflow:hidden!important;}
     .yn-full-sm{width:100%!important;max-width:100%!important;height:auto!important;}
+    .yn-cover{height:auto!important;}
     .yn-pad-sm{padding-left:16px!important;padding-right:16px!important;}
     .yn-center-sm{text-align:center!important;}`;
 

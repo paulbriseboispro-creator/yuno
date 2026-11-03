@@ -7,7 +7,7 @@ export default function ImageView({ block, theme }: { block: ImageBlock; theme: 
   if (block.url) {
     return (
       <div style={{ padding: `${pad.py}px ${pad.px}px` }}>
-        <img src={block.url} alt={block.label} style={{ width: '100%', height: 'auto', display: 'block', borderRadius: radius }} />
+        <img src={block.url} alt={block.label} style={{ width: '100%', height: 'auto', display: 'block', borderRadius: radius, ...(block.ratio === '16:9' ? { aspectRatio: '16 / 9', objectFit: 'cover' as const } : {}) }} />
       </div>
     );
   }

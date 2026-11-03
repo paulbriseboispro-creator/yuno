@@ -58,6 +58,8 @@ export interface ImageBlock extends BlockBase {
   linkUrl?: string;
   /** Coins arrondis (px). Outlook l'ignore proprement. Défaut : 0. */
   radius?: number;
+  /** '16:9' : l'image est recadrée dans un cadre 16:9 (affiche de soirée). Absent : proportions d'origine. */
+  ratio?: '16:9';
 }
 
 export interface TextBlock extends BlockBase {

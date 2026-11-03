@@ -146,7 +146,7 @@ export function buildCrmTemplate(kind: CrmTemplateKind, ctx: BuildCtx): Template
   const body = (text: string, patch: Loose = {}) => b('text', { body: text, size: 16, px: 32, py: 12, ...patch });
   const gap = (size: 'sm' | 'md' | 'lg') => b('spacer', { size });
   const poster = (n: TemplateNight | null | undefined, label: string) =>
-    (n?.coverUrl ? [b('image', { url: n.coverUrl, label: n.title || label, h: 260 })] : []);
+    (n?.coverUrl ? [b('image', { url: n.coverUrl, label: n.title || label, h: 260, ratio: '16:9' })] : []);
   const eventCard = (n: TemplateNight | null | undefined, patch: Loose = {}) => b('event', {
     eventId: n?.id,
     title: n?.title || k('eventTitle'),
