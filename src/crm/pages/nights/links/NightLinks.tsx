@@ -23,30 +23,14 @@ import { CRM_ROUTES } from '@/crm/shell/nav';
 import { CrmRpcError } from '@/crm/lib/rpc';
 import { useLinkMutations, useNightLinks, type NightLinksData } from '@/crm/data/links';
 import {
-  LINK_KINDS, QUICK_KINDS, bestLink, goDisplay, goUrl, groupSources, kindKey, linkConversion, linkState, nextIndex, reusableLink,
+  LINK_KINDS, QUICK_KINDS, bestLink, splitLinks, goDisplay, goUrl, groupSources, kindKey, linkConversion, linkState, nextIndex, reusableLink,
   type LinkKind, type NightLink,
 } from '@/crm/lib/links';
 import { ShotgunSoonCard } from '@/crm/components/ShotgunSoon';
 import { PlatformBadge, QrModal, SOURCE_COLOR, Spark } from './linksUi';
+import { copyText } from '@/crm/lib/clipboard';
+import { ReadyLinksCard } from './ReadyLinks';
 import { NewLinkModal } from './NewLinkModal';
-
-async function copyText(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    try {
-      const ta = document.createElement('textarea');
-      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-      document.body.appendChild(ta); ta.select();
-      const ok = document.execCommand('copy');
-      ta.remove();
-      return ok;
-    } catch {
-      return false;
-    }
-  }
-}
 
 export function NightLinks({ eventId }: { eventId: string }) {
   const q = useNightLinks(eventId);
@@ -91,15 +75,18 @@ function Body({ d }: { d: NightLinksData }) {
   const freshTimer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => () => clearTimeout(freshTimer.current), []);
 
-  const active = d.links.filter((l) => !l.archived);
-  const archived = d.links.filter((l) => l.archived);
+  // Les liens prêts (posés par Yuno) ont leur carte ; la liste montre ceux du pro.
+  const own = useMemo(() => splitLinks(d.links).own, [d.links]);
+  const active = own.filter((l) => !l.archived);
+  const archived = own.filter((l) => l.archived);
   const list = useMemo(() => {
-    const base = showArchived ? d.links : active;
+    const base = showArchived ? own : active;
     return sort === 'best'
       ? [...base].sort((a, b) => b.tickets - a.tickets || b.visitors - a.visitors)
       : base;
-  }, [d.links, active, showArchived, sort]);
-  const best = bestLink(active);
+  }, [own, active, showArchived, sort]);
+  const best = bestLink(d.links.filter((l) => !l.archived));
+  const hasReady = d.event.upcoming && d.links.some((l) => !!l.auto);
   const groups = groupSources(d.sources, d.links);
   const totalSold = d.totals.tickets;
 
@@ -124,7 +111,7 @@ function Body({ d }: { d: NightLinksData }) {
     }
   };
 
-  const defaultName = (k: LinkKind) => `${kindLabel(k)} ${nextIndex(d.links, k)}`;
+  const defaultName = (k: LinkKind) => `${kindLabel(k)} ${nextIndex(own, k)}`;
 
   /** Une publication (story, groupe…) se nomme d'abord ; un lien en bio est unique : créé ou recopié d'un geste. */
   const create = async (k: LinkKind, named?: { name: string; imageUrl: string | null }): Promise<boolean> => {
@@ -171,13 +158,16 @@ function Body({ d }: { d: NightLinksData }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* ── Prêts sans rien faire (posés par Yuno) ────────────────────── */}
+      <ReadyLinksCard d={d} />
+
       {/* ── Créer ──────────────────────────────────────────────────────── */}
       {d.event.upcoming && d.can_write ? (
         <section style={{ position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: 18, padding: 24, borderRadius: 26, background: 'radial-gradient(80% 90% at 100% 0%,rgba(214,41,118,.28),transparent 60%),radial-gradient(70% 80% at 0% 100%,rgba(255,107,53,.22),transparent 60%),#141012', color: '#fff', animation: `yc-row 600ms ${EASE} 80ms both` }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,.6)' }}>{t('yc.lk.k')}</span>
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(22px,3vw,28px)', lineHeight: 1.08, letterSpacing: '-.03em', textWrap: 'balance' }}>{t('yc.lk.h')}</span>
-            <span style={{ fontSize: 14, lineHeight: 1.5, color: 'rgba(255,255,255,.72)', textWrap: 'pretty', maxWidth: 520 }}>{t('yc.lk.s')}</span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, letterSpacing: '.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,.6)' }}>{t(hasReady ? 'yc.lk.kSpecial' : 'yc.lk.k')}</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(22px,3vw,28px)', lineHeight: 1.08, letterSpacing: '-.03em', textWrap: 'balance' }}>{t(hasReady ? 'yc.lk.hSpecial' : 'yc.lk.h')}</span>
+            <span style={{ fontSize: 14, lineHeight: 1.5, color: 'rgba(255,255,255,.72)', textWrap: 'pretty', maxWidth: 520 }}>{t(hasReady ? 'yc.lk.sSpecial' : 'yc.lk.s')}</span>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             <Hv
@@ -220,7 +210,7 @@ function Body({ d }: { d: NightLinksData }) {
       )}
 
       {/* ── Ce que vos liens ont donné ─────────────────────────────────── */}
-      {d.links.length > 0 && (
+      {(own.length > 0 || d.totals.clicks > 0 || d.totals.link_tickets > 0) && (
         <section style={card(160)}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <h3 style={h3}>{t('yc.lk.res.t')}</h3>
@@ -260,7 +250,9 @@ function Body({ d }: { d: NightLinksData }) {
             <Segmented<'recent' | 'best'> size="sm" value={sort} onChange={setSort} ariaLabel={t('yc.lk.sort')} options={[{ value: 'recent', label: t('yc.lk.sort.recent') }, { value: 'best', label: t('yc.lk.sort.best') }]} />
           )}
         </div>
-        {d.links.length === 0 ? (
+        {own.length === 0 && hasReady ? (
+          <span style={sub}>{t('yc.lk.list.emptyReady')}</span>
+        ) : own.length === 0 ? (
           <EmptyLinks />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

@@ -706,6 +706,13 @@ export interface RenderCtx {
   hideBranding?: boolean;
   baseUrl: string;
   campaignId?: string;
+  /**
+   * Source de la campagne vers une billetterie connectée (`yuno-m-<campagne>`,
+   * posée à l'envoi). Un lien collé à la main vers une page Shotgun (une guest
+   * list `?ids=…`) la reçoit aussi : la vente revient à CET e-mail. Absent =
+   * aperçu, le lien reste tel quel.
+   */
+  ticketingSource?: string | null;
   live?: LiveData;
   /** Horloge injectable — countdown déterministe en test. */
   now?: Date;

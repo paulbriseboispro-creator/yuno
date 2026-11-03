@@ -414,6 +414,11 @@ async function makeStudioHtmlBuilder(
   const hideBranding = sender.isPlatform
     ? true
     : sender.venueId ? await shouldHideYunoBranding(admin, sender.venueId) : false;
+  // Soirée Shotgun : la vente revient avec la source de CETTE campagne (blocs
+  // Yuno ET liens Shotgun collés à la main, une guest list `?ids=…` comprise).
+  const ticketingSource = opts.trackedLinks === false
+    ? null
+    : `yuno-m-${String(campaign.id ?? '').replace(/-/g, '').slice(0, 8).toLowerCase()}`;
   // Les boutons des blocs Yuno partent sur le canal « newsletter » des liens
   // suivis : clics et inscriptions remontent dans les stats de la soirée. Un
   // envoi de TEST reste sur l'URL nue — le pro ne doit pas s'auto-compter.
@@ -421,8 +426,7 @@ async function makeStudioHtmlBuilder(
     admin, blocks, liveEventId, PUBLIC_URL,
     opts.trackedLinks === false ? null : 'newsletter',
     { venueId: sender.venueId, organizerUserId: sender.organizerUserId },
-    // Soirée Shotgun : la vente revient avec la source de CETTE campagne.
-    opts.trackedLinks === false ? null : `yuno-m-${String(campaign.id ?? '').replace(/-/g, '').slice(0, 8).toLowerCase()}`,
+    ticketingSource,
     // Langue de l'e-mail : prix, dates et formules des blocs Yuno la suivent.
     (campaign.language as string | null) || null,
   );
@@ -458,6 +462,7 @@ async function makeStudioHtmlBuilder(
     hideBranding,
     baseUrl: PUBLIC_URL,
     campaignId: campaign.id as string,
+    ticketingSource,
     live,
     ignoreConds: !!opts.ignoreConds,
   });

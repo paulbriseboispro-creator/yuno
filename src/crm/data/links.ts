@@ -9,12 +9,28 @@ import { rpc } from '@/crm/lib/rpc';
 import { useCrmScope } from '@/crm/scope';
 import type { LinkPlacement, LinkPlatform, NightLink, SourceRow } from '@/crm/lib/links';
 
+/** Une guest list de la soirée : tarif Shotgun à 0 € vendu en ligne. */
+export interface NightGuestListDeal {
+  id: string;
+  name: string;
+  /** false = tarif privé (le cas d'une guest list nominative). */
+  public: boolean;
+  quantity: number | null;
+  taken: number;
+  out: boolean;
+  /** Page Shotgun ouverte sur ce tarif, pour un e-mail (suivi posé à l'envoi). */
+  email_url: string | null;
+  /** Lien de partage /go/ posé par Yuno (null tant qu'il n'existe pas). */
+  link_id: string | null;
+}
+
 export interface NightLinksData {
   error?: 'not_found';
   event: { id: string; title: string; start_at: string; upcoming: boolean; url: string; tz: string };
   can_write: boolean;
   sees_money: boolean;
   links: NightLink[];
+  guestlists?: NightGuestListDeal[];
   sources: SourceRow[];
   totals: { tickets: number; with_source: number; link_tickets: number; link_revenue: number | null; clicks: number; visitors: number };
   series: { d: string; clicks: number; tickets: number }[];
