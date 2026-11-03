@@ -5,6 +5,7 @@ import { MaintenanceToggle } from '@/components/admin/MaintenanceToggle';
 import { PaymentsToggle } from '@/components/admin/PaymentsToggle';
 import { MetaConnectionCard } from '@/components/integrations/MetaConnectionCard';
 import { GmailRecoveryCard } from '@/components/admin/GmailRecoveryCard';
+import { GooglePostmasterCard } from '@/components/admin/GooglePostmasterCard';
 import { EmailSendersCard } from '@/components/admin/EmailSendersCard';
 import {
   Activity, Bell, Bot, Clock, CreditCard, Database, Mail, RefreshCw, Shield, Smartphone, Package, TriangleAlert, FlaskConical,
@@ -68,6 +69,7 @@ export default function AdminSystem() {
           <PaymentsToggle />
           {/* Pixel Meta de Yuno lui-même (portée plateforme : les deux ids NULL) — acquisition Yuno, même chaîne que les pros. */}
           <MetaConnectionCard scope={{}} live returnTo="/admin/system" />
+          <GooglePostmasterCard />
           <GmailRecoveryCard />
           <EmailSendersCard />
         </div>

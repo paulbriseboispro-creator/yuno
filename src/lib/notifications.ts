@@ -212,6 +212,7 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   admin_email_cold_halted:      { icon: AlertTriangle, category: 'system', label: 'notif.type.admin_email_cold_halted' },
   admin_email_sender_probation: { icon: ShieldAlert,   category: 'system', label: 'notif.type.admin_email_sender_probation' },
   admin_email_gmail_drop:       { icon: Siren,         category: 'system', label: 'notif.type.admin_email_gmail_drop' },
+  admin_email_google_spam:      { icon: Siren,         category: 'system', label: 'notif.type.admin_email_google_spam' },
   admin_ticketing_token_invalid: { icon: AlertTriangle, category: 'system', label: 'notif.type.admin_ticketing_token_invalid' },
   admin_ticketing_sync_failing:  { icon: AlertTriangle, category: 'system', label: 'notif.type.admin_ticketing_sync_failing' },
   // Yuno CRM : le titulaire demande la suppression de son espace (à confirmer
@@ -657,6 +658,7 @@ function adminNotifLink(n: AppNotif): string | null {
     case 'admin_email_cold_halted':
     case 'admin_email_sender_probation':
     case 'admin_email_gmail_drop':
+    case 'admin_email_google_spam':
       return '/admin/system';
 
     // Quota email : atterrir sur la fiche du compte concerné.

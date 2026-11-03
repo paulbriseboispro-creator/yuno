@@ -19,6 +19,7 @@ import { sweepSendingSmsCampaigns } from "../_shared/sms-campaign-sweeper.ts";
 import { drainMetaOutbox, sweepMetaTokenExpiry } from "../_shared/meta-capi.ts";
 import { syncMetaInsights, syncMetaAudiences, processMetaLeads, ensureAppWebhookSubscription } from "../_shared/meta-ads.ts";
 import { dispatchProSignupAlerts } from "../_shared/pro-signup-alerts.ts";
+import { syncGmailPostmaster } from "../_shared/gmail-postmaster.ts";
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type' };
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -39,8 +40,15 @@ Deno.serve(async (req) => {
   // Tâche ciblée : une alerte d'inscription pro vient d'être posée (déclencheur
   // de la migration 20261103410000). On répond tout de suite et on travaille
   // en arrière-plan : la fiche part au Cockpit de Paul, puis la recherche web.
-  const reqBody = await req.clone().json().catch(() => null) as { task?: unknown; wait?: unknown } | null;
+  const reqBody = await req.clone().json().catch(() => null) as { task?: unknown; wait?: unknown; days?: unknown } | null;
   const task = typeof reqBody?.task === 'string' ? reqBody.task : null;
+  // Tâche quotidienne (cron gmail-postmaster-daily) : les chiffres Google Postmaster
+  // de nos domaines, rangés en base, avec alerte au super admin.
+  if (task === 'gmail_postmaster') {
+    const days = typeof reqBody?.days === 'number' ? reqBody.days : 10;
+    const result = await syncGmailPostmaster(createClient(SUPABASE_URL, SERVICE_KEY), { days });
+    return new Response(JSON.stringify({ ok: true, task, result }), { headers: { 'Content-Type': 'application/json' } });
+  }
   if (task === 'pro_signup_alerts' && reqBody?.wait === true) {
     // Diagnostic (cron ou super admin seulement) : le passage, et son résultat.
     const result = await dispatchProSignupAlerts(createClient(SUPABASE_URL, SERVICE_KEY), { budgetMs: 140_000 });
