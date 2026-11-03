@@ -11,15 +11,21 @@ const dict: CrmDict = {
     'Par défaut, vos e-mails partent aux personnes qui ont donné leur accord. La loi vous permet aussi d’écrire aux personnes qui ont pris une place à vos soirées, pour leur annoncer vos prochaines soirées, tant qu’elles ne s’y opposent pas.',
     'Por defecto, sus e-mails van a las personas que dieron su consentimiento. La ley también le permite escribir a quienes consiguieron una entrada para sus fiestas, para anunciarles sus próximas fiestas, mientras no se opongan.',
   ],
+  // Carte fermée (03/11) : dit qu'écrire aux clients en plus demande l'autorisation du titulaire.
+  'yc.cb.s.off': [
+    'Today, your emails go to the {consent} people who gave their agreement. To also write to the {extra} customers who got a place at your nights, we need your authorization: you sign a declaration in your own name. You then write to them only to announce your next nights, as long as they do not object.',
+    'Aujourd’hui, vos e-mails partent aux {consent} personnes qui ont donné leur accord. Pour écrire aussi aux {extra} clients qui ont pris une place à vos soirées, il faut votre autorisation : vous signez une déclaration en votre nom. Vous ne leur écrivez alors que pour annoncer vos prochaines soirées, tant qu’ils ne s’y opposent pas.',
+    'Hoy, sus e-mails van a las {consent} personas que dieron su consentimiento. Para escribir también a los {extra} clientes que consiguieron una entrada para sus fiestas, hace falta su autorización: usted firma una declaración en su nombre. Entonces solo les escribe para anunciar sus próximas fiestas, mientras no se opongan.',
+  ],
   'yc.cb.n.consent': ['with their agreement', 'avec leur accord', 'con su consentimiento'],
   'yc.cb.n.extra': ['more customers (places taken in the last {m} months)', 'clients en plus (places prises ces {m} derniers mois)', 'clientes más (entradas de los últimos {m} meses)'],
   // UN chiffre (03/11) : la Console ne distingue jamais les personnes selon leur accord.
   'yc.cb.n.total': ['people you can reach by email', 'personnes joignables par e-mail', 'personas a las que puede escribir por e-mail'],
   'yc.cb.n.now': ['people you can reach by email today', 'personnes joignables par e-mail aujourd’hui', 'personas a las que puede escribir hoy por e-mail'],
   'yc.cb.n.after': [
-    'up to {n} people once you have signed (places taken in the last {m} months)',
-    'jusqu’à {n} personnes une fois signé (places prises ces {m} derniers mois)',
-    'hasta {n} personas una vez firmado (entradas de los últimos {m} meses)',
+    'more customers from your nights once you authorize it (places taken in the last {m} months)',
+    'clients de vos soirées en plus, une fois votre autorisation donnée (places prises ces {m} derniers mois)',
+    'clientes más de sus fiestas una vez dé su autorización (entradas de los últimos {m} meses)',
   ],
   // Chiffres Clients / Accueil / fiche (03/11) : ce que la signature ajoute, sans promettre ce qui ne part pas.
   'yc.cb.pot.n': [
@@ -41,6 +47,7 @@ const dict: CrmDict = {
   'yc.cb.x.suppressed': ['address bounces or complained', 'adresse en échec ou plainte', 'dirección que falla o queja'],
   'yc.cb.x.reported': ['objection you reported', 'opposition que vous avez signalée', 'oposición que usted señaló'],
   'yc.cb.open': ['Also write to my customers', 'Écrire aussi à mes clients', 'Escribir también a mis clientes'],
+  'yc.cb.open.n': ['Allow emails to {n} more customers', 'Autoriser l’envoi à {n} clients de plus', 'Autorizar el envío a {n} clientes más'],
   'yc.cb.ownerOnly': [
     'Only the account holder can open “Your customers”: they sign a declaration in their own name.',
     'Seul le titulaire du compte peut ouvrir « Vos clients » : il signe une déclaration en son nom.',

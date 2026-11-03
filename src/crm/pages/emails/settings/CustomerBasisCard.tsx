@@ -28,7 +28,7 @@ const field: CSSProperties = { height: 44, boxSizing: 'border-box', padding: '0 
 const ghost: CSSProperties = { height: 40, padding: '0 16px', border: 0, borderRadius: 99, background: 'var(--sand-100)', color: 'var(--ink)', fontSize: 14, fontWeight: 600, cursor: 'pointer' };
 
 export function CustomerBasisCard({ contact: rawContact }: { contact: string }) {
-  const { t } = useCrmT();
+  const { t, n } = useCrmT();
   const contact = rawContact || t('yc.cb.contactPh');
   const q = useCustomerBasis();
   const [open, setOpen] = useState(false);
@@ -39,7 +39,7 @@ export function CustomerBasisCard({ contact: rawContact }: { contact: string }) 
     <section style={card} aria-label={t('yc.cb.t')}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: 21, fontWeight: 700, letterSpacing: '-.02em' }}>{t('yc.cb.t')}</h2>
-        <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.5, color: 'var(--sand-600)', textWrap: 'pretty' }}>{t('yc.cb.s')}</p>
+        <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.5, color: 'var(--sand-600)', textWrap: 'pretty' }}>{b.status === 'off' && b.counts.extra > 0 ? t('yc.cb.s.off', { consent: n(b.counts.consent), extra: n(b.counts.extra) }) : t('yc.cb.s')}</p>
       </div>
       {b.status === 'active' ? <ActiveBody b={b} contact={contact} onResign={() => setOpen(true)} />
         : b.status === 'suspended' ? <SuspendedBody b={b} onResign={() => setOpen(true)} />
@@ -70,7 +70,7 @@ function Counts({ b }: { b: CustomerBasis }) {
       ) : (
         <>
           <Line big={n(b.counts.consent)} text={t('yc.cb.n.now')} strong />
-          {b.counts.extra > 0 && <Line big="" text={t('yc.cb.n.after', { n: n(b.counts.consent + b.counts.extra), m: b.eligibility_months })} />}
+          {b.counts.extra > 0 && <Line big={`+ ${n(b.counts.extra)}`} text={t('yc.cb.n.after', { m: b.eligibility_months })} strong />}
         </>
       )}
       {never.map(([v, k]) => <Line key={k} big={`− ${n(v)}`} text={t('yc.cb.n.neverX', { x: t(k) })} muted />)}
@@ -100,7 +100,7 @@ function OffBody({ b, onOpen }: { b: CustomerBasis; onOpen: () => void }) {
         </Note>
       ) : !b.is_owner ? <Note>{t('yc.cb.ownerOnly')}</Note> : (
         <div style={{ display: 'flex' }}>
-          <CtaButton onClick={onOpen} disabled={blocked} icon="arrowRight">{t('yc.cb.open')}</CtaButton>
+          <CtaButton onClick={onOpen} disabled={blocked} icon="arrowRight">{b.counts.extra > 0 ? t('yc.cb.open.n', { n: n(b.counts.extra) }) : t('yc.cb.open')}</CtaButton>
         </div>
       )}
     </>
@@ -248,7 +248,7 @@ export function CustomerBasisModal({ basis, contact, onClose }: { basis: Custome
   const intro = t('yc.cb.m.s', { consent: n(basis.counts.consent) });
   const docText = [
     t('yc.cb.m.t'), intro,
-    `${n(basis.counts.consent)} ${t('yc.cb.n.now')} / ${t('yc.cb.n.after', { n: n(basis.counts.consent + basis.counts.extra), m: basis.eligibility_months })}`,
+    `${n(basis.counts.consent)} ${t('yc.cb.n.now')} / + ${n(basis.counts.extra)} ${t('yc.cb.n.after', { m: basis.eligibility_months })}`,
     t('yc.cb.m.engage'), ...CUSTOMER_CHECKS.map((k) => `☑ ${t(`yc.cb.m.c.${k}`)}`),
     `${t('yc.cb.m.name')} ${name.trim()} — ${t('yc.cb.m.role')} ${role.trim()}`, t('yc.cb.m.foot'), `${LEGAL_URL} · ${basis.version}`,
   ].join('\n');
