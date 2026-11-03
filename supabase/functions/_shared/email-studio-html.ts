@@ -164,6 +164,8 @@ export interface StudioRenderCtx {
   hideBranding?: boolean;
   baseUrl: string;
   campaignId?: string;
+  /** Source de la campagne vers une billetterie connectée (miroir de render.ts). */
+  ticketingSource?: string | null;
   live?: StudioLiveData;
   now?: Date;
   /** true = envoi de test : les blocs conditionnels sont tous rendus. */
@@ -542,10 +544,36 @@ function plainToParagraphs(body: string, look: TextLook, markup: InlineMarkupOpt
     .join('');
 }
 
+/**
+ * Pages d'une billetterie connectée (Shotgun) : un lien collé à la main vers
+ * l'une d'elles (bouton, image, texte) reçoit la source de la campagne, comme
+ * le bouton d'un bloc Yuno. Sans elle, l'inscription d'une guest list envoyée
+ * par e-mail ne revenait à personne. Le clic, lui, reste nominatif (suivi des
+ * e-mails) : c'est lui que « A cliqué sans acheter » relance.
+ */
+export function isTicketingHost(host: string): boolean {
+  const h = host.toLowerCase();
+  return h === 'shotgun.live' || h.endsWith('.shotgun.live');
+}
+
+function withTicketingSource(url: string, source: string | null | undefined): string {
+  if (!source) return url;
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return url;
+  }
+  if (u.protocol !== 'https:' || !isTicketingHost(u.hostname)) return url;
+  if (!u.searchParams.has('utm_source')) u.searchParams.set('utm_source', source);
+  if (!u.searchParams.has('utm_medium')) u.searchParams.set('utm_medium', 'email');
+  return u.toString();
+}
+
 function trackUrl(url: string, ctx: StudioRenderCtx): string {
   if (!url) return ctx.baseUrl;
   if (!ctx.campaignId) return url;
-  if (!url.startsWith(ctx.baseUrl) && !url.startsWith('/')) return url;
+  if (!url.startsWith(ctx.baseUrl) && !url.startsWith('/')) return withTicketingSource(url, ctx.ticketingSource);
   const abs = url.startsWith('/') ? `${ctx.baseUrl}${url}` : url;
   return `${abs}${abs.includes('?') ? '&' : '?'}yc=${encodeURIComponent(ctx.campaignId)}`;
 }
