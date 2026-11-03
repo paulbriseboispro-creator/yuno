@@ -14586,6 +14586,7 @@ const en: Record<string, string> = {
   "notif.type.admin_email_campaign_refocused": "Campaign refocused on engaged contacts",
   "notif.type.admin_email_daily": "Daily email check",
   "notif.type.admin_email_google_spam": "Google: Gmail spam reports",
+  "notif.type.admin_email_test_watch": "Test send watch",
   "notif.type.admin_crm_incident_deadline": "CRM incident: CNIL deadline approaching",
   "notif.type.admin_crm_daily": "Yuno CRM: the daily review",
   "notif.type.admin_crm_offer_claimed": "Yuno CRM: a founder offer account just opened",

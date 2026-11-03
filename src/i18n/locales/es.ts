@@ -14928,6 +14928,7 @@ const es: Record<string, string> = {
   "notif.type.admin_email_campaign_refocused": "Campaña reenfocada en los activos",
   "notif.type.admin_email_daily": "Balance diario de e-mails",
   "notif.type.admin_email_google_spam": "Google: denuncias de spam en Gmail",
+  "notif.type.admin_email_test_watch": "Vigilancia de un envío de prueba",
   "notif.type.admin_crm_incident_deadline": "Incidente CRM: plazo de notificación próximo",
   "notif.type.admin_crm_daily": "Yuno CRM: el balance del día",
   "notif.type.admin_crm_offer_claimed": "Yuno CRM: se acaba de abrir una cuenta con la oferta fundadores",
