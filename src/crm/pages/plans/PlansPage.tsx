@@ -9,6 +9,7 @@ import { Badge, MonoLabel, PillButton, Skel } from '@/crm/ui/kit';
 import { useCrmT } from '@/crm/i18n';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { CrmLoadError } from '@/crm/errors/CrmLoadError';
+import { PosterFit } from '@/crm/components/PosterFit';
 import { useNightPlans, type PlansListRow } from '@/crm/data/nightPlans';
 
 type T = ReturnType<typeof useCrmT>;
