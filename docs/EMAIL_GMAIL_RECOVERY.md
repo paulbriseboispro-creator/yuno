@@ -115,6 +115,27 @@ retenues, 75 envois immédiats, 614 froides en 3 vagues (100, 200, 314).
   écrits, jamais contactés, Gmail), ce qui a été gardé de côté, les dernières
   campagnes (marketing et pratiques) et la façon de calculer.
 
+## L'envoi intelligent, comme Shopify (migration `20261129100000`)
+
+Shopify tient sur un domaine commun parce qu'il trie avant d'envoyer. Yuno fait
+pareil, en plus strict (notre domaine est petit) :
+
+- **À la mise en file** : adresses impossibles écartées (noreply@, boîtes jetables),
+  et dès 300 personnes, quiconque a reçu 3 e-mails de ce compte en 180 jours sans en
+  ouvrir un. Rien n'est débité.
+- **Pendant l'envoi** : 2 h après le départ, moins de 5 % d'ouvertures ⇒ la campagne
+  ne part plus qu'aux contacts engagés ; Gmail sous le tiers des autres ⇒ seuls les
+  Gmail engagés continuent.
+- **Disjoncteur** : plaintes > 0,1 % (au moins 2) ou rebonds > 3 % ⇒ pause.
+- **Domaine commun** : niveau 3 au plus, 3 000 adresses jamais écrites par mois, arrêt
+  des vagues dès 2 % de rebonds ou 0,5 ‰ de plaintes.
+- **Récidive** : deux incidents en 60 jours ⇒ nouvelles adresses fermées jusqu'à
+  décision de Yuno (bouton « lever » dans Admin › Santé technique).
+- **Bilan du jour à 8 h** : alerte « Bilan e-mail du jour » dans le centre d'alertes,
+  photo quotidienne dans `email_deliverability_snapshots`.
+- **La page Santé du pro** est en schémas : feu, niveau, plafonds du jour, courbe des
+  30 jours, trois signaux, base joignable, ce qui a été mis de côté.
+
 ## Message aux pros (à envoyer par Paul)
 
 Version courte (WhatsApp) :

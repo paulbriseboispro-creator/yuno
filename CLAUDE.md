@@ -6709,3 +6709,32 @@ envois en bloc du fichier importé de WOH (01/09, 09/09, 08/10). Règles :
   retombe sur news.yunoapp.eu sur toute erreur ; la lecture Postmaster ajoute les
   sous-domaines vérifiés (chacun s'ajoute aussi dans Google Postmaster, vérification
   TXT propre). Offre Resend Pro : 10 domaines, 2 déjà pris.
+- **L'envoi intelligent, sur le modèle de Shopify** (migration `20261129100000`,
+  plan `docs/designs/EMAIL_SENDER_DOMAINS_PLAN.md` sections 6-7). Le domaine commun
+  ne porte que des envois attendus : (1) à la mise en file (`_email_smart_delivery`,
+  appelée par `_email_assign_waves`), adresses impossibles écartées (`junk_address`,
+  `_email_is_junk_address`) et, dès 300 personnes, quiconque a reçu 3 e-mails
+  marketing de CE compte en 180 jours sans en ouvrir un (`unengaged`, jamais un
+  inscrit récent, Yunits rendus, coupable par compte : `email_sender_health.smart_off`,
+  super admin) ; (2) garde pendant l'envoi (`email_campaign_guard_tick`, dans le tick
+  de 15 min) : 2 h après le départ et dès 300 envois, moins de 5 % d'ouvertures ⇒ la
+  campagne est RECENTRÉE sur les engagés (`refocus_low_opens`), Gmail sous le tiers des
+  autres ⇒ seuls les Gmail engagés continuent (`refocus_gmail`) ; (3) disjoncteur
+  réglable (`breaker_*`, plaintes > 0,1 % et au moins 2, rebonds > 3 %) ; (4) arrêt
+  de vague à 2 % / 0,5 ‰, 3 000 adresses jamais écrites par mois et par compte
+  (`cold_monthly_cap`) ; (5) **récidive** : deux incidents en 60 jours
+  (`email_sender_incidents` : vague arrêtée, pause du disjoncteur, mise à l'écart,
+  recentrage faute d'ouvertures) ⇒ nouvelles adresses fermées jusqu'à décision de
+  Yuno (`reason = 'recidive'`, `admin_lift_sender_freeze`, bouton « lever » de la
+  carte Comptes expéditeurs) ; (6) domaine commun = niveau 3 au plus
+  (`shared_max_level`) ; (7) bilan du jour à 8 h (`email_deliverability_daily`, photo
+  `email_deliverability_snapshots`, alerte `admin_email_daily`). Un incident nouveau
+  passe par `_email_sender_incident`, jamais un INSERT direct.
+- **La page Santé est en schémas** (`src/components/email-health/HealthDashboard.tsx`,
+  une page pour la Console CRM et la Billetterie, chacune sa palette) : feu du verdict
+  et marches du niveau, anneaux « aujourd'hui » (plafonds du niveau), « ce que vous
+  pouvez faire », courbe 30 jours (envois + ouvertures Gmail / autres), trois signaux
+  en barres à zones, base joignable, mis de côté, incidents, campagnes. Données :
+  `email_sender_health_report` + `email_sender_health_visual` ; règles de dessin
+  `src/lib/email/senderHealthVisual.ts` (testées). Un bloc nouveau = un schéma, jamais
+  un paragraphe ; les explications restent repliées (« Pourquoi ces règles ? »).
