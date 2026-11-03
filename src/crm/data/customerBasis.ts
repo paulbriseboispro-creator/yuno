@@ -125,6 +125,40 @@ export function useCustomerAudiencePreview(
   });
 }
 
+/**
+ * Ce que viserait la campagne, en UN nombre (crm_email_audience_unified) : les
+ * personnes qui ont donné leur accord (« Accepté ») et, quand la base est signée
+ * et que l'e-mail ne parle que des soirées du compte, les clients « Pas de
+ * mention ». La base légale reste posée par le serveur au moment de programmer
+ * ou d'envoyer ; l'écran ne choisit rien. Lu sur la campagne ENREGISTRÉE.
+ */
+export interface UnifiedAudience {
+  include: boolean;
+  /** Pourquoi les « Pas de mention » n'y sont pas : base non signée, renvoi / relance, contenu. */
+  reason: 'closed' | 'feature' | 'content' | 'scope' | null;
+  issues?: { code: string; block?: string; type?: string; url?: string; field?: string }[];
+  total?: number;
+  /** Clients que la montée progressive laisse partir les jours suivants. */
+  ramp_waiting?: number;
+}
+
+export function useUnifiedAudience(
+  campaignId: string | null, on: boolean, deps: { audiences: CrmAudience[]; recentDays: number; excludeBuyers: boolean; eventId: string | null; blocks: unknown },
+  flush: () => Promise<boolean>,
+) {
+  const { qk } = useCrmScope();
+  return useQuery({
+    queryKey: ['crm', qk, 'emails', 'unifiedAudience', campaignId, JSON.stringify(deps)],
+    queryFn: async () => {
+      await flush();
+      return rpc<UnifiedAudience>('crm_email_audience_unified', { p_campaign_id: campaignId });
+    },
+    enabled: on && !!campaignId,
+    staleTime: 30_000,
+    placeholderData: (prev) => prev,
+  });
+}
+
 export interface CustomerEmailCheck { customer: boolean; open?: boolean; ok: boolean; issues: { code: string; block?: string; type?: string; url?: string; field?: string }[] }
 
 /** « Ne parle que de vos soirées » : la règle de la garde, lue avant l'envoi. */

@@ -49,18 +49,30 @@ export function CustomerBasisCard({ contact: rawContact }: { contact: string }) 
   );
 }
 
-/** Ce que la base gagnerait (ou gagne) : accord, clients en plus, jamais contactés. */
+/**
+ * UN chiffre (03/11) : les personnes joignables par e-mail. Base signée et prête :
+ * « Accepté » + « Pas de mention » ensemble. Sinon : « Accepté » seul, et ce que la
+ * signature ajouterait — jamais un total qui promet ce qui ne peut pas partir.
+ */
 function Counts({ b }: { b: CustomerBasis }) {
   const { t, n } = useCrmT();
   const x = b.counts.excluded;
+  const open = b.open;
   const never = [
     [x.provider_declined ?? 0, 'yc.cb.x.declined'], [x.provider_withdrawn, 'yc.cb.x.withdrawn'], [x.unsubscribe, 'yc.cb.x.unsub'],
     [x.suppressed, 'yc.cb.x.suppressed'], [x.reported, 'yc.cb.x.reported'],
   ].filter(([v]) => Number(v) > 0) as [number, string][];
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '14px 16px', borderRadius: 18, background: 'var(--sand-50)', fontVariantNumeric: 'tabular-nums' }}>
-      <Line big={n(b.counts.consent)} text={t('yc.cb.n.consent')} />
-      <Line big={`+ ${n(b.counts.extra)}`} text={t('yc.cb.n.extra', { m: b.eligibility_months })} strong />
+      {open ? (
+        <Line big={n(b.counts.consent + b.counts.extra)} text={t('yc.cb.n.total')} strong />
+      ) : (
+        <>
+          <Line big={n(b.counts.consent)} text={t('yc.cb.n.now')} strong />
+          {b.counts.extra > 0 && <Line big={`+ ${n(b.counts.extra)}`} text={t('yc.cb.n.after', { m: b.eligibility_months })} />}
+        </>
+      )}
+      <span style={{ fontSize: 13, lineHeight: 1.45, color: 'var(--sand-600)', paddingTop: 4 }}>{t('yc.cb.n.labels')}</span>
       {never.map(([v, k]) => <Line key={k} big={`− ${n(v)}`} text={t('yc.cb.n.neverX', { x: t(k) })} muted />)}
     </div>
   );
@@ -236,7 +248,7 @@ export function CustomerBasisModal({ basis, contact, onClose }: { basis: Custome
   const intro = t('yc.cb.m.s', { consent: n(basis.counts.consent) });
   const docText = [
     t('yc.cb.m.t'), intro,
-    `${n(basis.counts.consent)} ${t('yc.cb.n.consent')} / + ${n(basis.counts.extra)} ${t('yc.cb.n.extra', { m: basis.eligibility_months })}`,
+    `${n(basis.counts.consent)} ${t('yc.cb.n.now')} / + ${n(basis.counts.extra)} ${t('yc.cb.n.after', { m: basis.eligibility_months })}`,
     t('yc.cb.m.engage'), ...CUSTOMER_CHECKS.map((k) => `☑ ${t(`yc.cb.m.c.${k}`)}`),
     `${t('yc.cb.m.name')} ${name.trim()} — ${t('yc.cb.m.role')} ${role.trim()}`, t('yc.cb.m.foot'), `${LEGAL_URL} · ${basis.version}`,
   ].join('\n');

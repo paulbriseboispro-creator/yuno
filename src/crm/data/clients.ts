@@ -133,6 +133,8 @@ export interface ClientRow {
   email: string; first_name: string | null; last_name: string | null; lifecycle: Lifecycle;
   nights: number; last_night: string | null; added_at: string | null; spent: number;
   email_ok: boolean; phone_ok: boolean; tonight: boolean; tag: string | null; source: string;
+  /** E-mail joignable : « Accepté » (accord) ou « Pas de mention » (client, base signée). */
+  email_basis?: 'consent' | 'customer' | null;
   /** Soirées en guest list ; `gl_only` : jamais un billet payant. */
   gl?: number; gl_only?: boolean;
 }
@@ -142,6 +144,7 @@ export interface ClientsList { total: number; rows: ClientRow[]; counts: Record<
 export interface ClientCard {
   email: string; first_name: string | null; last_name: string | null; phone: string | null;
   email_ok: boolean; phone_ok: boolean; bounced: boolean; eng_status: string;
+  email_basis?: 'consent' | 'customer' | null;
   /** `spent` : null pour un rôle qui ne voit pas l'argent (_crm_null_money). */
   lifecycle: Lifecycle; nights: number; nights_win: number; spent: number | null;
   first_night: string | null; last_night: string | null; added_at: string | null;

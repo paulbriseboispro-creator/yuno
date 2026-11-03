@@ -519,7 +519,11 @@ function Row({
         ) : <span style={{ fontSize: 13.5, color: 'var(--sand-400)' }}>{t('yc.cli.list.never')}</span>}
       </span>
       <span style={{ fontSize: 15, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{eur(c.spent)}</span>
-      <span style={{ fontSize: 13.5, fontWeight: 500, color: rc[1] }}>{t(`yc.cli.list.reach.${rc[0]}`)}</span>
+      <span style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+        <span style={{ fontSize: 13.5, fontWeight: 500, color: rc[1] }}>{t(`yc.cli.list.reach.${rc[0]}`)}</span>
+        {/* « Vos clients » : l'étiquette de l'accord e-mail de la personne. */}
+        {c.email_basis && <span style={{ fontSize: 12, color: 'var(--sand-500)' }}>{t(c.email_basis === 'consent' ? 'yc.cb.lbl.consent' : 'yc.cb.lbl.customer')}</span>}
+      </span>
       <Icon name="chevronRight" size={16} stroke={2.4} color="var(--sand-300)" />
     </Hv>
   );

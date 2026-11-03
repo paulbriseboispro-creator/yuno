@@ -248,6 +248,7 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
   const SRC: Record<string, string> = { shotgun: t('yc.cli.f.src.shotgun'), utm: t('yc.cli.f.src.utm'), import: t('yc.cli.f.src.import'), page: t('yc.cli.f.src.page'), other: '—' };
   const info: { l: string; v: string; fg: string }[] = [
     { l: t('yc.cli.card.email'), v: c.email_ok ? c.email : t('yc.cli.card.emailStop', { email: c.email }), fg: c.email_ok ? 'var(--ink)' : 'var(--amber-700)' },
+    ...(c.email_basis ? [{ l: t('yc.cb.lbl.title'), v: t(c.email_basis === 'consent' ? 'yc.cb.lbl.consent' : 'yc.cb.lbl.customer'), fg: 'var(--ink)' }] : []),
     { l: t('yc.cli.card.phone'), v: c.phone_ok && c.phone ? c.phone : t('yc.cli.card.phoneNone'), fg: c.phone_ok && c.phone ? 'var(--ink)' : 'var(--sand-500)' },
     { l: t('yc.cli.card.reachBy'), v: t(`yc.cli.card.reach.${rc}`), fg: rc === 'none' ? 'var(--amber-700)' : 'var(--ink)' },
     { l: t('yc.cli.card.came'), v: c.source === 'shotgun' || c.source === 'utm' ? (saleSourceText(c.first_source, t) ?? SRC[c.source] ?? '—') : SRC[c.source] ?? '—', fg: 'var(--ink)' },

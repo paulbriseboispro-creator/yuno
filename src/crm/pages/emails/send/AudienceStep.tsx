@@ -38,14 +38,14 @@ export function AudienceStep({
   onExcludeBuyers: (v: boolean) => void;
   recentDays: number;
   onRecentDays: (v: number) => void;
-  /** « Qui peut recevoir cet e-mail ? » (accord seul ou « Tous vos clients »). */
+  /** « Vos clients » : la ligne sous le chiffre (ce qui écarte les « Pas de mention », ou ce que la signature ajoute). */
   basisPicker?: ReactNode;
-  /** « Tous vos clients » : le compte serveur de la campagne (accord + clients) remplace l'aperçu. */
+  /** Clients « Pas de mention » compris : le compte serveur de la campagne (un seul nombre) remplace l'aperçu. */
   netOverride?: number;
 }) {
   const { t, tp, n, pct } = useCrmT();
   const net = netOverride ?? preview?.net ?? 0;
-  const reach = Math.max(1, preview?.reach ?? 0);
+  const reach = Math.max(1, preview?.reach ?? 0, net + (excludeBuyers ? preview?.x_buyers ?? 0 : 0) + (preview?.x_recent ?? 0));
   const xb = excludeBuyers ? preview?.x_buyers ?? 0 : 0;
   const xr = preview?.x_recent ?? 0;
   const rules = options?.rules;
@@ -68,8 +68,6 @@ export function AudienceStep({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22, animation: `yc-rise 520ms ${EASE} both` }}>
       <StepTitle kick={t('yc.em.sd.aud.kick')} a={t('yc.em.sd.aud.h.a')} b={t('yc.em.sd.aud.h.b')} c={t('yc.em.sd.aud.h.c')} sub={t('yc.em.sd.aud.sub')} />
-      {basisPicker}
-
       {previewError && !preview ? (
         <CrmLoadError error={previewError} onRetry={onRetryPreview} retrying={calc} />
       ) : (
@@ -100,6 +98,7 @@ export function AudienceStep({
           )}
         </section>
       )}
+      {basisPicker}
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
         {([['all', ['hab', 'occ', 'nou', 'end', 'none']], ['come', ['hab', 'occ', 'nou']], ['wake', ['end']], ['clear', []]] as [string, Key[]][]).map(([k, keys]) => (
