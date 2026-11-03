@@ -77,6 +77,30 @@ export function useDeclareCustomerBasis() {
   });
 }
 
+/**
+ * Ce que « Écrire à vos clients » ajouterait aux joignables par e-mail, tant que le
+ * titulaire n'a pas signé (03/11, demande de Paul : l'écran Clients annonçait 301
+ * joignables pour WOH alors que les clients de ses soirées s'ajoutent dès la
+ * signature). `null` : rien à annoncer (base déjà signée, compte qui ne peut pas
+ * signer, ou personne en plus). Lecture partagée avec Réglages › Envoi : même
+ * requête, même cache. Jamais un total qui promet ce qui ne peut pas partir :
+ * c'est un « en plus », dit comme tel.
+ */
+export interface ReachPotential {
+  /** Clients de vos soirées en plus de ceux qui ont donné leur accord. */
+  extra: number;
+  /** Fenêtre d'éligibilité en mois (ventes des N derniers mois). */
+  months: number;
+  /** Le titulaire seul signe : un membre de l'équipe le lui demande. */
+  isOwner: boolean;
+}
+
+export function useCustomerReachPotential(): ReachPotential | null {
+  const b = useCustomerBasis().data;
+  if (!b || b.status !== 'off' || !b.can_declare || b.counts.extra <= 0) return null;
+  return { extra: b.counts.extra, months: b.eligibility_months, isOwner: b.is_owner };
+}
+
 export function useCloseCustomerBasis() {
   const { rpc: args, qk } = useCrmScope();
   const qc = useQueryClient();

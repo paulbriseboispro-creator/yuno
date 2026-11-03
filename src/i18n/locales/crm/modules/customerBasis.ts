@@ -21,6 +21,18 @@ const dict: CrmDict = {
     'jusqu’à {n} personnes une fois signé (places prises ces {m} derniers mois)',
     'hasta {n} personas una vez firmado (entradas de los últimos {m} meses)',
   ],
+  // Chiffres Clients / Accueil / fiche (03/11) : ce que la signature ajoute, sans promettre ce qui ne part pas.
+  'yc.cb.pot.n': [
+    '+ up to {n} customers from your nights once you sign “Write to your customers”',
+    '+ jusqu’à {n} clients de vos soirées dès que vous signez « Écrire à vos clients »',
+    '+ hasta {n} clientes de sus fiestas en cuanto firme «Escribir a sus clientes»',
+  ],
+  'yc.cb.pot.cta': ['Open Settings › Sending', 'Ouvrir Réglages › Envoi', 'Abrir Ajustes › Envío'],
+  'yc.cb.pot.card': [
+    'Customer of your nights: reachable by email as soon as “Write to your customers” is signed (unless they objected).',
+    'Client de vos soirées : joignable par e-mail dès que « Écrire à vos clients » est signé (sauf opposition).',
+    'Cliente de sus fiestas: contactable por e-mail en cuanto se firme «Escribir a sus clientes» (salvo oposición).',
+  ],
   'yc.cb.n.never': ['never contacted', 'jamais contactés', 'nunca contactados'],
   'yc.cb.n.neverX': ['never contacted: {x}', 'jamais contactés : {x}', 'nunca contactados: {x}'],
   'yc.cb.x.declined': ['said no to communication on your ticketing platform', 'ont répondu non à la communication chez votre billetterie', 'respondieron no a la comunicación en su ticketera'],

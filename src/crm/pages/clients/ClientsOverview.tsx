@@ -4,12 +4,15 @@
  * joignables, reviennent, dépense moyenne — chacun avec son lien vers la liste.
  */
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
 import { clamp01, reveal, wipe } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
 import type { ClientsOverview as Overview, Lifecycle } from '@/crm/data/clients';
 import { LIFECYCLE_COLOR } from '@/crm/lib/lifecycle';
+import { useCustomerReachPotential } from '@/crm/data/customerBasis';
+import { CRM_ROUTES } from '@/crm/shell/nav';
 
 export function ClientsOverview({
   data, intro, cc, onSeg, onUnreachable, onOnce, onSpend,
@@ -23,6 +26,8 @@ export function ClientsOverview({
   onSpend: () => void;
 }) {
   const { t, n, pct, eur, n1, time, locale } = useCrmT();
+  const nav = useNavigate();
+  const potential = useCustomerReachPotential();
   const [wh, setWh] = useState<Lifecycle | null>(null);
   const [sh, setSh] = useState<number | null>(null);
   const tot = Math.max(1, data.total);
@@ -171,6 +176,8 @@ export function ClientsOverview({
           delta={t('yc.cli.kpi.reachOf', { a: n(data.reachable), b: n(data.total) })} deltaColor={G}
           def={t('yc.cli.kpi.reachDef')}
           cta={data.unreachable > 0 ? t('yc.cli.kpi.reachCta', { n: n(data.unreachable) }) : null} onCta={onUnreachable}
+          note={potential ? t('yc.cb.pot.n', { n: n(potential.extra) }) : undefined}
+          noteCta={potential ? t('yc.cb.pot.cta') : undefined} onNoteCta={() => nav(CRM_ROUTES.emailSettings)}
         />
         <Kpi intro={intro} delay={570} label={t('yc.cli.kpi.return')}
           value={ret === null ? '—' : pct(Math.round(ret * cc))}
@@ -192,9 +199,11 @@ export function ClientsOverview({
 }
 
 function Kpi({
-  intro, delay, label, value, ring, delta, deltaColor, def, cta, onCta,
+  intro, delay, label, value, ring, delta, deltaColor, def, cta, onCta, note, noteCta, onNoteCta,
 }: {
   intro: boolean; delay: number; label: string; value: string; ring?: number; delta: string; deltaColor: string; def: string; cta: string | null; onCta: () => void;
+  /** Ce qui s'ajouterait bientôt (ex. clients de « Écrire à vos clients » avant signature), et où le débloquer. */
+  note?: string; noteCta?: string; onNoteCta?: () => void;
 }) {
   return (
     <Hv
@@ -212,6 +221,16 @@ function Kpi({
       </div>
       {delta && <span style={{ fontSize: 13, fontWeight: 600, color: deltaColor }}>{delta}</span>}
       <span style={{ fontSize: 13, lineHeight: '18px', color: 'var(--sand-500)' }}>{def}</span>
+      {note && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6, padding: '10px 12px', borderRadius: 12, background: 'var(--amber-50)', color: 'var(--amber-700)', fontSize: 13, lineHeight: '18px' }}>
+          <span>{note}</span>
+          {noteCta && onNoteCta && (
+            <Hv as="button" type="button" onClick={onNoteCta} style={{ alignSelf: 'flex-start', border: 0, background: 'none', padding: 0, font: 'inherit', fontWeight: 600, color: 'var(--ink)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }} hover={{ color: 'var(--red-600)' }}>
+              {noteCta}<Icon name="arrowRight" size={14} stroke={2.4} />
+            </Hv>
+          )}
+        </div>
+      )}
       {cta && (
         <Hv as="button" type="button" onClick={onCta} style={{ alignSelf: 'flex-start', marginTop: 4, border: 0, background: 'none', padding: 0, fontSize: 14, fontWeight: 600, color: 'var(--ink)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }} hover={{ color: 'var(--red-600)' }}>
           {cta}<Icon name="arrowRight" size={14} stroke={2.4} />

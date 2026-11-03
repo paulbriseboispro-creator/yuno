@@ -14,6 +14,7 @@ import { useCrmT } from '@/crm/i18n';
 import { saleSourceText } from '@/crm/lib/links';
 import { useCrmCaps } from '@/crm/scope';
 import { useClientCard, useSaveClient } from '@/crm/data/clients';
+import { useCustomerReachPotential } from '@/crm/data/customerBasis';
 import type { ClientCard } from '@/crm/data/clients';
 import { LIFECYCLE_AVATAR, LIFECYCLE_COLOR, fullName, initials, relDays } from '@/crm/lib/lifecycle';
 import { CrmLoadError } from '@/crm/errors/CrmLoadError';
@@ -244,6 +245,11 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
   const filt = tl.filter((e) => tlf === 'all' || e.k === tlf);
   const shown = tlAll ? filt : filt.slice(0, 5);
 
+  // Avant la signature de « Écrire à vos clients » : un client de ses soirées (billet payant dans la
+  // fenêtre d'éligibilité, adresse qui n'a pas rebondi) deviendra joignable par e-mail à la signature.
+  const potential = useCustomerReachPotential();
+  const pendingClient = !!potential && !c.email_ok && !c.bounced
+    && c.buys.some((b) => b.amount > 0 && new Date(b.at).getTime() > Date.now() - potential.months * 30.44 * 86_400_000);
   const rc = c.email_ok && c.phone_ok ? 'both' : c.email_ok ? 'mail' : c.phone_ok ? 'sms' : 'none';
   const SRC: Record<string, string> = { shotgun: t('yc.cli.f.src.shotgun'), utm: t('yc.cli.f.src.utm'), import: t('yc.cli.f.src.import'), page: t('yc.cli.f.src.page'), other: '—' };
   const info: { l: string; v: string; fg: string }[] = [
@@ -456,6 +462,7 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
             <span style={{ flex: 1, minWidth: 0, textAlign: 'right', fontWeight: 500, color: it.fg, overflowWrap: 'anywhere' }}>{it.v}</span>
           </div>
         ))}
+        {pendingClient && <span style={{ padding: '10px 12px', borderRadius: 12, background: 'var(--amber-50)', color: 'var(--amber-700)', fontSize: 13.5, lineHeight: 1.45 }}>{t('yc.cb.pot.card')}</span>}
       </Box>
 
       <Box>

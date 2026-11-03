@@ -5,7 +5,10 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { Hv } from '@/crm/ui/Hv';
 import { clamp01, reveal, wipe } from '@/crm/ui/motion';
+import { Link } from 'react-router-dom';
 import { useCrmT } from '@/crm/i18n';
+import { useCustomerReachPotential } from '@/crm/data/customerBasis';
+import { CRM_ROUTES } from '@/crm/shell/nav';
 import type { CrmHome } from '@/crm/data/home';
 
 function Card({ children, intro, delay }: { children: ReactNode; intro: boolean; delay: number }) {
@@ -26,6 +29,7 @@ const def: CSSProperties = { fontSize: 13, lineHeight: '18px', color: 'var(--san
 
 export function KpiCards({ data, intro, cc }: { data: CrmHome | undefined; intro: boolean; cc: number }) {
   const { t, n, pct, n1 } = useCrmT();
+  const potential = useCustomerReachPotential();
   const k = data?.kpi;
   const empty = !k || k.clients.total === 0;
   const G = 'var(--green-700)';
@@ -131,6 +135,11 @@ export function KpiCards({ data, intro, cc }: { data: CrmHome | undefined; intro
           </div>
         </div>
         <span style={def}>{t('yc.home.kpi.reachableDef')}</span>
+        {potential && !empty && (
+          <Link to={CRM_ROUTES.emailSettings} style={{ marginTop: 4, fontSize: 13, lineHeight: '18px', fontWeight: 600, color: 'var(--amber-700)', textDecoration: 'none' }}>
+            {t('yc.cb.pot.n', { n: n(potential.extra) })}
+          </Link>
+        )}
       </Card>
     </div>
   );
