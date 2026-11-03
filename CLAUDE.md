@@ -6620,3 +6620,35 @@ Console `src/crm/pages/nights/links/ReadyLinks.tsx`. Règles :
   sans acheter » relancer.
 - Le pro ne crée plus que ses liens SPÉCIAUX (story nommée, partenaire, flyer) : `crm_link_create`.
   Aide : FAQ `yc.faq.readylinks.*`, article assistant `crm-share-links`.
+
+## Modèles propres à une soirée : un modèle de base, et une exception temporaire (2026-11-03)
+
+Demande de Paul (relance « Ne sois pas celui qui n'a jamais su » de l'Act III de 3 AM, qui ne
+doit pas devenir le modèle général de « A cliqué sans acheter »). Migration
+`20261123100000_email_event_templates.sql`, données `src/crm/data/eventTemplates.ts`, fenêtre
+`src/crm/components/EventTemplateDialog.tsx`, textes `yc.au.et.*` / `yc.em.sd.fu.*`, FAQ
+`yc.faq.nighttemplate`, article assistant `crm-night-template`. Règles :
+
+- **Un modèle propre à une soirée = `email_campaign_templates.for_event_id`.** Il garde ses blocs
+  reliés à SA soirée (exception voulue à `stripEventBindings` : le Studio CRM ne les efface pas
+  pour lui), n'entre dans AUCUNE bibliothèque (`for_event_id IS NULL` dans
+  `useScenarioEmailTemplates`, `useEmailTemplates`, `_mcp_scenario_tool`, `_crm_scenario_content`
+  — toute nouvelle liste de modèles filtre de même), et `expires_at` (fin de la soirée + 14 j) est
+  posé par la base (`guard_email_template_event`, qui refuse une soirée hors de la portée et tout
+  changement de soirée). Purge à expiration + 30 j (cron `email-event-templates-purge`).
+- **Recette : `email_automation_event_templates` (recette, soirée) → modèle**, un seul par paire,
+  écrit par la seule RPC `email_automation_event_template_set` (NULL = retirer, le modèle reste).
+  Le modèle de BASE (`email_automations.template_id`) n'est jamais un modèle de soirée
+  (`guard_automation_base_template`). Lecture Console : `email_event_templates(venue, orga, product)`.
+- **Moteurs** : `collect_email_automations` prend, par groupe, le modèle propre non expiré de la
+  soirée qui déclenche (sinon celle annoncée) ; son objet l'emporte sur celui de la recette ; une
+  campagne enfant ne se réutilise que pour le MÊME modèle (`source_template_id`), donc un envoi
+  en route garde son contenu. `collect_campaign_followups` ignore un modèle propre à une AUTRE
+  soirée. Chaque enfant porte `source_template_id` et `source_template_event_id` (NULL = base).
+  Ces deux fonctions ont été patchées par repères sur leur définition vivante : toute réécriture
+  ultérieure repart de `pg_get_functiondef` et garde ces lignes.
+- **Console CRM** : fiche d'une automatisation › « Modèles » (base + soirées, « + Un modèle pour
+  une soirée », Modifier, Retirer) ; étape Quand › Relance après clic › « Modèle propre à cette
+  soirée », « Le modifier », « M'envoyer un test de la relance ». Le Studio d'un modèle de soirée
+  revient à `?back=` (adresse `/crm` seulement, `safeCrmBack`). La Billetterie a le moteur mais pas
+  encore l'écran.
