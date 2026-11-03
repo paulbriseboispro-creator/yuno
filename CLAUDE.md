@@ -6562,3 +6562,27 @@ Paul. Migrations `20261112100000` → `130000`. Règles :
   smoke/traffic.sql …`. Aide : FAQ `yc.faq.traffic.*`, article `crm-traffic`
   (redéployer `owner-assistant`). Démo : `scripts/demo/seed-crm-links.sql` (heure,
   appareil, pays, `in_app`, clics du bouton /j/).
+
+## Yuno CRM — les liens suivis sont PRÊTS sans rien créer (2026-11-03)
+
+Décision de Paul : « le max de data sans effort ». Migration `20261120100000_crm_ready_links.sql`,
+Console `src/crm/pages/nights/links/ReadyLinks.tsx`. Règles :
+
+- **Yuno pose seul, sur chaque soirée miroir À VENIR**, les liens courants (`tracked_links.auto_key`
+  `ig_bio`, `ig_story`, `tt_bio`, `wa`, `fb_event`, `_crm_ready_link_specs` ⇄ `READY_KEYS`) et un
+  lien par GUEST LIST (`gl:<tarif>`, `ext_deal_id`) = tarif Shotgun à 0 € vendu en ligne
+  (`_crm_event_guestlist_deals`). Porte unique `_crm_ensure_ready_links(soirée)`, appelée par le
+  déclencheur `trg_external_events_ready_links` (miroir créé, tarifs changés) ; elle ne lève jamais.
+  Un lien en bio / évènement déjà créé à la main est ADOPTÉ, jamais doublé. Une soirée passée n'en
+  reçoit pas. Un client ne pose ni `auto_key` ni `ext_deal_id` (garde `guard_tracked_link_auto_cols`).
+- **`/go/` d'une guest list ouvre la page Shotgun sur son tarif** (`_crm_link_dest` : `?ids=<tarif>`),
+  même règle que le « Lien pour un e-mail » de l'onglet Gratuits (`crm_night_links.guestlists`).
+- **Un lien prêt jamais utilisé n'entre dans aucun chiffre** : `crm_ana_clicks__core` l'écarte des
+  repères, des « liens de cette soirée » à zéro et de `has_any` ; la Console range les liens prêts dans
+  « Vos liens prêts » et la liste « Vos liens » ne montre que ceux du pro (`splitLinks`).
+- **E-mail** : tout lien Shotgun collé à la main (bouton, image, texte) reçoit la source de la campagne
+  (`withTicketingSource`, `RenderCtx.ticketingSource`, render.ts ⇄ port Deno, posée par `send-campaign`,
+  jamais en test ni en aperçu). L'inscription revient à l'e-mail ; le clic nominatif laisse « A cliqué
+  sans acheter » relancer.
+- Le pro ne crée plus que ses liens SPÉCIAUX (story nommée, partenaire, flyer) : `crm_link_create`.
+  Aide : FAQ `yc.faq.readylinks.*`, article assistant `crm-share-links`.
