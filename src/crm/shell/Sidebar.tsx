@@ -109,8 +109,10 @@ export function Sidebar({
 
   return (
     <aside style={{
-      width: exp ? 264 : 76, height: '100vh', transition: 'width 240ms cubic-bezier(.22,1,.36,1)', display: 'flex', flexDirection: 'column',
-      gap: 2, padding: '14px 12px', background: '#fff', borderRight: '1px solid var(--sand-100)', overflowY: 'auto', overflowX: 'hidden',
+      // 100 % du parent (colonne collée ou tiroir fixe) : un `100vh` dépasse la zone visible
+      // d'iOS Safari et cachait le pied du menu (Réglages, Aide) sous la barre du navigateur.
+      width: exp ? 264 : 76, height: '100%', boxSizing: 'border-box', transition: 'width 240ms cubic-bezier(.22,1,.36,1)', display: 'flex', flexDirection: 'column',
+      gap: 2, padding: '14px 12px max(14px, env(safe-area-inset-bottom))', background: '#fff', borderRight: '1px solid var(--sand-100)', overflowY: 'auto', overflowX: 'hidden',
       fontFamily: 'var(--font-body)', color: 'var(--ink)', flex: 'none',
     }} className="yc-noscroll">
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: itemJc, gap: 10, padding: '2px 0 10px' }}>
