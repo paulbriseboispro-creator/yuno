@@ -205,7 +205,7 @@ const W: Record<string, Triplet> = {
   'rights.cold': ['{n} new addresses a day, {g} at Gmail', '{n} nouvelles adresses par jour, dont {g} Gmail', '{n} direcciones nuevas al día, {g} en Gmail'],
   'rights.burst': ['“All at once” allowed', '« Tout d’un coup » autorisé', '«Todo de una vez» permitido'],
   'rights.next.t': ['To reach level {n} ({name})', 'Pour passer au niveau {n} ({name})', 'Para pasar al nivel {n} ({name})'],
-  'rights.next.at': ['Next check from {date}.', 'Prochain contrôle à partir du {date}.', 'Próximo control a partir del {date}.'],
+  'rights.next.at': ['Next check from {date}', 'Prochain contrôle à partir du {date}', 'Próximo control a partir del {date}'],
   'rights.next.manual': ['Level 5 is opened by Yuno by hand, after several weeks at level 4.', 'Le niveau 5 est ouvert à la main par Yuno, après plusieurs semaines au niveau 4.', 'El nivel 5 lo abre Yuno a mano, tras varias semanas en el nivel 4.'],
   'rights.progress': ['{p} of {t} conditions met · {d} of 7 days at this level', '{p} conditions sur {t} remplies · {d} jours sur 7 à ce niveau', '{p} de {t} condiciones cumplidas · {d} de 7 días en este nivel'],
   'rights.current': ['Your current rights', 'Vos droits actuels', 'Sus derechos actuales'],
