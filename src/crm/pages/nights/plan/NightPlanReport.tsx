@@ -149,7 +149,7 @@ function StepCard({ s, d, T, writable }: { s: NightPlanStep; d: NightPlan; T: T;
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, fontVariantNumeric: 'tabular-nums' }}>
           <Badge tone={sms ? 'todo' : 'wait'} dot={false}>{t(sms ? 'yc.ag.plan.channel.sms' : 'yc.ag.plan.channel.email', { c: n(sms ? s.cost_sms : s.cost_email) })}</Badge>
           {sms && <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{t('yc.ag.plan.channel.alt', { c: n(s.cost_email) })}</span>}
-          {s.moment === 'eve' && !d.sms_ready && <span style={{ fontSize: 12.5, color: 'var(--sand-500)', maxWidth: 240, textAlign: 'right' }}>{t('yc.ag.plan.channel.smsOff')}</span>}
+          {(s.moment === 'eve' || s.moment === 'day') && !d.sms_ready && <span style={{ fontSize: 12.5, color: 'var(--sand-500)', maxWidth: 240, textAlign: 'right' }}>{t('yc.ag.plan.channel.smsOff')}</span>}
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column' }}>

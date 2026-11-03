@@ -17,7 +17,7 @@ export interface NightPlanAudience extends NightTargetAudience {
 }
 
 export interface NightPlanStep {
-  moment: 'now' | 'week' | 'eve';
+  moment: 'now' | 'week' | 'mid' | 'eve' | 'day';
   send_at: string;
   people: number; email: number; sms: number;
   channel: 'email' | 'sms';

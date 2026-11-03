@@ -215,8 +215,8 @@ export function formatScenarioRead(tool: string, space: CallEnvelope['space'], i
   if (tool === 'get_night_plan') {
     return compactResult({
       space, ...inner,
-      notes: 'steps: now, week (the week before, 18:00), eve (the day before, 18:00). In each step, audiences come in the suggested order and a person counts once, '
-        + 'in the first audience that contains them (first_n, first_email, first_sms); n is the whole audience. channel is the suggested one (SMS on the eve only when '
+      notes: 'steps: now, then week (the week before, 18:00) or mid (halfway, 18:00, night under 10 days away), then eve (the day before, 18:00) or day (the same day, 14:00); a moment too close to the previous one is merged into now. In each step, audiences come in the suggested order and a person counts once, '
+        + 'in the first audience that contains them (first_n, first_email, first_sms); n is the whole audience. channel is the suggested one (SMS on the eve or day step only when '
         + 'the SMS sender identity is ready and the step has numbers); cost_email / cost_sms are Yunits (SMS at the France rate, one segment). '
         + 'status / availability: what the account data says about the family behind an audience (supported = confirmed here), never a certainty about a person. '
         + 'score.expected and score.projection are estimates (validated model only). pace: tickets sold now vs the previous edition (same series first) at the same time before its night. '

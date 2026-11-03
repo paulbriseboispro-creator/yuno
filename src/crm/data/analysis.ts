@@ -141,7 +141,8 @@ export interface NightTargetAudience {
   status?: FamilyStatus['status'];
   availability?: FamilyStatus['availability'];
   gain?: number;
-  moment: 'now' | 'week' | 'eve';
+  /** Calendrier selon les jours restants (20261121100000) : mi-chemin et jour même compris. */
+  moment: 'now' | 'week' | 'mid' | 'eve' | 'day';
   send_at: string;
   /** Acheteurs attendus (somme des chances), seulement avec un score validé. */
   expected?: number | null;

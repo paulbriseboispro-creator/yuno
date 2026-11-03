@@ -703,6 +703,8 @@ const dict: CrmDict = {
   'yc.tgt.when.now': ['When: now', 'Quand : maintenant', 'Cuándo: ahora'],
   'yc.tgt.when.week': ['When: the week before, {d}', 'Quand : la semaine d’avant, {d}', 'Cuándo: la semana antes, {d}'],
   'yc.tgt.when.eve': ['When: the day before, {d}', 'Quand : la veille, {d}', 'Cuándo: la víspera, {d}'],
+  'yc.tgt.when.mid': ['When: halfway to the night, {d}', 'Quand : à mi-chemin, {d}', 'Cuándo: a mitad de camino, {d}'],
+  'yc.tgt.when.day': ['When: on the day, {d}', 'Quand : le jour même, {d}', 'Cuándo: el mismo día, {d}'],
   'yc.tgt.reach': ['{e} by email · {s} by SMS', '{e} par e-mail · {s} par SMS', '{e} por email · {s} por SMS'],
   'yc.tgt.people.other': ['{n} people', '{n} personnes', '{n} personas'],
   'yc.tgt.people.one': ['{n} person', '{n} personne', '{n} persona'],

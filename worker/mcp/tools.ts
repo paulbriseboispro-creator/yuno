@@ -613,7 +613,7 @@ export const TOOLS: ToolDef[] = [
     description:
       'Yuno CRM, one upcoming event (the next one when "event" is omitted): the audiences of people WITHOUT a ticket for it, each with its size, '
       + 'how many are reachable by email and by SMS, the status on this account of the hypothesis family behind it, the suggested moment '
-      + '(now, the week before at 18:00, the eve at 18:00) and evidence: concept (came to a past edition of the same series), lineup (saw a non-resident artist '
+      + '(now; week = the week before at 18:00, or mid = halfway when the night is under 10 days away; eve = the day before at 18:00, or day = the same day at 14:00; a moment too close to the previous one becomes now) and evidence: concept (came to a past edition of the same series), lineup (saw a non-resident artist '
       + 'who plays that night, with the artists), genre (most attended genre is one of the event genres), early (buys early or at sales opening), '
       + 'last_minute (buys the eve or the same day), once_local (came once, lives nearby), likely (high chance of coming per the account\'s prediction model). '
       + 'When the model is validated: expected buyers per audience and for all known customers without a ticket (score.expected), an estimate. '
@@ -1008,8 +1008,8 @@ export const TOOLS: ToolDef[] = [
     level: 'analytics',
     scenario: true,
     description:
-      'Yuno CRM, one upcoming night (the next one when "event" is omitted): a dated sending plan computed by Yuno. The steps (now, the week before, '
-      + 'the eve at 18:00), each with its "Who to target" audiences in the suggested order where a person counts once (first_n), the people reachable '
+      'Yuno CRM, one upcoming night (the next one when "event" is omitted): a dated sending plan computed by Yuno. The steps (now; week or mid; eve or day, '
+      + 'set from the days left), each with its "Who to target" audiences in the suggested order where a person counts once (first_n), the people reachable '
       + 'by email and SMS, the suggested channel and its cost in Yunits, and the account balance; ticket sales against the previous edition at the '
       + 'same moment; emails and SMS already planned for this night; the share kept aside to measure the effect; the hypothesis families confirmed '
       + 'on the account; expected buyers when the model is validated (an estimate). Each audience has an audience_id that create_email_draft accepts. '
