@@ -7,7 +7,7 @@ DECLARE
   v_org uuid := '10764c3b-f312-42da-be99-4d57d7c6c0c5';
   v_key text := public.crm_scope_key(NULL, '10764c3b-f312-42da-be99-4d57d7c6c0c5'::uuid);
   c1 uuid := gen_random_uuid(); c2 uuid := gen_random_uuid(); c3 uuid := gen_random_uuid(); c4 uuid := gen_random_uuid();
-  out text := ''; v jsonb; w jsonb; e text; t0 timestamptz; n int; v_venue text;
+  out text := ''; v jsonb; w jsonb; e text; t0 timestamptz; n int; v_venue text; v_ev uuid;
 
   -- En titulaire de 3 AM.
 BEGIN
@@ -53,11 +53,38 @@ BEGIN
   EXCEPTION WHEN others THEN GET STACKED DIAGNOSTICS e = MESSAGE_TEXT; out := out || E'\nliste : ' || e;
   END;
   v := public.crm_home(NULL, v_org, NULL);
-  out := out || E'\naccueil joignables : ' || COALESCE((v #> '{kpis,reach}')::text, (v #> '{reach}')::text, 'clé ?');
+  out := out || E'\naccueil joignables : ' || COALESCE((v #> '{kpi,reach}')::text, 'clé ?');
   PERFORM public.crm_segments_overview(NULL, v_org, NULL);
   PERFORM public.crm_segments_brief(NULL, v_org);
   PERFORM public.crm_email_send_options(NULL, v_org);
   out := out || ' | segments, options : ok';
+  -- Les autres lecteurs touchés tournent, et disent le même chiffre.
+  v_ev := (SELECT e.id FROM public.events e WHERE e.organizer_user_id = v_org AND e.external_source IS NOT NULL
+            AND e.start_at > now() ORDER BY e.start_at LIMIT 1);
+  BEGIN
+    v := public.crm_clients_export(NULL, v_org, '{}'::jsonb, NULL);
+    out := out || E'\nexport : colonnes=' || jsonb_array_length(v->'columns') || ' dernière=' || (v->'columns'->>-1)
+      || ' joignables=' || (SELECT count(*) FROM jsonb_array_elements(v->'rows') r WHERE (r->>9)::boolean);
+  EXCEPTION WHEN others THEN GET STACKED DIAGNOSTICS e = MESSAGE_TEXT; out := out || E'\nexport : ' || e; END;
+  BEGIN
+    v := public.crm_email_analysis(NULL, v_org);
+    out := out || E'\nanalyse e-mail : ' || COALESCE((v->'audience')::text, left(v::text, 160));
+  EXCEPTION WHEN others THEN GET STACKED DIAGNOSTICS e = MESSAGE_TEXT; out := out || E'\nanalyse e-mail : ' || e; END;
+  BEGIN
+    v := public.crm_ana_community(NULL, v_org, NULL, NULL, NULL);
+    out := out || E'\ncommunauté : ' || COALESCE((v->'reach')::text, 'clé ?');
+  EXCEPTION WHEN others THEN GET STACKED DIAGNOSTICS e = MESSAGE_TEXT; out := out || E'\ncommunauté : ' || e; END;
+  BEGIN
+    PERFORM public.crm_journey(NULL, v_org, NULL, NULL, NULL, NULL, NULL);
+    out := out || E'\nparcours : ok';
+  EXCEPTION WHEN others THEN GET STACKED DIAGNOSTICS e = MESSAGE_TEXT; out := out || E'\nparcours : ' || e; END;
+  IF v_ev IS NOT NULL THEN
+    BEGIN
+      PERFORM public.crm_night_targets(NULL, v_org, v_ev);
+      PERFORM public.crm_night_plan(NULL, v_org, v_ev);
+      out := out || ' | qui cibler, plan : ok';
+    EXCEPTION WHEN others THEN GET STACKED DIAGNOSTICS e = MESSAGE_TEXT; out := out || E'\nqui cibler : ' || e; END;
+  END IF;
 
   -- 3. Choix automatique de la base légale (programmer une campagne).
   INSERT INTO public.email_campaigns (id, organizer_user_id, product, type, status, name, subject, audiences_json, blocks_json, blocks_version)
@@ -66,9 +93,16 @@ BEGIN
           '[{"id":"b1","type":"cta","label":"Go","url":"https://dice.fm/event/x"}]', 2),
          (c3, v_org, 'crm', 'promotional', 'draft', 'smoke renvoi', 'smoke', '[{"kind":"crm","def":{}}]', '[]', 2);
   UPDATE public.email_campaigns SET resend_enabled = true WHERE id = c3;
-  out := out || E'\naperçu propre ' || public.crm_email_audience_unified(c1)::text
+  t0 := clock_timestamp();
+  out := out || E'\naperçu propre ' || public.crm_email_audience_unified(c1)::text || ' (' || (extract(epoch FROM clock_timestamp() - t0) * 1000)::int || ' ms)'
              || E'\naperçu lien tiers ' || (public.crm_email_audience_unified(c2) - 'issues')::text
              || E'\naperçu renvoi ' || public.crm_email_audience_unified(c3)::text;
+  IF v_ev IS NOT NULL THEN
+    UPDATE public.email_campaigns SET event_id = v_ev, exclusions_json = '{"excludeEventBuyers":true,"recentDays":7}', resend_enabled = false WHERE id = c3;
+    out := out || E'\naperçu exclusions ' || public.crm_email_audience_unified(c3)::text
+      || E'\n  accord seul ' || public.crm_email_audience_preview(NULL, v_org, '[{"kind":"crm","def":{}}]'::jsonb, v_ev, 7, true, c3)::text;
+    UPDATE public.email_campaigns SET event_id = NULL, exclusions_json = '{}', resend_enabled = true WHERE id = c3;
+  END IF;
   BEGIN
     UPDATE public.email_campaigns SET status = 'scheduled', scheduled_at = now() + interval '3 days' WHERE id IN (c1, c2, c3);
     out := out || E'\nprogrammées : ' || (SELECT string_agg(name || '=' || legal_basis, ', ' ORDER BY name) FROM public.email_campaigns WHERE id IN (c1, c2, c3));

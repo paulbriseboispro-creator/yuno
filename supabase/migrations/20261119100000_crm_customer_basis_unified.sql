@@ -120,6 +120,27 @@ INSERT INTO _patch (fn, ord, old, new) VALUES
   ('crm_home__core', 3, $o$FILTER (WHERE email_ok AND NOT phone_ok)$o$, $n$FILTER (WHERE (email_ok OR email_cust) AND NOT phone_ok)$n$),
   ('crm_home__core', 4, $o$FILTER (WHERE phone_ok AND NOT email_ok)$o$, $n$FILTER (WHERE phone_ok AND NOT (email_ok OR email_cust))$n$),
   ('crm_home__core', 5, $o$FILTER (WHERE NOT email_ok AND NOT phone_ok)$o$, $n$FILTER (WHERE NOT email_ok AND NOT email_cust AND NOT phone_ok)$n$),
+  ('crm_home__core', 6, $o$c.email = reg.email AND c.email_ok)$o$, $n$c.email = reg.email AND (c.email_ok OR c.email_cust))$n$),
+  -- Export de la base : l'e-mail joignable et son étiquette (colonne ajoutée à la fin)
+  ('crm_clients_export__core', 1, $o$p.spent, p.email_ok, p.phone_ok, p.source,$o$, $n$p.spent, (p.email_ok OR p.email_cust), p.phone_ok, p.source,$n$),
+  ('crm_clients_export__core', 2, $o$array_to_string(COALESCE(p.tags, '{}'), ' ; '))$o$,
+     $n$array_to_string(COALESCE(p.tags, '{}'), ' ; '), CASE WHEN p.email_ok THEN 'consent' WHEN p.email_cust THEN 'customer' END)$n$),
+  ('crm_clients_export__core', 3, $o$"source","tags"]$o$, $n$"source","tags","email_basis"]$n$),
+  -- « Qui cibler » et plan de soirée
+  ('crm_night_targets', 1, $o$FILTER (WHERE c.email_ok)$o$, $n$FILTER (WHERE c.email_ok OR c.email_cust)$n$),
+  ('crm_night_plan', 1, $o$FILTER (WHERE p.email_ok)::int AS ne$o$, $n$FILTER (WHERE p.email_ok OR p.email_cust)::int AS ne$n$),
+  -- Parcours client
+  ('_crm_journey_person', 1, $o$p.nights, p.email_ok, p.phone_ok$o$, $n$p.nights, (p.email_ok OR p.email_cust), p.phone_ok$n$),
+  ('crm_journey__core', 1, $o$COALESCE(p.email_ok, false) AS email_ok$o$, $n$COALESCE(p.email_ok OR p.email_cust, false) AS email_ok$n$),
+  -- Analyses › E-mails (audience) et Communauté (canaux, à réveiller)
+  ('crm_email_analysis__core', 1, $o$FILTER (WHERE p.email_ok)$o$, $n$FILTER (WHERE p.email_ok OR p.email_cust)$n$),
+  ('crm_email_analysis__core', 2, $o$NOT p.email_ok AND$o$, $n$NOT (p.email_ok OR p.email_cust) AND$n$),
+  ('crm_email_analysis__core', 3, $o$FILTER (WHERE q.email_ok)$o$, $n$FILTER (WHERE q.email_ok OR q.email_cust)$n$),
+  ('crm_ana_community__core', 1, $o$FILTER (WHERE email_ok AND phone_ok)$o$, $n$FILTER (WHERE (email_ok OR email_cust) AND phone_ok)$n$),
+  ('crm_ana_community__core', 2, $o$FILTER (WHERE email_ok AND NOT phone_ok)$o$, $n$FILTER (WHERE (email_ok OR email_cust) AND NOT phone_ok)$n$),
+  ('crm_ana_community__core', 3, $o$FILTER (WHERE phone_ok AND NOT email_ok)$o$, $n$FILTER (WHERE phone_ok AND NOT (email_ok OR email_cust))$n$),
+  ('crm_ana_community__core', 4, $o$FILTER (WHERE NOT email_ok AND NOT phone_ok)$o$, $n$FILTER (WHERE NOT email_ok AND NOT email_cust AND NOT phone_ok)$n$),
+  ('crm_ana_community__core', 5, $o$(email_ok OR phone_ok)$o$, $n$(email_ok OR email_cust OR phone_ok)$n$),
   -- Studio : tailles des audiences proposées
   ('crm_email_audience_sizes', 1, $o$WHERE p.email_ok AND (%s)$o$, $n$WHERE (p.email_ok OR p.email_cust) AND (%s)$n$),
   ('crm_email_send_options', 1, $o$WHERE p.email_ok AND EXISTS ($o$, $n$WHERE p.email_cust OR p.email_ok AND EXISTS ($n$);
@@ -231,17 +252,23 @@ END $$;
 DO $$
 DECLARE v_def text; v_new text;
 BEGIN
-  IF to_regprocedure('public._crm_customer_audience_core(uuid, boolean)') IS NOT NULL THEN RETURN; END IF;
+  IF to_regprocedure('public._crm_customer_audience_core(uuid, boolean, boolean)') IS NOT NULL THEN RETURN; END IF;
   v_def := pg_get_functiondef('public._crm_customer_campaign_audience(uuid)'::regprocedure);
-  v_new := replace(v_def, 'public._crm_customer_campaign_audience(p_campaign_id uuid)', 'public._crm_customer_audience_core(p_campaign_id uuid, p_force boolean)');
+  v_new := replace(v_def, 'public._crm_customer_campaign_audience(p_campaign_id uuid)', 'public._crm_customer_audience_core(p_campaign_id uuid, p_force boolean, p_raw boolean DEFAULT false)');
   IF v_new = v_def THEN RAISE EXCEPTION '_crm_customer_campaign_audience : en-tête introuvable'; END IF;
   v_def := v_new;
   v_new := replace(v_def, 'OR c.legal_basis <> ''customer'' THEN RETURN; END IF;', 'OR (NOT p_force AND c.legal_basis <> ''customer'') THEN RETURN; END IF;');
   IF v_new = v_def THEN RAISE EXCEPTION '_crm_customer_campaign_audience : condition introuvable'; END IF;
+  -- `p_raw` : sans les exclusions de la campagne (acheteurs de la soirée, déjà écrits
+  -- ces N jours), pour que l'aperçu dise combien chacune retire.
+  v_def := v_new;
+  v_new := replace(v_def, E'  v_same := CASE WHEN v_recent IS NULL', E'  IF p_raw THEN v_recent := NULL; v_excl_buyers := false; END IF;
+  v_same := CASE WHEN v_recent IS NULL');
+  IF v_new = v_def THEN RAISE EXCEPTION '_crm_customer_campaign_audience : exclusions introuvables'; END IF;
   EXECUTE v_new;
 END $$;
-REVOKE ALL ON FUNCTION public._crm_customer_audience_core(uuid, boolean) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public._crm_customer_audience_core(uuid, boolean) TO service_role;
+REVOKE ALL ON FUNCTION public._crm_customer_audience_core(uuid, boolean, boolean) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._crm_customer_audience_core(uuid, boolean, boolean) TO service_role;
 
 CREATE OR REPLACE FUNCTION public._crm_customer_campaign_audience(p_campaign_id uuid)
 RETURNS TABLE(email text, first_name text, last_name text, user_id uuid, unsubscribe_token uuid)
@@ -256,6 +283,7 @@ DECLARE
   v_auto jsonb;
   v_key text;
   v_total int; v_customer int; v_cap int; v_today int;
+  v_reach int; v_buyers int := 0; v_raw text[];
 BEGIN
   SELECT * INTO c FROM public.email_campaigns WHERE id = p_campaign_id;
   IF NOT FOUND OR NOT public.crm_scope_allowed(c.venue_id, c.organizer_user_id) THEN
@@ -265,10 +293,19 @@ BEGIN
   IF NOT COALESCE((v_auto->>'include')::boolean, false) THEN RETURN v_auto; END IF;
 
   v_key := public.crm_scope_key(c.venue_id, c.organizer_user_id);
+  -- Trois lectures de la même base : elle n'est construite qu'une fois (mémoire de transaction).
+  PERFORM set_config('yuno.crm_cp_memo', v_key, true);
   SELECT count(*),
          count(*) FILTER (WHERE EXISTS (SELECT 1 FROM public.crm_customer_contacts cc WHERE cc.unsubscribe_token = a.unsubscribe_token))
     INTO v_total, v_customer
     FROM public._crm_customer_audience_core(p_campaign_id, true) a;
+  -- Sans exclusions : la base de l'audience, et ses acheteurs de la soirée (même lecture
+  -- que crm_email_audience_preview : reach, x_buyers, x_recent, net).
+  SELECT COALESCE(array_agg(a.email), '{}') INTO v_raw FROM public._crm_customer_audience_core(p_campaign_id, true, true) a;
+  v_reach := cardinality(v_raw);
+  IF c.event_id IS NOT NULL AND COALESCE(c.exclusions_json->>'excludeEventBuyers', 'false') IN ('true', 't', '1') THEN
+    SELECT count(*) INTO v_buyers FROM _cp p WHERE p.email = ANY (v_raw) AND c.event_id = ANY (p.events);
+  END IF;
   SELECT COALESCE(b.ramp_cap, s.ramp_start) INTO v_cap
     FROM public.crm_customer_basis_settings s LEFT JOIN public.crm_customer_basis b ON b.scope_key = v_key WHERE s.id = 1;
   SELECT count(*) INTO v_today
@@ -277,7 +314,9 @@ BEGIN
      AND r.status IN ('pending', 'sending', 'sent', 'bounced', 'complained')
      AND (COALESCE(r.sent_at, r.next_attempt_at, now()) AT TIME ZONE 'Europe/Paris')::date = (now() AT TIME ZONE 'Europe/Paris')::date;
   -- `ramp_waiting` : ceux que la montée progressive laisse partir les jours suivants (le total ne change pas).
-  RETURN v_auto || jsonb_build_object('total', v_total, 'ramp_waiting', GREATEST(0, v_customer - GREATEST(0, v_cap - v_today)));
+  RETURN v_auto || jsonb_build_object('total', v_total, 'reach', v_reach, 'x_buyers', v_buyers,
+    'x_recent', GREATEST(0, v_reach - v_total - v_buyers),
+    'ramp_waiting', GREATEST(0, v_customer - GREATEST(0, v_cap - v_today)));
 END;
 $$;
 REVOKE ALL ON FUNCTION public.crm_email_audience_unified(uuid) FROM PUBLIC, anon;
