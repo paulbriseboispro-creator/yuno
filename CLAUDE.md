@@ -62,7 +62,9 @@ vend rien. Plan : `docs/designs/YUNO_CRM_PLAN.md` ; prix :
 `docs/designs/YUNO_CRM_PRICING.md`, première section. Règles déjà posées :
 
 - **Prix : UN abonnement + une monnaie, révisé par Paul le 04/10.**
-  24 € HT / mois au lancement (garanti tant que l'abonnement vit), 34 € ensuite
+  24 € / mois au lancement (garanti tant que l'abonnement vit ; **pas de TVA** : Yuno
+  est une micro-entreprise en franchise, art. 293 B, `vat_rate = 0` depuis le 03/11 —
+  jamais « HT » ni « TTC » à l'écran tant que c'est vrai), 34 € ensuite
   pour les nouveaux comptes ; **annuel = 10 mois, « 2 mois offerts »** (240 € HT au
   lancement, 340 € au prix public ; décision de Paul du 03/11, plus de bonus de
   Yunits à l'annuel). Pas de compte gratuit : essai 14 jours sans carte (2 000 Yunits),
