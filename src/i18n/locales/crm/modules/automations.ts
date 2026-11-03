@@ -393,9 +393,9 @@ const dict: CrmDict = {
   'yc.au.et.go': ['Create and open', 'Créer et ouvrir', 'Crear y abrir'],
   'yc.au.et.badge': ['Template for one night', 'Modèle d’une soirée', 'Plantilla de una fiesta'],
   'yc.au.et.note': [
-    'This template is used for this night only, until {date}. After that, the base template takes over again.',
-    'Ce modèle sert pour cette soirée seulement, jusqu’au {date}. Ensuite, le modèle de base reprend.',
-    'Esta plantilla sirve solo para esta fiesta, hasta el {date}. Después vuelve la plantilla base.',
+    'This template is used for this night only, until {date}, then the base template takes over again.',
+    'Ce modèle sert pour cette soirée seulement, jusqu’au {date}, puis le modèle de base reprend.',
+    'Esta plantilla sirve solo para esta fiesta, hasta el {date}, y después vuelve la plantilla base.',
   ],
   'yc.au.et.noteNoDate': [
     'This template is used for this night only. After it, the base template takes over again.',
