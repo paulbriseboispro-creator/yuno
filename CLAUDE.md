@@ -6652,3 +6652,39 @@ doit pas devenir le modèle général de « A cliqué sans acheter »). Migratio
   soirée », « Le modifier », « M'envoyer un test de la relance ». Le Studio d'un modèle de soirée
   revient à `?back=` (adresse `/crm` seulement, `safeCrmBack`). La Billetterie a le moteur mais pas
   encore l'écran.
+
+## Délivrabilité e-mail — reprise Gmail, vagues, envoi réparti, santé par compte (2026-11-03)
+
+Plan, chiffres et message aux pros : `docs/EMAIL_GMAIL_RECOVERY.md`. Migrations
+`20261127100000` (reprise Gmail), `110000` (vagues, envoi réparti, surveillance),
+`120000` (page santé). Constat : Gmail range `news.yunoapp.eu` en spam depuis les
+envois en bloc du fichier importé de WOH (01/09, 09/09, 08/10). Règles :
+
+- **Tous les seuils vivent dans `email_deliverability_settings`** (une ligne), jamais
+  au front : le front les lit (`email_sender_send_mode`, `email_sender_health_report`).
+- **Reprise Gmail** = motif `gmail_cold` dans la politique d'envoi commune
+  (`_email_send_policy_many` ET `email_send_policy`) : Gmail sans ouverture / clic
+  sous `gmail_engaged_days` et sans accord frais (`_email_fresh_optins`) = retenu.
+  Un nouveau motif de politique entre aussi dans le CHECK de
+  `email_automation_sends.skip_reason`, sinon la collecte des recettes lève.
+- **Adresse froide = jamais écrite par Yuno sous 365 j, jamais engagée** : elle part
+  par vagues (`_email_assign_waves`, branchée dans `enqueue_campaign_recipients`),
+  ligne retenue = `pending` + `next_attempt_at = 'infinity'` (le mécanisme de la montée
+  de « Vos clients ») ; jugées par `email_waves_tick` (cron
+  `email-deliverability-tick`). Gmail ne transmet AUCUNE plainte : sa seule règle
+  fiable est l'écart d'ouvertures avec les autres messageries, plus son propre
+  plafond quotidien.
+- **Envoi réparti obligatoire** (`_email_enforce_spread`) sauf
+  `email_sender_health.burst_allowed`, posé par le super admin seul
+  (`admin_set_sender_burst`, audité). Ne jamais rouvrir « tout d'un coup » par défaut.
+- **Chaque pro voit sa santé d'envoi** (`/crm/emails/health`,
+  `…/campaigns/health`) : une règle ajoutée ou un seuil changé se reporte dans
+  `buildHealthView` et `senderHealthWords.ts` (3 langues), sinon la page ment.
+
+- **Droits d'envoi = niveau de confiance 1 à 5 par compte** (migration `20261127140000`,
+  `email_sender_levels`, `email_sender_health.level`, historique
+  `email_sender_level_history`). Le niveau fixe le plafond du jour, l'heure, les
+  nouvelles adresses (dont Gmail) ; `email_sender_levels_tick` (6 h Paris) monte d'un
+  niveau au plus par 7 jours si toutes les conditions passent, descend sur un signal.
+  Pendant la reprise Gmail la montée automatique s'arrête au niveau 3 ; le niveau 5
+  (« tout d'un coup ») n'est jamais automatique (`admin_set_sender_burst`).
