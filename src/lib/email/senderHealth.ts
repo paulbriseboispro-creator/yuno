@@ -206,7 +206,8 @@ export function buildHealthView(r: HealthReport, lang: HealthLang, n: (v: number
     { key: 'never', n: r.base.never, label: w('base.never'), what: w(recovery ? 'base.never.w' : 'base.never.w2') },
   ];
 
-  const known = new Set(['gmail_cold', 'cold_wave_halted', 'cold_frozen', 'cold_wave_late', 'event_started', 'fatigue', 'pressure_24h', 'pressure_7d']);
+  const known = new Set(['gmail_cold', 'cold_wave_halted', 'cold_frozen', 'cold_wave_late', 'event_started', 'fatigue', 'pressure_24h', 'pressure_7d',
+    'unengaged', 'junk_address', 'refocus_low_opens', 'refocus_gmail']);
   const held: HealthView['held'] = [];
   let other = 0;
   for (const [k, v] of Object.entries(r.held ?? {})) {
@@ -255,11 +256,13 @@ export function buildHealthView(r: HealthReport, lang: HealthLang, n: (v: number
     };
   }
 
+  // Récidive (20261129100000) : fermé jusqu'à décision de Yuno, pas de date à afficher.
+  const recidive = r.status === 'paused' && r.rules.frozen_reason === 'recidive';
   return {
     rights,
     tone,
-    title: r.status === 'paused' ? w('status.paused', { date: frozenUntil }) : w(`status.${r.status}`),
-    sub: r.status === 'paused' ? w('status.paused.s', { date: frozenUntil }) : w(`status.${r.status}.s`),
+    title: recidive ? w('status.recidive') : r.status === 'paused' ? w('status.paused', { date: frozenUntil }) : w(`status.${r.status}`),
+    sub: recidive ? w('status.recidive.s') : r.status === 'paused' ? w('status.paused.s', { date: frozenUntil }) : w(`status.${r.status}.s`),
     reasons: r.status === 'paused' ? reasons : reasons.filter((_, i) => r.reasons[i] !== 'frozen'),
     platform,
     rules,
