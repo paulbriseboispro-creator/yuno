@@ -86,7 +86,11 @@ export async function syncGmailPostmaster(admin: SupabaseClient, opts: { days?: 
     }
     return { ok: false, error: msg };
   }
-  for (const domain of POSTMASTER_DOMAINS) {
+  // Les sous-domaines d'envoi des comptes (vérifiés ou actifs) s'ajoutent aux deux
+  // domaines de Yuno : Postmaster publie leurs chiffres une fois ajoutés chez Google.
+  const { data: own } = await admin.rpc('email_sending_domains_active');
+  const domains = [...POSTMASTER_DOMAINS, ...((own as string[] | null) ?? []).filter((x) => !POSTMASTER_DOMAINS.includes(x))];
+  for (const domain of domains) {
     try {
       const rows = await queryDomain(token, domain, days);
       const comp = await compliance(token, domain);

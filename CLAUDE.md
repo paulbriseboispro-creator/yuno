@@ -6699,3 +6699,13 @@ envois en bloc du fichier importé de WOH (01/09, 09/09, 08/10). Règles :
   les comptes ayant écrit à Gmail ce jour-là (`_gmail_senders_on`, une estimation : le
   domaine est partagé). Carte Admin › Santé technique › Google Postmaster. Resend passe
   par Amazon SES, qui pose son propre `Feedback-ID` : on ne peut pas en poser un à nous.
+- **Un sous-domaine d'envoi par compte** (migration `20261128100000`, décision de Paul
+  du 03/11) : `contact@<nom>.news.yunoapp.eu`, `<nom>` = `email_sender_locals` (deux
+  espaces `shared` d'une marque partagent le sous-domaine). Création chez Resend et DNS
+  chez Cloudflare par `scripts/email-domains/setup.mjs <nom>` (clé Resend « Full
+  access » dans `RESEND_ADMIN_KEY`, jamais commitée) ; statut `pending` → `verified` →
+  `active` → `paused`, activer = `admin_set_email_sending_domain` (super admin, motif,
+  domaine VÉRIFIÉ seulement). `send-campaign` lit `email_sending_address_for` et
+  retombe sur news.yunoapp.eu sur toute erreur ; la lecture Postmaster ajoute les
+  sous-domaines vérifiés (chacun s'ajoute aussi dans Google Postmaster, vérification
+  TXT propre). Offre Resend Pro : 10 domaines, 2 déjà pris.

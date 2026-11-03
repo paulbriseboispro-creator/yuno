@@ -355,9 +355,20 @@ async function resolveSender(admin: Admin, campaign: Record<string, unknown>, is
   });
   if (lpErr) console.error('email_sender_local_claim failed, slug du nom utilisé:', lpErr.message);
   else if (typeof claimed === 'string' && claimed) localPart = claimed;
+  // Sous-domaine d'envoi du compte (migration 20261128100000) : quand il est ACTIF,
+  // l'e-mail part de contact@<nom>.news.yunoapp.eu, et Google Postmaster publie les
+  // signalements de CE compte. Sinon, ou sur toute erreur, news.yunoapp.eu comme avant.
+  let fromAddress = `${localPart}@${marketingDomain()}`;
+  if (!isPlatform) {
+    const { data: own, error: ownErr } = await admin.rpc('email_sending_address_for', {
+      p_scope_key: senderScopeKey(venueId, organizerUserId),
+    });
+    if (ownErr) console.error('email_sending_address_for failed, news.yunoapp.eu utilisé:', ownErr.message);
+    else if (typeof own === 'string' && /^[a-z0-9._-]+@[a-z0-9-]+\.news\.yunoapp\.eu$/.test(own)) fromAddress = own;
+  }
   return {
     name: displayName, city, postalAddress, legalName, logoUrl, ownerUserId: ownerUserId!,
-    from: `${displayName} <${localPart}@${marketingDomain()}>`,
+    from: `${displayName} <${fromAddress}>`,
     replyTo: replyOverride || (isPlatform ? Deno.env.get('PLATFORM_REPLY_TO') : null) || ownerProfile?.email || null,
     scopeKey: senderScopeKey(venueId, organizerUserId),
     venueId, organizerUserId,
