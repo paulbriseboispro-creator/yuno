@@ -13687,7 +13687,7 @@ const es: Record<string, string> = {
   'studio.test.saveFailed': "No se pudo guardar antes de la prueba",
   'studio.test.sendFailed': "El envío de prueba falló",
   'studio.test.limit': "{n} pruebas al día por cuenta: esta tendrá que esperar a mañana.",
-  'studio.test.notTeam': "No enviado a {list}: una prueba solo sale a las direcciones de tu equipo.",
+  'studio.test.notTeam': "No enviado a {list}: dirección no válida, o bloqueada tras un rebote o una denuncia de spam.",
   'studio.demoNoSend': "Cuenta de demostración: crea, segmenta y previsualiza libremente — el envío está desactivado aquí. En tu cuenta, la campaña saldría ahora.",
   'studio.test.sent': "Prueba enviada a {email}",
   'studio.test.yourAddress': "tu dirección",

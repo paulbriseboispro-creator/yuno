@@ -13318,7 +13318,7 @@ const fr: Record<string, string> = {
   'studio.test.saveFailed': "Sauvegarde impossible avant le test",
   'studio.test.sendFailed': "L'envoi du test a échoué",
   'studio.test.limit': "{n} tests par jour et par compte : celui-ci attendra demain.",
-  'studio.test.notTeam': "Pas envoyé à {list} : un test ne part qu'aux adresses de ton équipe.",
+  'studio.test.notTeam': "Pas envoyé à {list} : adresse invalide, ou bloquée après un rebond ou un signalement.",
   'studio.demoNoSend': "Compte de démonstration : compose, cible et prévisualise librement — l'envoi est désactivé ici. Dans ton compte, ta campagne partirait maintenant.",
   'studio.test.sent': "Test envoyé à {email}",
   'studio.test.yourAddress': "ton adresse",

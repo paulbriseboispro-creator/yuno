@@ -41,7 +41,7 @@ export default function TestEmailDialog({ open, campaignId, onSave, onClose }: {
       const { data, error: fnError } = await supabase.functions.invoke('send-campaign', {
         body: { campaign_id: campaignId, send_test: true, test_emails: extra ? [extra] : undefined },
       });
-      // Un test ne part qu'aux adresses de l'équipe, 20 fois par jour (MAIL-08).
+      // Un test part à toute adresse non bloquée, 20 fois par jour (20261125100000).
       const r = await readTestSend(data, fnError);
       if (!r.ok) throw new Error(testSendMessage(t, r));
       setSent(true);

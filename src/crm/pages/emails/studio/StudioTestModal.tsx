@@ -2,8 +2,8 @@
  * « Recevoir un test » : les adresses de test du compte (Réglages d'envoi,
  * cinq au plus), en ajouter une, puis l'envoi par la fonction d'envoi réelle
  * (`send-campaign`, mode test : la personne qui clique le reçoit toujours).
- * Un test ne part qu'aux adresses de l'équipe de l'espace, 20 fois par jour
- * (audit du 18/10, MAIL-08) : le serveur dit qui l'a reçu et qui est écarté.
+ * Un test part à n'importe quelle adresse (cinq en plus de soi), 20 fois par
+ * jour : le serveur dit qui l'a reçu et qui est écarté (adresse bloquée).
  * Un test ne coûte aucun Yunit. Compte de démonstration : rien ne part.
  * Identité de l'expéditeur incomplète (Réglages › Envoi) : le test non plus,
  * le bandeau dit ce qui manque et y mène.
@@ -45,7 +45,7 @@ function TestBody({ onClose }: { onClose: () => void }) {
   const [msg, setMsg] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState<string[] | null>(null);
-  // Adresses écartées par le serveur : hors de l'équipe de l'espace (MAIL-08).
+  // Adresses écartées par le serveur : mal formées ou bloquées (rebond, plainte).
   const [outside, setOutside] = useState<string[]>([]);
   // Refus du serveur (la liste qu'il rend), qui prime sur l'état en cache.
   const [refused, setRefused] = useState<string[] | null>(null);

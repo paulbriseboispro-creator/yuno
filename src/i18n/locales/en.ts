@@ -13345,7 +13345,7 @@ const en: Record<string, string> = {
   'studio.test.saveFailed': "Could not save before the test",
   'studio.test.sendFailed': "Test send failed",
   'studio.test.limit': "{n} tests a day per account: this one will have to wait until tomorrow.",
-  'studio.test.notTeam': "Not sent to {list}: a test only goes to your team's addresses.",
+  'studio.test.notTeam': "Not sent to {list}: invalid address, or blocked after a bounce or a spam report.",
   'studio.demoNoSend': "Demo account: build your email, target and preview it freely — sending is turned off here. In your own account it would go out now.",
   'studio.test.sent': "Test sent to {email}",
   'studio.test.yourAddress': "your address",

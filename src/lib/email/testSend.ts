@@ -2,11 +2,11 @@
  * Réponse d'un e-mail de test (`send-campaign`, `send_test: true`), lue de la
  * même façon par la Billetterie et la Console CRM.
  *
- * Depuis l'audit du 18/10 (MAIL-08, migration 20261023120000), un test ne part
- * qu'à la personne qui clique et aux adresses de l'ÉQUIPE de l'espace, 20 fois
- * par jour et par espace : le serveur rend la liste des destinataires (`to`) et
- * celle des adresses écartées (`refused`), ou refuse tout (`test_limit`,
- * `no_team_address`).
+ * Un test part à la personne qui clique et à cinq autres adresses au plus,
+ * quelles qu'elles soient, 20 fois par jour et par espace (migration
+ * 20261125100000) : le serveur rend la liste des destinataires (`to`) et celle
+ * des adresses écartées (`refused` : mal formées, ou sur la liste de
+ * suppression), ou refuse tout (`test_limit`, `no_team_address`).
  */
 export type TestSendCode = 'demo' | 'identity' | 'limit' | 'not_team' | 'failed';
 
@@ -15,7 +15,7 @@ export interface TestSendOutcome {
   code?: TestSendCode;
   /** Destinataires réels du test. */
   to: string[];
-  /** Adresses écartées : hors de l'équipe de l'espace. */
+  /** Adresses écartées : mal formées, ou bloquées (rebond dur, plainte). */
   refused: string[];
   /** Plafond du jour quand `code === 'limit'`. */
   limit?: number;
