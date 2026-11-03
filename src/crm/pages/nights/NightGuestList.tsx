@@ -27,6 +27,7 @@ import { EASE, useProgress } from '@/crm/ui/motion';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmCaps } from '@/crm/scope';
 import { useNightGuestList } from '@/crm/data/guestlist';
+import { GuestListLinksCard } from './links/ReadyLinks';
 import type { GlArrivals, GlProfileSide, NightGuestList as GL } from '@/crm/data/guestlist';
 import type { ClientFilterDef } from '@/crm/data/clients';
 import { GL_MIN_SAMPLE, clockFromNoon, hourLabel, nightVerdict, rate } from '@/crm/lib/guestlist';
@@ -111,6 +112,7 @@ function GlBody({ d, inDrawer, onWrite, T }: { d: GL; inDrawer: boolean; onWrite
   if (empty) {
     return (
       <div style={scroll}>
+        {ph !== 'past' && <GuestListLinksCard eventId={d.event.id} />}
         <section style={card(80, { background: 'repeating-linear-gradient(135deg,var(--sand-50) 0 10px,#fff 10px 20px)' })}>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--sand-500)' }}>{t('yc.gl.k')}</span>
           <b style={{ fontFamily: 'var(--font-display)', fontSize: 24, fontWeight: 600, letterSpacing: '-.03em', lineHeight: 1.15, textWrap: 'balance' }}>{t(ph === 'past' ? 'yc.gl.empty.tPast' : 'yc.gl.empty.t')}</b>
@@ -177,6 +179,8 @@ function GlBody({ d, inDrawer, onWrite, T }: { d: GL; inDrawer: boolean; onWrite
   return (
     <>
     <div style={scroll}>
+      {/* Les guest lists de la soirée et leurs liens, prêts à copier. */}
+      {ph !== 'past' && <GuestListLinksCard eventId={d.event.id} />}
       {/* Combien, et combien sont venus */}
       <section style={{ ...card(120), gap: 16 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px 14px' }}>

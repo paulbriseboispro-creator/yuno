@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   LINK_KINDS, bestLink, buildGoDestination, findKind, goDisplay, goUrl, groupSources, linkConversion,
-  linkState, nextIndex, reusableLink, saleSourceText, sourceFamily, sourceHost, sourceKind, sourceName, type NightLink,
+  linkState, nextIndex, reusableLink, saleSourceText, splitLinks, READY_KEYS, sourceFamily, sourceHost, sourceKind, sourceName, type NightLink,
 } from '../links';
 
 const link = (o: Partial<NightLink>): NightLink => ({
@@ -9,6 +9,27 @@ const link = (o: Partial<NightLink>): NightLink => ({
   created_at: '2026-10-05T10:00:00Z', archived: false, clicks: 0, visitors: 0, clicks_24h: 0, last_click_at: null,
   mobile_pct: null, spark: [], tickets: 0, orders: 0, revenue: 0, buyers: 0, new_buyers: 0, first_sale_at: null, people: [],
   ...o,
+});
+
+describe('liens prêts (posés par Yuno)', () => {
+  it('range réseaux, guest lists et liens du pro', () => {
+    const links = [
+      link({ id: 'own', auto: null }),
+      link({ id: 'wa', auto: 'wa', platform: 'whatsapp', placement: 'group' }),
+      link({ id: 'bio', auto: 'ig_bio', placement: 'bio' }),
+      link({ id: 'g1', auto: 'gl:1861576', deal_id: '1861576', platform: 'other', placement: 'link' }),
+      link({ id: 'odd', auto: 'inconnu' }),
+    ];
+    const { ready, byDeal, own } = splitLinks(links);
+    expect(ready.map((l) => l.id)).toEqual(['bio', 'wa']);
+    expect(byDeal.get('1861576')?.id).toBe('g1');
+    // une clé inconnue reste visible, rangée avec les liens du pro
+    expect(own.map((l) => l.id)).toEqual(['own', 'odd']);
+  });
+
+  it('les cinq liens courants, miroir de _crm_ready_link_specs', () => {
+    expect([...READY_KEYS]).toEqual(['ig_bio', 'ig_story', 'tt_bio', 'wa', 'fb_event']);
+  });
 });
 
 describe('liens de soirée', () => {

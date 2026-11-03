@@ -89,6 +89,38 @@ export interface NightLink {
   new_buyers: number;
   first_sale_at: string | null;
   people: { email: string; name: string | null; tickets: number; is_new: boolean; at: string }[];
+  /** Lien posé par Yuno (`ig_bio`, `gl:<tarif>`…), null = créé par le pro. */
+  auto?: string | null;
+  /** Tarif Shotgun visé (lien de guest list). */
+  deal_id?: string | null;
+}
+
+/**
+ * Liens que Yuno pose seul sur chaque soirée à venir (migration
+ * 20261120100000, `_crm_ready_link_specs`), dans l'ordre de la Console. Un
+ * lien de guest list porte `gl:<tarif Shotgun>`.
+ */
+export const READY_KEYS = ['ig_bio', 'ig_story', 'tt_bio', 'wa', 'fb_event'] as const;
+export type ReadyKey = (typeof READY_KEYS)[number];
+
+/**
+ * Range les liens d'une soirée : les liens prêts des réseaux (ordre fixe), ceux
+ * des guest lists (par tarif), et les liens que le pro a créés lui-même.
+ */
+export function splitLinks<T extends Pick<NightLink, 'auto' | 'deal_id'>>(links: readonly T[]): {
+  ready: T[]; byDeal: Map<string, T>; own: T[];
+} {
+  const ready: T[] = [];
+  const byDeal = new Map<string, T>();
+  const own: T[] = [];
+  for (const l of links) {
+    if (!l.auto) own.push(l);
+    else if (l.auto.startsWith('gl:')) byDeal.set(l.deal_id || l.auto.slice(3), l);
+    else if ((READY_KEYS as readonly string[]).includes(l.auto)) ready.push(l);
+    else own.push(l);
+  }
+  ready.sort((a, b) => READY_KEYS.indexOf(a.auto as ReadyKey) - READY_KEYS.indexOf(b.auto as ReadyKey));
+  return { ready, byDeal, own };
 }
 
 /** Numéro de la prochaine publication d'un même type (« Story 4 »). */

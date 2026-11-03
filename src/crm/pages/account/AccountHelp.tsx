@@ -56,6 +56,8 @@ const FAQ: { id: string; c: Exclude<Cat, 'all'>; to?: string }[] = [
   { id: 'sources', c: 'clients', to: CRM_ROUTES.sales },
   // Trafic : ce qui passe par Yuno, en personnes (crm_ana_clicks, 27/10).
   { id: 'traffic', c: 'clients', to: CRM_ROUTES.traffic },
+  // Liens prêts : posés par Yuno sur chaque soirée à venir (migration 20261120100000).
+  { id: 'readylinks', c: 'start', to: CRM_ROUTES.nights },
   { id: 'customers', c: 'clients', to: CRM_ROUTES.clients },
   { id: 'guestlist', c: 'clients', to: CRM_ROUTES.guestlist },
   // Analyse client : le test au hasard, les statuts, ce qui sort du compte.
