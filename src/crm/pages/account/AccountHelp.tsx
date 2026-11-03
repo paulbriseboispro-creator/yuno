@@ -49,6 +49,8 @@ const FAQ: { id: string; c: Exclude<Cat, 'all'>; to?: string }[] = [
   // Le connecteur IA (MCP) dessine les pages : brouillon, ou proposition sur une page en ligne.
   { id: 'aipage', c: 'clients', to: CRM_ROUTES.signupPages },
   { id: 'auto', c: 'start', to: CRM_ROUTES.automations },
+  // Modèle propre à une soirée : remplace le modèle de base pour elle seule (20261123100000).
+  { id: 'nighttemplate', c: 'start', to: CRM_ROUTES.automations },
   { id: 'blocks', c: 'start', to: CRM_ROUTES.emailTemplates },
   { id: 'sms', c: 'yunits', to: CRM_ROUTES.sms },
   { id: 'sales', c: 'clients', to: CRM_ROUTES.sales },
