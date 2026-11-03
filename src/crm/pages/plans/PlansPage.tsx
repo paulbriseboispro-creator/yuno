@@ -55,8 +55,8 @@ export default function PlansPage() {
 
 function Poster({ url }: { url: string | null }) {
   return (
-    <div style={{ width: 56, height: 56, flex: 'none', borderRadius: 14, overflow: 'hidden', background: 'var(--sand-100)' }}>
-      {url && <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+    <div style={{ position: 'relative', width: 100, aspectRatio: '16 / 9', flex: 'none', borderRadius: 12, overflow: 'hidden', background: 'var(--sand-100)', boxShadow: 'inset 0 0 0 1px var(--sand-200)' }}>
+      {url && <PosterFit src={url} />}
     </div>
   );
 }
