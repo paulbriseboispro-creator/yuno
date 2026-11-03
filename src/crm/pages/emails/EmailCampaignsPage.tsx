@@ -26,6 +26,7 @@ import { audienceLabel, draftGaps, rate } from '@/crm/lib/emails';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { EmailsShell } from './EmailsShell';
+import { EmailMiniThumb } from './EmailThumb';
 
 type Filter = 'all' | 'draft' | 'sched' | 'sent';
 type Sort = 'def' | 'sales' | 'open';
@@ -213,13 +214,13 @@ export default function EmailCampaignsPage() {
                   <Hv key={c.id} style={{ position: 'relative', display: 'grid', gridTemplateColumns: GRID, gap: 16, alignItems: 'center', padding: '14px 24px', borderBottom: '1px solid var(--sand-100)', background: on ? 'var(--red-50)' : 'transparent', animation: `yc-row 520ms ${EASE} ${Math.min(i, 10) * 45 + 480}ms both`, transition: 'background 140ms' }} hover={{ background: on ? 'var(--red-50)' : 'var(--paper)' }}>
                     {caps.write ? <Tick on={on} onClick={() => setSel(on ? sel.filter((x) => x !== c.id) : [...sel, c.id])} label={t('yc.em.ca.sel.one1')} /> : <span />}
                     <Hv as={Link} to={main} style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0, color: 'var(--ink)', textDecoration: 'none' }} hover={{ color: 'var(--ink)', textDecoration: 'none' }}>
-                      <span style={{ flex: 'none', width: 48, height: 60, borderRadius: 8, overflow: 'hidden', background: th.bg ?? '#fff', boxShadow: '0 0 0 1px var(--sand-200)', display: 'flex', flexDirection: 'column' }}>
+                      <EmailMiniThumb id={c.id} style={{ flex: 'none', borderRadius: 8, overflow: 'hidden', background: th.bg ?? '#fff', boxShadow: '0 0 0 1px var(--sand-200)', display: 'flex', flexDirection: 'column' }}>
                         <span style={{ height: 12, background: th.headerBg ?? 'var(--red-500)' }} />
                         <span style={{ margin: '5px 5px 0', height: 20, borderRadius: 2, background: `repeating-linear-gradient(135deg,${th.tile ?? '#F2EEEC'} 0 3px,${th.divider ?? '#E5DFDC'} 3px 6px)` }} />
                         <span style={{ margin: '5px 5px 0', height: 3, borderRadius: 2, background: th.divider ?? '#E5DFDC' }} />
                         <span style={{ margin: '3px 5px 0', height: 3, width: '60%', borderRadius: 2, background: th.divider ?? '#E5DFDC' }} />
                         <span style={{ margin: '5px auto 0', height: 5, width: 20, borderRadius: 99, background: th.accent ?? 'var(--red-500)' }} />
-                      </span>
+                      </EmailMiniThumb>
                       <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
                         <span style={{ fontSize: 15.5, fontWeight: 600, letterSpacing: '-.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name || t('yc.em.untitled')}</span>
                         <span style={{ fontSize: 13, color: 'var(--sand-500)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.subject && c.subject !== '—' ? c.subject : t('yc.em.ca.noSubject')}</span>
