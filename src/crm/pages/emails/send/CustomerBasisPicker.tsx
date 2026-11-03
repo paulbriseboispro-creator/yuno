@@ -1,10 +1,9 @@
 /**
- * Étape Audience › la ligne sous le chiffre (« Vos clients », 03/11) : le pro ne
- * choisit plus « à l'accord » ou « tous vos clients ». Le chiffre est UN nombre :
- * les personnes « Accepté » (accord donné) et, quand le titulaire a signé et que
- * l'e-mail ne parle que de ses soirées, ses clients « Pas de mention ». Cette ligne
- * dit seulement ce qui les en écarte, ou ce que la signature ajouterait ; la base
- * légale est posée par le serveur quand la campagne est programmée ou envoyée.
+ * Étape Audience › la ligne sous le chiffre (« Vos clients », 03/11) : un seul
+ * nombre de personnes joignables, sans jamais distinguer à l'écran l'accord
+ * marketing de la relation client (la différence reste en base). Cette ligne ne
+ * parle que quand l'e-mail ne partira pas à toute la base joignable (contenu,
+ * renvoi, déclaration à signer) ; la base légale est posée par le serveur.
  */
 import { Link } from 'react-router-dom';
 import { Hv } from '@/crm/ui/Hv';
@@ -20,7 +19,7 @@ export function CustomerReachNote({ basis, unified }: { basis: CustomerBasis | u
   let tone: 'info' | 'warn' = 'info';
   let cta = false;
   if (unified.include) {
-    text = (unified.ramp_waiting ?? 0) > 0 ? t('yc.cb.a.incRamp', { n: n(unified.ramp_waiting ?? 0) }) : t('yc.cb.a.inc');
+    text = (unified.ramp_waiting ?? 0) > 0 ? t('yc.cb.a.incRamp', { n: n(unified.ramp_waiting ?? 0) }) : null;
   } else if (unified.reason === 'content') {
     const why = [...new Set((unified.issues ?? []).map((i) => t(customerIssueKey(i.code))))].slice(0, 2).join(' · ');
     text = t('yc.cb.a.content', { why });
@@ -28,7 +27,7 @@ export function CustomerReachNote({ basis, unified }: { basis: CustomerBasis | u
   } else if (unified.reason === 'feature' && basis.open) {
     text = t('yc.cb.a.feature');
   } else if (unified.reason === 'closed' && extra > 0 && basis.can_declare) {
-    text = basis.status === 'active' ? t('yc.cb.a.notReady') : t('yc.cb.a.after', { n: n(extra) });
+    text = basis.status === 'active' ? t('yc.cb.a.notReady') : t('yc.cb.a.after');
     cta = basis.status !== 'active';
   }
   if (!text) return null;

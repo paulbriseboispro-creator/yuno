@@ -50,9 +50,10 @@ export function CustomerBasisCard({ contact: rawContact }: { contact: string }) 
 }
 
 /**
- * UN chiffre (03/11) : les personnes joignables par e-mail. Base signée et prête :
- * « Accepté » + « Pas de mention » ensemble. Sinon : « Accepté » seul, et ce que la
- * signature ajouterait — jamais un total qui promet ce qui ne peut pas partir.
+ * UN chiffre (03/11) : les personnes joignables par e-mail, sans distinguer à
+ * l'écran l'accord de la relation client. Base signée et prête : le total. Sinon :
+ * ce qui part aujourd'hui, et « jusqu'à N une fois signé » — jamais un total qui
+ * promet ce qui ne peut pas partir.
  */
 function Counts({ b }: { b: CustomerBasis }) {
   const { t, n } = useCrmT();
@@ -69,10 +70,9 @@ function Counts({ b }: { b: CustomerBasis }) {
       ) : (
         <>
           <Line big={n(b.counts.consent)} text={t('yc.cb.n.now')} strong />
-          {b.counts.extra > 0 && <Line big={`+ ${n(b.counts.extra)}`} text={t('yc.cb.n.after', { m: b.eligibility_months })} />}
+          {b.counts.extra > 0 && <Line big="" text={t('yc.cb.n.after', { n: n(b.counts.consent + b.counts.extra), m: b.eligibility_months })} />}
         </>
       )}
-      <span style={{ fontSize: 13, lineHeight: 1.45, color: 'var(--sand-600)', paddingTop: 4 }}>{t('yc.cb.n.labels')}</span>
       {never.map(([v, k]) => <Line key={k} big={`− ${n(v)}`} text={t('yc.cb.n.neverX', { x: t(k) })} muted />)}
     </div>
   );
@@ -248,7 +248,7 @@ export function CustomerBasisModal({ basis, contact, onClose }: { basis: Custome
   const intro = t('yc.cb.m.s', { consent: n(basis.counts.consent) });
   const docText = [
     t('yc.cb.m.t'), intro,
-    `${n(basis.counts.consent)} ${t('yc.cb.n.now')} / + ${n(basis.counts.extra)} ${t('yc.cb.n.after', { m: basis.eligibility_months })}`,
+    `${n(basis.counts.consent)} ${t('yc.cb.n.now')} / ${t('yc.cb.n.after', { n: n(basis.counts.consent + basis.counts.extra), m: basis.eligibility_months })}`,
     t('yc.cb.m.engage'), ...CUSTOMER_CHECKS.map((k) => `☑ ${t(`yc.cb.m.c.${k}`)}`),
     `${t('yc.cb.m.name')} ${name.trim()} — ${t('yc.cb.m.role')} ${role.trim()}`, t('yc.cb.m.foot'), `${LEGAL_URL} · ${basis.version}`,
   ].join('\n');
