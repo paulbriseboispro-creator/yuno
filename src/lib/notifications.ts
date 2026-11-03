@@ -212,6 +212,9 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   admin_email_cold_halted:      { icon: AlertTriangle, category: 'system', label: 'notif.type.admin_email_cold_halted' },
   admin_email_sender_probation: { icon: ShieldAlert,   category: 'system', label: 'notif.type.admin_email_sender_probation' },
   admin_email_gmail_drop:       { icon: Siren,         category: 'system', label: 'notif.type.admin_email_gmail_drop' },
+  admin_email_sender_recidive:  { icon: ShieldAlert,   category: 'system', label: 'notif.type.admin_email_sender_recidive' },
+  admin_email_campaign_refocused: { icon: AlertTriangle, category: 'system', label: 'notif.type.admin_email_campaign_refocused' },
+  admin_email_daily:            { icon: Siren,         category: 'system', label: 'notif.type.admin_email_daily' },
   admin_email_google_spam:      { icon: Siren,         category: 'system', label: 'notif.type.admin_email_google_spam' },
   admin_ticketing_token_invalid: { icon: AlertTriangle, category: 'system', label: 'notif.type.admin_ticketing_token_invalid' },
   admin_ticketing_sync_failing:  { icon: AlertTriangle, category: 'system', label: 'notif.type.admin_ticketing_sync_failing' },
@@ -658,6 +661,9 @@ function adminNotifLink(n: AppNotif): string | null {
     case 'admin_email_cold_halted':
     case 'admin_email_sender_probation':
     case 'admin_email_gmail_drop':
+    case 'admin_email_sender_recidive':
+    case 'admin_email_campaign_refocused':
+    case 'admin_email_daily':
     case 'admin_email_google_spam':
       return '/admin/system';
 

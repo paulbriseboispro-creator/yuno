@@ -43,6 +43,18 @@ export function EmailSendersCard() {
     toast.success(t('adm.system.senders.saved'));
   };
 
+  // Lever un blocage (récidive ou mise à l'écart) : motif obligatoire, audité.
+  const lift = async (s: Sender) => {
+    const reason = window.prompt(t('adm.system.senders.liftReason'));
+    if (!reason || reason.trim().length < 3) return;
+    setBusy(s.scope_key);
+    const { error } = await supabase.rpc('admin_lift_sender_freeze' as never, { p_scope_key: s.scope_key, p_reason: reason.trim() } as never);
+    setBusy(null);
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('adm.system.senders.saved'));
+    void load();
+  };
+
   return (
     <Card title={t('adm.system.senders.title')} subtitle={t('adm.system.senders.sub')} icon={Send}>
       {!rows ? null : rows.length === 0 ? (
@@ -91,7 +103,15 @@ export function EmailSendersCard() {
                     <td className="py-1.5 text-right tabular-nums">{pct(s.bounced, s.sent)}</td>
                     <td className="py-1.5 text-right tabular-nums">{pct(s.gmail_opened, s.gmail_sent)} / {pct(s.opened - s.gmail_opened, other)}</td>
                     <td className="py-1.5 text-right" style={{ color: frozen ? NEG : POS }}>
-                      {frozen ? t('adm.system.senders.frozen').replace('{t}', new Date(s.cold_frozen_until as string).toLocaleDateString(language, { day: 'numeric', month: 'short' })) : t('adm.system.senders.ok')}
+                      {frozen
+                        ? (s.reason === 'recidive'
+                          ? t('adm.system.senders.recidive')
+                          : t('adm.system.senders.frozen').replace('{t}', new Date(s.cold_frozen_until as string).toLocaleDateString(language, { day: 'numeric', month: 'short' })))
+                        : t('adm.system.senders.ok')}
+                      {frozen && (
+                        <button type="button" disabled={busy === s.scope_key} onClick={() => { void lift(s); }}
+                          className="ml-2 underline cursor-pointer" style={{ color: T2 }}>{t('adm.system.senders.lift')}</button>
+                      )}
                     </td>
                     <td className="py-1.5 text-right"><Toggle checked={s.burst_allowed} disabled={busy === s.scope_key} onChange={(v) => { void setBurst(s, v); }} /></td>
                   </tr>
