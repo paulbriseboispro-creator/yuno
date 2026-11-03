@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 // Yuno CRM — crée chez Stripe le produit d'abonnement et ses quatre prix
 // (docs/designs/YUNO_CRM_PRICING.md, décision du 02/10 au soir : un abonnement
-// à 24 € HT par mois au lancement, 34 € ensuite (revu le 04/10) ; annuel = 12 mois + 30 000
-// Yunits offerts).
+// à 24 € HT par mois au lancement, 34 € ensuite (revu le 04/10) ; annuel = 10 mois,
+// « 2 mois offerts » (décision du 03/11), 10 000 Yunits offerts une fois aux deux formules).
+//
+// Le 03/11, les clés annuelles ont été DÉPLACÉES chez Stripe vers les nouveaux prix
+// (240 € / 340 €, `transfer_lookup_key`) ; les anciens (288 € / 408 €) sont archivés.
 //
 // PAS de pack de Yunits chez Stripe (décision du 05/10) : une recharge se
 // choisit au curseur et part en `price_data` (`crmRechargeQuote`,
@@ -13,7 +16,7 @@
 // (actions `crm_*`) retrouve les prix d'abonnement par ces clés : aucun
 // identifiant de prix n'est écrit dans le code.
 //   - abonnement : `yuno_crm_base_<month|year>_<launch|public>` ; les prix
-//     publics (34 € / 408 €) naissent INACTIFS, à activer le jour du passage.
+//     publics (34 € / 340 €) naissent INACTIFS, à activer le jour du passage.
 //
 // Créés en LIVE le 02/10 sur le compte « Yuno 360 » par le MCP Stripe, avec
 // exactement ces clés et ces métadonnées (« néons » renommés en Yunits chez
@@ -48,18 +51,17 @@ if (!KEY) { console.error('STRIPE_SECRET_KEY absent (.env.local)'); process.exit
 
 const TAX_CODE = 'txcd_10000000';
 const YUNITS_MONTHLY = 10_000;
-const YUNITS_ANNUAL_BONUS = 30_000;
 
 // L'abonnement : un produit, quatre prix (euros HT).
 const BASE = {
   name: 'Yuno CRM',
   description:
-    "Abonnement Yuno CRM : base clients, e-mails, automatisations et bilans branchés sur votre billetterie. Yunits offerts une fois à l'abonnement (10 000 au mensuel, 30 000 à l'annuel).",
+    "Abonnement Yuno CRM : base clients, e-mails, automatisations et bilans branchés sur votre billetterie. 10 000 Yunits offerts une fois à l'abonnement, au mensuel comme à l'annuel.",
   prices: [
     { tier: 'launch', interval: 'month', amount: 24, active: true, nickname: 'Yuno CRM mensuel (lancement 24 €)' },
-    { tier: 'launch', interval: 'year', amount: 288, active: true, nickname: 'Yuno CRM annuel (lancement 288 € + 30 000 Yunits)' },
+    { tier: 'launch', interval: 'year', amount: 240, active: true, nickname: 'Yuno CRM annuel (lancement 240 €, 2 mois offerts)' },
     { tier: 'public', interval: 'month', amount: 34, active: false, nickname: "Yuno CRM mensuel (public 34 €, inactif jusqu'au passage)" },
-    { tier: 'public', interval: 'year', amount: 408, active: false, nickname: "Yuno CRM annuel (public 408 € + 30 000 Yunits, inactif jusqu'au passage)" },
+    { tier: 'public', interval: 'year', amount: 340, active: false, nickname: "Yuno CRM annuel (public 340 €, 2 mois offerts, inactif jusqu'au passage)" },
   ],
 };
 
@@ -126,7 +128,7 @@ async function main() {
         'metadata[price_tier]': p.tier,
         'metadata[yunits_monthly]': String(YUNITS_MONTHLY),
       };
-      if (p.interval === 'year') params['metadata[yunits_annual_bonus]'] = String(YUNITS_ANNUAL_BONUS);
+      if (p.interval === 'year') params['metadata[months_paid]'] = '10';
       await stripe('POST', 'prices', params);
     }
   }

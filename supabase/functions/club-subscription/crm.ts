@@ -102,6 +102,65 @@ async function ensureCustomer(ctx: CrmActionContext, scope: string, name: string
   return customer.id;
 }
 
+/** La TVA du vendeur, lue dans crm_pricing_config (0 = franchise en base, art. 293 B du CGI). */
+async function vatRate(ctx: CrmActionContext): Promise<number> {
+  const { data } = await ctx.admin.rpc("crm_pricing_config");
+  const v = Number((data as { vat_rate?: unknown } | null)?.vat_rate);
+  return Number.isFinite(v) ? v : 20;
+}
+
+/** Mention légale des factures quand Yuno ne facture pas la TVA. */
+const VAT_EXEMPT_FOOTER = "TVA non applicable, article 293 B du CGI.";
+
+/** Le portail client de Stripe propre au CRM (changer de carte, factures) : retrouvé, sinon créé une fois. */
+let portalConfigId: string | null = null;
+async function crmPortalConfiguration(ctx: CrmActionContext, returnUrl: string): Promise<string> {
+  if (portalConfigId) return portalConfigId;
+  const list = await ctx.stripe.billingPortal.configurations.list({ active: true, limit: 100 });
+  const found = list.data.find((c: Stripe.BillingPortal.Configuration) => c.metadata?.yuno_product === "crm");
+  if (found) { portalConfigId = found.id; return found.id; }
+  const created = await ctx.stripe.billingPortal.configurations.create({
+    business_profile: {
+      headline: "Yuno CRM",
+      privacy_policy_url: "https://yunoapp.eu/legal/privacy",
+      terms_of_service_url: "https://yunoapp.eu/legal/cgv-crm",
+    },
+    features: {
+      payment_method_update: { enabled: true },
+      invoice_history: { enabled: true },
+      customer_update: { enabled: true, allowed_updates: ["email", "address", "name", "tax_id"] },
+      subscription_cancel: { enabled: false },
+    },
+    default_return_url: returnUrl,
+    metadata: { yuno_product: "crm" },
+  });
+  ctx.log("CRM portal configuration created", { id: created.id });
+  portalConfigId = created.id;
+  return created.id;
+}
+
+type CrmLang = "fr" | "en" | "es";
+const langOf = (v: unknown): CrmLang => (v === "en" || v === "es" ? v : "fr");
+
+/** Le mot sous le bouton de paiement de Stripe : rien n'est prélevé aujourd'hui pendant un essai. */
+function checkoutNote(lang: CrmLang, trialEnd: number | null): string {
+  const date = trialEnd
+    ? new Date(trialEnd * 1000).toLocaleDateString(lang === "en" ? "en-GB" : lang, { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Paris" })
+    : "";
+  if (trialEnd) {
+    return {
+      fr: `Rien n'est prélevé aujourd'hui. Premier paiement le ${date}, à la fin de votre essai. Résiliable en un clic depuis votre Console.`,
+      en: `Nothing is charged today. First payment on ${date}, when your trial ends. Cancel in one click from your Console.`,
+      es: `Hoy no se cobra nada. Primer pago el ${date}, al final de su prueba. Cancelable con un clic desde su Consola.`,
+    }[lang];
+  }
+  return {
+    fr: "Sans engagement : résiliable en un clic depuis votre Console. Une facture à chaque paiement.",
+    en: "No commitment: cancel in one click from your Console. An invoice with every payment.",
+    es: "Sin permanencia: cancelable con un clic desde su Consola. Una factura con cada pago.",
+  }[lang];
+}
+
 /** Le prix du socle pour ce rythme : le premier palier ACTIF dans l'ordre donné. */
 async function basePrice(ctx: CrmActionContext, interval: CrmInterval, prefer?: CrmPriceTier | readonly CrmPriceTier[]): Promise<Stripe.Price | null> {
   const tiers: readonly CrmPriceTier[] = Array.isArray(prefer) ? prefer : prefer ? [prefer as CrmPriceTier] : CRM_PRICE_TIERS;
@@ -278,6 +337,7 @@ export async function handleCrmAction(ctx: CrmActionContext, action: string, bod
     if (!row?.stripe_customer_id) return refuse(ctx, "no_customer", 409);
     const portal = await ctx.stripe.billingPortal.sessions.create({
       customer: row.stripe_customer_id,
+      configuration: await crmPortalConfiguration(ctx, back),
       return_url: `${back}?card=updated`,
       flow_data: { type: "payment_method_update", after_completion: { type: "redirect", redirect: { return_url: `${back}?card=updated` } } },
     });
@@ -324,6 +384,7 @@ export async function handleCrmAction(ctx: CrmActionContext, action: string, bod
     const { data: plan } = await ctx.admin.rpc("crm_effective_plan", { p_scope_key: scope });
     if (plan === "paused") return refuse(ctx, "crm_paused", 402);
     const customerId = await ensureCustomer(ctx, scope, name, row);
+    const exempt = (await vatRate(ctx)) === 0;
     const label = `Recharge Yuno CRM · ${quote.received.toLocaleString("fr-FR").replace(/[\u202f\u00a0]/g, " ")} Yunits`;
     const metadata = {
       yuno_product: "crm", kind: "recharge", scope_key: scope, user_id: ctx.user.id,
@@ -341,11 +402,12 @@ export async function handleCrmAction(ctx: CrmActionContext, action: string, bod
           product_data: { name: label, tax_code: TAX_CODE },
         },
       }],
-      automatic_tax: { enabled: true },
+      automatic_tax: { enabled: !exempt },
       tax_id_collection: { enabled: true },
       billing_address_collection: "required",
       customer_update: { address: "auto", name: "auto" },
-      invoice_creation: { enabled: true, invoice_data: { description: label, metadata } },
+      locale: langOf(body.lang),
+      invoice_creation: { enabled: true, invoice_data: { description: label, metadata, ...(exempt ? { footer: VAT_EXEMPT_FOOTER } : {}) } },
       payment_intent_data: { metadata },
       metadata,
       success_url: `${origin}/crm/yunits?recharge=success&session={CHECKOUT_SESSION_ID}`,
@@ -446,6 +508,10 @@ export async function handleCrmAction(ctx: CrmActionContext, action: string, bod
   // L'essai offert par Yuno continue : on ne paie qu'à sa fin. Pour l'offre
   // fondateurs, c'est la période gratuite native de Stripe jusqu'à offer_until.
   const trialEnd = stripeTrialEnd(row?.status ?? null, row?.trial_ends_at ?? null);
+  const lang = langOf(body.lang);
+  const exempt = (await vatRate(ctx)) === 0;
+  // Franchise en base : la mention légale se pose sur le client, donc sur chaque facture de l'abonnement.
+  if (exempt) await ctx.stripe.customers.update(customerId, { invoice_settings: { footer: VAT_EXEMPT_FOOTER } });
   const session = await ctx.stripe.checkout.sessions.create({
     mode: "subscription",
     customer: customerId,
@@ -453,9 +519,11 @@ export async function handleCrmAction(ctx: CrmActionContext, action: string, bod
     payment_method_collection: "always",
     billing_address_collection: "required",
     customer_update: { address: "auto", name: "auto" },
-    automatic_tax: { enabled: true },
+    automatic_tax: { enabled: !exempt },
     tax_id_collection: { enabled: true },
-    success_url: `${back}?checkout=success`,
+    locale: lang,
+    custom_text: { submit: { message: checkoutNote(lang, trialEnd) } },
+    success_url: `${back}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${back}?checkout=canceled`,
     metadata,
     subscription_data: {
