@@ -197,6 +197,8 @@ export interface StudioBlock {
   label?: string;
   linkUrl?: string;
   radius?: number;
+  /** '16:9' : image recadrée dans un cadre 16:9 — miroir de ImageBlock.ratio. */
+  ratio?: string;
   // text / spacer / html
   body?: string;
   size?: number | string;
@@ -977,7 +979,7 @@ export function renderStudioBlock(b: StudioBlock, theme: StudioTheme, ctx: Studi
       if (!b.url) return '';
       const radius = typeof b.radius === 'number' && b.radius > 0 ? `border-radius:${Math.min(40, b.radius)}px;` : '';
       const img = b.ratio === '16:9'
-        ? coverFrameImg(b.url as string, (b.label as string) || '', 600, radius)
+        ? coverFrameImg(b.url as string, b.label || '', 600, radius)
         : `<img src="${esc(b.url)}" alt="${esc(b.label || '')}" width="600" style="width:100%;height:auto;display:block;border:0;${radius}" class="yn-img" />`;
       const linked = b.linkUrl
         ? `<a href="${esc(trackUrl(b.linkUrl as string, ctx))}" target="_blank" rel="noreferrer">${img}</a>`
