@@ -66,6 +66,7 @@ const dict: CrmDict = {
   'yc.pr.f.team.t': ['Unlimited team', 'Équipe sans limite', 'Equipo sin límite'],
   'yc.pr.f.team.d': ['no seats to pay for', 'aucun siège à payer', 'ningún puesto que pagar'],
   'yc.pr.vat': ['Prices excl. VAT. {v} % VAT added on the invoice.', 'Prix hors taxes. TVA {v} % ajoutée à la facture.', 'Precios sin IVA. IVA del {v} % añadido en la factura.'],
+  'yc.pr.vatNone': ['VAT not applicable (art. 293 B of the French tax code): the price shown is the price you pay.', 'TVA non applicable (article 293 B du CGI) : le prix affiché est le prix payé.', 'IVA no aplicable (art. 293 B del código fiscal francés): el precio mostrado es el precio que paga.'],
 
   // Yunits
   'yc.pr.y.k': ['Sending', 'Les envois', 'Los envíos'],
@@ -147,7 +148,7 @@ const dict: CrmDict = {
   'yc.pr.r.auto.d': ['When you turn it on, you’ll set a cap it never goes over.', 'Si vous l’activez, vous fixerez un plafond qu’elle ne dépassera jamais.', 'Si la activa, fijará un tope que nunca superará.'],
 
   // Annuel
-  'yc.pr.a.chip': ['Yearly · €{p} excl. VAT per year', 'Annuel · {p} € HT par an', 'Anual · {p} € sin IVA al año'],
+  'yc.pr.a.chip': ['Yearly · €{p} per year', 'Annuel · {p} € par an', 'Anual · {p} € al año'],
   'yc.pr.a.h.a': ['{m} months free, ', '{m} mois offerts, ', '{m} meses gratis, '],
   'yc.pr.a.h.b': ['every year', 'chaque année', 'cada año'],
   'yc.pr.a.h.c': ['.', '.', '.'],
@@ -172,7 +173,7 @@ const dict: CrmDict = {
   'yc.pr.t.s2.d': ['Customer base, segments, first campaign. You see what Yuno changes before paying.', 'Base clients, segments, première campagne. Vous voyez ce que Yuno change avant de payer.', 'Base de clientes, segmentos, primera campaña. Ve lo que Yuno cambia antes de pagar.'],
   'yc.pr.t.s3.day': ['Day {d}', 'Jour {d}', 'Día {d}'],
   'yc.pr.t.s3.t': ['You subscribe, or not', 'Vous vous abonnez, ou pas', 'Se suscribe, o no'],
-  'yc.pr.t.s3.d': ['€{p} excl. VAT a month to carry on. Otherwise, the account is paused.', '{p} € HT par mois pour continuer. Sinon, le compte se met en pause.', '{p} € sin IVA al mes para continuar. Si no, la cuenta se pausa.'],
+  'yc.pr.t.s3.d': ['€{p} a month to carry on. Otherwise, the account is paused.', '{p} € par mois pour continuer. Sinon, le compte se met en pause.', '{p} € al mes para continuar. Si no, la cuenta se pausa.'],
   'yc.pr.t.pause': ['Without a subscription at the end, the account is paused.', 'Sans abonnement à la fin, le compte se met en pause.', 'Sin suscripción al final, la cuenta se pausa.'],
   'yc.pr.t.p1': ['You still see your base', 'Vous voyez toujours votre base', 'Sigue viendo su base'],
   'yc.pr.t.p2': ['Nothing goes out', 'Rien ne part', 'No sale nada'],
@@ -194,8 +195,8 @@ const dict: CrmDict = {
   'yc.pr.q4.a': ['The price will move to €{next} later, for new customers only. If you subscribe at €{p}, you keep that price for as long as you stay subscribed.', 'Le prix passera à {next} € plus tard, pour les nouveaux clients seulement. Si vous vous abonnez à {p} €, vous gardez ce prix tant que vous restez abonné.', 'El precio pasará a {next} € más adelante, solo para los nuevos clientes. Si se suscribe a {p} €, conserva ese precio mientras siga suscrito.'],
   'yc.pr.q5.q': ['What doesn’t use Yunits?', 'Qu’est-ce qui ne consomme pas de Yunits ?', '¿Qué no consume Yunits?'],
   'yc.pr.q5.a': ['Test sends, the AI assistant, and the contacts Yuno holds back so they’re not overwhelmed.', 'Les tests d’envoi, l’assistant IA, et les contacts que Yuno écarte pour ne pas les saturer.', 'Los envíos de prueba, el asistente IA y los contactos que Yuno aparta para no saturarlos.'],
-  'yc.pr.q6.q': ['Are prices excluding VAT?', 'Les prix sont-ils hors taxes ?', '¿Los precios son sin IVA?'],
-  'yc.pr.q6.a': ['Yes. The subscription and top-ups are in euros excl. VAT; {v} % VAT is added on the invoice, downloadable in the console.', 'Oui. L’abonnement comme les recharges sont en euros HT ; la TVA de {v} % s’ajoute à la facture, téléchargeable dans la console.', 'Sí. La suscripción y las recargas están en euros sin IVA; el IVA del {v} % se añade en la factura, descargable en la consola.'],
+  'yc.pr.q6.q': ['Is there VAT?', 'Y a-t-il de la TVA ?', '¿Hay IVA?'],
+  'yc.pr.q6.a': ['No. Yuno is a French micro-business: VAT is not applicable (article 293 B of the French tax code). The price shown is the price you pay, for the subscription as for top-ups; invoices are in the console.', 'Non. Yuno est une micro-entreprise : la TVA n’est pas applicable (article 293 B du CGI). Le prix affiché est le prix payé, pour l’abonnement comme pour les recharges ; les factures sont dans la console.', 'No. Yuno es una microempresa francesa: el IVA no es aplicable (artículo 293 B del código fiscal francés). El precio mostrado es el precio que paga, tanto para la suscripción como para las recargas; las facturas están en la consola.'],
   'yc.pr.q7.q': ['How does automatic top-up work?', 'Comment fonctionne la recharge automatique ?', '¿Cómo funciona la recarga automática?'],
   'yc.pr.q7.a': ['It’s coming soon and will be off by default. If you turn it on, you’ll choose the threshold, the amount and a monthly cap it never goes over.', 'Elle arrive bientôt et sera éteinte par défaut. Si vous l’activez, vous choisirez le seuil, le montant et un plafond mensuel qu’elle ne dépassera jamais.', 'Llega pronto y estará apagada por defecto. Si la activa, elegirá el umbral, el importe y un tope mensual que nunca superará.'],
 

@@ -232,7 +232,7 @@ function YunitsView({ w, b, refetchWallet }: { w: CrmWallet; b: CrmBilling; refe
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
                 <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(30px,3.4vw,40px)', letterSpacing: '-.05em', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{n(ht)}</span>
                 <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 20 }}>€</span>
-                <span style={{ fontSize: 13, color: 'var(--sand-500)' }}>{t('yc.yu.ht')}</span>
+                {vat > 0 && <span style={{ fontSize: 13, color: 'var(--sand-500)' }}>{t('yc.yu.ht')}</span>}
               </div>
             </div>
 
@@ -251,7 +251,7 @@ function YunitsView({ w, b, refetchWallet }: { w: CrmWallet; b: CrmBilling; refe
 
             <div style={{ display: 'flex', flexDirection: 'column', borderRadius: 20, background: 'var(--sand-50)', padding: '4px 20px', fontSize: 15 }}>
               <SumRow l={t('yc.yu.recv')} v={<>{t('yc.yu.recvVal', { n: n(quote.received) })}{quote.received > v && <span style={{ color: 'var(--red-700)' }}>{t('yc.yu.recvBonus', { n: n(quote.received - v) })}</span>}</>} strong first />
-              <SumRow l={t('yc.yu.vat', { n: vat })} v={eur2(ttc - ht)} />
+              {vat > 0 && <SumRow l={t('yc.yu.vat', { n: vat })} v={eur2(ttc - ht)} />}
               <SumRow l={t('yc.yu.after')} v={t('yc.yu.recvVal', { n: n(w.balance + quote.received) })} strong />
               <SumRow l={t('yc.yu.total')} v={eur2(ttc)} total />
             </div>

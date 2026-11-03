@@ -8,9 +8,9 @@ const dict: CrmDict = {
 
   'yc.yu.pause.t': ['Your account is paused.', 'Votre compte est en pause.', 'Su cuenta está en pausa.'],
   'yc.yu.pause.s': ['You still see your base, but nothing leaves and the Shotgun sync is stopped. Reactivate the subscription to top up.', 'Vous voyez encore votre base, mais rien ne part et la synchro Shotgun est arrêtée. Réactivez l’abonnement pour recharger.', 'Sigue viendo su base, pero nada sale y la sincronización de Shotgun está parada. Reactive la suscripción para recargar.'],
-  'yc.yu.pause.cta': ['Reactivate · {price} € excl. VAT / month', 'Réactiver · {price} € HT / mois', 'Reactivar · {price} € sin IVA / mes'],
+  'yc.yu.pause.cta': ['Reactivate · €{price} / month', 'Réactiver · {price} € / mois', 'Reactivar · {price} € / mes'],
   'yc.yu.last': ['Payment received: + {n} Yunits', 'Paiement reçu : + {n} Yunits', 'Pago recibido: + {n} Yunits'],
-  'yc.yu.lastInv': ['Invoice · {amount} incl. VAT', 'Facture · {amount} TTC', 'Factura · {amount} con IVA'],
+  'yc.yu.lastInv': ['Invoice · {amount}', 'Facture · {amount}', 'Factura · {amount}'],
   'yc.yu.waiting': ['Payment received. Your Yunits arrive in a moment.', 'Paiement reçu. Vos Yunits arrivent dans un instant.', 'Pago recibido. Sus Yunits llegan en un momento.'],
 
   'yc.yu.how.t': ['How many Yunits do you want?', 'Combien de Yunits voulez-vous ?', '¿Cuántos Yunits quiere?'],
@@ -26,8 +26,8 @@ const dict: CrmDict = {
   'yc.yu.recvBonus': [' · incl. {n} free', ' · dont {n} offerts', ' · de ellos {n} gratis'],
   'yc.yu.vat': ['VAT {n} %', 'TVA {n} %', 'IVA {n} %'],
   'yc.yu.after': ['Balance after top-up', 'Solde après recharge', 'Saldo tras la recarga'],
-  'yc.yu.total': ['Total incl. VAT', 'Total TTC', 'Total con IVA'],
-  'yc.yu.pay': ['Top up · {amount} incl. VAT', 'Recharger · {amount} TTC', 'Recargar · {amount} con IVA'],
+  'yc.yu.total': ['Total', 'Total', 'Total'],
+  'yc.yu.pay': ['Top up · {amount}', 'Recharger · {amount}', 'Recargar · {amount}'],
   'yc.yu.payPaused': ['Reactivate first', 'Réactivez d’abord', 'Reactive primero'],
   'yc.yu.payOwner': ['Only the owner tops up', 'Seul le propriétaire recharge', 'Solo el propietario recarga'],
   'yc.yu.payDemo': ['Demo account: no payment', 'Compte de démonstration : aucun paiement', 'Cuenta de demostración: ningún pago'],
@@ -53,7 +53,7 @@ const dict: CrmDict = {
   'yc.yu.nextSms': ['{n} SMS', '{n} SMS', '{n} SMS'],
   'yc.yu.nextCost': ['{n} Yunits', '{n} Yunits', '{n} Yunits'],
   'yc.yu.short': ['{n} Yunits are missing.', 'Il vous manque {n} Yunits.', 'Le faltan {n} Yunits.'],
-  'yc.yu.advice': ['Top up {n} Yunits ({ht} € excl. VAT): you’d have {rest} left.', 'Rechargez {n} Yunits ({ht} € HT) : il vous en resterait {rest}.', 'Recargue {n} Yunits ({ht} € sin IVA): le quedarían {rest}.'],
+  'yc.yu.advice': ['Top up {n} Yunits ({ht} €): you’d have {rest} left.', 'Rechargez {n} Yunits ({ht} €) : il vous en resterait {rest}.', 'Recargue {n} Yunits ({ht} €): le quedarían {rest}.'],
   'yc.yu.adviceCta': ['Top up {n} and send', 'Recharger {n} et envoyer', 'Recargar {n} y enviar'],
   'yc.yu.covered': ['Your send is covered: you’ll have {n} Yunits left.', 'Votre envoi est couvert : il vous restera {n} Yunits.', 'Su envío está cubierto: le quedarán {n} Yunits.'],
 
@@ -91,8 +91,8 @@ const dict: CrmDict = {
   'yc.yu.ar.notified': ['You’ll be told', 'Vous serez prévenu', 'Le avisaremos'],
 
   'yc.yu.sub.t': ['Subscription', 'Abonnement', 'Suscripción'],
-  'yc.yu.sub.month': ['{price} € excl. VAT per month', '{price} € HT par mois', '{price} € sin IVA al mes'],
-  'yc.yu.sub.year': ['{price} € excl. VAT per year', '{price} € HT par an', '{price} € sin IVA al año'],
+  'yc.yu.sub.month': ['€{price} per month', '{price} € par mois', '{price} € al mes'],
+  'yc.yu.sub.year': ['€{price} per year', '{price} € par an', '{price} € al año'],
   'yc.yu.sub.trial': ['Trial until {date}', 'Essai jusqu’au {date}', 'Prueba hasta el {date}'],
   'yc.yu.sub.founder': ['Founder offer until {date}', 'Offre fondateur jusqu’au {date}', 'Oferta fundador hasta el {date}'],
   'yc.yu.sub.paused': ['Paused', 'En pause', 'En pausa'],
@@ -101,7 +101,7 @@ const dict: CrmDict = {
   'yc.yu.sub.yearNote': ['12 months for the price of {paid}.', '12 mois pour le prix de {paid}.', '12 meses por el precio de {paid}.'],
   'yc.yu.promo.t': ['Switch to yearly: ', 'Passez à l’annuel : ', 'Pase a anual: '],
   'yc.yu.promo.b': ['{m} months free', '{m} mois offerts', '{m} meses gratis'],
-  'yc.yu.promo.s': ['{price} € excl. VAT per year instead of {full} €, with the same free Yunits.', '{price} € HT par an au lieu de {full} €, avec les mêmes Yunits offerts.', '{price} € sin IVA al año en lugar de {full} €, con los mismos Yunits gratis.'],
+  'yc.yu.promo.s': ['€{price} per year instead of €{full}, with the same free Yunits.', '{price} € par an au lieu de {full} €, avec les mêmes Yunits offerts.', '{price} € al año en lugar de {full} €, con los mismos Yunits gratis.'],
   'yc.yu.promo.cta': ['Change plan', 'Changer de formule', 'Cambiar de plan'],
   'yc.yu.subscribe': ['Subscribe', 'S’abonner', 'Suscribirse'],
 

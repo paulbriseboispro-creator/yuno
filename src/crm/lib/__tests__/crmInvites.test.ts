@@ -18,7 +18,7 @@ describe('invitation Yuno CRM : e-mail', () => {
     expect(m.html).toContain('Bonjour Kevin,');
     expect(m.html).toContain('14 jours d’essai, sans carte bancaire');
     expect(nb(m.html)).toContain('2 000 Yunits offerts pendant l’essai');
-    expect(m.html).toContain('Ensuite 24 € HT / mois');
+    expect(m.html).toContain('Ensuite 24 € / mois');
     expect(m.html).not.toContain('Mot de passe');
     expect(m.text).toContain(base.url);
   });

@@ -21,7 +21,7 @@ describe('offre fondateurs : WhatsApp', () => {
     expect(fr).toContain(base.url);
     expect(fr).toContain('6 mois d’abonnement offerts');
     expect(fr.replace(/\u202f|\u00a0/g, ' ')).toContain('15 000 Yunits');
-    expect(fr).toContain('24 € HT / mois');
+    expect(fr).toContain('24 € / mois');
     const en = founderOfferWhatsAppText({ ...base, lang: 'en', contactName: null });
     expect(en.startsWith('Hi,')).toBe(true);
     expect(en).toContain('15,000 Yunits');

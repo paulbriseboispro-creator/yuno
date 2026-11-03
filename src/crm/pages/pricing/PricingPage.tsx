@@ -178,7 +178,7 @@ function Pricing({ cfg }: { cfg: CrmPricingConfig }) {
           <Reveal i={4} style={{ width: '100%', marginTop: 18 }}>
             <PriceCard cfg={cfg} annual={annual} cta={cta} />
           </Reveal>
-          <span style={{ fontSize: 13, color: 'var(--sand-500)' }}>{t('yc.pr.vat', { v: cfg.vat_rate })}</span>
+          <span style={{ fontSize: 13, color: 'var(--sand-500)' }}>{cfg.vat_rate > 0 ? t('yc.pr.vat', { v: cfg.vat_rate }) : t('yc.pr.vatNone')}</span>
         </div>
       </section>
 
@@ -473,7 +473,7 @@ function Simulator({ cfg, cta }: { cfg: CrmPricingConfig; cta: Cta }) {
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                 <b style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(72px,9vw,96px)', lineHeight: 0.9, letterSpacing: '-.06em', fontVariantNumeric: 'tabular-nums' }}>{n(total)}</b>
                 <b style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 36 }}>€</b>
-                <span style={{ fontSize: 15, color: 'var(--text-on-night-2)' }}>{t('yc.pr.s.ht')}</span>
+                <span style={{ fontSize: 15, color: 'var(--text-on-night-2)' }}>{cfg.vat_rate > 0 ? t('yc.pr.s.ht') : ''}</span>
               </div>
               <div>
                 <div style={{ display: 'flex', gap: 4, height: 12 }}>
@@ -572,7 +572,7 @@ function Recharges({ cfg }: { cfg: CrmPricingConfig }) {
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
                   <b style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: narrow ? 40 : 52, lineHeight: 1, letterSpacing: '-.05em' }}>{n(eur)}</b>
                   <b style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 24 }}>€</b>
-                  <span style={{ fontSize: 13, color: hi ? 'var(--text-on-night-2)' : 'var(--sand-500)' }}>{t('yc.pr.s.ht')}</span>
+                  <span style={{ fontSize: 13, color: hi ? 'var(--text-on-night-2)' : 'var(--sand-500)' }}>{cfg.vat_rate > 0 ? t('yc.pr.s.ht') : ''}</span>
                 </div>
                 <div style={{ marginTop: 'auto', height: narrow ? 84 : 124, display: 'flex', alignItems: 'flex-end' }}>
                   <div style={{ width: '100%', height: seen ? Math.max(34, Math.round((q.received / maxY) * (narrow ? 80 : 120))) : 0, borderRadius: 14, background: hi ? 'var(--gradient-brand)' : 'var(--sand-100)', color: hi ? '#fff' : 'var(--sand-700)', display: 'flex', alignItems: hi ? 'flex-start' : 'flex-end', padding: '9px 12px', boxSizing: 'border-box', fontSize: 14, fontWeight: 600, overflow: 'hidden', transition: `height 900ms ${EASE} ${i * 120}ms` }}>

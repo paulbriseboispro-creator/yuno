@@ -32,7 +32,7 @@ const COPY: Record<FounderLang, Copy> = {
     facts: [
       "{months} mois d’abonnement offerts, à partir de l’ouverture du compte",
       "{yunits} Yunits offerts à l’ouverture du compte",
-      "Ensuite {price} € HT / mois, prix de lancement garanti",
+      "Ensuite {price} € / mois, prix de lancement garanti",
       "Aucune carte demandée pour commencer",
     ],
     cta: "Créer mon compte",
@@ -50,7 +50,7 @@ const COPY: Record<FounderLang, Copy> = {
     facts: [
       "{months} months of subscription free, from the day the account opens",
       "{yunits} Yunits offered when the account opens",
-      "Then €{price} excl. VAT / month, launch price guaranteed",
+      "Then €{price} / month, launch price guaranteed",
       "No card needed to start",
     ],
     cta: "Create my account",
@@ -68,7 +68,7 @@ const COPY: Record<FounderLang, Copy> = {
     facts: [
       "{months} meses de suscripción gratis, desde que abra la cuenta",
       "{yunits} Yunits de regalo al abrir la cuenta",
-      "Después {price} € sin IVA / mes, precio de lanzamiento garantizado",
+      "Después {price} € / mes, precio de lanzamiento garantizado",
       "Sin tarjeta para empezar",
     ],
     cta: "Crear mi cuenta",
