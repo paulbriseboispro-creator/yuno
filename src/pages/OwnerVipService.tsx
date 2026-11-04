@@ -28,6 +28,7 @@ import {
 } from '@/components/owner/vip/vip-ui';
 import { formatMoneyAuto } from '@/lib/money';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
+import { defaultVipNightId } from '@/lib/vipNights';
 
 interface QuickItem {
   id: string;
@@ -69,12 +70,11 @@ export default function OwnerVipService() {
   const [selectedTableReservation, setSelectedTableReservation] = useState<OwnerVipReservation | null>(null);
   const [modifyingReservation, setModifyingReservation] = useState<OwnerVipReservation | null>(null);
 
-  // Auto-select the most recent/active event
+  // Ouvre sur la soirée de ce soir, sinon la prochaine (jamais la plus lointaine).
   useEffect(() => {
     if (events.length > 0 && selectedEventId === 'all') {
-      const now = new Date();
-      const active = events.find(e => new Date(e.endAt) >= now);
-      if (active) setSelectedEventId(active.id);
+      const night = defaultVipNightId(events);
+      if (night) setSelectedEventId(night);
     }
   }, [events]);
 

@@ -4,6 +4,7 @@ import { fr, es, enUS } from 'date-fns/locale';
 import { Calendar } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { VipEvent } from '@/hooks/useOwnerVipData';
+import { splitVipNights } from '@/lib/vipNights';
 import { VipSelect, T3 } from './vip-ui';
 
 interface Props {
@@ -20,18 +21,7 @@ export function VipEventSelector({ events, selectedEventId, onSelect }: Props) {
   // Upcoming (or still running tonight) first, soonest at the top. Past events are
   // hidden by default to keep the list short, and revealed via the toggle. An event
   // is "past" once it has ended.
-  const { upcoming, past } = useMemo(() => {
-    const now = Date.now();
-    const up: VipEvent[] = [];
-    const old: VipEvent[] = [];
-    for (const e of events) {
-      const end = new Date(e.endAt).getTime();
-      (Number.isFinite(end) && end < now ? old : up).push(e);
-    }
-    up.sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
-    old.sort((a, b) => new Date(b.startAt).getTime() - new Date(a.startAt).getTime());
-    return { upcoming: up, past: old };
-  }, [events]);
+  const { upcoming, past } = useMemo(() => splitVipNights(events), [events]);
 
   // Always show the past group if the currently-selected event is itself a past one,
   // otherwise the select would render blank.

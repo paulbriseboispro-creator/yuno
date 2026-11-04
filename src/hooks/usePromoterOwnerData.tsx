@@ -82,49 +82,49 @@ export function usePromoterOwnerData(scope: PromoterScope) {
 
       const promoterIds = (promotersData || []).map(p => p.id);
 
-      // Clicks
-      let clicksQuery = supabase.from('promoter_clicks').select('promoter_id').in('promoter_id', promoterIds);
-      if (dateFrom) clicksQuery = clicksQuery.gte('clicked_at', dateFrom);
-      if (eventFilter) clicksQuery = clicksQuery.eq('event_id', eventFilter);
-      const { data: clicksData } = await clicksQuery;
+      // Clics, ventes attribuées et commissions comptés EN SQL, par promoteur
+      // (get_promoter_overview_stats, sous la RLS de l'appelant). Les lire en
+      // lignes plafonnait à 1 000 clics / conversions (PostgREST) : ventes et
+      // taux de conversion devenaient faux sans rien dire. Règles inchangées :
+      // ventes remboursées ('cancelled') exclues, lignes 'override' (part du
+      // chef d'équipe) comptées dans l'argent mais pas comme des ventes,
+      // billets et tables PAYANTS seuls dans le taux de conversion.
+      const { data: statsData, error: statsError } = promoterIds.length
+        ? await supabase.rpc('get_promoter_overview_stats', {
+            p_promoter_ids: promoterIds,
+            p_from: dateFrom,
+            p_event_id: eventFilter,
+          })
+        : { data: [], error: null };
+      if (statsError) throw statsError;
 
-      // Conversions — les lignes 'cancelled' (ventes remboursées) sont exclues :
-      // elles ne comptent ni dans le CA ni dans les commissions dues.
-      let convsQuery = supabase.from('promoter_conversions').select('promoter_id, amount, commission, status, conversion_type').in('promoter_id', promoterIds).neq('status', 'cancelled');
-      if (dateFrom) convsQuery = convsQuery.gte('created_at', dateFrom);
-      if (eventFilter) convsQuery = convsQuery.eq('event_id', eventFilter);
-      const { data: convsData } = await convsQuery;
-
-      // Build per-promoter stats
-      const clickCounts: Record<string, number> = {};
-      (clicksData || []).forEach(c => { clickCounts[c.promoter_id] = (clickCounts[c.promoter_id] || 0) + 1; });
-
-      const convStats: Record<string, { conversions: number; revenue: number; commission: number; tickets: number; tables: number }> = {};
-      let totalTickets = 0, totalTables = 0, totalRevenue = 0, pendingComm = 0, approvedComm = 0, paidComm = 0;
-
-      (convsData || []).forEach(c => {
-        if (!convStats[c.promoter_id]) convStats[c.promoter_id] = { conversions: 0, revenue: 0, commission: 0, tickets: 0, tables: 0 };
-        // Les lignes 'override' (part du chef d'équipe) portent de la commission
-        // mais ne sont PAS des ventes : on les compte dans l'argent, pas dans
-        // les compteurs de conversions (sinon taux de conversion gonflé).
-        if (c.conversion_type !== 'override') convStats[c.promoter_id].conversions++;
-        convStats[c.promoter_id].revenue += Number(c.amount || 0);
-        convStats[c.promoter_id].commission += Number(c.commission || 0);
-        // Ventes payantes pour le taux de conversion (billets + tables).
-        if (c.conversion_type === 'ticket' && Number(c.amount || 0) > 0) { convStats[c.promoter_id].tickets++; totalTickets++; }
-        else if (c.conversion_type === 'table' && Number(c.amount || 0) > 0) { convStats[c.promoter_id].tables++; totalTables++; }
-        totalRevenue += Number(c.amount || 0);
-        if (c.status === 'pending') pendingComm += Number(c.commission || 0);
-        else if (c.status === 'approved') approvedComm += Number(c.commission || 0);
-        else if (c.status === 'paid') paidComm += Number(c.commission || 0);
+      type Stat = { clicks: number; conversions: number; revenue: number; commission: number; tickets: number; tables: number };
+      const emptyStat: Stat = { clicks: 0, conversions: 0, revenue: 0, commission: 0, tickets: 0, tables: 0 };
+      const statsById = new Map<string, Stat>();
+      let totalClicks = 0, totalTickets = 0, totalTables = 0, totalRevenue = 0, pendingComm = 0, approvedComm = 0, paidComm = 0;
+      (statsData || []).forEach(s => {
+        const stat: Stat = {
+          clicks: Number(s.clicks) || 0,
+          conversions: Number(s.conversions) || 0,
+          revenue: Number(s.revenue) || 0,
+          commission: Number(s.commission) || 0,
+          tickets: Number(s.tickets) || 0,
+          tables: Number(s.tables) || 0,
+        };
+        statsById.set(s.promoter_id, stat);
+        totalClicks += stat.clicks;
+        totalTickets += stat.tickets;
+        totalTables += stat.tables;
+        totalRevenue += stat.revenue;
+        pendingComm += Number(s.pending_commission) || 0;
+        approvedComm += Number(s.approved_commission) || 0;
+        paidComm += Number(s.paid_commission) || 0;
       });
-
-      const totalClicks = Object.values(clickCounts).reduce((a, b) => a + b, 0);
 
       const mapped: PromoterSummary[] = (promotersData || []).map(p => {
         const profile = profileMap.get(p.user_id);
-        const clicks = clickCounts[p.id] || 0;
-        const conv = convStats[p.id] || { conversions: 0, revenue: 0, commission: 0, tickets: 0, tables: 0 };
+        const conv = statsById.get(p.id) || emptyStat;
+        const clicks = conv.clicks;
         return {
           id: p.id, userId: p.user_id, promoCode: p.promo_code,
           firstName: profile?.first_name || null, lastName: profile?.last_name || null,

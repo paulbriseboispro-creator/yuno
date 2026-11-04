@@ -21,6 +21,7 @@ import { RosterExportDialog } from '@/components/roster/RosterExportDialog';
 import { buildTableRoster } from '@/lib/rosterBuilders';
 import { VipCard, VipButton, VipEmpty } from '@/components/owner/vip/vip-ui';
 import { OrgPage, OrgPageHeader, RED, T1, T3, BORDER } from '@/components/org-ui';
+import { defaultVipNightId } from '@/lib/vipNights';
 
 interface TableZone { id: string; name: string; color: string }
 
@@ -53,9 +54,8 @@ export default function OrgAppVipService() {
   // Sélection par défaut : la prochaine soirée (ou celle en cours).
   useEffect(() => {
     if (events.length > 0 && selectedEventId === 'all') {
-      const now = new Date();
-      const active = [...events].reverse().find(e => new Date(e.endAt) >= now);
-      if (active) setSelectedEventId(active.id);
+      const night = defaultVipNightId(events);
+      if (night) setSelectedEventId(night);
     }
   }, [events]); // eslint-disable-line react-hooks/exhaustive-deps
 

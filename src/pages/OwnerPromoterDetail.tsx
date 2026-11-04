@@ -211,23 +211,22 @@ export default function OwnerPromoterDetail() {
 
   async function fetchStats() {
     if (!id) return;
-    let clicksQ = supabase.from('promoter_clicks').select('id').eq('promoter_id', id);
-    if (dateFrom) clicksQ = clicksQ.gte('clicked_at', dateFrom);
-    if (eventFilter) clicksQ = clicksQ.eq('event_id', eventFilter);
-    // Ventes remboursées ('cancelled') hors des ventes attribuées affichées.
-    let convsQ = supabase.from('promoter_conversions').select('*').eq('promoter_id', id).neq('status', 'cancelled');
-    if (dateFrom) convsQ = convsQ.gte('created_at', dateFrom);
-    if (eventFilter) convsQ = convsQ.eq('event_id', eventFilter);
-    const [clicksRes, convsRes] = await Promise.all([clicksQ, convsQ]);
-    const convs = convsRes.data || [];
+    // Comptés en SQL (get_promoter_overview_stats), mêmes règles que la liste
+    // des promoteurs : lire les lignes plafonnait à 1 000 (PostgREST).
+    const { data } = await supabase.rpc('get_promoter_overview_stats', {
+      p_promoter_ids: [id],
+      p_from: dateFrom,
+      p_event_id: eventFilter,
+    });
+    const s = data?.[0];
     setStats({
-      totalClicks: clicksRes.data?.length || 0,
-      totalConversions: convs.length,
-      totalRevenue: convs.reduce((s, c) => s + Number(c.amount || 0), 0),
-      totalCommission: convs.reduce((s, c) => s + Number(c.commission || 0), 0),
-      pendingCommission: convs.filter(c => c.status === 'pending').reduce((s, c) => s + Number(c.commission || 0), 0),
-      ticketsSold: convs.filter(c => c.conversion_type === 'ticket' && Number(c.amount || 0) > 0).length,
-      tablesReserved: convs.filter(c => c.conversion_type === 'table' && Number(c.amount || 0) > 0).length,
+      totalClicks: Number(s?.clicks) || 0,
+      totalConversions: Number(s?.conversions) || 0,
+      totalRevenue: Number(s?.revenue) || 0,
+      totalCommission: Number(s?.commission) || 0,
+      pendingCommission: Number(s?.pending_commission) || 0,
+      ticketsSold: Number(s?.tickets) || 0,
+      tablesReserved: Number(s?.tables) || 0,
     });
   }
 

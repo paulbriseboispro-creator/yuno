@@ -13,6 +13,9 @@ import {
   RED, POS, WARN, T1, T2, T3, C_MID, C_FAINT, INNER_BG, F_BORDER, CAT_COLORS,
 } from './vip-ui';
 import { formatMoneyAuto } from '@/lib/money';
+// Pilier boissons en pause : le chiffre ne dit plus « + consos » (les bouteilles
+// servies à table restent du service VIP, donc des tables).
+import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 
 interface Props {
   reservations: OwnerVipReservation[];
@@ -184,7 +187,7 @@ export function VipOverviewTab({ reservations, consumptions, orders }: Props) {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <VipKpi icon={Crown} label={t('vipHost.totalReservations')} value={String(stats.totalReservations)} />
         <VipKpi icon={Users} label={t('vipHost.guests')} value={String(stats.totalGuests)} sub={`~${stats.avgGuests.toFixed(1)}${t('vipOwner.perTable')}`} />
-        <VipKpi icon={Euro} label={t('vipOwner.revenueWithConso')} value={`${formatMoneyAuto(stats.totalRevenue)}`} accent />
+        <VipKpi icon={Euro} label={t(DRINKS_PILLAR_LIVE ? 'vipOwner.revenueWithConso' : 'vipOwner.revenueTables')} value={`${formatMoneyAuto(stats.totalRevenue)}`} accent />
         <VipKpi icon={TrendingUp} label={t('vipOwner.avgSpendPerTable')} value={`${formatMoneyAuto(stats.avgPerTable)}`} />
       </div>
 
