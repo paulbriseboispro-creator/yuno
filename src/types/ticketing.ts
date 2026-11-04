@@ -92,6 +92,10 @@ export type TicketRound = {
   saleEndsAt?: string | null;
   /** Billetterie libre : s'ouvre quand ce billet-là est complet (rounds billet par billet). */
   opensAfterRoundId?: string | null;
+  /** Billetterie libre : le pack où le billet est rangé (lib/ticketGroups). */
+  groupId?: string | null;
+  /** Nom du pack recopié par la base : « Pack · Billet » hors de la page de choix. */
+  groupLabel?: string | null;
   createdAt: string;
   updatedAt: string;
 };

@@ -16700,6 +16700,44 @@ export type Database = {
           },
         ]
       }
+      ticket_groups: {
+        Row: {
+          created_at: string
+          description: string | null
+          event_id: string
+          id: string
+          name: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          event_id: string
+          id?: string
+          name: string
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          event_id?: string
+          id?: string
+          name?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_groups_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ticket_rounds: {
         Row: {
           allowed_drink_collections: string[] | null
@@ -16712,6 +16750,7 @@ export type Database = {
           drink_deadline_type: string | null
           entry_deadline: string | null
           event_id: string
+          group_id: string | null
           group_label: string | null
           group_size: number | null
           hidden: boolean
@@ -16744,6 +16783,7 @@ export type Database = {
           drink_deadline_type?: string | null
           entry_deadline?: string | null
           event_id: string
+          group_id?: string | null
           group_label?: string | null
           group_size?: number | null
           hidden?: boolean
@@ -16776,6 +16816,7 @@ export type Database = {
           drink_deadline_type?: string | null
           entry_deadline?: string | null
           event_id?: string
+          group_id?: string | null
           group_label?: string | null
           group_size?: number | null
           hidden?: boolean
@@ -16798,6 +16839,13 @@ export type Database = {
           visible_from?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ticket_rounds_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_groups"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ticket_rounds_event_id_fkey"
             columns: ["event_id"]
