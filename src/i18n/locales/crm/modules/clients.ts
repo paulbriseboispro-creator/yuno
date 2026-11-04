@@ -123,6 +123,8 @@ const dict: CrmDict = {
   'yc.cli.f.ev.tonight': ['Has a place tonight', 'A une place ce soir', 'Tiene plaza esta noche'],
   'yc.cli.f.ev.tonightShort': ['Tonight', 'Ce soir', 'Esta noche'],
   'yc.cli.f.ev.upcoming': ['Upcoming', 'À venir', 'Próxima'],
+  'yc.cli.f.noev': ['No place for', 'Sans place pour', 'Sin plaza para'],
+  'yc.cli.f.noev.title': ['No ticket, free entry or invitation for', 'Ni billet, ni entrée gratuite, ni invitation pour', 'Ni entrada, ni entrada gratis, ni invitación para'],
   'yc.cli.f.last': ['Last visit', 'Dernière visite', 'Última visita'],
   'yc.cli.f.last.0-30': ['Less than 30 days ago', 'Il y a moins de 30 jours', 'Hace menos de 30 días'],
   'yc.cli.f.last.30-90': ['1 to 3 months ago', 'Il y a 1 à 3 mois', 'Hace 1 a 3 meses'],

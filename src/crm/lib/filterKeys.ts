@@ -13,7 +13,7 @@ type FilterF = NonNullable<ClientFilterDef['f']>;
  * oblige à l'ajouter ici ET dans la migration (filterKeys.test.ts).
  */
 export const CLIENT_FILTER_KEYS = {
-  list: ['ev', 'rc', 'src', 'tags', 'emails', 'glev', 'area', 'country', 'hyp', 'artist', 'genre', 'fmt', 'series', 'buy', 'arr'],
+  list: ['ev', 'rc', 'src', 'tags', 'emails', 'glev', 'area', 'country', 'hyp', 'artist', 'genre', 'fmt', 'series', 'buy', 'arr', 'noev'],
   scalar: ['last', 'last_gt_days', 'nb', 'sp', 'msg', 'gl', 'nb_min', 'nb_max', 'last_lt_days', 'sp_min', 'basket_min',
     'paid_min', 'age_min', 'age_max', 'gender', 'country_not', 'up', 'click_lt_days', 'ch', 'grp', 'dist_min', 'dist_max', 'pass'],
   object: ['ntgt'],

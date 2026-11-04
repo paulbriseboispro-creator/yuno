@@ -66,6 +66,12 @@ export interface ClientFilterDef {
     gl?: '' | 'any' | 'only' | 'loyal' | 'conv' | 'noshow';
     /** Invités (invitation ou billet gratuit) de ces soirées. */
     glev?: string[];
+    /**
+     * SANS place pour ces soirées (migration 20261118100000) : ni billet (payant
+     * ou à 0 €) ni invitation. Se compose avec `gl: 'any'` pour « déjà invités,
+     * mais pas encore inscrits à cette soirée ».
+     */
+    noev?: string[];
     /*
      * Analyse client (migration 20261010110000) : clés pré-calculées
      * (crm_person_profile.tags). Un contact venu seulement d'un fichier n'a

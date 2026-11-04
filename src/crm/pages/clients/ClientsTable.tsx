@@ -16,7 +16,7 @@ import type { ClientFilterDef, ClientRow, ClientsList, EventBrief, Lifecycle, Sa
 import { LIFECYCLE_AVATAR, LIFECYCLE_COLOR, fullName, initials, relDays } from '@/crm/lib/lifecycle';
 import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 
-export type FilterKey = 'ev' | 'last' | 'nb' | 'sp' | 'rc' | 'src' | 'gl' | 'glev' | 'hyp';
+export type FilterKey = 'ev' | 'noev' | 'last' | 'nb' | 'sp' | 'rc' | 'src' | 'gl' | 'glev' | 'hyp';
 
 /** Familles d'hypothèses qui ont une clé par personne (`h:<famille>`, analyse client). */
 const HYP_FILTER = ['artist', 'series', 'genre', 'format', 'slot', 'weekday', 'place', 'launch', 'early', 'last_minute', 'door',
@@ -104,6 +104,11 @@ export function ClientsTable({
         { v: 'T', l: t('yc.cli.f.ev.tonight'), short: t('yc.cli.f.ev.tonightShort') },
         ...events.map((e) => ({ v: e.id, l: e.title ?? '—', s: e.upcoming ? `${t('yc.cli.f.ev.upcoming')} · ${T.dShort(e.start_at)}` : T.dShort(e.start_at) })),
       ],
+    },
+    // Sans place (billet, entrée gratuite ou invitation) pour ces soirées : migration 20261118100000.
+    {
+      k: 'noev', l: t('yc.cli.f.noev'), title: t('yc.cli.f.noev.title'), multi: true,
+      opts: events.map((e) => ({ v: e.id, l: e.title ?? '—', s: e.upcoming ? `${t('yc.cli.f.ev.upcoming')} · ${T.dShort(e.start_at)}` : T.dShort(e.start_at) })),
     },
     { k: 'last', l: t('yc.cli.f.last'), title: t('yc.cli.f.last'), opts: ['0-30', '30-90', '90-180', '180+'].map((v) => ({ v, l: t(`yc.cli.f.last.${v}`), short: t(`yc.cli.f.last.${v}.s`) })) },
     { k: 'nb', l: t('yc.cli.f.nb'), title: t('yc.cli.f.nb.title'), opts: ['1', '2', '3-5', '6+'].map((v) => ({ v, l: t(`yc.cli.f.nb.${v}`), short: t(`yc.cli.f.nb.${v}.s`) })) },

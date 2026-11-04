@@ -15,6 +15,8 @@ const dict: CrmDict = {
   'yc.seg.tpl.winback.rule': ['3 nights or more, not seen for more than 6 months.', '3 soirées ou plus, pas revus depuis plus de 6 mois.', '3 fiestas o más, sin volver desde hace más de 6 meses.'],
   'yc.seg.tpl.regulars_no_ticket.name': ['Regulars without a ticket for what’s next', 'Habitués sans place pour la suite', 'Habituales sin entrada para lo próximo'],
   'yc.seg.tpl.regulars_no_ticket.rule': ['Regulars with no ticket or invitation for an upcoming night.', 'Des habitués qui n’ont ni billet ni invitation pour une soirée à venir.', 'Habituales sin entrada ni invitación para una fiesta próxima.'],
+  'yc.seg.tpl.gl_no_ticket.name': ['Guest list regulars without a place yet', 'Invités de la guest list sans place pour la suite', 'Invitados de la lista sin plaza para lo próximo'],
+  'yc.seg.tpl.gl_no_ticket.rule': ['Already on a guest list or in free entry, with no ticket, free entry or invitation for an upcoming night.', 'Déjà passés par la guest list ou l’entrée gratuite, sans billet, entrée gratuite ni invitation pour une soirée à venir.', 'Ya estuvieron en la lista o con entrada gratis, sin entrada, entrada gratis ni invitación para una fiesta próxima.'],
   'yc.seg.tpl.has_upcoming.name': ['Already have their place', 'Ont déjà leur place', 'Ya tienen su entrada'],
   'yc.seg.tpl.has_upcoming.rule': ['A ticket or an invitation for a night that hasn’t started yet.', 'Un billet ou une invitation pour une soirée qui n’a pas encore commencé.', 'Una entrada o una invitación para una fiesta que aún no ha empezado.'],
   'yc.seg.tpl.buyers.name': ['Ticket buyers', 'Acheteurs de billets', 'Compradores de entradas'],
@@ -69,6 +71,7 @@ const dict: CrmDict = {
   'yc.seg.tpl.src_import.rule': ['From your files, no night on Shotgun so far.', 'Venus de vos fichiers, aucune soirée sur Shotgun pour l’instant.', 'De sus archivos, ninguna fiesta en Shotgun por ahora.'],
 
   // ── Idées d'envoi des modèles recommandés ────────────────────────────────
+  'yc.segcat.idea.gl_no_ticket': ['Your easiest free sign-ups: send them the guest list of the next night.', 'Vos inscriptions gratuites les plus faciles : envoyez-leur la guest list de la prochaine soirée.', 'Sus inscripciones gratis más fáciles: envíeles la lista de la próxima fiesta.'],
   'yc.segcat.idea.regulars_no_ticket': ['Your easiest sales: remind them of the next night.', 'Vos ventes les plus faciles : rappelez-leur la prochaine soirée.', 'Sus ventas más fáciles: recuérdeles la próxima fiesta.'],
   'yc.segcat.idea.spend_top': ['Give them early access before everyone else.', 'Offrez-leur l’accès en avant-première, avant tout le monde.', 'Ofrézcales acceso anticipado, antes que nadie.'],
   'yc.segcat.idea.once': ['Give them a reason to come a second time.', 'Donnez-leur une raison de revenir une deuxième fois.', 'Deles un motivo para volver una segunda vez.'],

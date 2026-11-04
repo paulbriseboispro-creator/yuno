@@ -6,7 +6,7 @@ import { CLIENT_FILTER_KEYS } from '@/crm/lib/filterKeys';
 // Audit du 18/10, MAIL-09 : une clé de filtre que `_crm_filter_sql` ne connaît
 // pas ne garde personne. La liste des clés du front et celle de la migration
 // doivent donc être la même, au caractère près.
-const MIGRATION = join(process.cwd(), 'supabase', 'migrations', '20261023110000_crm_filter_unknown_key_false.sql');
+const MIGRATION = join(process.cwd(), 'supabase', 'migrations', '20261118100000_crm_filter_no_place.sql');
 const sql = readFileSync(MIGRATION, 'utf8');
 
 function sqlArray(name: string): string[] {

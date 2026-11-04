@@ -26,6 +26,7 @@ export function segmentName(seg: Pick<SegmentRow, 'key' | 'kind' | 'name'>, t: T
 /** Modèles dont la croissance est une mauvaise nouvelle (habitués qui s'éloignent, inscrits absents…). */
 const BAD_GROWTH = new Set([
   'loin', 'never_clicked', 'clicked_no_buy', 'winback', 'lapsed', 'dormant_year', 'gl_noshow', 'regulars_no_ticket',
+  'gl_no_ticket',
 ]);
 
 /** Un segment dont la croissance est une mauvaise nouvelle (endormis, habitués qui s'éloignent…). */
@@ -49,6 +50,7 @@ export function criteria(def: ClientFilterDef, t: T): { k: string; v: string }[]
   const f = def.f ?? {};
   if (def.seg && def.seg !== 'all') out.push({ k: t('yc.seg.crit.segment'), v: t(`yc.cli.seg.${def.seg}`) });
   if (f.ev?.length) out.push({ k: t('yc.cli.f.ev'), v: f.ev.includes('T') && f.ev.length === 1 ? t('yc.cli.f.ev.tonightShort') : t('yc.seg.crit.nights', { n: f.ev.length }) });
+  if (f.noev?.length) out.push({ k: t('yc.cli.f.noev'), v: t('yc.seg.crit.nights', { n: f.noev.length }) });
   if (f.last) out.push({ k: t('yc.cli.f.last'), v: t(`yc.cli.f.last.${f.last}`).toLowerCase() });
   if (f.last_gt_days) out.push({ k: t('yc.cli.f.last'), v: days2txt(f.last_gt_days, t) });
   if (num(f.last_lt_days) !== undefined) out.push({ k: t('yc.cli.f.last'), v: lessDays(num(f.last_lt_days) as number, t) });
@@ -123,6 +125,8 @@ export const SEGMENT_TEMPLATES: SegmentTemplate[] = [
   { id: 'winback', group: 'loyalty', def: { seg: 'all', f: { nb_min: 3, last_gt_days: 180 } } },
   // Prochaine soirée
   { id: 'regulars_no_ticket', group: 'next', def: { seg: 'hab', f: { up: 'no' } } },
+  // Déjà invités (guest list ou entrée gratuite), sans place pour la prochaine soirée.
+  { id: 'gl_no_ticket', group: 'next', def: { seg: 'all', f: { gl: 'any', up: 'no' } } },
   { id: 'has_upcoming', group: 'next', def: { seg: 'all', f: { up: 'yes' } } },
   // Ce qui fait venir (analyse client, migration 20261010110000) : des FAITS.
   // « Recommandé » seulement si la famille est confirmée sur le compte
@@ -188,7 +192,7 @@ export const DYNAMIC_TEMPLATES: Record<string, SegGroupKey> = {
  * s'affiche qu'à partir de REC_MIN personnes (`recommendedKeys`).
  */
 export const RECOMMENDED: readonly string[] = [
-  'regulars_no_ticket', 'spend_top', 'once', 'loin', 'clicked_no_buy', 'lapsed', 'winback', 'gl_loyal',
+  'regulars_no_ticket', 'gl_no_ticket', 'spend_top', 'once', 'loin', 'clicked_no_buy', 'lapsed', 'winback', 'gl_loyal',
   'why_local_once', 'why_artist', 'why_series', 'why_genre', 'why_launch', 'why_last_minute', 'why_group',
   'why_brought', 'why_discovery',
 ];
