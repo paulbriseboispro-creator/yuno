@@ -50,6 +50,7 @@ import { haptics } from '@/lib/haptics';
 import { useWalletDetection } from '@/hooks/useWalletDetection';
 import { publishNextEventFromTickets } from '@/lib/widgetData';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
+import { ticketDisplayName } from '@/lib/ticketGroups';
 
 /**
  * One line of an order's `items` jsonb. The app writes qty/unitPrice, the
@@ -424,7 +425,7 @@ export default function MyOrders() {
           entry_scanned_at,
           refund_amount,
           refund_reason,
-          ticket_rounds!inner (name, description, includes_drink, drink_deadline_type, drink_deadline_hours, drink_cutoff_time),
+          ticket_rounds!inner (name, group_label, description, includes_drink, drink_deadline_type, drink_deadline_hours, drink_cutoff_time),
           events!inner (title, start_at, end_at, venue_id, partner_venue_id, poster_url)
         `)
         .eq('user_id', user?.id)
@@ -457,7 +458,7 @@ export default function MyOrders() {
         venueCity: v?.city ?? null,
         venueLat: v?.latitude ?? null,
         venueLng: v?.longitude ?? null,
-        roundName: t.ticket_rounds.name,
+        roundName: ticketDisplayName(t.ticket_rounds.name, t.ticket_rounds.group_label),
         roundDescription: normalizeTicketDescription(t.ticket_rounds.description),
         quantity: t.quantity,
         totalPrice: Number(t.total_price),

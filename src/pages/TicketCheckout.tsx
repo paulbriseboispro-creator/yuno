@@ -39,6 +39,7 @@ import {
   useMarketingConsent, usePlatformMarketingConsent,
   recordConsentGrant, recordPlatformConsentGrant, marketingConsentWording,
 } from '@/hooks/useMarketingConsent';
+import { ticketDisplayName } from '@/lib/ticketGroups';
 import { CheckoutSummaryBar } from '@/components/CheckoutSummaryBar';
 import { PublicPage } from '@/components/PublicPage';
 import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
@@ -476,6 +477,7 @@ export default function TicketCheckout() {
         id: roundData.id,
         eventId: roundData.event_id,
         name: roundData.name,
+        groupLabel: roundData.group_label ?? null,
         price: Number(roundData.price),
         maxTickets: roundData.max_tickets,
         ticketsSold: roundData.tickets_sold,
@@ -1063,7 +1065,7 @@ export default function TicketCheckout() {
         total={3}
         onBack={() => navigate(`${basePath}/billets`, {
           replace: true,
-          state: { restoredSelection: { type: 'ticket', id: roundId, quantity, price: round?.price || 0, name: round?.name || '' }, eventId }
+          state: { restoredSelection: { type: 'ticket', id: roundId, quantity, price: round?.price || 0, name: round ? ticketDisplayName(round.name, round.groupLabel) : '' }, eventId }
         })}
       />
 
@@ -1077,6 +1079,10 @@ export default function TicketCheckout() {
 
           <div className="flex items-center gap-3 p-3.5">
             <div className="min-w-0 flex-1">
+              {/* Pack de billets : son nom au-dessus, deux packs peuvent avoir un billet du même nom. */}
+              {round.groupLabel && (
+                <p className="mb-0.5 font-mono text-[10px] uppercase tracking-[0.06em] text-[#9A9A9A] [overflow-wrap:anywhere]">{round.groupLabel}</p>
+              )}
               <p className="text-sm font-semibold leading-[1.3] text-white [overflow-wrap:anywhere]">{round.name}</p>
               <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12.5px] leading-[1.4] text-[#9A9A9A]">
                 {discount > 0 ? (

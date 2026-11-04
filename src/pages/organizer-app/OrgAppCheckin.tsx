@@ -41,6 +41,7 @@ import {
 import { useTabParam } from '@/hooks/useTabParam';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 import { orgEventsOr } from '@/lib/coorg';
+import { ticketDisplayName } from '@/lib/ticketGroups';
 
 // RPC vestiaire (migration 20260929235000) pas encore dans les types générés.
 const untypedClient = supabase as unknown as SupabaseClient;
@@ -105,13 +106,14 @@ interface CheckinEvent {
 /** Tarif d'un billet tel que la porte le lit : heure limite d'entrée, boisson offerte. */
 interface DoorRound {
   name: string | null;
+  group_label?: string | null;
   includes_drink: boolean | null;
   entry_deadline: string | null;
   drink_cutoff_time: string | null;
   drink_deadline_type: string | null;
 }
 
-const DOOR_ROUND_SELECT = 'ticket_rounds(name, includes_drink, entry_deadline, drink_cutoff_time, drink_deadline_type)';
+const DOOR_ROUND_SELECT = 'ticket_rounds(name, group_label, includes_drink, entry_deadline, drink_cutoff_time, drink_deadline_type)';
 
 /** PostgREST rend la jointure many-to-one en objet (ou null) ; on la lit une fois. */
 function doorRoundOf(row: { ticket_rounds?: unknown }): DoorRound | null {
@@ -170,7 +172,7 @@ function doorTicketFor(
 ): DoorTicket {
   return {
     name,
-    roundName: round?.name ?? null,
+    roundName: round ? ticketDisplayName(round.name, round.group_label) || null : null,
     headcount: headcountOverride ?? entryHeadcount(kind, quantity),
     orderSize: Math.max(1, Math.floor(Number(quantity) || 1)),
     placeOf: kind === 'ticket_attendee' && place ? ticketPlaceFromQr(place.qr, quantity) : null,

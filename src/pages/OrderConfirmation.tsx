@@ -35,6 +35,7 @@ import { publicUrl } from '@/lib/native';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 import { useTicketEmailDelivery } from '@/hooks/useTicketEmailDelivery';
 import { TicketEmailDelivery } from '@/components/confirmation/TicketEmailDelivery';
+import { ticketDisplayName } from '@/lib/ticketGroups';
 
 interface UpsellSelection {
   name: string;
@@ -331,7 +332,7 @@ export default function OrderConfirmation() {
           .select(`
             *,
             events!inner(id, title, start_at, timezone, venue_id, partner_venue_id, location_city, poster_url, alcohol_free, organizer_user_id, partner_organizer_id),
-            ticket_rounds!inner(name, price)
+            ticket_rounds!inner(name, group_label, price)
           `)
           .eq('id', id)
           .single();
@@ -512,7 +513,7 @@ export default function OrderConfirmation() {
           venueLegalAddress: venue?.legal_address,
           venueLogoUrl: venue?.logo_url,
           venueId: venue?.id,
-          details: ticket.ticket_rounds.name,
+          details: ticketDisplayName(ticket.ticket_rounds.name, ticket.ticket_rounds.group_label),
           quantity: ticket.quantity,
           totalPrice: displayTotal,
           serviceFee: ticket.service_fee,

@@ -13,6 +13,7 @@ import {
 import { handleWalletRequest, ensureWalletPass, walletPassUrl } from "../_shared/wallet/router.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 import { isDemoEmail } from "../_shared/demo-scope.ts";
+import { ticketDisplayName } from "../_shared/ticket-name.ts";
 
 // Fetch a remote image into a base64 data URL (jsPDF addImage needs bytes, not a URL).
 async function fetchImageDataUrl(url?: string | null): Promise<string | undefined> {
@@ -394,7 +395,7 @@ serve(async (req) => {
       const feeL = receiptLineLabels(docLang);
       const vat = sellerVat(vatRegime, docLang);
       const lines: ReceiptLine[] = [
-        { label: round?.name || (docLang === "fr" ? "Billet" : docLang === "es" ? "Entrada" : "Ticket"), qty: ticket.quantity || 1, ttc: ticketTtc, vatRate: vat.rate },
+        { label: ticketDisplayName(round?.name, round?.group_label) || (docLang === "fr" ? "Billet" : docLang === "es" ? "Entrada" : "Ticket"), qty: ticket.quantity || 1, ttc: ticketTtc, vatRate: vat.rate },
       ];
       if (svc > 0) lines.push({ label: feeL.serviceFee, qty: 1, ttc: svc, vatRate: 20 });
       if (ins > 0) lines.push({ label: feeL.insurance, qty: 1, ttc: ins, vatRate: 20 });
@@ -539,7 +540,7 @@ serve(async (req) => {
       month: dp.month,
       openTime: dp.time,
       city: event?.location_city || venue?.city || undefined,
-      ticketType: round?.name || (lang === "fr" ? "Billet" : lang === "es" ? "Entrada" : "Ticket"),
+      ticketType: ticketDisplayName(round?.name, round?.group_label) || (lang === "fr" ? "Billet" : lang === "es" ? "Entrada" : "Ticket"),
       ticketDescription: roundDescription,
       price: `€${(ticket.total_price ?? 0).toFixed(2)}`,
       reference: ticketRef,
@@ -588,7 +589,7 @@ serve(async (req) => {
             month: dp.month,
             openTime: dp.time,
             city: event?.location_city || venue?.city || undefined,
-            ticketType: round?.name || (lang === "fr" ? "Billet" : lang === "es" ? "Entrada" : "Ticket"),
+            ticketType: ticketDisplayName(round?.name, round?.group_label) || (lang === "fr" ? "Billet" : lang === "es" ? "Entrada" : "Ticket"),
             ticketDescription: roundDescription,
             price: "",
             reference: "",

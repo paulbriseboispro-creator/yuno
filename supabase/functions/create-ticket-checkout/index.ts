@@ -26,6 +26,7 @@ import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 import { isWaitingForPrevious, normalizeChainVisibility, rowPhase } from "../_shared/free-ticketing.ts";
 import { promoterCodePattern, promoterIdHint, promoterScopeOr } from "../_shared/promoter-scope.ts";
 import { buildTicketPlaces } from "../_shared/ticket-places.ts";
+import { ticketDisplayName } from "../_shared/ticket-name.ts";
 
 // Production mode - payments go through Stripe Connect
 const TEST_MODE = false;
@@ -1277,7 +1278,7 @@ serve(async (req) => {
           price_data: {
             currency: "eur",
             product_data: {
-              name: `${ticketRound.name} - ${event.title}`,
+              name: `${ticketDisplayName(ticketRound.name, ticketRound.group_label)} - ${event.title}`,
               description: `${quantity} ${stripeWords.tickets} ${unitPrice}€ − ${stripeWords.discount} ${validatedDiscount.toFixed(2)}€${promoCodeId && cleanDiscountCode ? ` (code ${cleanDiscountCode})` : ""}`,
             },
             unit_amount: Math.round(discountedSubtotal * 100),
@@ -1288,7 +1289,7 @@ serve(async (req) => {
           price_data: {
             currency: "eur",
             product_data: {
-              name: `${ticketRound.name} - ${event.title}`,
+              name: `${ticketDisplayName(ticketRound.name, ticketRound.group_label)} - ${event.title}`,
               description: `${quantity} ${stripeWords.tickets} ${unitPrice}€`,
             },
             unit_amount: Math.round(unitPrice * 100),

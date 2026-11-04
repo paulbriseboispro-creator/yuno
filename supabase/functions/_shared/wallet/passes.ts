@@ -52,6 +52,7 @@ import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2
 import { normalizeWalletLang, wl, type WalletLang } from './i18n.ts';
 import { passArtwork } from './artwork.ts';
 import { normalizeTicketDescription } from '../free-ticketing.ts';
+import { ticketDisplayName } from '../ticket-name.ts';
 
 /** Ligne event embarquée (`events!inner(...)`) des selects ci-dessous. */
 interface WalletEventRow {
@@ -98,7 +99,7 @@ interface WalletTicketRow {
   status: string | null;
   user_id: string | null;
   full_name: string | null;
-  ticket_rounds: { name: string | null; description: string | null } | null;
+  ticket_rounds: { name: string | null; group_label?: string | null; description: string | null } | null;
   events: WalletEventRow;
 }
 
@@ -564,7 +565,7 @@ export async function buildTicketPass(
     .from('tickets')
     .select(`
       id, qr_code, reference_code, quantity, status, user_id, full_name,
-      ticket_rounds(name, description),
+      ticket_rounds(name, group_label, description),
       events!inner(${EVENT_COLUMNS})
     `)
     .eq('id', ticketId)
@@ -599,7 +600,7 @@ export async function buildTicketPass(
   const address = publicAddress(event, venue);
   const lineup = await resolveLineup(admin, event.id);
   const tz = event.timezone || null;
-  const round = ticket.ticket_rounds?.name || wl(lang, 'entryNormal');
+  const round = ticketDisplayName(ticket.ticket_rounds?.name, ticket.ticket_rounds?.group_label) || wl(lang, 'entryNormal');
   // Description du tarif écrite par le pro : au DOS seulement, la face est
   // comptée au pixel. Jamais traduite.
   const roundDescription = normalizeTicketDescription(ticket.ticket_rounds?.description);

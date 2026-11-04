@@ -64,6 +64,7 @@ import { TopClientDialog } from '@/components/bouncer/TopClientDialog';
 import { ScanOverlay } from '@/components/bouncer/ScanOverlay';
 import { calcStripeFee } from '@/utils/fees';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
+import { ticketDisplayName } from '@/lib/ticketGroups';
 
 interface TopClientInfo {
   rank: number;
@@ -1110,7 +1111,7 @@ export default function Bouncer() {
             id, event_id, user_email, full_name, quantity, status, user_id, total_price, service_fee,
             drink_redeemed, drink_name, entry_scanned,
             events!inner(title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, alcohol_free),
-            ticket_rounds!inner(name, includes_drink, entry_deadline, drink_cutoff_time, drink_deadline_type)
+            ticket_rounds!inner(name, group_label, includes_drink, entry_deadline, drink_cutoff_time, drink_deadline_type)
           )
         `)
         .eq('qr_code', qrCode))
@@ -1120,7 +1121,7 @@ export default function Bouncer() {
         .select(`
           *,
           events!inner(title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, alcohol_free),
-          ticket_rounds!inner(name, includes_drink, entry_deadline, drink_cutoff_time, drink_deadline_type)
+          ticket_rounds!inner(name, group_label, includes_drink, entry_deadline, drink_cutoff_time, drink_deadline_type)
         `)
         .eq('qr_code', qrCode))
         .maybeSingle());
@@ -1215,7 +1216,7 @@ export default function Bouncer() {
             placeOf: ticketPlaceFromQr(qrCode, ticket.quantity) ?? undefined,
             buyerName: ticket.full_name || undefined,
             eventTitle: ticket.events.title,
-            roundName: ticket.ticket_rounds.name,
+            roundName: ticketDisplayName(ticket.ticket_rounds.name, ticket.ticket_rounds.group_label),
             status: ticket.status,
             entryScanned: false,
             entryScannedAt: null,
@@ -1245,7 +1246,7 @@ export default function Bouncer() {
             placeOf: ticketPlaceFromQr(qrCode, ticket.quantity) ?? undefined,
             buyerName: ticket.full_name || undefined,
             eventTitle: ticket.events.title,
-            roundName: ticket.ticket_rounds.name,
+            roundName: ticketDisplayName(ticket.ticket_rounds.name, ticket.ticket_rounds.group_label),
             status: ticket.status,
             entryScanned: true,
             entryScannedAt: attendee.entry_scanned_at,
@@ -1279,7 +1280,7 @@ export default function Bouncer() {
             placeOf: ticketPlaceFromQr(qrCode, ticket.quantity) ?? undefined,
             buyerName: ticket.full_name || undefined,
             eventTitle: ticket.events.title,
-            roundName: ticket.ticket_rounds.name,
+            roundName: ticketDisplayName(ticket.ticket_rounds.name, ticket.ticket_rounds.group_label),
             status: ticket.status,
             entryScanned: false,
             entryScannedAt: null,
@@ -1341,7 +1342,7 @@ export default function Bouncer() {
             placeOf: ticketPlaceFromQr(qrCode, ticket.quantity) ?? undefined,
             buyerName: ticket.full_name || undefined,
           eventTitle: ticket.events.title,
-          roundName: ticket.ticket_rounds.name,
+          roundName: ticketDisplayName(ticket.ticket_rounds.name, ticket.ticket_rounds.group_label),
           status: ticket.status,
           entryScanned: true,
           entryScannedAt: new Date().toISOString(),
@@ -1433,7 +1434,7 @@ export default function Bouncer() {
             headcount: wholeDoor.headcount,
             buyerName: ticket.full_name || undefined,
             eventTitle: ticket.events.title,
-            roundName: ticket.ticket_rounds.name,
+            roundName: ticketDisplayName(ticket.ticket_rounds.name, ticket.ticket_rounds.group_label),
             status: ticket.status,
             entryScanned: false,
             entryScannedAt: null,
@@ -1460,7 +1461,7 @@ export default function Bouncer() {
             fullName: ticket.full_name,
             quantity: ticket.quantity,
             eventTitle: ticket.events.title,
-            roundName: ticket.ticket_rounds.name,
+            roundName: ticketDisplayName(ticket.ticket_rounds.name, ticket.ticket_rounds.group_label),
             status: ticket.status,
             entryScanned: true,
             entryScannedAt: ticket.entry_scanned_at,
@@ -1492,7 +1493,7 @@ export default function Bouncer() {
             headcount: wholeDoor.headcount,
             buyerName: ticket.full_name || undefined,
             eventTitle: ticket.events.title,
-            roundName: ticket.ticket_rounds.name,
+            roundName: ticketDisplayName(ticket.ticket_rounds.name, ticket.ticket_rounds.group_label),
             status: ticket.status,
             entryScanned: false,
             entryScannedAt: null,
@@ -1562,7 +1563,7 @@ export default function Bouncer() {
           headcount: admitted,
             buyerName: ticket.full_name || undefined,
           eventTitle: ticket.events.title,
-          roundName: ticket.ticket_rounds.name,
+          roundName: ticketDisplayName(ticket.ticket_rounds.name, ticket.ticket_rounds.group_label),
           status: ticket.status,
           entryScanned: true,
           entryScannedAt: new Date().toISOString(),

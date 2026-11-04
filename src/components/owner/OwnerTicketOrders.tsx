@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { ticketDisplayName } from '@/lib/ticketGroups';
 import { motion } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { format } from 'date-fns';
@@ -174,7 +175,7 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
       if (orgScope && eventIds!.length === 0) { setTickets([]); setMinorDocs(new Map()); return; }
       let query = supabase
         .from('tickets')
-        .select(`*, events!inner(title, start_at, venue_id, timezone, venues!events_venue_id_fkey(name), partner_venue:venues!events_partner_venue_id_fkey(name)), ticket_rounds!inner(name)`)
+        .select(`*, events!inner(title, start_at, venue_id, timezone, venues!events_venue_id_fkey(name), partner_venue:venues!events_partner_venue_id_fkey(name)), ticket_rounds!inner(name, group_label)`)
         .in('status', ['paid', 'cancelled', 'refunded'])
         .order('created_at', { ascending: false });
       if (eventId) query = query.eq('event_id', eventId);
@@ -205,7 +206,7 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
         eventStartAt: t.events.start_at,
         eventTimezone: t.events.timezone ?? null,
         venueName: t.events.venues?.name ?? t.events.partner_venue?.name ?? null,
-        roundName: t.ticket_rounds.name,
+        roundName: ticketDisplayName(t.ticket_rounds.name, t.ticket_rounds.group_label),
         qrCode: t.qr_code,
       }));
       setTickets(mapped);

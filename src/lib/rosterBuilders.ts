@@ -10,6 +10,7 @@
 // `columns` (donc dans le PDF détaillé et le CSV, destinés au club et à
 // l'organisateur), mais `doorMetaKeys` ne les référence jamais.
 
+import { ticketDisplayName } from '@/lib/ticketGroups';
 import { supabase } from '@/integrations/supabase/client';
 import { formatInTimeZone } from 'date-fns-tz';
 import { getEventTimezone } from '@/lib/timezone';
@@ -331,14 +332,14 @@ export async function buildTicketRoster(
 
   const { data: tickets } = await supabase
     .from('tickets')
-    .select('id, full_name, user_email, phone, quantity, status, reference_code, entry_scanned, entry_scanned_at, ticket_rounds(name)')
+    .select('id, full_name, user_email, phone, quantity, status, reference_code, entry_scanned, entry_scanned_at, ticket_rounds(name, group_label)')
     .eq('event_id', ev.id)
     .eq('status', 'paid')
     .range(0, ROW_CAP - 1);
 
   const ticketList = tickets ?? [];
   const roundOf = (t: (typeof ticketList)[number]) =>
-    (t.ticket_rounds as { name?: string } | null)?.name ?? '';
+    ticketDisplayName((t.ticket_rounds as { name?: string; group_label?: string | null } | null)?.name, (t.ticket_rounds as { group_label?: string | null } | null)?.group_label);
 
   let rows: RosterRow[];
   let seats: number;
