@@ -7,7 +7,7 @@ import { marketProps } from '@/lib/geo';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { usePreviewNavigate, useOwnerPreview } from '@/contexts/OwnerPreviewContext';
-import { ArrowLeft, AlertCircle, MapPin, ChevronDown, ChevronUp, ChevronRight, Music, Ticket, UserCheck, Share2, Bell, Armchair, ArrowUpRight } from 'lucide-react';
+import { ArrowLeft, AlertCircle, MapPin, ChevronDown, ChevronUp, ChevronRight, Music, Ticket, UserCheck, Share2, Bell, Armchair, ArrowUpRight, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useEventScarcity } from '@/hooks/useScarcitySettings';
@@ -78,6 +78,13 @@ export default function EventDetails() {
   const [eventId, setEventId] = useState<string | undefined>(eventIdParam);
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  // Aperçu du pro (bouton « Aperçu » de la carte soirée de la Console) :
+  // `?preview=1` garde l'adresse par id (un brouillon n'a pas d'adresse propre,
+  // `resolve_event_path` ne connaît que les soirées en ligne) et ne compte pas
+  // la visite du pro comme celle d'un client (mesure, pixel Meta, PostHog).
+  // Ce drapeau n'ouvre RIEN : la lecture d'un brouillon reste décidée par la
+  // RLS d'`events` (organisateur, son équipe, owner du club).
+  const proPreview = isPreview || searchParams.get('preview') === '1';
   const { t, language } = useLanguage();
   const { isFavorite, toggleFavorite, refetch: refetchFavorites } = useFavorites();
   usePromoterTracking(undefined, eventId); // Capture promoter ref + bind tracking to this event
@@ -167,13 +174,13 @@ export default function EventDetails() {
   const venueIdForTracking = trackingEvent?.venueId || trackingEvent?.partner_venue_id || null;
   const organizerIdForTracking = trackingEvent?.organizer_user_id || trackingEvent?.partner_organizer_id || null;
   const { trackAddToCart } = useVisitorTracking(
-    venueIdForTracking || undefined,
-    eventId || undefined,
-    organizerIdForTracking || undefined,
+    proPreview ? undefined : venueIdForTracking || undefined,
+    proPreview ? undefined : eventId || undefined,
+    proPreview ? undefined : organizerIdForTracking || undefined,
   );
   // Pixel Meta du club / de l'organisateur / de Yuno (après consentement
   // publicité seulement) : ViewContent sur la soirée, une fois par chargement.
-  const metaPixel = useMetaPixel({ eventId: eventId || null, enabled: !!eventId });
+  const metaPixel = useMetaPixel({ eventId: eventId || null, enabled: !!eventId && !proPreview });
   // Marché de la soirée (analytics) : fuseau + ville du lieu, et les ids.
   const eventMarket = marketProps({
     timezone: event?.timezone,
@@ -182,7 +189,7 @@ export default function EventDetails() {
     venueId: venueIdForTracking,
     organizerUserId: organizerIdForTracking,
   });
-  usePosthogEvent('event_viewed', event ? eventId : null, eventMarket);
+  usePosthogEvent('event_viewed', event && !proPreview ? eventId : null, eventMarket);
   // Lien « …?promo=CODE » (lot F) : le code suit l'acheteur jusqu'au paiement
   // (sessionStorage par soirée), où il est revérifié puis appliqué.
   const promoParam = searchParams.get('promo');
@@ -520,7 +527,9 @@ export default function EventDetails() {
       // redirigent vers l'URL propre /events/:host/:slug (hors preview owner).
       // Les paramètres suivent (UTM, `tl`, `promo`, `ref`) : sans eux, la source
       // de la visite et l'attribution du lien se perdaient à la redirection.
-      if (!eventSlug && !isPreview) {
+      // Jamais pour un brouillon ni un aperçu du pro : l'adresse propre ne se
+      // résout que pour une soirée en ligne, la page finirait « introuvable ».
+      if (!eventSlug && !proPreview && eventData.is_active) {
         const hostSlug = isOrganizerLed ? (loadedOrganizer?.slug ?? null) : eventData.venue_id;
         const cleanSlug = (eventData as { slug?: string | null }).slug;
         if (hostSlug && cleanSlug) {
@@ -1186,6 +1195,7 @@ export default function EventDetails() {
 
   return (
     <div className="min-h-screen pb-28" style={{ background: 'var(--sf-0a0a0a)' }}>
+      {(proPreview || !event.isActive) && <ProPreviewStrip draft={!event.isActive} t={t} />}
       <PublicPage variant="immersive">
 
       {/* ── HÉROS ──────────────────────────────────────────────── */}
@@ -2028,6 +2038,33 @@ export default function EventDetails() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+/** Bande d'aperçu du pro, en tête de la page publique d'une soirée. Un client
+ *  ne la voit jamais : un brouillon ne lui est pas lisible (RLS), et `?preview=1`
+ *  ne sort que du bouton « Aperçu » de la Console. */
+function ProPreviewStrip({ draft, t }: { draft: boolean; t: (k: string) => string }) {
+  return (
+    <div
+      className="flex items-center justify-center gap-2 px-4 text-center"
+      style={{
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 9px)',
+        paddingBottom: 9,
+        background: 'rgba(232,25,44,0.10)',
+        borderBottom: '1px solid rgba(232,25,44,0.30)',
+        fontSize: 12,
+        lineHeight: 1.35,
+        color: 'rgba(255,255,255,0.72)',
+      }}
+    >
+      <Eye className="h-3.5 w-3.5 flex-shrink-0" style={{ color: '#E8192C' }} />
+      <span>
+        <span style={{ color: '#E8192C', fontWeight: 600 }}>{t('event.proPreview.label')}</span>
+        {' · '}
+        {t(draft ? 'event.proPreview.draft' : 'event.proPreview.live')}
+      </span>
     </div>
   );
 }

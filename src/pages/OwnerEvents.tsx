@@ -1973,6 +1973,27 @@ export default function OwnerEvents() {
 
 // ─── Event Card ────────────────────────────────────────────────────────────────
 const RED_C = '#E8192C';
+
+/** « Aperçu » : la page publique de la soirée, dans un NOUVEL onglet, en ligne
+ *  comme en brouillon. `?preview=1` garde l'adresse par id (un brouillon n'a
+ *  pas d'adresse propre) et ne compte pas la visite du pro dans ses chiffres.
+ *  Lien relatif : même origine, donc même session (la RLS laisse le pro lire
+ *  son brouillon), et un aperçu local reste en local. */
+function EventPreviewLink({ eventId, label, className = '' }: { eventId: string; label: string; className?: string }) {
+  return (
+    <a
+      href={`/event/${eventId}?preview=1`}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={label}
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-all duration-150 ${className}`}
+      style={{ background: C_FAINT_C, border: `1px solid ${BORDER_C}`, color: T2_C }}
+    >
+      <Eye className="w-3.5 h-3.5" />
+      <span className="hidden sm:inline">{label}</span>
+    </a>
+  );
+}
 const GUEST_C = 'var(--acc-34d399)';
 const T1_C  = 'rgb(var(--ink)/var(--ink-a96,0.96))';
 const T2_C  = 'rgb(var(--ink)/var(--ink-a58,0.58))';
@@ -2384,11 +2405,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
               <Network className="w-3.5 h-3.5" />
               {t('coorg.card.open')}
             </a>
-            <a href={`/event/${event.id}`}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-all duration-150 ml-auto"
-              style={{ color: T3_C }}>
-              {t('owner.ev.viewDetails')}
-            </a>
+            <EventPreviewLink eventId={event.id} label={t('owner.ev.preview')} className="ml-auto" />
           </>
         ) : event.isPartnerHosted ? (
           <>
@@ -2402,11 +2419,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
               style={{ background: C_FAINT_C, border: `1px solid ${BORDER_C}`, color: T2_C }}>
               {t('owner.ev.tables')}
             </a>
-            <a href={`/event/${event.id}`}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-all duration-150 ml-auto"
-              style={{ color: T3_C }}>
-              {t('owner.ev.viewDetails')}
-            </a>
+            <EventPreviewLink eventId={event.id} label={t('owner.ev.preview')} className="ml-auto" />
           </>
         ) : (
           <>
@@ -2437,10 +2450,11 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
             </button>
               </>
             )}
+            <EventPreviewLink eventId={event.id} label={t('owner.ev.preview')} className="ml-auto" />
             {onDetails && (
               <button
                 onClick={onDetails}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-all duration-150 ml-auto"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-all duration-150"
                 style={{ background: C_FAINT_C, border: `1px solid ${BORDER_C}`, color: T2_C }}
               >
                 <Settings2 className="w-3.5 h-3.5" />
