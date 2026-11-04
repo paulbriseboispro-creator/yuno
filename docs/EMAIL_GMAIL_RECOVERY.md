@@ -348,6 +348,8 @@ aucun délai.
 
 - **Un domaine d'envoi au nom du pro** (`news.woh.fr`…) : aujourd'hui une liste
   froide d'un pro grille tous les autres. Option reportée le 05/10, à reprendre.
+  Comparaison avec Brevo / Klaviyo / Mailchimp et conception complète :
+  `docs/designs/EMAIL_SENDER_DOMAINS_PLAN.md`.
 - Version texte propre de chaque e-mail (aujourd'hui générée par Resend, qui
   recopie les caractères invisibles du pré-en-tête).
 

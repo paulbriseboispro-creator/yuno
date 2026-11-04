@@ -205,7 +205,7 @@ humaine.
 | Envoi intelligent par défaut (règle 3) | une demi-journée |
 | Règles du domaine commun : plafond mensuel, arrêts plus stricts, récidive, niveau 3 maximum | une demi-journée |
 | Vérification des fichiers importés (règle 5) | 1 jour |
-| En-tête `Feedback-ID` (taux de plaintes Gmail par campagne dans Postmaster ; à vérifier : Resend doit le couvrir par sa signature DKIM) | quelques heures |
+| ~~En-tête `Feedback-ID`~~ **Impossible chez Resend (testé le 04/11)** : un e-mail envoyé avec `Feedback-ID: fbltest1:yuno:test:yuno` est arrivé avec le seul Feedback-ID d'Amazon SES (le même sur tous nos e-mails), signé par `amazonses.com` ; notre en-tête est retiré et la signature `news.yunoapp.eu` ne couvre jamais ce champ. La boucle de rétroaction de Postmaster reste vide tant qu'on envoie par Resend : la vue par client passe par les sous-domaines | — |
 | Version texte propre de chaque e-mail, alerte sur les mots de promotion répétés | quelques heures |
 
 La lecture quotidienne de Google Postmaster est déjà en cours de construction
