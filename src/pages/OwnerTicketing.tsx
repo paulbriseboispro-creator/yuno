@@ -44,6 +44,9 @@ import { EventRoundsVisibility } from '@/components/owner/ticketing/EventRoundsV
 import { EventGlobalCapacity } from '@/components/owner/ticketing/EventGlobalCapacity';
 import { FreeTicketDialog, type FreeTicketPatch } from '@/components/owner/ticketing/FreeTicketDialog';
 import { FreeTicketRow } from '@/components/owner/ticketing/FreeTicketRow';
+import { FreeTicketList } from '@/components/owner/ticketing/FreeTicketList';
+import { TicketGroupDialog } from '@/components/owner/ticketing/TicketGroupDialog';
+import { mapTicketGroup, ticketDisplayName, type TicketGroup } from '@/lib/ticketGroups';
 import { FreePresetDialog, type FreePresetDraft } from '@/components/owner/ticketing/FreePresetDialog';
 import { UNLIMITED_TICKETS, normalizeChainVisibility, normalizeEntryDeadline, normalizeFreePreset, normalizeTicketDescription, roundsToFreePreset, type ChainVisibility } from '@/lib/freeTicketing';
 import { FreeChainVisibility } from '@/components/owner/ticketing/FreeChainVisibility';
@@ -75,7 +78,10 @@ export default function OwnerTicketing() {
   const [editingRound, setEditingRound] = useState<TicketRound | null>(null);
   const [editingPreset, setEditingPreset] = useState<TicketPreset | null>(null);
   // Billetterie libre : un billet en cours d'édition, et le modèle libre ouvert.
-  const [freeTicketDialog, setFreeTicketDialog] = useState<{ eventId: string; ticket: TicketRound | null } | null>(null);
+  const [freeTicketDialog, setFreeTicketDialog] = useState<{ eventId: string; ticket: TicketRound | null; groupId?: string | null } | null>(null);
+  // Packs de billets de la billetterie libre, par soirée (lib/ticketGroups).
+  const [ticketGroups, setTicketGroups] = useState<Record<string, TicketGroup[]>>({});
+  const [groupDialog, setGroupDialog] = useState<{ eventId: string; group: TicketGroup | null } | null>(null);
   const [freePresetDialog, setFreePresetDialog] = useState<{ title: string; initial: FreePresetDraft; presetId: string | null } | null>(null);
   const [activeTab, setActiveTab] = useTabParam('events', ['events', 'presets']);
   // Accordion: keep only one event expanded to full config at a time; the rest
@@ -369,11 +375,19 @@ export default function OwnerTicketing() {
   };
 
   const fetchTicketRounds = async (eventId: string) => {
-    const { data, error } = await supabase
-      .from('ticket_rounds')
-      .select('*')
-      .eq('event_id', eventId)
-      .order('position', { ascending: true });
+    const [{ data, error }, { data: groups }] = await Promise.all([
+      supabase
+        .from('ticket_rounds')
+        .select('*')
+        .eq('event_id', eventId)
+        .order('position', { ascending: true }),
+      supabase
+        .from('ticket_groups')
+        .select('id, event_id, name, description, position')
+        .eq('event_id', eventId)
+        .order('position', { ascending: true }),
+    ]);
+    setTicketGroups(prev => ({ ...prev, [eventId]: (groups || []).map(mapTicketGroup) }));
 
     if (error) {
       console.error('Error fetching ticket rounds:', error);
@@ -405,6 +419,8 @@ export default function OwnerTicketing() {
       saleStartsAt: r.sale_starts_at,
       saleEndsAt: r.sale_ends_at,
       opensAfterRoundId: r.opens_after_round_id ?? null,
+      groupId: r.group_id ?? null,
+      groupLabel: r.group_label ?? null,
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     }));
@@ -993,16 +1009,64 @@ export default function OwnerTicketing() {
     await fetchTicketRounds(eventId);
   };
 
-  // Monter / descendre un billet : l'ordre de la liste est l'ordre de la page publique.
-  const handleMoveFreeTicket = async (eventId: string, index: number, dir: -1 | 1) => {
-    const list = [...(ticketRounds[eventId] || [])].sort((a, b) => a.position - b.position);
-    const j = index + dir;
-    if (j < 0 || j >= list.length) return;
-    const [a, b] = [list[index], list[j]];
-    const [pa, pb] = a.position === b.position ? [index, j] : [a.position, b.position];
+  // Monter / descendre un billet : l'ordre de la liste est l'ordre de la page
+  // publique. Il s'échange avec son voisin DANS SA SECTION (hors pack, ou son pack).
+  const handleMoveFreeTicket = async (eventId: string, a: TicketRound, b: TicketRound | null) => {
+    if (!b) return;
+    const list = [...(ticketRounds[eventId] || [])].sort((x, y) => x.position - y.position);
+    const [ia, ib] = [list.findIndex(r => r.id === a.id), list.findIndex(r => r.id === b.id)];
+    const [pa, pb] = a.position === b.position ? [ia, ib] : [a.position, b.position];
     const [r1, r2] = await Promise.all([
       supabase.from('ticket_rounds').update({ position: pb }).eq('id', a.id),
       supabase.from('ticket_rounds').update({ position: pa }).eq('id', b.id),
+    ]);
+    if (r1.error || r2.error) toast.error(t('tickets.errorSaving'));
+    await fetchTicketRounds(eventId);
+  };
+
+  // ── Packs de billets ──────────────────────────────────────────────────────
+  const handleSaveGroup = async (values: { name: string; description: string | null }) => {
+    if (!groupDialog) return;
+    const { eventId, group } = groupDialog;
+    try {
+      if (group) {
+        const { data: updated, error } = await supabase.from('ticket_groups').update(values).eq('id', group.id).select('id');
+        if (error) throw error;
+        if (!updated?.length) { toast.error(t('tickets.notAllowed')); return; }
+      } else {
+        const existing = ticketGroups[eventId] || [];
+        const position = existing.length > 0 ? Math.max(...existing.map(g => g.position)) + 1 : 0;
+        const { error } = await supabase.from('ticket_groups').insert({ ...values, event_id: eventId, position });
+        if (error) throw error;
+        capturePosthog('pro_ticket_pack_created', { event_id: eventId });
+      }
+      toast.success(group ? t('tickets.packs.updated') : t('tickets.packs.created'));
+      setGroupDialog(null);
+      await fetchTicketRounds(eventId);
+    } catch (error) {
+      console.error('Error saving ticket pack:', error);
+      toast.error(t('tickets.errorSaving'));
+    }
+  };
+
+  const handleDeleteGroup = async (eventId: string, group: TicketGroup) => {
+    if (!confirm(t('tickets.packs.confirmDelete').replace('{name}', group.name))) return;
+    const { error } = await supabase.from('ticket_groups').delete().eq('id', group.id);
+    if (error) { toast.error(t('tickets.errorDeleting')); return; }
+    toast.success(t('tickets.packs.deleted'));
+    await fetchTicketRounds(eventId);
+  };
+
+  const handleMoveGroup = async (eventId: string, group: TicketGroup, dir: -1 | 1) => {
+    const list = [...(ticketGroups[eventId] || [])].sort((a, b) => a.position - b.position);
+    const i = list.findIndex(g => g.id === group.id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= list.length) return;
+    const [a, b] = [list[i], list[j]];
+    const [pa, pb] = a.position === b.position ? [i, j] : [a.position, b.position];
+    const [r1, r2] = await Promise.all([
+      supabase.from('ticket_groups').update({ position: pb }).eq('id', a.id),
+      supabase.from('ticket_groups').update({ position: pa }).eq('id', b.id),
     ]);
     if (r1.error || r2.error) toast.error(t('tickets.errorSaving'));
     await fetchTicketRounds(eventId);
@@ -1714,30 +1778,36 @@ export default function OwnerTicketing() {
                               ))}
                             </div>
 
-                            {/* Free mode: one list, in public order */}
+                            {/* Free mode: one list, in public order — rangée en packs
+                                quand la soirée en a (lib/ticketGroups). */}
                             {isFreeMode && rounds.length > 0 && (() => {
                               const ordered = [...rounds].sort((a, b) => a.position - b.position);
                               return (
-                                <div className="space-y-2">
-                                  <div className="flex items-center gap-2" style={{ ...LABEL, fontSize: 11, color: T3 }}>
-                                    <Shapes className="h-3.5 w-3.5" />
-                                    {t('tickets.free.listTitle')}
-                                  </div>
-                                  {ordered.map((round, index) => (
-                                    <FreeTicketRow
-                                      key={round.id}
-                                      ticket={round}
-                                      awaitedName={round.opensAfterRoundId ? ordered.find(r => r.id === round.opensAfterRoundId)?.name ?? null : null}
-                                      isFirst={index === 0}
-                                      isLast={index === ordered.length - 1}
-                                      onEdit={() => setFreeTicketDialog({ eventId: event.id, ticket: round })}
-                                      onDelete={() => handleDeleteRound(round.id, event.id)}
-                                      onToggleSoldOut={() => handleToggleSoldOut(round, event.id)}
-                                      onOpenSale={() => handleOpenFreeSale(round, event.id)}
-                                      onMove={(dir) => handleMoveFreeTicket(event.id, index, dir)}
-                                    />
-                                  ))}
-                                </div>
+                                <FreeTicketList
+                                  tickets={ordered}
+                                  groups={ticketGroups[event.id] || []}
+                                  renderTicket={(round, prev, next) => {
+                                    const awaited = round.opensAfterRoundId ? ordered.find(r => r.id === round.opensAfterRoundId) : null;
+                                    return (
+                                      <FreeTicketRow
+                                        ticket={round}
+                                        awaitedName={awaited ? ticketDisplayName(awaited.name, awaited.groupLabel) : null}
+                                        isFirst={!prev}
+                                        isLast={!next}
+                                        onEdit={() => setFreeTicketDialog({ eventId: event.id, ticket: round })}
+                                        onDelete={() => handleDeleteRound(round.id, event.id)}
+                                        onToggleSoldOut={() => handleToggleSoldOut(round, event.id)}
+                                        onOpenSale={() => handleOpenFreeSale(round, event.id)}
+                                        onMove={(dir) => handleMoveFreeTicket(event.id, round, dir < 0 ? prev : next)}
+                                      />
+                                    );
+                                  }}
+                                  onCreateGroup={() => setGroupDialog({ eventId: event.id, group: null })}
+                                  onEditGroup={(group) => setGroupDialog({ eventId: event.id, group })}
+                                  onDeleteGroup={(group) => handleDeleteGroup(event.id, group)}
+                                  onMoveGroup={(group, dir) => handleMoveGroup(event.id, group, dir)}
+                                  onAddTicketInGroup={(group) => setFreeTicketDialog({ eventId: event.id, ticket: null, groupId: group.id })}
+                                />
                               );
                             })()}
 
@@ -2043,10 +2113,18 @@ export default function OwnerTicketing() {
           onOpenChange={(open) => { if (!open) setFreeTicketDialog(null); }}
           ticket={freeTicketDialog?.ticket ?? null}
           siblings={freeTicketDialog ? ticketRounds[freeTicketDialog.eventId] || [] : []}
+          groups={freeTicketDialog ? ticketGroups[freeTicketDialog.eventId] || [] : []}
+          defaultGroupId={freeTicketDialog?.groupId ?? null}
           onSave={handleSaveFreeTicket}
           freeDrinkMode={freeDrinkMode}
           setFreeDrinkMode={setFreeDrinkMode}
           venueId={venueId}
+        />
+        <TicketGroupDialog
+          open={!!groupDialog}
+          onOpenChange={(open) => { if (!open) setGroupDialog(null); }}
+          group={groupDialog?.group ?? null}
+          onSave={handleSaveGroup}
         />
         {freePresetDialog && (
           <FreePresetDialog

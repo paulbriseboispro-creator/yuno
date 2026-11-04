@@ -320,7 +320,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         quickStart: true,
         actionLink: { labelKey: 'ohelp.action.goToTicketing', path: '/ticketing' },
         relatedArticleIds: ['events-setup', 'scarcity-fomo', 'fee-structure', 'refund-management'],
-        keywords: ['ticket', 'billet', 'entrée', 'entry', 'round', 'tour', 'libre', 'free-form', 'caché', 'hidden', 'modèle', 'template', 'prévente', 'presale', 'QR', 'scan', 'billetterie', 'ticketing', 'early bird', 'vente', 'sale', 'prix', 'price', 'password', 'mot de passe', 'insurance', 'assurance', 'stripe connect', 'réservé', 'reserved', 'sold out manuel'],
+        keywords: ['ticket', 'billet', 'entrée', 'entry', 'round', 'tour', 'libre', 'free-form', 'caché', 'hidden', 'modèle', 'template', 'prévente', 'presale', 'QR', 'scan', 'billetterie', 'ticketing', 'early bird', 'vente', 'sale', 'prix', 'price', 'password', 'mot de passe', 'insurance', 'assurance', 'stripe connect', 'réservé', 'reserved', 'sold out manuel', 'pack', 'packs', 'accès', 'access', 'acceso', 'groupe de billets', 'ticket group'],
         sections: [
           { headingKey: 'ohelp.ev.ticketing.s1h', bodyKey: 'ohelp.ev.ticketing.s1b' },
           { headingKey: 'ohelp.ev.ticketing.s2h', bodyKey: 'ohelp.ev.ticketing.s2b' },
@@ -328,6 +328,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.ev.ticketing.s4h', bodyKey: 'ohelp.ev.ticketing.s4b' },
           { headingKey: 'ohelp.ev.ticketing.s5h', bodyKey: 'ohelp.ev.ticketing.s5b', type: 'steps' },
           { headingKey: 'ohelp.ev.ticketing.s9h', bodyKey: 'ohelp.ev.ticketing.s9b', type: 'steps' },
+          { headingKey: 'ohelp.ev.ticketing.s10h', bodyKey: 'ohelp.ev.ticketing.s10b', type: 'steps' },
           { headingKey: 'ohelp.ev.ticketing.s6h', bodyKey: 'ohelp.ev.ticketing.s6b' },
           { headingKey: 'ohelp.ev.ticketing.s7h', bodyKey: 'ohelp.ev.ticketing.s7b', type: 'tip' },
           { headingKey: 'ohelp.ev.ticketing.s8h', bodyKey: 'ohelp.ev.ticketing.s8b', type: 'warning' },

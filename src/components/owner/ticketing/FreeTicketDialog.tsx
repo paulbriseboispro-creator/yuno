@@ -18,6 +18,7 @@ import { toDateTimeLocalInput, toUtcIsoOrNull } from './ticketing-utils';
 import { DrinkOptionsFields, type DrinkOptionsValue } from './DrinkOptionsFields';
 import { Choice } from './FreeChoice';
 import { TicketDescriptionField } from './TicketDescriptionField';
+import { ticketDisplayName, type TicketGroup } from '@/lib/ticketGroups';
 
 /** Colonnes ticket_rounds écrites par le formulaire (hors event_id / position). */
 export interface FreeTicketPatch {
@@ -37,6 +38,8 @@ export interface FreeTicketPatch {
   sale_starts_at: string | null;
   sale_ends_at: string | null;
   opens_after_round_id: string | null;
+  /** Pack de billets (lib/ticketGroups) ; null = hors pack. */
+  group_id: string | null;
 }
 
 interface FreeTicketDialogProps {
@@ -47,6 +50,10 @@ interface FreeTicketDialogProps {
   /** Les billets de la soirée : ceux qu'on peut attendre (« après un billet »). */
   siblings: TicketRound[];
   onSave: (patch: FreeTicketPatch) => Promise<void> | void;
+  /** Les packs de la soirée : le billet peut s'y ranger. */
+  groups?: TicketGroup[];
+  /** Nouveau billet ajouté depuis un pack : ce pack, déjà choisi. */
+  defaultGroupId?: string | null;
   freeDrinkMode: 'credits' | 'bouncer_notify';
   setFreeDrinkMode: (mode: 'credits' | 'bouncer_notify') => void;
   venueId?: string | null;
@@ -65,9 +72,10 @@ interface FormState extends DrinkOptionsValue {
   saleStartsAt: string;
   saleEndsAt: string;
   opensAfter: string;
+  groupId: string;
 }
 
-function initialState(ticket: TicketRound | null): FormState {
+function initialState(ticket: TicketRound | null, defaultGroupId?: string | null): FormState {
   const schedule = {
     isActive: ticket?.manuallySoldOut ? true : ticket?.isActive ?? true,
     hidden: ticket?.hidden,
@@ -92,6 +100,7 @@ function initialState(ticket: TicketRound | null): FormState {
     saleStartsAt: toDateTimeLocalInput(ticket?.saleStartsAt ?? undefined),
     saleEndsAt: toDateTimeLocalInput(ticket?.saleEndsAt ?? undefined),
     opensAfter: ticket?.opensAfterRoundId ?? '',
+    groupId: (ticket ? ticket.groupId : defaultGroupId) ?? '',
   };
 }
 
@@ -108,14 +117,14 @@ function Question({ icon, title, children }: { icon: ReactNode; title: string; c
 // (quand on le voit, quand on l'achète). Règle de lecture : lib/freeTicketing.
 // « Après un billet » = les rounds, billet par billet : la base ouvre ce
 // billet quand celui qu'il attend est complet.
-export function FreeTicketDialog({ open, onOpenChange, ticket, siblings, onSave, freeDrinkMode, setFreeDrinkMode, venueId }: FreeTicketDialogProps) {
+export function FreeTicketDialog({ open, onOpenChange, ticket, siblings, onSave, groups = [], defaultGroupId, freeDrinkMode, setFreeDrinkMode, venueId }: FreeTicketDialogProps) {
   const { t } = useLanguage();
-  const [form, setForm] = useState<FormState>(() => initialState(ticket));
+  const [form, setForm] = useState<FormState>(() => initialState(ticket, defaultGroupId));
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) setForm(initialState(ticket));
-  }, [open, ticket]);
+    if (open) setForm(initialState(ticket, defaultGroupId));
+  }, [open, ticket, defaultGroupId]);
 
   const patch = (p: Partial<FormState>) => setForm((prev) => ({ ...prev, ...p }));
 
@@ -168,6 +177,7 @@ export function FreeTicketDialog({ open, onOpenChange, ticket, siblings, onSave,
         drink_deadline_hours: form.includesDrink && form.drinkDeadlineType === 'hours_after_start' ? parseInt(form.drinkDeadlineHours, 10) || 2 : null,
         drink_cutoff_time: form.includesDrink && form.drinkDeadlineType === 'fixed_time' ? form.drinkCutoffTime : null,
         ...schedule,
+        group_id: groups.some((g) => g.id === form.groupId) ? form.groupId : null,
         // Invariant du trigger SQL : un billet « Complet » n'est jamais actif.
         is_active: form.manuallySoldOut ? false : schedule.is_active,
       });
@@ -188,6 +198,22 @@ export function FreeTicketDialog({ open, onOpenChange, ticket, siblings, onSave,
             <Label htmlFor="freeName">{t('tickets.free.name')}</Label>
             <Input id="freeName" value={form.name} onChange={(e) => patch({ name: e.target.value })} placeholder={t('tickets.free.namePlaceholder')} />
           </div>
+          {/* Pack : la page de choix range ce billet sous le nom du pack. */}
+          {groups.length > 0 && (
+            <div>
+              <Label htmlFor="freePack">{t('tickets.packs.field')}</Label>
+              <Select value={form.groupId || 'none'} onValueChange={(v) => patch({ groupId: v === 'none' ? '' : v })}>
+                <SelectTrigger id="freePack" className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{t('tickets.packs.none')}</SelectItem>
+                  {[...groups].sort((a, b) => a.position - b.position).map((g) => (
+                    <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p style={{ ...HINT, marginTop: 4 }}>{t('tickets.packs.fieldHint')}</p>
+            </div>
+          )}
           <TicketDescriptionField id="freeDescription" value={form.description} onChange={(description) => patch({ description })} />
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -251,7 +277,7 @@ export function FreeTicketDialog({ open, onOpenChange, ticket, siblings, onSave,
                   <Select value={awaited?.id ?? ''} onValueChange={(opensAfter) => patch({ opensAfter })}>
                     <SelectTrigger aria-label={t('tickets.free.sale.afterPick')}><SelectValue placeholder="—" /></SelectTrigger>
                     <SelectContent>
-                      {candidates.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                      {candidates.map((s) => <SelectItem key={s.id} value={s.id}>{ticketDisplayName(s.name, s.groupLabel)}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   <p style={HINT}>{t('tickets.free.sale.afterHint')}</p>

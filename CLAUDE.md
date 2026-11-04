@@ -6738,3 +6738,38 @@ envois en bloc du fichier importé de WOH (01/09, 09/09, 08/10). Règles :
   `email_sender_health_report` + `email_sender_health_visual` ; règles de dessin
   `src/lib/email/senderHealthVisual.ts` (testées). Un bloc nouveau = un schéma, jamais
   un paragraphe ; les explications restent repliées (« Pourquoi ces règles ? »).
+
+## Packs de billets — deux accès la même nuit (2026-11-04)
+
+Demande de Paul pour Amoris (« Accès Tia Felisa » et « Tia Felisa + Chin Chin »,
+chacun avec ses rounds ou options), design validé le 04/11. Migration
+`20261129160000_ticket_groups.sql`, règles pures `src/lib/ticketGroups.ts`
+(testées), page de choix `TicketPackSection`, Console `FreeTicketList` +
+`TicketGroupDialog`. Règles :
+
+- **Billetterie LIBRE seulement.** Un pack = une ligne `ticket_groups` (soirée,
+  nom ≤ 60, phrase ≤ 200, `position`) ; un billet y entre par
+  `ticket_rounds.group_id`. Droits d'écriture = ceux des billets de la soirée
+  (`can_manage_ticket_groups`, miroir des policies de `ticket_rounds`) ;
+  lecture publique.
+- **Le nom du pack est recopié sur le billet par la base**
+  (`ticket_rounds.group_label`, triggers `trg_ticket_round_group_label` et
+  `trg_ticket_group_rename_rounds`) : jamais écrit à la main, un pack d'une
+  autre soirée est retiré en silence (copie de soirée, série récurrente).
+  Supprimer un pack remet ses billets hors pack, jamais supprimés.
+- **Hors de la page de choix, un billet se lit « Pack · Billet »** :
+  `ticketDisplayName` (`_shared/ticket-name.ts`, ré-exporté par
+  `src/lib/ticketGroups.ts`), utilisé par Stripe (`create-ticket-checkout`),
+  l'e-mail / le PDF (`send-ticket-confirmation`), le pass Wallet, la porte
+  (Bouncer, OrgAppCheckin, `get_event_scan_manifest`), la confirmation, Mes
+  commandes, Commandes de la Console, la liste imprimable. Tout nouveau lecteur
+  du nom d'un billet sélectionne `group_label` et passe par cette fonction :
+  deux packs peuvent avoir chacun un « First Release ».
+- **Page de choix** : billets hors pack en haut, puis chaque pack dans son
+  ordre, OUVERT par défaut, « À partir de … » sous le nom (billets achetables
+  seulement), repliable par la flèche ; replié, il reste neutre — jamais de
+  rouge, même si un billet y est choisi (décision de Paul, la barre du bas le
+  dit). Dans un pack, un billet est une ligne (`OfferCard variant="row"`), pas
+  une carte dans une carte. Un pack sans billet visible ne s'affiche pas.
+- Pas encore repris : les modèles de billetterie libre et les séries
+  récurrentes ne gardent pas les packs ; l'IA (`set_ticketing`) ne les écrit pas.

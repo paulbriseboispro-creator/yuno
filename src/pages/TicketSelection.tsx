@@ -37,6 +37,8 @@ import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 import { capturePosthog } from '@/lib/posthog';
 import { marketProps } from '@/lib/geo';
 import { formatTicketDate, normalizeChainVisibility, publicFreeTickets, type ChainVisibility } from '@/lib/freeTicketing';
+import { groupTicketsForDisplay, mapTicketGroup, ticketDisplayName, type TicketGroup } from '@/lib/ticketGroups';
+import { TicketPackSection } from '@/components/ticketing/TicketPackSection';
 
 type SelectionType = 'ticket' | 'table' | 'guestlist';
 type Selection = {
@@ -92,6 +94,8 @@ export default function TicketSelection() {
   const [pwInput, setPwInput] = useState('');
   const [pwSubmitting, setPwSubmitting] = useState(false);
   const [ticketRounds, setTicketRounds] = useState<TicketRound[]>([]);
+  // Packs de billets (billetterie libre) : sections repliables, lib/ticketGroups.
+  const [ticketGroups, setTicketGroups] = useState<TicketGroup[]>([]);
   // Billets communauté : hôte + mon statut (abonné profil / newsletter), lu
   // seulement si la soirée en vend. La porte réelle est serveur (checkout).
   const hasCommunityRounds = ticketRounds.some(r => isCommunityAudience(r.audience));
@@ -197,7 +201,12 @@ export default function TicketSelection() {
       }
 
       if (ev.ticketing_enabled) {
-        const { data: rounds } = await supabase.from('ticket_rounds').select('*').eq('event_id', eventId).order('position', { ascending: true });
+        const [{ data: rounds }, { data: groups }] = await Promise.all([
+          supabase.from('ticket_rounds').select('*').eq('event_id', eventId).order('position', { ascending: true }),
+          // Une panne de lecture des packs ne cache aucun billet : ils s'affichent en liste.
+          supabase.from('ticket_groups').select('id, event_id, name, description, position').eq('event_id', eventId).order('position', { ascending: true }),
+        ]);
+        setTicketGroups((groups || []).map(mapTicketGroup));
         if (rounds) {
           setTicketRounds(rounds.map(r => ({
             id: r.id, eventId: r.event_id, name: r.name, description: r.description,
@@ -212,6 +221,7 @@ export default function TicketSelection() {
             audience: normalizeTicketAudience(r.audience),
             hidden: r.hidden ?? false, visibleFrom: r.visible_from, saleStartsAt: r.sale_starts_at, saleEndsAt: r.sale_ends_at,
             opensAfterRoundId: r.opens_after_round_id ?? null,
+            groupId: r.group_id ?? null, groupLabel: r.group_label ?? null,
             createdAt: r.created_at, updatedAt: r.updated_at,
           })));
         }
@@ -761,31 +771,61 @@ export default function TicketSelection() {
       {/* All sections stacked */}
       <div ref={ticketsRef} className="px-4 mt-4 space-y-2.5">
 
-        {/* STANDARD TICKETS */}
-        {salesIsOpen && !saleLocked && !paidBlocked && standardRounds.length > 0 && (
-          <div className="space-y-2.5">
-            {getVisibleRounds(standardRounds).map(round => (
-              <TicketCard
-                key={round.id}
-                round={round}
-                isSelected={selection?.id === round.id}
-                quantity={selection?.id === round.id ? selection.quantity : 0}
-                onSelect={() => selectItem('ticket', round.id, round.price, round.name)}
-                onQuantityChange={updateQuantity}
-                t={t}
-                scarcity={scarcitySettings}
-                isSimple={isSimple}
-                globalMaxTickets={eventData?.maxTickets}
-                totalSold={totalSoldAllRounds}
-                previewOnly={round._previewOnly === true}
-                previewLabel={round._previewLabel}
-                ended={round._ended === true}
-                maxQuantity={ticketMax}
-                community={communityFor(round)}
-              />
-            ))}
-          </div>
-        )}
+        {/* STANDARD TICKETS — rangés en packs repliables quand la billetterie
+            libre en a (lib/ticketGroups) : billets hors pack d'abord, puis
+            chaque pack, ouvert par défaut. */}
+        {salesIsOpen && !saleLocked && !paidBlocked && standardRounds.length > 0 && (() => {
+          const visible = getVisibleRounds(standardRounds);
+          const renderTicket = (round: VisibleRound, variant: 'card' | 'row') => (
+            <TicketCard
+              key={round.id}
+              round={round}
+              variant={variant}
+              isSelected={selection?.id === round.id}
+              quantity={selection?.id === round.id ? selection.quantity : 0}
+              onSelect={() => selectItem('ticket', round.id, round.price, ticketDisplayName(round.name, round.groupLabel))}
+              onQuantityChange={updateQuantity}
+              t={t}
+              scarcity={scarcitySettings}
+              isSimple={isSimple}
+              globalMaxTickets={eventData?.maxTickets}
+              totalSold={totalSoldAllRounds}
+              previewOnly={round._previewOnly === true}
+              previewLabel={round._previewLabel}
+              ended={round._ended === true}
+              maxQuantity={ticketMax}
+              community={communityFor(round)}
+            />
+          );
+          if (!isFree || ticketGroups.length === 0) {
+            return <div className="space-y-2.5">{visible.map(round => renderTicket(round, 'card'))}</div>;
+          }
+          const { loose, packs } = groupTicketsForDisplay(ticketGroups, visible.map(round => ({
+            ...round,
+            buyable: !round._previewOnly && !round._ended && !isRoundSoldOut(round) && communityFor(round)?.status !== 'locked',
+          })));
+          return (
+            <div className="space-y-2.5">
+              {loose.map(round => renderTicket(round, 'card'))}
+              {packs.map(({ group, tickets, fromPrice }) => (
+                <TicketPackSection
+                  key={group.id}
+                  name={group.name}
+                  description={group.description}
+                  subtitle={fromPrice !== null
+                    ? t('ticketSel.packFrom').replace('{price}', `${fromPrice.toFixed(2)} €`)
+                    : tickets.every(r => !r._previewOnly && !r._ended && isRoundSoldOut(r))
+                      ? (t('tickets.soldOut') || 'Épuisé')
+                      : (t('tickets.comingSoon') || 'Bientôt')}
+                  collapseLabel={t('ticketSel.packCollapse')}
+                  expandLabel={t('ticketSel.packExpand')}
+                >
+                  {tickets.map(round => renderTicket(round, 'row'))}
+                </TicketPackSection>
+              ))}
+            </div>
+          );
+        })()}
 
         {/* VIP TICKETS */}
         {salesIsOpen && !saleLocked && !paidBlocked && vipRounds.length > 0 && (
@@ -1088,9 +1128,11 @@ type CommunityCardProps = {
 };
 
 function TicketCard({
-  round, isSelected, quantity, onSelect, onQuantityChange, t, isVip, scarcity, isSimple, globalMaxTickets, totalSold, previewOnly, previewLabel, ended, maxQuantity = 10, community,
+  round, isSelected, quantity, onSelect, onQuantityChange, t, isVip, scarcity, isSimple, globalMaxTickets, totalSold, previewOnly, previewLabel, ended, maxQuantity = 10, community, variant = 'card',
 }: {
   round: TicketRound; isSelected: boolean; quantity: number;
+  /** `row` = ligne d'un pack (TicketPackSection). */
+  variant?: 'card' | 'row';
   onSelect: () => void; onQuantityChange: (delta: number) => void;
   t: (key: string) => string; isVip?: boolean; scarcity?: ScarcitySettings | null;
   isSimple?: boolean; globalMaxTickets?: number | null; totalSold?: number; previewOnly?: boolean; maxQuantity?: number;
@@ -1140,7 +1182,8 @@ function TicketCard({
   return (
     <OfferCard
       title={round.name}
-      ariaLabel={`${round.name} ${round.price.toFixed(2)} €`}
+      variant={variant}
+      ariaLabel={`${ticketDisplayName(round.name, round.groupLabel)} ${round.price.toFixed(2)} €`}
       describedBy={descId}
       selected={isSelected}
       tone={isSoldOut ? 'soldOut' : isDisabled ? 'disabled' : 'default'}

@@ -36,11 +36,15 @@ interface OfferCardProps {
   ariaLabel: string;
   /** id de la description, lue par les lecteurs d'écran avec le nom. */
   describedBy?: string;
+  /** `row` = ligne d'un pack de billets (TicketPackSection) : pas de cadre
+   *  propre, le pack en porte un et sépare ses lignes par un trait. */
+  variant?: 'card' | 'row';
 }
 
 export function OfferCard({
-  title, badges, children, price, action, footer, selected = false, tone = 'default', onSelect, ariaLabel, describedBy,
+  title, badges, children, price, action, footer, selected = false, tone = 'default', onSelect, ariaLabel, describedBy, variant = 'card',
 }: OfferCardProps) {
+  const isRow = variant === 'row';
   const clickable = !!onSelect && tone === 'default' && !selected;
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (!clickable || e.target !== e.currentTarget) return;
@@ -53,15 +57,23 @@ export function OfferCard({
   return (
     <div
       className={cn(
-        'relative rounded-md border overflow-hidden transition-[border-color,background-color,transform] duration-150',
-        selected
-          ? 'border-primary/75'
-          : tone === 'soldOut'
-            ? 'border-primary/[0.14] bg-[var(--sf-141414)]'
-            : tone === 'disabled'
-              ? 'opacity-45 border-white/[0.06] bg-[var(--sf-141414)]'
-              : 'border-white/[0.08] bg-[var(--sf-141414)]',
-        clickable && 'cursor-pointer hover:border-white/[0.16] active:scale-[0.99]',
+        isRow
+          ? cn(
+            'relative overflow-hidden transition-[background-color] duration-150',
+            !selected && tone === 'disabled' && 'opacity-45',
+            clickable && 'cursor-pointer hover:bg-white/[0.03]',
+          )
+          : cn(
+            'relative rounded-md border overflow-hidden transition-[border-color,background-color,transform] duration-150',
+            selected
+              ? 'border-primary/75'
+              : tone === 'soldOut'
+                ? 'border-primary/[0.14] bg-[var(--sf-141414)]'
+                : tone === 'disabled'
+                  ? 'opacity-45 border-white/[0.06] bg-[var(--sf-141414)]'
+                  : 'border-white/[0.08] bg-[var(--sf-141414)]',
+            clickable && 'cursor-pointer hover:border-white/[0.16] active:scale-[0.99]',
+          ),
       )}
       style={selected ? { backgroundColor: 'rgba(232,25,44,0.09)' } : undefined}
       onClick={() => { if (clickable) onSelect?.(); }}
@@ -72,12 +84,15 @@ export function OfferCard({
       aria-pressed={onSelect && tone === 'default' ? selected : undefined}
       onKeyDown={onKeyDown}
     >
-      <div className="p-4">
+      <div className={isRow ? 'px-4 py-3.5' : 'p-4'}>
         <div className="flex items-center gap-x-2 gap-y-1 flex-wrap min-w-0">
           <h3
             title={title}
             className={cn(
-              'min-w-0 max-w-full truncate text-[15px] font-bold uppercase tracking-wide leading-tight',
+              'min-w-0 max-w-full truncate leading-tight',
+              // Dans un pack, le NOM du pack est en capitales : le billet ne
+              // l'est pas, c'est ce qui dit lequel est le groupe.
+              isRow ? 'text-[14px] font-semibold' : 'text-[15px] font-bold uppercase tracking-wide',
               tone === 'soldOut' && !selected && 'text-white/45',
             )}
           >
