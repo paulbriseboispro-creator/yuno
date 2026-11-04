@@ -4661,6 +4661,24 @@ mécanique vit dans la migration `20260824120000_admin_support_access.sql`.
 - Le drapeau `localStorage` de `src/lib/supportSession.ts` ne sert QU'À la bannière et
   au contournement de `RequireMFA` (le support n'a pas le téléphone du pro). Ce n'est
   jamais la sécurité : tout refus est serveur.
+- **L'agent (Claude Code) a le MÊME accès, par le code** (2026-11-03, demande de
+  Paul : « fais-le pour moi depuis le chat, sans cliquer dans mon navigateur »).
+  Outil unique `scripts/support/agent.mjs` (`open <compte> --why …`, `get`, `rpc`,
+  `patch`, `post`, `edge`, `close`), migration `20261126100000`
+  (`admin_support_sessions.opened_via = 'agent'`, `agent_ref`). Il rejoue
+  `open-support-session` : grant ACTIF approuvé par le pro et demandé par un super
+  admin, vraie session du pro enregistrée (donc tous les verrous ci-dessus), relue
+  avant CHAQUE geste (un grant coupé ferme tout). Les gestes partent avec le JWT du
+  pro, jamais la clé service (elle n'ouvre / ferme la session et n'écrit que le
+  journal). Règles de l'agent : une session à la fois, 60 min ; écritures limitées à
+  `email_campaigns`, `email_campaign_templates`, `crm_segments`, `tix_segments`,
+  `contact_segments`, `sms_campaigns`, une ligne par son id, avant / après au
+  journal ; RPC d'argent, identité, droits, réglages d'envoi, suppression, export
+  refusées ; programmer / envoyer / allumer / publier exige `--confirm "<mots de
+  Paul>"`, que l'agent ne passe QUE quand Paul l'a écrit dans le chat ; un test ne
+  part qu'à l'adresse du pro ou du super admin. Tout geste, refus compris, entre
+  dans `admin_support_audit` (`detail.via = 'agent'`, `why`, `confirm`) et
+  `~/.yuno-support/journal.jsonl`. Ne jamais élargir ces listes sans Paul.
 
 ## Passes Apple Wallet (design 2026-09-04)
 
