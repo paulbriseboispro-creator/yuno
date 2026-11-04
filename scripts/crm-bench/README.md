@@ -43,7 +43,7 @@ Le schéma du banc s'arrête avant les Scénarios : `traffic.mjs` recopie de la 
 les migrations du Trafic. `smoke/traffic-capture.sql` rend (annulé) les réponses
 réelles du compte démo, pour un banc d'écran.
 
-## « Vos acheteurs » (exception clients, lot 1, 29/10)
+## « Vos clients » (exception clients, lot 1, 29/10)
 
 ```bash
 node customer-basis.mjs roots    # racines lues dans la migration 20261114100000
