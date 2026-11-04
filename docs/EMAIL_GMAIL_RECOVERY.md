@@ -220,6 +220,111 @@ Version e-mail (plus complète) :
    compte aussi, et un domaine neuf qui reçoit les mêmes listes froides tombe
    pareil en quelques jours.
 
+## Signaler à Gmail les e-mails légitimes classés en spam (ajouté le 04/11)
+
+### Ce que Google permet vraiment (vérifié dans son aide le 04/11)
+
+- **Seuils** : garder le taux de signalements sous 0,1 %, ne jamais atteindre 0,3 %.
+  Au-dessus de 0,3 %, Google n'offre « ni assistance à la distribution ni
+  correction ». Un expéditeur redevient éligible après **7 jours consécutifs sous
+  0,3 %** (support.google.com/mail/answer/14229414).
+- **Le formulaire** : Postmaster Tools › « Signaler un problème de distribution »
+  (en bas à gauche) › Domaine `yunoapp.eu` › « Créer un rapport ». On colle
+  l'original d'un message touché (Gmail › ⋮ › « Afficher l'original », tout copier)
+  puis on clique « Obtenir les informations » pour que Google remplisse le reste.
+  Conditions : domaine validé dont on est propriétaire, e-mail signé SPF + DKIM et
+  « De » aligné sur le domaine d'envoi (c'est le cas), **domaine conforme à toutes
+  les exigences**. Le suivi se lit dans « Problèmes signalés ». Google ne donne ni
+  délai ni promesse de résultat (support.google.com/mail/answer/16740603).
+- **Les sous-domaines comptent pour le domaine principal** : « Le tableau de bord
+  utilise les données des sous-domaines, mais n'affiche l'état que du domaine
+  principal » (answer/14668346). Changer de sous-domaine ne protège donc rien.
+  Seul le domaine propre d'un pro (`news.3am.fr`) a sa propre note.
+- **Délai d'affichage** : jusqu'à 7 jours après une correction avant que le
+  tableau de bord change, et la note suit une moyenne glissante sur plusieurs jours.
+
+### Où on en est (relevé de la base, 04/11)
+
+- Taux de signalements Gmail de yunoapp.eu : 0 % chaque jour mesuré depuis le
+  09/10. Les deux seuls pics sont le 09/09 (1 %) et le 08/10 (0,8 %), deux envois
+  du fichier importé de WOH.
+- Pourtant l'exigence « taux de spam signalé » reste **« à améliorer »** : la
+  moyenne glissante porte encore le 08/10. **Un rapport déposé aujourd'hui serait
+  refusé**, puisque le domaine n'est pas conforme.
+- Depuis la migration `20261129110000`, la lecture Postmaster quotidienne (9 h 20
+  UTC) suit cette exigence et envoie l'alerte super admin
+  **`admin_gmail_escalation_ready`** (« Gmail : tu peux déposer le signalement ») le
+  jour où Google la repasse en conforme, sans aucun jour mesuré au-dessus de 0,3 %
+  sur 7 jours. C'est le signal pour déposer le rapport. Si Google repasse « à
+  améliorer », la même alerte dit d'attendre.
+
+### Pourquoi le test de Jules (une seule personne) est arrivé en spam
+
+Gmail ne regarde pas le volume d'un message. Il juge la réputation du domaine
+qui l'envoie (`news.yunoapp.eu`, et `yunoapp.eu` au-dessus), abîmée par les
+envois du fichier de WOH. Un test envoyé à une personne hérite donc de la même
+note qu'une campagne. Il ne cause rien ; il montre seulement l'état du domaine.
+C'est exactement le cas que le formulaire de Google demande de signaler : un
+e-mail attendu et authentifié, rangé en spam.
+
+### Le dossier à préparer dès maintenant
+
+1. **L'original du message de Jules** : lui demander, sur ordinateur, d'ouvrir
+   l'e-mail dans son dossier Spam › ⋮ › « Télécharger le message » (fichier
+   `.eml`) ou « Afficher l'original » › « Copier dans le presse-papiers », et de
+   l'envoyer à Paul. **Lui demander de NE PAS cliquer « Non spam » avant** : le
+   message doit encore être en spam. Un original dont Gmail a gardé les en-têtes
+   suffit, même si Jules clique « Non spam » juste après. Dans la boîte de Paul,
+   aucun e-mail Yuno n'est en spam (vérifié le 04/11 : Paul les ouvre, ils arrivent
+   en Promotions).
+2. **Un ou deux autres exemples** du même genre : un e-mail pratique (infos de
+   soirée HoM du 26/10) ou un « merci » arrivé en spam chez un acheteur Gmail.
+3. **Le texte du rapport** (en anglais, lu par l'équipe Gmail), à coller dans le
+   champ de description :
+
+> Yuno (yunoapp.eu) is a ticketing and email platform for nightclubs and event
+> organizers. Marketing email is sent from news.yunoapp.eu through Resend; all
+> messages are SPF, DKIM and DMARC aligned, use TLS, and support RFC 8058 one-click
+> unsubscribe.
+>
+> Root cause: on 9 Sept and 8 Oct 2026, one customer sent a campaign to an
+> imported contact list that had never received email from us (about 11,000
+> addresses on 8 Oct). Gmail spam reports reached 1.0% and 0.8% on those two days.
+>
+> What we changed (in production since 3 Nov 2026):
+> - Gmail recipients only receive marketing email if they opened or clicked one
+>   of our emails in the last 120 days, or signed up themselves in the last 30 days.
+> - Addresses we never emailed go out in small test waves (100, 200, 400…). A
+>   wave only opens if bounces stay under 3%, complaints under 0.1%, and Gmail
+>   opens stay at least half of other mailbox providers. A failed wave stops the
+>   rest and pauses the account for 21 days.
+> - Every large campaign is spread over several hours; no account can send to
+>   more than 200 never-mailed Gmail addresses per day.
+> - Hourly monitoring pauses any account above 3% bounces or 0.1% complaints, and
+>   automatically re-enables these restrictions if Gmail opens drop.
+> - Hard bounces, complaints and unsubscribes are suppressed across all accounts.
+>
+> Since 9 Oct our user-reported spam rate in Postmaster Tools has been 0% on every
+> day it was reported.
+> Yet expected messages still land in Spam, including a single test email sent to
+> the brand owner on 3 Nov and practical event information sent to ticket buyers
+> on 26 Oct (Gmail open rate 1.4% vs 36% for other providers). We would be
+> grateful if you could review the reputation of yunoapp.eu / news.yunoapp.eu.
+
+4. **Prévenir Resend** (support@resend.com), en même temps que le rapport à
+   Google, pour qu'ils regardent la réputation des IP partagées et leurs journaux :
+
+> Hello, our sending domain news.yunoapp.eu (team Yuno) has been placed in Spam by
+> Gmail since 8 Oct after a customer sent to a cold imported list. We have stopped
+> cold sends, added engagement filtering and warm-up waves, and our Postmaster spam
+> rate has been 0% on every reported day since 9 Oct. Could you check whether the shared IPs or our
+> domain show anything on your side, and whether a dedicated IP or other step would
+> help our recovery? Thank you.
+
+5. **Les vrais destinataires** : continuer à demander aux pros et à leur équipe
+   (Jules, Kevin…) de cliquer « Non spam » sur les e-mails qui y sont arrivés et
+   d'ajouter l'adresse d'envoi à leurs contacts. Jamais des comptes créés pour ça.
+
 ## Le retour à un état stable (prudent, étape par étape)
 
 On ne passe à l'étape suivante que si **toutes** ses conditions tiennent depuis
