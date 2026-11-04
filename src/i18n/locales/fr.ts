@@ -14559,6 +14559,7 @@ const fr: Record<string, string> = {
   "notif.type.admin_email_campaign_refocused": "Campagne recentrée sur les engagés",
   "notif.type.admin_email_daily": "Bilan e-mail du jour",
   "notif.type.admin_email_google_spam": "Google : signalements spam Gmail",
+  "notif.type.admin_gmail_escalation_ready": "Gmail : signalement à Google",
   "notif.type.admin_email_test_watch": "Surveillance d’un envoi test",
   "notif.type.admin_crm_incident_deadline": "Incident CRM : échéance CNIL proche",
   "notif.type.admin_crm_daily": "Yuno CRM : le bilan du jour",

@@ -216,6 +216,7 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   admin_email_campaign_refocused: { icon: AlertTriangle, category: 'system', label: 'notif.type.admin_email_campaign_refocused' },
   admin_email_daily:            { icon: Siren,         category: 'system', label: 'notif.type.admin_email_daily' },
   admin_email_google_spam:      { icon: Siren,         category: 'system', label: 'notif.type.admin_email_google_spam' },
+  admin_gmail_escalation_ready: { icon: ShieldAlert,   category: 'system', label: 'notif.type.admin_gmail_escalation_ready' },
   admin_email_test_watch:       { icon: ShieldAlert,   category: 'system', label: 'notif.type.admin_email_test_watch' },
   admin_ticketing_token_invalid: { icon: AlertTriangle, category: 'system', label: 'notif.type.admin_ticketing_token_invalid' },
   admin_ticketing_sync_failing:  { icon: AlertTriangle, category: 'system', label: 'notif.type.admin_ticketing_sync_failing' },
@@ -666,6 +667,7 @@ function adminNotifLink(n: AppNotif): string | null {
     case 'admin_email_campaign_refocused':
     case 'admin_email_daily':
     case 'admin_email_google_spam':
+    case 'admin_gmail_escalation_ready':
     case 'admin_email_test_watch':
       return '/admin/system';
 
