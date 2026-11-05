@@ -794,7 +794,7 @@ export default function OrganizerPublicProfile() {
               }}
             >
               {galleryImages.map((img, i) => (
-                <div key={img} className="snap-center flex-shrink-0 w-full relative overflow-hidden" style={{ aspectRatio: '4/3' }}>
+                <div key={`${i}-${img}`} className="snap-center flex-shrink-0 w-full relative overflow-hidden" style={{ aspectRatio: '4/3' }}>
                   <img
                     src={getOptimizedImageUrl(img, { width: 800, quality: 80 })}
                     alt={`${profile.display_name} ${i + 1}`}
@@ -809,7 +809,7 @@ export default function OrganizerPublicProfile() {
               <div className="flex justify-center items-center gap-1.5 mt-3 px-5">
                 {galleryImages.map((img, i) => (
                   <button
-                    key={img}
+                    key={`${i}-${img}`}
                     type="button"
                     aria-label={`${t('orgPublic.photos')} ${i + 1}`}
                     onClick={() => {

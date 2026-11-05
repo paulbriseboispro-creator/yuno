@@ -250,10 +250,10 @@ export default function OrgAppProfile() {
     }
   };
 
-  const removeGalleryImage = async (url: string) => {
+  const removeGalleryImage = async (index: number) => {
     setGalleryBusy(true);
     try {
-      if (await writeGallery(gallery.filter((u) => u !== url))) {
+      if (await writeGallery(gallery.filter((_, j) => j !== index))) {
         toast.success(t('Photo retirée', 'Photo removed', 'Foto eliminada'));
       }
     } finally {
@@ -720,11 +720,11 @@ export default function OrgAppProfile() {
           {gallery.length > 0 ? (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {gallery.map((url, i) => (
-                <div key={url} className="relative aspect-[4/3] overflow-hidden rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+                <div key={`${i}-${url}`} className="relative aspect-[4/3] overflow-hidden rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
                   <img src={url} alt={`${t('Photo', 'Photo', 'Foto')} ${i + 1}`} className="h-full w-full object-cover" loading="lazy" />
                   <div className="absolute inset-x-1.5 top-1.5 flex justify-between">
                     <span className="rounded-md px-1.5 py-0.5 font-mono text-[10px]" style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}>{i + 1}</span>
-                    <button type="button" disabled={galleryBusy} onClick={() => removeGalleryImage(url)}
+                    <button type="button" disabled={galleryBusy} onClick={() => removeGalleryImage(i)}
                       className="flex h-6 w-6 items-center justify-center rounded-full disabled:opacity-40"
                       style={{ background: 'rgba(232,25,44,0.9)', color: '#fff' }}
                       aria-label={t('Retirer la photo', 'Remove photo', 'Quitar la foto')}>
