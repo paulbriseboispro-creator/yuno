@@ -18,6 +18,17 @@ const dict: Record<string, Triple> = {
   'ya.tr.page.ordered': ['Ended with a purchase', 'Finies par un achat', 'Terminadas en compra'],
   'ya.tr.page.orderedPct': ['{pct} of visits', '{pct} des visites', '{pct} de las visitas'],
   'ya.tr.page.from': ['Where visits come from', 'D’où viennent les visites', 'De dónde vienen las visitas'],
+  'ya.tr.page.byLink': ['Through your page links', 'Par vos liens de page', 'Por sus enlaces de página'],
+  'ya.tr.page.byLinkFoot': [
+    'Visits that came through a tracked link of your page ({pct} of page visits). Create these links in Settings › Public profile.',
+    'Les visites arrivées par un lien suivi de votre page ({pct} des visites de la page). Ces liens se créent dans Réglages › Profil public.',
+    'Las visitas llegadas por un enlace de seguimiento de su página ({pct} de las visitas). Estos enlaces se crean en Ajustes › Perfil público.',
+  ],
+  'ya.tr.page.byLinkFootVenue': [
+    'Visits that came through a tracked link of your club page ({pct} of page visits). These links live in Settings › My venue › Tracked links.',
+    'Les visites arrivées par un lien suivi de votre page club ({pct} des visites de la page). Ces liens se trouvent dans Réglages › Mon établissement › Liens trackés.',
+    'Las visitas llegadas por un enlace de seguimiento de su página de club ({pct} de las visitas). Estos enlaces están en Ajustes › Mi local › Enlaces de seguimiento.',
+  ],
   'ya.tr.page.next': ['Night opened next', 'Soirée ouverte ensuite', 'Fiesta abierta después'],
   'ya.tr.page.nextFoot': ['The night page the same visitor opened within 30 minutes of the page.', 'La page soirée ouverte par le même visiteur dans les 30 minutes qui suivent la page.', 'La página de fiesta abierta por el mismo visitante en los 30 minutos siguientes.'],
   'ya.tr.page.none': ['No visit over this period.', 'Aucune visite sur cette période.', 'Ninguna visita en este periodo.'],

@@ -246,6 +246,11 @@ export interface TixPageTraffic {
   /** Trafic (tix_ana_visits) : la soirée ouverte ensuite depuis la page, dans les 30 minutes. */
   next?: { id: string; title: string; start_at: string; n: number }[];
   next_total?: number;
+  /**
+   * Trafic (tix_ana_visits, migration 20261130130000) : les visites arrivées par
+   * un lien suivi de la page (Instagram, TikTok…), et celles finies par un achat.
+   */
+  links?: { id: string; label: string | null; net: string | null; med: string | null; visits: number; visitors: number; ordered: number }[];
 }
 
 export interface TixTrafficLink {

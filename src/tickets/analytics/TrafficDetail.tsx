@@ -76,6 +76,21 @@ export function PageCard({ p, meta, cmp, rv, go, prog }: { p: TixPageTraffic; me
               <b style={{ textAlign: 'right' }}>{n(s.visits)}</b>
             </div>
           ))}
+          {p.links && p.links.length > 0 && (
+            <>
+              <span style={{ ...mono, marginTop: 10 }}>{t('ya.tr.page.byLink')}</span>
+              {p.links.map((l) => (
+                <div key={l.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto auto', gap: 12, alignItems: 'baseline', fontSize: 14, fontVariantNumeric: 'tabular-nums' }}>
+                  <span style={{ color: 'var(--ya-sand-700)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pageLinkName(l, t)}</span>
+                  <span style={{ fontSize: 12.5, color: 'var(--ya-sand-500)' }}>{l.ordered > 0 ? tp('ya.tr.ordersN', l.ordered, { n: n(l.ordered) }) : ''}</span>
+                  <b style={{ textAlign: 'right' }}>{tp('ya.tr.page.visitsNn', l.visits, { n: n(l.visits) })}</b>
+                </div>
+              ))}
+              <span style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ya-sand-500)' }}>
+                {t(p.kind === 'venue' ? 'ya.tr.page.byLinkFootVenue' : 'ya.tr.page.byLinkFoot', { pct: p.visits >= MIN_SAMPLE ? pct((p.links.reduce((a, l) => a + l.visits, 0) / p.visits) * 100) : n(p.links.reduce((a, l) => a + l.visits, 0)) })}
+              </span>
+            </>
+          )}
           {p.next && p.next.length > 0 && (
             <>
               <span style={{ ...mono, marginTop: 10 }}>{t('ya.tr.page.next')}</span>
@@ -93,6 +108,13 @@ export function PageCard({ p, meta, cmp, rv, go, prog }: { p: TixPageTraffic; me
       <span style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ya-sand-500)' }}>{t('ya.tr.page.foot')}</span>
     </section>
   );
+}
+
+/** Nom d'un lien de page : son nom s'il en a un, sinon son réseau. */
+const PAGE_NETS = ['instagram', 'tiktok', 'whatsapp', 'newsletter', 'facebook', 'sms', 'email'];
+function pageLinkName(l: { label: string | null; net: string | null }, t: (k: string) => string): string {
+  if (l.label && l.label.toLowerCase() !== (l.net ?? '').toLowerCase()) return l.label;
+  return l.net && PAGE_NETS.includes(l.net) ? t(`ya.tr.net.${l.net}`) : (l.label ?? t('ya.tr.link.link'));
 }
 
 // ── Les liens d'une source ────────────────────────────────────────────────
