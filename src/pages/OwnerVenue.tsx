@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
+import { GalleryPhotosEditor } from '@/components/gallery/GalleryPhotosEditor';
+import { parseGalleryCrops, parseGalleryImages, galleryCropsToJson, type GalleryCrops } from '@/lib/galleryCrop';
 import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { useSearchParams } from 'react-router-dom';
 import {
-  Upload, X, MapPin, Loader2, Plus, Trash2, MessageCircle,
+  Upload, X, MapPin, Loader2, Trash2, MessageCircle,
   EyeOff, Wine, Bell, Coins, Image, Settings, Building2, Share2, FileText, Receipt,
   Copy, Check, ExternalLink, Globe,
 } from 'lucide-react';
@@ -191,7 +193,7 @@ export default function OwnerVenue() {
   const [coverPosition, setCoverPosition] = useState({ x: 50, y: 50 });
   const [isDragging, setIsDragging] = useState(false);
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
-  const [uploadingGallery, setUploadingGallery] = useState(false);
+  const [galleryCrops, setGalleryCrops] = useState<GalleryCrops>({});
 
   // Venue info
   const [venueName, setVenueName] = useState('');
@@ -267,7 +269,7 @@ export default function OwnerVenue() {
       // select('*') prendrait un 403 total. invoice_prefix arrive par la RPC
       // privée ci-dessous ; le bloc légal reste en lecture directe.
       const { data, error } = await supabase.from('venues').select(
-        'id, name, city, address, logo_url, cover_url, cover_position, latitude, longitude, gallery_images, instagram_url, facebook_url, tiktok_url, twitter_url, whatsapp_number, hidden_from_map, description, short_description, music_genre, min_age, minors_allowed, minor_auth_doc_url, minor_auth_doc_name, menu_enabled, free_drink_mode, absorb_yuno_fees, legal_name, siret, vat_number, legal_address, is_hidden, slug, decommissioned_at',
+        'id, name, city, address, logo_url, cover_url, cover_position, latitude, longitude, gallery_images, gallery_crops, instagram_url, facebook_url, tiktok_url, twitter_url, whatsapp_number, hidden_from_map, description, short_description, music_genre, min_age, minors_allowed, minor_auth_doc_url, minor_auth_doc_name, menu_enabled, free_drink_mode, absorb_yuno_fees, legal_name, siret, vat_number, legal_address, is_hidden, slug, decommissioned_at',
       ).eq('id', venueId).single();
       if (error) throw error;
       if (data.logo_url) { setCurrentLogoUrl(data.logo_url); setLogoPreview(data.logo_url); }
@@ -277,7 +279,8 @@ export default function OwnerVenue() {
       setCity(data.city || '');
       setAddress(data.address || '');
       setCoordinates({ lat: data.latitude, lng: data.longitude });
-      setGalleryImages((data.gallery_images as string[]) || []);
+      setGalleryImages(parseGalleryImages(data.gallery_images));
+      setGalleryCrops(parseGalleryCrops((data as { gallery_crops?: unknown }).gallery_crops));
       setInstagramUrl(data.instagram_url || '');
       setFacebookUrl(data.facebook_url || '');
       setTiktokUrl(data.tiktok_url || '');
@@ -477,33 +480,18 @@ export default function OwnerVenue() {
     onSave: handleSaveLegalInfo,
   });
 
-  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (galleryImages.length >= 8) { toast.error(t('owner.galleryMaxImages')); return; }
-    setUploadingGallery(true);
-    try {
-      const filePath = `gallery/${venueId}/gallery-${Date.now()}.${file.name.split('.').pop()}`;
-      const { error: uploadError } = await supabase.storage.from('venue-assets').upload(filePath, file);
-      if (uploadError) throw uploadError;
-      const { data: { publicUrl } } = supabase.storage.from('venue-assets').getPublicUrl(filePath);
-      const newImages = [...galleryImages, publicUrl];
-      const { error } = await supabase.from('venues').update({ gallery_images: newImages }).eq('id', venueId);
-      if (error) throw error;
-      setGalleryImages(newImages);
-      toast.success(t('owner.galleryImageAdded'));
-    } catch { toast.error(t('owner.errorSaving')); }
-    finally { setUploadingGallery(false); }
-  };
-
-  const handleRemoveGalleryImage = async (imageUrl: string) => {
-    try {
-      const newImages = galleryImages.filter(img => img !== imageUrl);
-      const { error } = await supabase.from('venues').update({ gallery_images: newImages }).eq('id', venueId);
-      if (error) throw error;
-      setGalleryImages(newImages);
-      toast.success(t('owner.galleryImageRemoved'));
-    } catch { toast.error(t('owner.errorSaving')); }
+  /** Galerie : chaque photo passe par le cadrage (GalleryPhotosEditor), écrite à chaque geste. */
+  const writeGallery = async (next: string[], crops: GalleryCrops): Promise<boolean> => {
+    if (!venueId) return false;
+    const { data, error } = await supabase
+      .from('venues')
+      .update({ gallery_images: next, gallery_crops: galleryCropsToJson(crops) })
+      .eq('id', venueId)
+      .select('id');
+    if (error || !data || data.length === 0) return false;
+    setGalleryImages(next);
+    setGalleryCrops(crops);
+    return true;
   };
 
   const handleMinorDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -749,40 +737,15 @@ export default function OwnerVenue() {
 
         {/* Galerie de photos */}
         <SectionCard title={t('owner.galleryImages')} description={t('owner.galleryImagesDesc')}>
-          {galleryImages.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {galleryImages.map((imageUrl, i) => (
-                <div key={i} className="relative group aspect-[4/3] rounded-xl overflow-hidden"
-                  style={{ border: `1px solid ${BORDER}` }}>
-                  <img src={imageUrl} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover" />
-                  <button onClick={() => handleRemoveGalleryImage(imageUrl)}
-                    className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity"
-                    style={{ background: 'rgba(232,25,44,0.9)' }}>
-                    <Trash2 className="w-3 h-3" style={{ color: 'rgb(var(--ink))' }} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8" style={{ color: T3, fontSize: 13 }}>
-              {t('owner.noGalleryImages')}
-            </div>
+          {venueId && (
+            <GalleryPhotosEditor
+              images={galleryImages}
+              crops={galleryCrops}
+              max={8}
+              storage={{ bucket: 'venue-assets', folder: `${venueId}/gallery` }}
+              persist={writeGallery}
+            />
           )}
-          <div>
-            <input id="gallery" type="file" accept="image/*" onChange={handleGalleryUpload} className="hidden"
-              disabled={uploadingGallery || galleryImages.length >= 8} />
-            <button type="button" onClick={() => document.getElementById('gallery')?.click()}
-              disabled={uploadingGallery || galleryImages.length >= 8}
-              className="w-full py-2.5 rounded-xl text-[13px] font-medium cursor-pointer flex items-center justify-center gap-2 transition-all duration-150 disabled:opacity-40"
-              style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>
-              {uploadingGallery
-                ? <><Loader2 className="w-4 h-4 animate-spin" />{t('owner.uploading')}...</>
-                : <><Plus className="w-4 h-4" />{t('owner.addGalleryImage')}</>}
-            </button>
-            <p style={{ color: T3, fontSize: 11.5, textAlign: 'center', marginTop: 6 }}>
-              {galleryImages.length}/8 {t('owner.imagesUploaded')}
-            </p>
-          </div>
         </SectionCard>
 
         {/* ═══════════════════════════════════════════════════════════

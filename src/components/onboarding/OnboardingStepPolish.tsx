@@ -6,10 +6,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchMyVenuePrivate } from '@/lib/venuePrivate';
 import { toast } from 'sonner';
-import { Sparkles, Image as ImageIcon, Loader2, Plus, X, MessageCircle, FileText, ArrowRight, SkipForward } from 'lucide-react';
+import { Sparkles, Image as ImageIcon, Loader2, MessageCircle, FileText, ArrowRight, SkipForward } from 'lucide-react';
 import { Instagram } from '@/components/icons/Instagram';
 import { Facebook } from '@/components/icons/Facebook';
 import { Twitter } from '@/components/icons/Twitter';
+import { GalleryPhotosEditor } from '@/components/gallery/GalleryPhotosEditor';
+import { parseGalleryCrops, parseGalleryImages, galleryCropsToJson, type GalleryCrops } from '@/lib/galleryCrop';
 import { StepHeader, PrimaryButton, GhostButton, FieldLabel, OptionalPill, T2, T3, BORDER } from './onboardingUI';
 
 interface Props {
@@ -29,6 +31,7 @@ export function OnboardingStepPolish({ venueId, onComplete, onSkip }: Props) {
   const [coverPreview, setCoverPreview] = useState('');
   const [description, setDescription] = useState('');
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
+  const [galleryCrops, setGalleryCrops] = useState<GalleryCrops>({});
   const [instagramUrl, setInstagramUrl] = useState('');
   const [facebookUrl, setFacebookUrl] = useState('');
   const [tiktokUrl, setTiktokUrl] = useState('');
@@ -40,7 +43,6 @@ export function OnboardingStepPolish({ venueId, onComplete, onSkip }: Props) {
   const [legalAddress, setLegalAddress] = useState('');
   const [invoicePrefix, setInvoicePrefix] = useState('FAC');
   const [uploadingCover, setUploadingCover] = useState(false);
-  const [uploadingGallery, setUploadingGallery] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -51,7 +53,7 @@ export function OnboardingStepPolish({ venueId, onComplete, onSkip }: Props) {
       const [{ data }, priv] = await Promise.all([
         supabase
           .from('venues')
-          .select('cover_url, description, gallery_images, instagram_url, facebook_url, tiktok_url, twitter_url, whatsapp_number, legal_name, siret, vat_number, legal_address')
+          .select('cover_url, description, gallery_images, gallery_crops, instagram_url, facebook_url, tiktok_url, twitter_url, whatsapp_number, legal_name, siret, vat_number, legal_address')
           .eq('id', venueId)
           .single(),
         fetchMyVenuePrivate(venueId),
@@ -59,7 +61,8 @@ export function OnboardingStepPolish({ venueId, onComplete, onSkip }: Props) {
       if (data) {
         setCoverPreview(data.cover_url || '');
         setDescription(data.description || '');
-        setGalleryImages((data.gallery_images as string[] | null) || []);
+        setGalleryImages(parseGalleryImages(data.gallery_images));
+        setGalleryCrops(parseGalleryCrops((data as { gallery_crops?: unknown }).gallery_crops));
         setInstagramUrl(data.instagram_url || '');
         setFacebookUrl(data.facebook_url || '');
         setTiktokUrl(data.tiktok_url || '');
@@ -96,37 +99,16 @@ export function OnboardingStepPolish({ venueId, onComplete, onSkip }: Props) {
     }
   };
 
-  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || galleryImages.length >= 8) return;
-    setUploadingGallery(true);
-    try {
-      const newImages = [...galleryImages];
-      for (let i = 0; i < Math.min(files.length, 8 - galleryImages.length); i++) {
-        const file = files[i];
-        const ext = file.name.split('.').pop();
-        const path = `${venueId}/gallery-${Date.now()}-${i}.${ext}`;
-        const { error } = await supabase.storage.from('venue-assets').upload(path, file, { upsert: true });
-        if (error) throw error;
-        const { data: { publicUrl } } = supabase.storage.from('venue-assets').getPublicUrl(path);
-        newImages.push(publicUrl);
-      }
-      setGalleryImages(newImages);
-      const { error: updErr } = await supabase.from('venues').update({ gallery_images: newImages }).eq('id', venueId);
-      if (updErr) throw updErr;
-    } catch {
-      toast.error(t('onboarding.saveError'));
-    } finally {
-      setUploadingGallery(false);
-    }
-  };
-
-  const removeGalleryImage = async (index: number) => {
-    const prev = galleryImages;
-    const newImages = galleryImages.filter((_, i) => i !== index);
-    setGalleryImages(newImages);
-    const { error } = await supabase.from('venues').update({ gallery_images: newImages }).eq('id', venueId);
-    if (error) { setGalleryImages(prev); toast.error(t('onboarding.saveError')); }
+  const writeGallery = async (next: string[], crops: GalleryCrops): Promise<boolean> => {
+    const { data, error } = await supabase
+      .from('venues')
+      .update({ gallery_images: next, gallery_crops: galleryCropsToJson(crops) })
+      .eq('id', venueId)
+      .select('id');
+    if (error || !data || data.length === 0) return false;
+    setGalleryImages(next);
+    setGalleryCrops(crops);
+    return true;
   };
 
   const handleSave = async () => {
@@ -206,22 +188,14 @@ export function OnboardingStepPolish({ venueId, onComplete, onSkip }: Props) {
       {/* Gallery */}
       <div>
         <FieldLabel>{t('onboarding.gallery')} ({galleryImages.length}/8)</FieldLabel>
-        <div className="grid grid-cols-4 gap-2">
-          {galleryImages.map((url, i) => (
-            <div key={i} className="relative aspect-square rounded-lg overflow-hidden group" style={{ border: `1px solid ${BORDER}` }}>
-              <img src={url} alt="" className="w-full h-full object-cover" />
-              <button onClick={() => removeGalleryImage(i)} className="absolute top-1 right-1 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ background: 'rgba(0,0,0,0.6)' }}>
-                <X className="w-3 h-3 text-snow" />
-              </button>
-            </div>
-          ))}
-          {galleryImages.length < 8 && (
-            <label className="cursor-pointer aspect-square rounded-lg flex items-center justify-center transition-colors hover:bg-white/[0.03]" style={{ border: `1px dashed ${BORDER}`, color: T3 }}>
-              <input type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryUpload} />
-              {uploadingGallery ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
-            </label>
-          )}
-        </div>
+        <GalleryPhotosEditor
+          images={galleryImages}
+          crops={galleryCrops}
+          max={8}
+          storage={{ bucket: 'venue-assets', folder: `${venueId}/gallery` }}
+          persist={writeGallery}
+          compact
+        />
       </div>
 
       {/* Socials */}

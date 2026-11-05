@@ -12332,6 +12332,7 @@ export type Database = {
           cover_url: string | null
           created_at: string
           display_name: string
+          gallery_crops: Json
           gallery_images: string[]
           home_banner: Json | null
           instagram_url: string | null
@@ -12368,6 +12369,7 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           display_name: string
+          gallery_crops?: Json
           gallery_images?: string[]
           home_banner?: Json | null
           instagram_url?: string | null
@@ -12404,6 +12406,7 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           display_name?: string
+          gallery_crops?: Json
           gallery_images?: string[]
           home_banner?: Json | null
           instagram_url?: string | null
@@ -18830,6 +18833,7 @@ export type Database = {
           facebook_url: string | null
           floor_plan_url: string | null
           free_drink_mode: string | null
+          gallery_crops: Json
           gallery_images: Json | null
           hidden_from_map: boolean | null
           home_banner: Json | null
@@ -18894,6 +18898,7 @@ export type Database = {
           facebook_url?: string | null
           floor_plan_url?: string | null
           free_drink_mode?: string | null
+          gallery_crops?: Json
           gallery_images?: Json | null
           hidden_from_map?: boolean | null
           home_banner?: Json | null
@@ -18958,6 +18963,7 @@ export type Database = {
           facebook_url?: string | null
           floor_plan_url?: string | null
           free_drink_mode?: string | null
+          gallery_crops?: Json
           gallery_images?: Json | null
           hidden_from_map?: boolean | null
           home_banner?: Json | null
