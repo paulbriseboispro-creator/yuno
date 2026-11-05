@@ -207,6 +207,22 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
         if (!refetchErr) result = (seeded ?? []) as LinkRow[];
       }
     }
+    // Et pour la page d'un organisateur (/o/<slug>) : mêmes canaux, au nom de
+    // l'organisation (fondateur ou équipe, migration 20261130130000).
+    if (
+      result.length === 0 &&
+      targetKind === 'organizer' && ownerKind === 'organizer' && organizerUserId &&
+      autoSeededRef.current !== organizerUserId
+    ) {
+      autoSeededRef.current = organizerUserId;
+      const { error: seedErr } = await supabase.rpc('seed_organizer_tracked_links' as never, {
+        p_organizer_user_id: organizerUserId,
+      } as never);
+      if (!seedErr) {
+        const { data: seeded, error: refetchErr } = await fetchStats();
+        if (!refetchErr) result = (seeded ?? []) as LinkRow[];
+      }
+    }
     setPartnerMeta(meta);
     setRows(result);
     setLoading(false);

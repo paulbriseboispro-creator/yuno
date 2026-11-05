@@ -12,6 +12,7 @@ import { ExternalLink, Loader2, Upload, Globe, Image as ImageIcon, User, Buildin
 import { compressImage } from '@/lib/compressImage';
 import { Instagram } from '@/components/icons/Instagram';
 import { ImageCropperDialog } from '@/components/ImageCropperDialog';
+import { ProfileTrackedLinksCard } from '@/components/tracking/ProfileTrackedLinksCard';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 import {
   OrgPage, OrgPageHeader, OrgCard, OrgButton,
@@ -775,6 +776,9 @@ export default function OrgAppProfile() {
           )}
         </div>
       </OrgCard>
+
+      {/* Liens suivis de la page : un lien par réseau, clics et ventes par lien */}
+      {user && <ProfileTrackedLinksCard organizerUserId={profile.user_id || user.id} slug={profile.slug} />}
 
       <ImageCropperDialog
         open={cropperType !== null}
