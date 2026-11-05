@@ -8,7 +8,8 @@ import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
 import { translate } from '@/i18n/orgTranslate';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { ExternalLink, Loader2, Upload, Globe, Image as ImageIcon, User, Building2, FileText, Trash2, MapPin } from 'lucide-react';
+import { ExternalLink, Loader2, Upload, Globe, Image as ImageIcon, User, Building2, FileText, Trash2, MapPin, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { compressImage } from '@/lib/compressImage';
 import { Instagram } from '@/components/icons/Instagram';
 import { ImageCropperDialog } from '@/components/ImageCropperDialog';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
@@ -49,6 +50,9 @@ interface OrgProfile {
 /** Colonnes légales : lues et écrites seulement si get_organizer_legal_identity a répondu. */
 const LEGAL_KEYS: string[] = ['legal_name', 'legal_address', 'siret', 'vat_number', 'rna_number', 'vat_regime', 'billing_email'];
 
+/** Photos du carrousel de la page publique : même limite que la galerie d'un club (CHECK SQL). */
+const GALLERY_MAX = 8;
+
 export default function OrgAppProfile() {
   const { user } = useAuth();
   const { language } = useLanguage();
@@ -60,6 +64,11 @@ export default function OrgAppProfile() {
   const [uploadingCover, setUploadingCover] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [cropperType, setCropperType] = useState<'avatar' | 'cover' | null>(null);
+  // Galerie de la page publique : enregistrée à chaque ajout / retrait (comme
+  // celle d'un club), hors du bouton « Enregistrer » et de la garde de sortie.
+  const [gallery, setGallery] = useState<string[]>([]);
+  const [galleryBusy, setGalleryBusy] = useState(false);
+  const [hasRow, setHasRow] = useState(false);
 
   // Renommage : nom de référence en base + verrou 30 jours + double vérification.
   const [savedName, setSavedName] = useState('');
@@ -90,7 +99,7 @@ export default function OrgAppProfile() {
       const [{ data }, { data: legalRows, error: legalErr }] = await Promise.all([
         supabase
           .from('organizer_profiles')
-          .select('user_id, display_name, slug, bio, city, avatar_url, cover_url, instagram_url, website_url, is_public, minors_allowed, minor_auth_doc_url, minor_auth_doc_name, absorb_yuno_fees, can_sell_alcohol, can_sell_alcohol_confirmed_at, bde_verified, name_changed_at')
+          .select('user_id, display_name, slug, bio, city, avatar_url, cover_url, instagram_url, website_url, is_public, minors_allowed, minor_auth_doc_url, minor_auth_doc_name, absorb_yuno_fees, can_sell_alcohol, can_sell_alcohol_confirmed_at, bde_verified, name_changed_at, gallery_images')
           .eq('user_id', user.id)
           .maybeSingle(),
         supabase.rpc('get_organizer_legal_identity', { p_organizer_user_id: user.id }),
@@ -126,6 +135,8 @@ export default function OrgAppProfile() {
           can_sell_alcohol_confirmed_at: data.can_sell_alcohol_confirmed_at ?? null,
         });
         setIsAssociation((data as { bde_verified?: boolean }).bde_verified === true);
+        setGallery(Array.isArray(data.gallery_images) ? data.gallery_images : []);
+        setHasRow(true);
         setSavedName(data.display_name || '');
         setNameChangedAt((data as { name_changed_at?: string | null }).name_changed_at ?? null);
       } else {
@@ -176,6 +187,87 @@ export default function OrgAppProfile() {
     } finally {
       setter(false);
     }
+  };
+
+  /** Écrit la galerie en base ; rend false (et le dit) si rien n'a été écrit. */
+  const writeGallery = async (next: string[]): Promise<boolean> => {
+    if (!user) return false;
+    const { data, error } = await supabase
+      .from('organizer_profiles')
+      .update({ gallery_images: next })
+      .eq('user_id', user.id)
+      .select('user_id');
+    if (error || !data || data.length === 0) {
+      toast.error(t('Les photos n\'ont pas pu être enregistrées', 'The photos could not be saved', 'No se pudieron guardar las fotos'));
+      return false;
+    }
+    setGallery(next);
+    return true;
+  };
+
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = '';
+    if (!user || files.length === 0) return;
+    const room = GALLERY_MAX - gallery.length;
+    if (room <= 0) {
+      toast.error(t(`${GALLERY_MAX} photos maximum`, `${GALLERY_MAX} photos maximum`, `${GALLERY_MAX} fotos como máximo`));
+      return;
+    }
+    const picked = files.filter((f) => f.type.startsWith('image/')).slice(0, room);
+    if (picked.length < files.length) {
+      toast.message(t(
+        `Seules ${picked.length} photo(s) ont été ajoutées (${GALLERY_MAX} maximum, images uniquement).`,
+        `Only ${picked.length} photo(s) were added (${GALLERY_MAX} max, images only).`,
+        `Solo se añadieron ${picked.length} foto(s) (${GALLERY_MAX} como máximo, solo imágenes).`,
+      ));
+    }
+    if (picked.length === 0) return;
+    setGalleryBusy(true);
+    try {
+      const urls: string[] = [];
+      for (const [i, original] of picked.entries()) {
+        const file = await compressImage(original, 1600, 0.82);
+        if (file.size > 8 * 1024 * 1024) {
+          toast.error(t('Image trop lourde (max 8 Mo)', 'Image too heavy (max 8 MB)', 'Imagen demasiado pesada (máx. 8 MB)'));
+          continue;
+        }
+        const ext = file.type === 'image/jpeg' ? 'jpg' : (file.name.split('.').pop()?.toLowerCase() || 'jpg');
+        const path = `${user.id}/org-gallery-${Date.now()}-${i}.${ext}`;
+        const { error } = await supabase.storage
+          .from('profile-photos')
+          .upload(path, file, { contentType: file.type });
+        if (error) throw error;
+        urls.push(supabase.storage.from('profile-photos').getPublicUrl(path).data.publicUrl);
+      }
+      if (urls.length > 0 && await writeGallery([...gallery, ...urls])) {
+        toast.success(t('Photos ajoutées à ta page', 'Photos added to your page', 'Fotos añadidas a tu página'));
+      }
+    } catch (err: unknown) {
+      toast.error((err as Error).message || t('Erreur upload', 'Upload error'));
+    } finally {
+      setGalleryBusy(false);
+    }
+  };
+
+  const removeGalleryImage = async (url: string) => {
+    setGalleryBusy(true);
+    try {
+      if (await writeGallery(gallery.filter((u) => u !== url))) {
+        toast.success(t('Photo retirée', 'Photo removed', 'Foto eliminada'));
+      }
+    } finally {
+      setGalleryBusy(false);
+    }
+  };
+
+  const moveGalleryImage = async (index: number, delta: -1 | 1) => {
+    const target = index + delta;
+    if (target < 0 || target >= gallery.length) return;
+    const next = [...gallery];
+    [next[index], next[target]] = [next[target], next[index]];
+    setGalleryBusy(true);
+    try { await writeGallery(next); } finally { setGalleryBusy(false); }
   };
 
   const [uploadingMinorDoc, setUploadingMinorDoc] = useState(false);
@@ -279,6 +371,7 @@ export default function OrgAppProfile() {
         const { error: insErr } = await supabase.from('organizer_profiles').insert(write);
         if (insErr) throw insErr;
       }
+      setHasRow(true);
 
       const { error: profErr } = await supabase
         .from('profiles')
@@ -604,6 +697,82 @@ export default function OrgAppProfile() {
               {t('Enregistrer', 'Save')}
             </OrgButton>
           </div>
+        </div>
+      </OrgCard>
+
+      {/* Galerie : carrousel en bas de la page publique, sous les soirées passées */}
+      <OrgCard className="mt-4">
+        <div className="space-y-4 p-6">
+          <div>
+            <p style={{ color: T1, fontSize: 14, fontWeight: 600 }}>
+              <ImageIcon className="mr-1.5 inline h-4 w-4" style={{ color: RED }} />
+              {t('Photos de ta page', 'Photos on your page', 'Fotos de tu página')}
+            </p>
+            <p className="mt-1" style={{ color: T3, fontSize: 11.5, lineHeight: 1.5 }}>
+              {t(
+                'Un carrousel en bas de ta page publique, sous tes soirées passées : ambiance, public, scène. Les photos sont enregistrées tout de suite, dans cet ordre.',
+                'A slider at the bottom of your public page, below your past events: atmosphere, crowd, stage. Photos are saved right away, in this order.',
+                'Un carrusel al final de tu página pública, debajo de tus fiestas pasadas: ambiente, público, escenario. Las fotos se guardan al instante, en este orden.',
+              )}
+            </p>
+          </div>
+
+          {gallery.length > 0 ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {gallery.map((url, i) => (
+                <div key={url} className="relative aspect-[4/3] overflow-hidden rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+                  <img src={url} alt={`${t('Photo', 'Photo', 'Foto')} ${i + 1}`} className="h-full w-full object-cover" loading="lazy" />
+                  <div className="absolute inset-x-1.5 top-1.5 flex justify-between">
+                    <span className="rounded-md px-1.5 py-0.5 font-mono text-[10px]" style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}>{i + 1}</span>
+                    <button type="button" disabled={galleryBusy} onClick={() => removeGalleryImage(url)}
+                      className="flex h-6 w-6 items-center justify-center rounded-full disabled:opacity-40"
+                      style={{ background: 'rgba(232,25,44,0.9)', color: '#fff' }}
+                      aria-label={t('Retirer la photo', 'Remove photo', 'Quitar la foto')}>
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                  {gallery.length > 1 && (
+                    <div className="absolute inset-x-1.5 bottom-1.5 flex justify-between">
+                      <button type="button" disabled={galleryBusy || i === 0} onClick={() => moveGalleryImage(i, -1)}
+                        className="flex h-6 w-6 items-center justify-center rounded-full disabled:opacity-0"
+                        style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}
+                        aria-label={t('Avancer', 'Move earlier', 'Adelantar')}>
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                      </button>
+                      <button type="button" disabled={galleryBusy || i === gallery.length - 1} onClick={() => moveGalleryImage(i, 1)}
+                        className="flex h-6 w-6 items-center justify-center rounded-full disabled:opacity-0"
+                        style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}
+                        aria-label={t('Reculer', 'Move later', 'Atrasar')}>
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-xl py-8 text-center" style={{ background: INNER_BG, border: `1px dashed ${BORDER}`, color: T3, fontSize: 13 }}>
+              {t('Aucune photo pour l\'instant', 'No photos yet', 'Aún no hay fotos')}
+            </div>
+          )}
+
+          <input id="gallery-upload" type="file" accept="image/*" multiple className="hidden"
+            disabled={galleryBusy || gallery.length >= GALLERY_MAX || !hasRow}
+            onChange={handleGalleryUpload} />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <OrgButton size="sm" variant="secondary"
+              onClick={() => document.getElementById('gallery-upload')?.click()}
+              disabled={galleryBusy || gallery.length >= GALLERY_MAX || !hasRow}>
+              {galleryBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+              {t('Ajouter des photos', 'Add photos', 'Añadir fotos')}
+            </OrgButton>
+            <span className="font-mono" style={{ color: T3, fontSize: 11.5 }}>{gallery.length}/{GALLERY_MAX}</span>
+          </div>
+          {!hasRow && (
+            <p style={{ color: T3, fontSize: 11.5 }}>
+              {t('Enregistre d\'abord ton profil pour ajouter des photos.', 'Save your profile first to add photos.', 'Guarda primero tu perfil para añadir fotos.')}
+            </p>
+          )}
         </div>
       </OrgCard>
 

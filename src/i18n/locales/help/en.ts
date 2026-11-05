@@ -1559,6 +1559,8 @@ const help: Record<string, string> = {
   "ohelp.org.profile.s4h": "Two switches worth knowing",
   "ohelp.org.profile.s5b": "Images go through a cropper — drag to move, pinch or use the slider to zoom (max 8 MB). \"Allow minors (alcohol-free)\" flags all your events alcohol-free and lets minors attend; attach an optional PDF or TXT authorization for them to sign (max 10 MB). After uploading a logo or document, click \"Save\" — uploads aren't kept until you do.",
   "ohelp.org.profile.s5h": "Tip",
+  "ohelp.org.profile.s6b": "Below the main card, \"Photos on your page\" adds a slider at the bottom of your public page, below your past events — like a club's page.\n1. Click \"Add photos\" and pick one or more images (8 max).\n2. Change the order with the arrows on each photo: number 1 shows first.\n3. Remove a photo with the red bin.\nPhotos are saved right away: no need to click \"Save\". They show in 4:3, cropped to the centre.",
+  "ohelp.org.profile.s6h": "Photos on your page",
   "ohelp.org.profile.title": "Public profile",
   "ohelp.org.promoters.desc": "Run your promoter program: invite promoters, set their commission with reusable templates, and track everything from sales to door scans.",
   "ohelp.org.promoters.s1b": "Open Promoters from the organizer menu. This is the home base for the people who sell your events and fill your guest lists. From here you invite promoters, see who you owe, watch the leaderboard, and activate promoters per night.",

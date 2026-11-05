@@ -1655,6 +1655,8 @@ const help: Record<string, string> = {
   "ohelp.org.profile.s4h": "Deux boutons à connaître",
   "ohelp.org.profile.s5b": "Les images passent par un recadreur — glisse pour déplacer, pince ou utilise le curseur pour zoomer (max 8 Mo). « Autoriser les mineurs (sans alcool) » signale toutes tes soirées sans alcool et laisse entrer les mineurs ; joins un PDF ou TXT d'autorisation optionnel à faire signer (max 10 Mo). Après avoir uploadé un logo ou un document, clique « Enregistrer » — les uploads ne sont pas conservés sinon.",
   "ohelp.org.profile.s5h": "Astuce",
+  "ohelp.org.profile.s6b": "Sous la carte principale, « Photos de ta page » ajoute un carrousel en bas de ta page publique, sous tes soirées passées — comme sur la page d'un club.\n1. Clique « Ajouter des photos » et choisis une ou plusieurs images (8 au maximum).\n2. Change l'ordre avec les flèches sur chaque photo : la n° 1 s'affiche en premier.\n3. Retire une photo avec la corbeille rouge.\nLes photos sont enregistrées tout de suite : pas besoin de cliquer « Enregistrer ». Elles s'affichent au format 4:3, recadrées au centre.",
+  "ohelp.org.profile.s6h": "Photos de ta page",
   "ohelp.org.profile.title": "Profil public",
   "ohelp.org.promoters.desc": "Pilote ton programme promoteurs : invite des promoteurs, définis leur commission avec des modèles réutilisables, et suis tout, des ventes aux scans à l'entrée.",
   "ohelp.org.promoters.s1b": "Ouvre Promoteurs depuis le menu organisateur. C'est le QG des personnes qui vendent tes soirées et remplissent tes guest lists. D'ici tu invites des promoteurs, vois qui tu dois payer, suis le classement et actives des promoteurs par soirée.",

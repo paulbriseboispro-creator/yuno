@@ -12332,6 +12332,7 @@ export type Database = {
           cover_url: string | null
           created_at: string
           display_name: string
+          gallery_images: string[]
           home_banner: Json | null
           instagram_url: string | null
           is_public: boolean
@@ -12367,6 +12368,7 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           display_name: string
+          gallery_images?: string[]
           home_banner?: Json | null
           instagram_url?: string | null
           is_public?: boolean
@@ -12402,6 +12404,7 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           display_name?: string
+          gallery_images?: string[]
           home_banner?: Json | null
           instagram_url?: string | null
           is_public?: boolean

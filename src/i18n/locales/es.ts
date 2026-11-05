@@ -10037,6 +10037,7 @@ const es: Record<string, string> = {
   // Organizer Public Page
   'orgPublic.upcomingDates': 'PRÓXIMAS FECHAS',
   'orgPublic.pastEvents': 'EVENTOS PASADOS',
+  'orgPublic.photos': 'FOTOS',
   'orgPublic.about': 'ACERCA DE',
   'orgPublic.follow': 'Seguir',
   'orgPublic.followers': 'seguidores',

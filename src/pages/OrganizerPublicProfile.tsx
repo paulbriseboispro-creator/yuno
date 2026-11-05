@@ -1,5 +1,5 @@
 import { dismissSsrHero } from '@/lib/ssrHero';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { PUBLIC_ORGANIZER_COLUMNS } from '@/integrations/supabase/publicColumns';
@@ -45,6 +45,7 @@ interface OrgProfile {
   website_url: string | null;
   bde_verified: boolean | null;
   city?: string | null;
+  gallery_images?: string[] | null;
 }
 
 interface OrgEvent {
@@ -80,6 +81,9 @@ export default function OrganizerPublicProfile() {
 
   const [bioExpanded, setBioExpanded] = useState(false);
   const [showAllPast, setShowAllPast] = useState(false);
+  // Carrousel de photos en bas de page (organizer_profiles.gallery_images).
+  const galleryRef = useRef<HTMLDivElement>(null);
+  const [photoIndex, setPhotoIndex] = useState(0);
   // Drinks menu from partner clubs (active partnerships, drinks-enabled tier, menu_enabled=true)
   const [partnerDrinksByVenue, setPartnerDrinksByVenue] = useState<
     Array<{ venueId: string; venueName: string; drinks: Drink[] }>
@@ -335,6 +339,7 @@ export default function OrganizerPublicProfile() {
   }
 
   const visiblePast = showAllPast ? past : past.slice(0, 3);
+  const galleryImages = (profile.gallery_images ?? []).filter((u): u is string => typeof u === 'string' && u.length > 0);
 
   return (
     <div className="relative min-h-[100dvh] flex flex-col" style={{ background: '#0A0A0A' }}>
@@ -770,6 +775,64 @@ export default function OrganizerPublicProfile() {
             )}
           </div>
         )}
+        {/* ===== PHOTOS — snap carousel, comme la page d'un club ===== */}
+        {galleryImages.length > 0 && (
+          <FadeInView as="section" className="mx-auto max-w-xl pt-10">
+            <div className="px-5 mb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
+              <p className="font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.14em', color: '#5A5A5E' }}>
+                {t('orgPublic.photos')}
+              </p>
+            </div>
+            <div
+              ref={galleryRef}
+              className="flex overflow-x-auto scrollbar-hide snap-x snap-mandatory"
+              style={{ scrollBehavior: 'smooth' }}
+              onScroll={() => {
+                const el = galleryRef.current;
+                if (!el || el.clientWidth === 0) return;
+                setPhotoIndex(Math.round(el.scrollLeft / el.clientWidth));
+              }}
+            >
+              {galleryImages.map((img, i) => (
+                <div key={img} className="snap-center flex-shrink-0 w-full relative overflow-hidden" style={{ aspectRatio: '4/3' }}>
+                  <img
+                    src={getOptimizedImageUrl(img, { width: 800, quality: 80 })}
+                    alt={`${profile.display_name} ${i + 1}`}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </div>
+              ))}
+            </div>
+            {galleryImages.length > 1 && (
+              <div className="flex justify-center items-center gap-1.5 mt-3 px-5">
+                {galleryImages.map((img, i) => (
+                  <button
+                    key={img}
+                    type="button"
+                    aria-label={`${t('orgPublic.photos')} ${i + 1}`}
+                    onClick={() => {
+                      const el = galleryRef.current;
+                      el?.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
+                    }}
+                    style={{
+                      width: i === photoIndex ? 16 : 4,
+                      height: 4,
+                      borderRadius: 2,
+                      background: i === photoIndex ? '#E8192C' : 'rgba(255,255,255,0.18)',
+                      transition: 'all 0.2s ease',
+                      border: 'none',
+                      padding: 0,
+                      cursor: 'pointer',
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </FadeInView>
+        )}
+
         {/* Footer */}
         <div className="px-5 pt-10 pb-4 text-center">
           <p className="font-mono" style={{ fontSize: '10px', color: '#3A3A3E', letterSpacing: '0.08em' }}>

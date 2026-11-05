@@ -1559,6 +1559,8 @@ const help: Record<string, string> = {
   "ohelp.org.profile.s4h": "Dos interruptores a conocer",
   "ohelp.org.profile.s5b": "Las imágenes pasan por un recortador: arrastra para mover, pellizca o usa el control deslizante para hacer zoom (máx. 8 MB). «Permitir menores (sin alcohol)» marca todos tus eventos sin alcohol y deja entrar a los menores; adjunta un PDF o TXT de autorización opcional para que firmen (máx. 10 MB). Tras subir un logo o un documento, haz clic en «Guardar»; las subidas no se conservan si no lo haces.",
   "ohelp.org.profile.s5h": "Consejo",
+  "ohelp.org.profile.s6b": "Debajo de la tarjeta principal, «Fotos de tu página» añade un carrusel al final de tu página pública, debajo de tus fiestas pasadas — como en la página de un club.\n1. Pulsa «Añadir fotos» y elige una o varias imágenes (8 como máximo).\n2. Cambia el orden con las flechas de cada foto: la n.º 1 aparece primero.\n3. Quita una foto con la papelera roja.\nLas fotos se guardan al instante: no hace falta pulsar «Guardar». Se muestran en 4:3, recortadas al centro.",
+  "ohelp.org.profile.s6h": "Fotos de tu página",
   "ohelp.org.profile.title": "Perfil público",
   "ohelp.org.promoters.desc": "Gestiona tu programa de promotores: invita promotores, define su comisión con plantillas reutilizables y haz seguimiento de todo, de las ventas a los escaneos en la puerta.",
   "ohelp.org.promoters.s1b": "Abre Promotores desde el menú de organizador. Es el cuartel general de las personas que venden tus eventos y llenan tus guest lists. Desde aquí invitas promotores, ves a quién hay que pagar, sigues el ranking y activas promotores por noche.",

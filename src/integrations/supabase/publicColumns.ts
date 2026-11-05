@@ -49,4 +49,4 @@ export const PUBLIC_ORGANIZER_COLUMNS = `user_id, slug, display_name, bio, avata
 is_public, website_url, instagram_url, minors_allowed,
 minor_auth_doc_url, minor_auth_doc_name,
 can_sell_alcohol, can_sell_alcohol_confirmed_at, bde_verified, bde_verified_at,
-absorb_yuno_fees, created_at, updated_at`;
+absorb_yuno_fees, gallery_images, created_at, updated_at`;
