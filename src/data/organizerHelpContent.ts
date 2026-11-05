@@ -488,7 +488,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Globe',
         actionLink: { labelKey: OPEN, path: '/profile' },
         relatedArticleIds: ['org-organization', 'org-events'],
-        keywords: ['profile', 'profil', 'perfil', 'public', 'público', 'page', 'página', 'followers', 'abonnés', 'logo', 'cover', 'bannière', 'portada', 'bio', 'instagram', 'slug', 'url', 'photos', 'fotos', 'galerie', 'gallery', 'galería', 'carrousel', 'carousel', 'slider'],
+        keywords: ['profile', 'profil', 'perfil', 'public', 'público', 'page', 'página', 'followers', 'abonnés', 'logo', 'cover', 'bannière', 'portada', 'bio', 'instagram', 'slug', 'url', 'photos', 'fotos', 'galerie', 'gallery', 'galería', 'carrousel', 'carousel', 'slider', 'lien suivi', 'liens suivis', 'tracked link', 'enlace de seguimiento', 'lien bio', 'bio link', 'tiktok', 'whatsapp'],
         sections: [
           { headingKey: 'ohelp.org.profile.s1h', bodyKey: 'ohelp.org.profile.s1b' },
           { headingKey: 'ohelp.org.profile.s2h', bodyKey: 'ohelp.org.profile.s2b', screenshotUrl: '/help/org-profile.webp' },
@@ -496,6 +496,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.org.profile.s4h', bodyKey: 'ohelp.org.profile.s4b' },
           { headingKey: 'ohelp.org.profile.s5h', bodyKey: 'ohelp.org.profile.s5b', type: 'tip' },
           { headingKey: 'ohelp.org.profile.s6h', bodyKey: 'ohelp.org.profile.s6b' },
+          { headingKey: 'ohelp.org.profile.s7h', bodyKey: 'ohelp.org.profile.s7b' },
         ],
       },
     ],
