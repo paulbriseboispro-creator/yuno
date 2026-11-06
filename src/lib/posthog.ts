@@ -108,6 +108,10 @@ export type YunoEvent =
   | 'pwa_installed'
   | 'user_signed_up'
   | 'user_signed_in'
+  | 'account_sheet_opened' //      { intent } — clic réservé aux comptes, fenêtre ouverte sur place
+  | 'account_sheet_oauth_started' // { intent, provider }
+  | 'account_sheet_completed' //   { intent, method: 'apple' | 'google' | 'signup' | 'login' | 'oauth_return', action_done }
+  | 'account_sheet_dismissed' //   { intent, step }
   | 'demo_signup_opened' //        { kind: 'club' | 'organizer' | 'association' } — dialogue « Crée ton compte » d'un lien démo
   // ── Pro ──────────────────────────────────────────────────────────────────
   | 'pro_event_created' //         { scope, source }

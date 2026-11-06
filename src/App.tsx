@@ -9,6 +9,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams } 
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { UnsavedChangesProvider } from "./contexts/UnsavedChangesContext";
 import { FavoritesProvider } from "./contexts/FavoritesContext";
+import { AccountSheetProvider } from "./contexts/AccountSheetContext";
 import { VenueNavProvider } from "./contexts/VenueNavContext";
 import { OnboardingGate } from "./components/OnboardingGate";
 import { DashboardModeProvider } from "./contexts/DashboardModeContext";
@@ -619,6 +620,9 @@ const App = () => (
         <UnsavedChangesProvider>
         <DraftPruner />
         <FavoritesProvider>
+        {/* Clics réservés aux comptes : la fenêtre de compte monte sur place,
+            puis l'action se fait seule (src/contexts/AccountSheetContext.tsx). */}
+        <AccountSheetProvider>
           <VenueNavProvider>
           <TooltipProvider>
             <PreviewModeProvider>
@@ -1515,6 +1519,7 @@ const App = () => (
             </PreviewModeProvider>
           </TooltipProvider>
           </VenueNavProvider>
+        </AccountSheetProvider>
         </FavoritesProvider>
         </UnsavedChangesProvider>
       </LanguageProvider>

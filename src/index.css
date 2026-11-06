@@ -689,6 +689,14 @@
    ============================================================ */
 
 /* Horizontal divider line (plain) */
+/* Fenêtre de compte sur place (src/components/account/AccountSheet.tsx) :
+   l'anneau de focus passe devant la bordure posée en style inline. */
+.yuno-acct-input::placeholder { color: #5A5A5E; }
+.yuno-acct-input:focus {
+  border-color: #E8192C !important;
+  box-shadow: 0 0 0 3px rgba(232, 25, 44, 0.16);
+}
+
 .yuno-divider {
   height: 1px;
   background: rgb(var(--ink) / 0.08);
