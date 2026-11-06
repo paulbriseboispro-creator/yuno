@@ -36,6 +36,8 @@ import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 import { useTicketEmailDelivery } from '@/hooks/useTicketEmailDelivery';
 import { TicketEmailDelivery } from '@/components/confirmation/TicketEmailDelivery';
 import { ticketDisplayName } from '@/lib/ticketGroups';
+import { useAccountSheet } from '@/contexts/AccountSheetContext';
+import { onIntentDone } from '@/lib/accountIntent';
 
 interface UpsellSelection {
   name: string;
@@ -223,6 +225,10 @@ export default function OrderConfirmation() {
   const [followedOrgsOnArrival, setFollowedOrgsOnArrival] = useState<Record<string, boolean> | null>(null);
   // État vivant du toggle (optimiste), pour le libellé du bouton après le tap.
   const [orgFollowing, setOrgFollowing] = useState<Record<string, boolean>>({});
+  const { requireAccount } = useAccountSheet();
+  useEffect(() => onIntentDone((it) => {
+    if (it.kind === 'follow_organizer') setOrgFollowing((prev) => ({ ...prev, [it.organizerUserId]: true }));
+  }), []);
   const [invoiceNumber, setInvoiceNumber] = useState<string | null>(null);
   // E-mail du billet : envoyé, livré ou rebondi (faute dans l'adresse) — la
   // page le dit et fait corriger l'adresse tant que l'acheteur est là.
@@ -727,8 +733,8 @@ export default function OrderConfirmation() {
    */
   const toggleOrganizerFollow = async (orgId: string) => {
     if (!user) {
-      haptics.error();
-      toast.info(t('event.loginToFollow'));
+      // Fenêtre de compte sur place : le QR reste à l'écran derrière elle.
+      requireAccount({ kind: 'follow_organizer', organizerUserId: orgId, source: 'order_confirmation' });
       return;
     }
     const wasFollowing = orgFollowing[orgId] || false;

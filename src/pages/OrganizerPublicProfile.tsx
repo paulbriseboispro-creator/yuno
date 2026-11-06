@@ -33,6 +33,8 @@ import { CartButton } from '@/components/CartButton';
 import { OrganizerProfileSkeleton } from '@/components/skeletons/OrganizerProfileSkeleton';
 import { orgEventsOr } from '@/lib/coorg';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
+import { useAccountSheet } from '@/contexts/AccountSheetContext';
+import { onIntentDone } from '@/lib/accountIntent';
 
 interface OrgProfile {
   user_id: string;
@@ -72,6 +74,7 @@ export default function OrganizerPublicProfile() {
   const [past, setPast] = useState<OrgEvent[]>([]);
   const [followersCount, setFollowersCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
+  const { requireAccount } = useAccountSheet();
   const [loading, setLoading] = useState(true);
   // Hero server-rendered (SERP → fiche) : congédier l'overlay du Worker dès
   // que la page est prête à être vue (données chargées OU erreur/introuvable).
@@ -281,12 +284,20 @@ export default function OrganizerPublicProfile() {
     }
   };
 
+  const profileUserId = profile?.user_id;
+  useEffect(() => onIntentDone((it) => {
+    if (it.kind !== 'follow_organizer' || it.organizerUserId !== profileUserId) return;
+    if (!isFollowing) setFollowersCount((c) => c + 1);
+    setIsFollowing(true);
+  }), [profileUserId, isFollowing]);
+
   const toggleFollow = async () => {
     if (!profile) return;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      toast.info(t('orgPublic.loginToFollow') || 'Connecte-toi pour suivre cet organisateur');
-      navigate('/auth');
+      // La fenêtre de compte monte sur place ; l'abonnement se fait seul une
+      // fois le compte ouvert (onIntentDone ci-dessous met la page à jour).
+      requireAccount({ kind: 'follow_organizer', organizerUserId: profile.user_id, source: 'organizer_page' });
       return;
     }
     // Optimiste : on bascule l'UI tout de suite (le pouce doit sentir le tap),

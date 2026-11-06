@@ -51,6 +51,8 @@ import { rememberPromoForEvent } from '@/lib/promoCode';
 import { trackGuestArtistClick, type GuestArtist } from '@/lib/guestArtists';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 import { shortAddress } from '@/lib/addressDisplay';
+import { useAccountSheet } from '@/contexts/AccountSheetContext';
+import { onIntentDone } from '@/lib/accountIntent';
 
 // Trait gris plein qui sépare les offres du bloc billets.
 const OFFER_RULE = '1px solid rgb(var(--ink)/0.14)';
@@ -147,6 +149,14 @@ export default function EventDetails() {
   const [cohostVenues, setCohostVenues] = useState<{ id: string; name: string; logo_url: string | null; slug: string | null }[]>([]);
   const [hostCount, setHostCount] = useState(0);
   const [followingAllHosts, setFollowingAllHosts] = useState(false);
+  const { requireAccount } = useAccountSheet();
+  // Un invité a suivi depuis la fenêtre de compte : la page le montre aussitôt.
+  useEffect(() => onIntentDone((it) => {
+    if (it.kind === 'follow_organizer') {
+      setOrgFollowing((prev) => (prev[it.organizerUserId] ? prev : { ...prev, [it.organizerUserId]: true }));
+    }
+    if (it.kind === 'follow_event_hosts' && it.eventId === event?.id) setFollowingAllHosts(true);
+  }), [event?.id]);
   // Le bouton « Suivre tous les hôtes » dit la vérité dès l'ouverture.
   useEffect(() => {
     if (hostCount < 2 || !eventId) return;
@@ -1698,7 +1708,7 @@ export default function EventDetails() {
                 <button
                   onClick={async () => {
                     const { data: { user } } = await supabase.auth.getUser();
-                    if (!user) { toast.info(t('event.loginToFollow')); return; }
+                    if (!user) { requireAccount({ kind: 'follow_event_hosts', eventId: event!.id }); return; }
                     try {
                       await followEventHosts(event!.id);
                       setFollowingAllHosts(true);
@@ -1725,7 +1735,7 @@ export default function EventDetails() {
                 const isFollowingOrg = orgFollowing[org.id] || false;
                 const toggleOrgFollow = async () => {
                   const { data: { user } } = await supabase.auth.getUser();
-                  if (!user) { toast.info(t('event.loginToFollow')); return; }
+                  if (!user) { requireAccount({ kind: 'follow_organizer', organizerUserId: org.id, source: 'event_page' }); return; }
                   if (isFollowingOrg) {
                     await supabase.from('organizer_profile_followers').delete().eq('organizer_user_id', org.id).eq('user_id', user.id);
                   } else {

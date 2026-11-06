@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { haptics } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useFavoritesContext, FavoriteType, isSubscriptionType, type Favorite } from '@/contexts/FavoritesContext';
+import { useAccountSheet } from '@/contexts/AccountSheetContext';
 import { capturePosthog } from '@/lib/posthog';
 import { marketProps } from '@/lib/geo';
 
@@ -19,6 +20,7 @@ export function useFavorites() {
     toggleFavorite: toggleFavoriteInContext,
     getFavoritesByType,
   } = useFavoritesContext();
+  const { requireAccount } = useAccountSheet();
 
   const toggleFavorite = useCallback(
     async (type: FavoriteType, id: string, source?: string) => {
@@ -37,8 +39,9 @@ export function useFavorites() {
         const result = await toggleFavoriteInContext(type, id, source);
 
         if (result === 'login_required') {
-          haptics.error();
-          toast.error(sub ? t('subscribe.loginRequired') : t('favorites.loginRequired'));
+          // Invité : la fenêtre de compte monte sur place, et l'abonnement (ou
+          // le favori) se fait tout seul une fois le compte ouvert.
+          requireAccount({ kind: 'favorite', type, id, source });
           return;
         }
 
@@ -73,7 +76,7 @@ export function useFavorites() {
         toast.error(sub ? t('subscribe.error') : t('favorites.error'));
       }
     },
-    [t, toggleFavoriteInContext, isFavorite]
+    [t, toggleFavoriteInContext, isFavorite, requireAccount]
   );
 
   return {

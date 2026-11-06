@@ -22,6 +22,8 @@ import { OutboundLink } from '@/components/OutboundLink';
 import { OfferBadges } from '@/components/affiliate/OfferBadges';
 import { Wordmark } from '@/components/brand/Wordmark';
 import { currentNightDate } from '@/lib/affiliateEventTime';
+import { useAccountSheet } from '@/contexts/AccountSheetContext';
+import { onIntentDone } from '@/lib/accountIntent';
 
 /* ============================================================
    AgencyPublicPage — /rp/:slug
@@ -250,6 +252,7 @@ export default function AgencyPublicPage() {
   // Abonnement à l'agence (identité maître). Absent d'affiliate sans agency_id.
   const [followersCount, setFollowersCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
+  const { requireAccount } = useAccountSheet();
   const [followBusy, setFollowBusy] = useState(false);
 
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
@@ -410,11 +413,16 @@ export default function AgencyPublicPage() {
     return () => { active = false; };
   }, [agencyId, user?.id]);
 
+  useEffect(() => onIntentDone((it) => {
+    if (it.kind !== 'follow_agency' || it.agencyId !== agencyId) return;
+    if (!isFollowing) setFollowersCount((c) => c + 1);
+    setIsFollowing(true);
+  }), [agencyId, isFollowing]);
+
   const toggleFollow = async () => {
     if (!agencyId || followBusy) return;
     if (!user?.id) {
-      toast.info(t('affiliate.loginToFollow'));
-      navigate('/auth');
+      requireAccount({ kind: 'follow_agency', agencyId, source: 'rp_page' });
       return;
     }
     // Optimiste : le pouce doit sentir le tap ; on annule si l'écriture échoue.
