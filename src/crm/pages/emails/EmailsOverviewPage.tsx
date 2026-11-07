@@ -407,7 +407,8 @@ function Kpis({ cur, prev, campaigns, c }: { cur: PeriodTotals; prev: PeriodTota
     const m = Math.max(1, ...vals);
     return vals.map((v, i) => ({ h: `${(30 + (v / m) * 70) * Math.max(0, Math.min(1, c * 1.5 - i * 0.14))}%`, last: i === vals.length - 1 }));
   };
-  const items = [
+  type Kpi = { l: string; v: string; d: { text: string; fg: string }; def: string; ring?: number; sp?: { h: string; last: boolean }[] };
+  const items: Kpi[] = [
     { l: t('yc.em.k.sent'), v: n(cur.sent * c), d: line(delta(cur.sent, has ? prev.sent : null, 'pct'), 'pct'), def: tp('yc.em.k.sentDef', cur.campaigns, { n: n(cur.campaigns) }), sp: spark(campaigns.map((x) => x.n)) },
     { l: t('yc.em.k.seen'), v: n(cur.ticketing * c), d: line(delta(cur.ticketing, has ? prev.ticketing : null, 'pct'), 'pct'), def: t('yc.em.k.seenDef') },
     { l: t('yc.em.k.bought'), v: n(cur.purchases * c), d: line(delta(cur.purchases, has ? prev.purchases : null, 'pct'), 'pct'), def: t('yc.em.k.boughtDef'), sp: spark(campaigns.map((x) => x.purchases)) },
