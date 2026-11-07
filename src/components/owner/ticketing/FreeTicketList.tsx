@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp, Layers, ListPlus, Pencil, Plus, Shapes, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, GripVertical, Layers, ListPlus, Pencil, Plus, Shapes, Trash2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { TicketRound } from '@/types/ticketing';
 import type { TicketGroup } from '@/lib/ticketGroups';
@@ -17,6 +17,8 @@ interface FreeTicketListProps {
   onEditGroup: (group: TicketGroup) => void;
   onDeleteGroup: (group: TicketGroup) => void;
   onMoveGroup: (group: TicketGroup, dir: -1 | 1) => void;
+  /** Nouvel ordre complet des packs (glisser-déposer). */
+  onReorderGroups: (orderedIds: string[]) => void;
   onAddTicketInGroup: (group: TicketGroup) => void;
   /** Ouvre le choix d'un billet déjà créé à ranger dans ce pack. */
   onAddExistingTicket: (group: TicketGroup) => void;
@@ -27,9 +29,11 @@ interface FreeTicketListProps {
 // Un pack se crée d'un bouton ; un billet y entre par « Ajouter un billet dans
 // ce pack » ou par le choix « Pack » de sa fiche.
 export function FreeTicketList({
-  tickets, groups, renderTicket, onCreateGroup, onEditGroup, onDeleteGroup, onMoveGroup, onAddTicketInGroup, onAddExistingTicket,
+  tickets, groups, renderTicket, onCreateGroup, onEditGroup, onDeleteGroup, onMoveGroup, onReorderGroups, onAddTicketInGroup, onAddExistingTicket,
 }: FreeTicketListProps) {
   const { t } = useLanguage();
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
   const known = new Set(groups.map(g => g.id));
   const loose = tickets.filter(r => !r.groupId || !known.has(r.groupId));
   const orderedGroups = [...groups].sort((a, b) => a.position - b.position);
@@ -37,6 +41,15 @@ export function FreeTicketList({
   const section = (list: TicketRound[]) => list.map((r, i) => (
     <div key={r.id}>{renderTicket(r, list[i - 1] ?? null, list[i + 1] ?? null)}</div>
   ));
+
+  const drop = (targetId: string) => {
+    if (dragId && dragId !== targetId) {
+      const ids = orderedGroups.map(g => g.id).filter(id => id !== dragId);
+      ids.splice(ids.indexOf(targetId) + (orderedGroups.findIndex(g => g.id === dragId) < orderedGroups.findIndex(g => g.id === targetId) ? 1 : 0), 0, dragId);
+      onReorderGroups(ids);
+    }
+    setDragId(null); setOverId(null);
+  };
 
   return (
     <div className="space-y-3">
@@ -73,14 +86,27 @@ export function FreeTicketList({
         const onSale = inPack.filter(r => !r.manuallySoldOut && r.ticketsSold < r.maxTickets && r.isActive && !r.hidden);
         const from = onSale.length ? Math.min(...onSale.map(r => r.price)) : null;
         return (
-          <div key={group.id} className="p-3 space-y-2" style={INNER_CARD}>
+          <div
+            key={group.id}
+            className="p-3 space-y-2 transition-opacity"
+            style={{ ...INNER_CARD, opacity: dragId === group.id ? 0.5 : 1, outline: overId === group.id && dragId !== group.id ? `2px solid ${RED}` : undefined }}
+            draggable={orderedGroups.length > 1}
+            onDragStart={(e) => { setDragId(group.id); e.dataTransfer.effectAllowed = 'move'; }}
+            onDragOver={(e) => { if (dragId) { e.preventDefault(); setOverId(group.id); } }}
+            onDragLeave={() => setOverId(cur => (cur === group.id ? null : cur))}
+            onDrop={(e) => { e.preventDefault(); drop(group.id); }}
+            onDragEnd={() => { setDragId(null); setOverId(null); }}
+          >
             <div className="flex items-start gap-2">
+              {orderedGroups.length > 1 && (
+                <GripVertical className="h-4 w-4 flex-none mt-0.5 cursor-grab" style={{ color: T3 }} aria-hidden />
+              )}
               <div className="flex flex-col flex-none -my-0.5">
-                <button type="button" disabled={gi === 0} onClick={() => onMoveGroup(group, -1)} aria-label={t('tickets.packs.moveUp')} title={t('tickets.packs.moveUp')} className="p-0.5 rounded disabled:opacity-20 hover:bg-white/[0.06]" style={{ color: T3 }}>
-                  <ChevronUp className="h-3.5 w-3.5" />
+                <button type="button" disabled={gi === 0} onClick={() => onMoveGroup(group, -1)} aria-label={t('tickets.packs.moveUp')} title={t('tickets.packs.moveUp')} className="p-1 rounded disabled:opacity-20 hover:bg-white/[0.06]" style={{ color: T3 }}>
+                  <ChevronUp className="h-4 w-4" />
                 </button>
-                <button type="button" disabled={gi === orderedGroups.length - 1} onClick={() => onMoveGroup(group, 1)} aria-label={t('tickets.packs.moveDown')} title={t('tickets.packs.moveDown')} className="p-0.5 rounded disabled:opacity-20 hover:bg-white/[0.06]" style={{ color: T3 }}>
-                  <ChevronDown className="h-3.5 w-3.5" />
+                <button type="button" disabled={gi === orderedGroups.length - 1} onClick={() => onMoveGroup(group, 1)} aria-label={t('tickets.packs.moveDown')} title={t('tickets.packs.moveDown')} className="p-1 rounded disabled:opacity-20 hover:bg-white/[0.06]" style={{ color: T3 }}>
+                  <ChevronDown className="h-4 w-4" />
                 </button>
               </div>
               <div className="flex-1 min-w-0">

@@ -1073,19 +1073,22 @@ export default function OwnerTicketing() {
     await fetchTicketRounds(eventId);
   };
 
-  const handleMoveGroup = async (eventId: string, group: TicketGroup, dir: -1 | 1) => {
-    const list = [...(ticketGroups[eventId] || [])].sort((a, b) => a.position - b.position);
-    const i = list.findIndex(g => g.id === group.id);
-    const j = i + dir;
-    if (i < 0 || j < 0 || j >= list.length) return;
-    const [a, b] = [list[i], list[j]];
-    const [pa, pb] = a.position === b.position ? [i, j] : [a.position, b.position];
-    const [r1, r2] = await Promise.all([
-      supabase.from('ticket_groups').update({ position: pb }).eq('id', a.id),
-      supabase.from('ticket_groups').update({ position: pa }).eq('id', b.id),
-    ]);
-    if (r1.error || r2.error) toast.error(t('tickets.errorSaving'));
+  // Nouvel ordre des packs : positions renumérotées 0, 1, 2… d'un coup (jamais
+  // deux packs à la même position), refus de la base signalé.
+  const handleReorderGroups = async (eventId: string, orderedIds: string[]) => {
+    const results = await Promise.all(orderedIds.map((id, i) =>
+      supabase.from('ticket_groups').update({ position: i }).eq('id', id).select('id')));
+    if (results.some(r => r.error || !r.data?.length)) toast.error(t('tickets.errorSaving'));
     await fetchTicketRounds(eventId);
+  };
+
+  const handleMoveGroup = async (eventId: string, group: TicketGroup, dir: -1 | 1) => {
+    const ids = [...(ticketGroups[eventId] || [])].sort((a, b) => a.position - b.position).map(g => g.id);
+    const i = ids.indexOf(group.id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    await handleReorderGroups(eventId, ids);
   };
 
   const openSaveFreePresetFromEvent = (event: Event & { maxTickets?: number | null }) => {
@@ -1822,6 +1825,7 @@ export default function OwnerTicketing() {
                                   onEditGroup={(group) => setGroupDialog({ eventId: event.id, group })}
                                   onDeleteGroup={(group) => handleDeleteGroup(event.id, group)}
                                   onMoveGroup={(group, dir) => handleMoveGroup(event.id, group, dir)}
+                                  onReorderGroups={(ids) => handleReorderGroups(event.id, ids)}
                                   onAddTicketInGroup={(group) => setFreeTicketDialog({ eventId: event.id, ticket: null, groupId: group.id })}
                                   onAddExistingTicket={(group) => setExistingDialog({ eventId: event.id, group })}
                                 />
