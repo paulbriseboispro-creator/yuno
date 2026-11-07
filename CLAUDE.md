@@ -1309,6 +1309,41 @@ Schéma complet, champ par champ : `docs/designs/SHOTGUN_API_REFERENCE.md`
 - Démo : `scripts/demo/seed-crm-links.sql` (à rejouer après
   `seed-crm-demo.sql`), sources réalistes (`utm_medium` = app / website).
 
+## Yuno CRM — les résultats d'un e-mail : clics de personnes, places prises (2026-11-07)
+
+Analyse : `docs/audit/2026-11-07-email-mesure-clics-conversions/RAPPORT.md` (cas 3AM × Act III :
+21 adresses « cliquent », 16 sont des passerelles de sécurité d'écoles ; l'e-mail a fait prendre 6 places,
+l'écran en montrait 4). Migrations `20261201100000` → `140000`, banc `scripts/crm-bench/smoke/{auto-clicks,
+attrib-v2,attrib-consumers,claim-holders}.sql` (rejouables par `rehearse.mjs`). Règles :
+
+- **Un clic automatique n'est jamais `clicked`** : il est rangé à la SOURCE en `auto_click` (même méthode que
+  `unsubscribe_click`), donc les ~50 fonctions qui lisent `event_type = 'clicked'` (engagement, relance après
+  clic, « A cliqué sans acheter », scénarios, attribution…) ne le voient plus. `email_click_classify(campagne,
+  adresse)` reclasse dans les deux sens, appelée par le déclencheur `trg_email_event_click_classify` après chaque
+  clic (l'ordre d'arrivée des webhooks ne compte pas). Règles, CLIC PAR CLIC : lecteur connu
+  (`_email_click_is_bot_ua`) ; ≥ 3 clics en 5 s sur ≥ 2 liens ou ≥ 2 adresses réseau ; ≥ 4 adresses réseau en
+  30 min sans mobile. **Jamais sur le délai seul** (une personne a cliqué 16 s après l'envoi). Probable, jamais
+  certain. Vérifié : les 6 clics des acheteurs connus sont tous « de personne ».
+- **Les OUVERTURES ne changent pas d'événement** : le moteur de délivrabilité (reprise Gmail, recentrage faute
+  d'ouvertures) les lit. Leur nature se lit à l'affichage (`_email_open_class` : préchargement ou client). 71 % des
+  personnes qui « ouvrent » sont du préchargement (Apple Mail Privacy Protection : user-agent nu `Mozilla/5.0`).
+  Ne plus présenter l'ouverture comme un résultat.
+- **Trois niveaux de place, une seule fonction** (`_crm_email_attrib`, lue par Résultats, Parcours, la carte
+  « messages » d'Analyses, les segments) : CERTAINE = `utm_source = yuno-m-<8 premiers caractères de la campagne>`
+  sur le billet ; PROBABLE = clic de personne sur le lien des billets puis achat de CETTE soirée par la même
+  adresse sous 7 jours, sans la source ; ENSUITE (`_cml`) = a regardé puis achète sous 30 jours (cette soirée ou
+  une autre), compté à part, jamais ajouté aux places prises. La relance se compte avec sa mère
+  (`_cma.campaign_id` = la mère). Une place prise avec une autre adresse que le clic (lien partagé) est certaine :
+  `shared` quand l'adresse n'est pas dans la liste d'envoi.
+- **« A déjà une place » se relit à l'envoi pour toute campagne CRM** (`claim_campaign_recipients`, acheteur ET
+  titulaire, `policy:holder_after_queue`, Yunit rendu) : l'envoi par vagues dure des jours.
+- Le jour 0 d'un envoi par vagues est le PREMIER envoi (`started_at`), jamais `sent_at` (le dernier) ; jours
+  calendaires de Paris.
+- Reste à faire : purge de l'IP et de l'user-agent bruts après 30 jours (minimisation, CNIL 2026-042), un jeu
+  d'évaluation du classement (adresses de test d'écoles / Apple / Gmail), les écrans Analyses qui affichent encore
+  un taux d'ouverture, le renvoi aux « non-ouvreurs » (l'ouverture n'est pas une lecture), l'équivalent côté
+  Billetterie (`_tix_email_attrib`).
+
 ## Yuno CRM — l'e-mail pratique aux détenteurs d'une soirée (2026-10-18)
 
 Doc et lecture juridique : `docs/designs/CRM_PRACTICAL_EMAIL.md`. Migration
