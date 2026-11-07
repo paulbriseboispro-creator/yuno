@@ -229,7 +229,7 @@ export default function EmailsOverviewPage() {
                         <span style={{ fontSize: 13, color: 'var(--sand-500)' }}>{t('yc.em.last.meta', { date: dShort(x.sent_at), n: n(x.n) })}</span>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8 }}>
-                        {[[pct((rate(x.opened, x.received) ?? 0) * 100), 'yc.em.st.opened'], [pct((rate(x.clicked, x.received) ?? 0) * 100), 'yc.em.st.clicked'], [n(x.purchases), 'yc.em.st.bought']].map(([v, l]) => (
+                        {[[n(x.received), 'yc.em.st.received'], [n(x.ticketing ?? x.clicked), 'yc.em.st.seen'], [n(x.purchases), 'yc.em.st.bought']].map(([v, l]) => (
                           <div key={l} style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                             <b style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 20, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums' }}>{v}</b>
                             <span style={{ fontSize: 12, color: 'var(--sand-500)' }}>{t(l)}</span>
@@ -398,8 +398,6 @@ function SalesHero({ data, days, setDays, g, hover, setHover, periodLabel }: {
 function Kpis({ cur, prev, campaigns, c }: { cur: PeriodTotals; prev: PeriodTotals; campaigns: { n: number; purchases: number }[]; c: number }) {
   const { t, tp, n, pct } = useCrmT();
   const has = prev.campaigns > 0;
-  const orC = rate(cur.opened, cur.received) ?? 0, crC = rate(cur.clicked, cur.received) ?? 0;
-  const orP = has ? rate(prev.opened, prev.received) : null, crP = has ? rate(prev.clicked, prev.received) : null;
   const line = (d: ReturnType<typeof delta>, unit: 'pct' | 'pt') => {
     if (!d) return { text: t('yc.em.vsPrev.first'), fg: 'var(--sand-500)' };
     const v = unit === 'pt' ? t('yc.em.pt', { v: Math.abs(d.v).toFixed(1).replace('.', ',') }) : pct(Math.abs(d.v));
@@ -411,9 +409,9 @@ function Kpis({ cur, prev, campaigns, c }: { cur: PeriodTotals; prev: PeriodTota
   };
   const items = [
     { l: t('yc.em.k.sent'), v: n(cur.sent * c), d: line(delta(cur.sent, has ? prev.sent : null, 'pct'), 'pct'), def: tp('yc.em.k.sentDef', cur.campaigns, { n: n(cur.campaigns) }), sp: spark(campaigns.map((x) => x.n)) },
-    { l: t('yc.em.k.opened'), v: pct(orC * 100 * c), d: line(delta(orC, orP, 'pt'), 'pt'), def: t('yc.em.k.openedDef'), ring: orC * 360 * c },
-    { l: t('yc.em.k.clicked'), v: pct(crC * 100 * c, 1), d: line(delta(crC, crP, 'pt'), 'pt'), def: t('yc.em.k.clickedDef'), ring: Math.min(360, crC * 360 * c * 2) },
+    { l: t('yc.em.k.seen'), v: n(cur.ticketing * c), d: line(delta(cur.ticketing, has ? prev.ticketing : null, 'pct'), 'pct'), def: t('yc.em.k.seenDef') },
     { l: t('yc.em.k.bought'), v: n(cur.purchases * c), d: line(delta(cur.purchases, has ? prev.purchases : null, 'pct'), 'pct'), def: t('yc.em.k.boughtDef'), sp: spark(campaigns.map((x) => x.purchases)) },
+    { l: t('yc.em.k.later'), v: n((cur.later ?? 0) * c), d: line(delta(cur.later ?? 0, has ? (prev.later ?? 0) : null, 'pct'), 'pct'), def: t('yc.em.k.laterDef') },
   ];
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,250px),1fr))', gap: 16 }}>

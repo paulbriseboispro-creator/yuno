@@ -18,6 +18,13 @@ export interface CrmAudience { kind: 'crm'; segmentId?: string; def?: ClientFilt
 export interface EmailStats {
   n: number; received: number; opened: number; clicked: number; ticketing: number;
   purchases: number; revenue: number | null; bounced: number; complained: number; unsub: number;
+  /**
+   * Places prises par niveau de preuve (20261201110000) : `certain` = billet signé par l'e-mail chez
+   * Shotgun, `probable` = clic de personne puis achat de la soirée sous 7 jours, `later` = a regardé
+   * puis réservé dans les 30 jours (compté à part). `clicked` / `ticketing` ne comptent que des
+   * PERSONNES : les clics automatiques (contrôles de sécurité) sont écartés à la source.
+   */
+  certain?: number; probable?: number; later?: number;
 }
 
 export type EmailStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'paused' | 'failed';
@@ -43,7 +50,7 @@ export interface EmailCampaignRow {
 
 export interface PeriodTotals {
   campaigns: number; sent: number; received: number; opened: number; clicked: number;
-  ticketing: number; purchases: number; revenue: number | null;
+  ticketing: number; purchases: number; revenue: number | null; later?: number;
 }
 
 export interface EmailOverview {
@@ -54,7 +61,7 @@ export interface EmailOverview {
   previous: PeriodTotals;
   campaigns: { id: string; name: string | null; sent_at: string; n: number; purchases: number; revenue: number | null }[];
   upcoming: EmailCampaignRow[];
-  last: { id: string; name: string | null; subject: string | null; sent_at: string; n: number; received: number; opened: number; clicked: number; purchases: number; revenue: number | null }[];
+  last: { id: string; name: string | null; subject: string | null; sent_at: string; n: number; received: number; opened: number; clicked: number; ticketing?: number; later?: number; purchases: number; revenue: number | null }[];
   ever_sent: boolean;
 }
 
@@ -77,10 +84,26 @@ export function useEmailCampaigns() {
   });
 }
 
+/** Une place du résultat : `level` = certaine / probable / réservée ensuite ; `shared` = adresse hors de la liste d'envoi. */
+export interface EmailSale { email: string; at: string; level: 'certain' | 'probable' | 'later'; amount: number | null; deal: string | null; shared: boolean }
+
 export interface EmailResult extends EmailCampaignRow {
   error?: 'not_found';
   /** `buyers` = personnes distinctes (l'entonnoir) ; `purchases` = billets (le héros). Absent avant la migration 20261008130000. */
-  stats: (EmailStats & { non_openers: number; buyers?: number }) | null;
+  stats: (EmailStats & {
+    non_openers: number; buyers?: number; later_buyers?: number;
+    /** Contrôles de sécurité : adresses qui n'ont fait QUE des clics automatiques, et leurs clics. */
+    auto_people?: number; auto_clicks?: number;
+    /** Personnes qui « ouvrent » : par préchargement, par un contrôle de sécurité, par un client identifiable. */
+    opened_proxy?: number; opened_scan?: number; opened_client?: number;
+    shared?: number; interest?: number; window_until?: string | null;
+  }) | null;
+  /** Jour par jour depuis le premier envoi (33 jours) : ont regardé, places prises, réservé ensuite. */
+  days?: { seen: number[]; sold: number[]; later: number[] } | null;
+  sales?: EmailSale[];
+  sales_total?: number;
+  follow?: { n: number; seen: number; sold: number; sent_at: string | null } | null;
+  started_at?: string | null;
   avg: { campaigns: number; open_rate: number | null; click_rate: number | null; per_k: number | null };
   rank: number | null;
   rank_of: number;

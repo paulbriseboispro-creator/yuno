@@ -235,7 +235,7 @@ export default function EmailCampaignsPage() {
                     </span>
                     {c.stats ? (
                       <span style={{ display: 'flex', gap: 18 }}>
-                        {[[pct((rate(c.stats.opened, c.stats.received) ?? 0) * 100), 'yc.em.st.opened'], [pct((rate(c.stats.clicked, c.stats.received) ?? 0) * 100), 'yc.em.st.clicked'], [n(c.stats.purchases), 'yc.em.st.bought']].map(([v, l]) => (
+                        {[[n(c.stats.received), 'yc.em.st.received'], [n(c.stats.ticketing), 'yc.em.st.seen'], [n(c.stats.purchases), 'yc.em.st.bought']].map(([v, l]) => (
                           <span key={l} style={{ display: 'flex', flexDirection: 'column' }}>
                             <b style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 19, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums' }}>{v}</b>
                             <span style={{ fontSize: 12, color: 'var(--sand-500)' }}>{t(l)}</span>

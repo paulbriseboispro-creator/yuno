@@ -1,16 +1,21 @@
 /**
- * Résultats › Résumé : ce qu'il a fait vendre (classement, trois chiffres
- * comparés à la moyenne du compte), l'e-mail envoyé, l'entonnoir de l'envoi
- * à l'achat, la courbe des réactions sur 72 h et la santé de l'envoi.
+ * Résultats › Résumé : les places prises grâce à l'e-mail (classement, trois
+ * chiffres), l'e-mail envoyé, l'entonnoir de l'envoi à la place prise, jour par
+ * jour ce qu'on regarde puis réserve, les places une par une, ce qu'on a écarté
+ * (clics automatiques, ouvertures par préchargement) et la santé de l'envoi.
+ *
+ * Une place est CERTAINE (le billet porte la source de l'e-mail chez Shotgun),
+ * PROBABLE (clic de personne puis achat sous 7 jours) ; « réservé ensuite » se
+ * compte à part. Les clics automatiques n'entrent jamais : ils sont écartés à la
+ * source (migrations 20261201100000 et 20261201110000).
  */
 import { useState } from 'react';
-import type { MouseEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
-import { EASE, clamp01, useProgress, wipe } from '@/crm/ui/motion';
+import { EASE, clamp01, useProgress } from '@/crm/ui/motion';
 import { YunitFace } from '@/crm/ui/YunitFace';
 import { useNarrow } from '@/crm/ui/useNarrow';
-import { niceTop } from '@/crm/lib/axis';
 import { useCrmT } from '@/crm/i18n';
 import type { EmailResult } from '@/crm/data/emails';
 
@@ -21,21 +26,18 @@ const h2 = { margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, font
 const subCss = { fontSize: 13.5, color: 'var(--sand-500)', marginTop: 2, textWrap: 'pretty' } as const;
 
 export function ResultSummary({ r, s, html, onZoom }: { r: EmailResult; s: Stats; html: string | null | undefined; onZoom: () => void }) {
-  const { t, tp, n, n1, eur, pct } = useCrmT();
+  const { t, tp, n, eur, dShort } = useCrmT();
   const g = useProgress(1300, 400, r.id);
-  const openRate = s.received ? s.opened / s.received : 0;
-  const clickRate = s.received ? s.clicked / s.received : 0;
-  const pk = s.n ? (s.purchases / s.n) * 1000 : 0;
-  const pt = (a: number, b: number | null) => {
-    if (b === null) return { txt: t('yc.em.rs.k.noAvg'), up: true };
-    const d = (a - b) * 100;
-    return { txt: t(d >= 0 ? 'yc.em.rs.k.vsUp' : 'yc.em.rs.k.vsDown', { v: n1(Math.abs(d)) }), up: d >= 0 };
-  };
-  const kOpen = pt(openRate, r.avg.open_rate);
-  const kClick = pt(clickRate, r.avg.click_rate);
-  const kPk = r.avg.per_k === null ? { txt: t('yc.em.rs.k.noAvg'), up: true } : { txt: t(pk >= r.avg.per_k ? 'yc.em.rs.k.aboveAvg' : 'yc.em.rs.k.belowAvg', { v: n1(r.avg.per_k) }), up: pk >= r.avg.per_k };
   const good = r.rank !== null && r.rank <= Math.ceil(r.rank_of / 2);
   const verdict = r.rank_of <= 1 || r.rank === null ? t('yc.em.rs.rankFirst') : t(good ? 'yc.em.rs.rankGood' : 'yc.em.rs.rankLow', { r: r.rank, of: r.rank_of });
+  const until = s.window_until ? new Date(s.window_until) : null;
+  const kLaterD = until ? t('yc.em.rs.v2.kLaterD', { d: dShort(until) }) : t('yc.em.rs.v2.kLaterNo');
+  const places = s.purchases;
+  const chips = [
+    { k: 'c', txt: t('yc.em.rs.v2.cert', { n: n(s.certain ?? places) }), on: true },
+    { k: 'p', txt: t('yc.em.rs.v2.prob', { n: n(s.probable ?? 0) }), on: (s.probable ?? 0) > 0 },
+    { k: 's', txt: t('yc.em.rs.v2.shared', { n: n(s.shared ?? 0) }), on: (s.shared ?? 0) > 0 },
+  ].filter((c) => c.on);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, animation: `yc-rise 520ms ${EASE} both` }}>
@@ -43,10 +45,12 @@ export function ResultSummary({ r, s, html, onZoom }: { r: EmailResult; s: Stats
         <section style={{ ...box, flex: '1.5 1 520px', minWidth: 0, gap: 20, padding: 'clamp(20px,2.4vw,32px)', background: 'radial-gradient(60% 50% at 100% 0%,rgba(255,107,53,.07),transparent 70%),#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200),var(--shadow-sm)' }}>
           <div><h2 style={h2}>{t('yc.em.rs.sell.t')}</h2><div style={{ ...subCss, maxWidth: 520 }}>{t('yc.em.rs.sell.s')}</div></div>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 24px' }}>
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(56px,8vw,104px)', lineHeight: 0.92, letterSpacing: '-.055em', fontVariantNumeric: 'tabular-nums' }}>{n(Math.round(s.purchases * g))}</span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingBottom: 8 }}>
-              <span style={{ fontSize: 20, fontWeight: 600 }}>{s.revenue === null ? tp('yc.em.rs.buysN', s.purchases) : tp('yc.em.rs.buys', s.purchases, { rev: eur(s.revenue) })}</span>
-              <span style={{ fontSize: 14, color: 'var(--sand-500)' }}>{t('yc.em.rs.clickLine', { c: n(s.clicked), t: n(s.ticketing) })}</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'clamp(56px,8vw,104px)', lineHeight: 0.92, letterSpacing: '-.055em', fontVariantNumeric: 'tabular-nums' }}>{n(Math.round(places * g))}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 8 }}>
+              <span style={{ fontSize: 20, fontWeight: 600 }}>{s.revenue === null || s.revenue === 0 ? tp('yc.em.rs.buysN', places) : tp('yc.em.rs.buys', places, { rev: eur(s.revenue) })}</span>
+              <span style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {chips.map((c) => <span key={c.k} style={{ height: 26, padding: '0 11px', borderRadius: 99, display: 'inline-flex', alignItems: 'center', fontSize: 13, fontWeight: 500, background: 'var(--sand-100)', color: 'var(--sand-700)', whiteSpace: 'nowrap' }}>{c.txt}</span>)}
+              </span>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', borderRadius: 16, background: good || r.rank_of <= 1 ? 'var(--green-50)' : 'var(--amber-50)' }}>
@@ -55,14 +59,14 @@ export function ResultSummary({ r, s, html, onZoom }: { r: EmailResult; s: Stats
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 12 }}>
             {[
-              { l: t('yc.em.rs.k.open'), v: pct(openRate * 100), d: kOpen },
-              { l: t('yc.em.rs.k.click'), v: pct(clickRate * 100, 1), d: kClick },
-              { l: t('yc.em.rs.k.perk'), v: n1(pk), d: kPk },
+              { l: t('yc.em.rs.v2.kRecv'), v: n(s.received), d: t('yc.em.rs.v2.kRecvD', { n: n(s.bounced) }) },
+              { l: t('yc.em.rs.v2.kSeen'), v: n(s.ticketing), d: t('yc.em.rs.v2.kSeenD') },
+              { l: t('yc.em.rs.v2.kLater'), v: n(s.later ?? 0), d: kLaterD },
             ].map((k) => (
               <div key={k.l} style={{ display: 'flex', flexDirection: 'column', gap: 3, padding: '14px 16px', borderRadius: 16, background: 'var(--paper)', boxShadow: 'inset 0 0 0 1px var(--sand-100)' }}>
-                <span style={{ fontSize: 13, color: 'var(--sand-500)' }}>{k.l}</span>
+                <span style={{ fontSize: 13, color: 'var(--sand-600)' }}>{k.l}</span>
                 <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 30, letterSpacing: '-.03em', fontVariantNumeric: 'tabular-nums', lineHeight: 1.05 }}>{k.v}</span>
-                <span style={{ fontSize: 12.5, fontWeight: 600, color: k.d.up ? 'var(--green-700)' : 'var(--red-600)' }}>{k.d.txt}</span>
+                <span style={{ fontSize: 12.5, color: 'var(--sand-600)' }}>{k.d}</span>
               </div>
             ))}
           </div>
@@ -86,32 +90,26 @@ export function ResultSummary({ r, s, html, onZoom }: { r: EmailResult; s: Stats
           )}
         </section>
       </div>
-      <Funnel r={r} s={s} g={g} />
-      <Timeline r={r} g={g} />
+      <Funnel s={s} g={g} />
+      <DaysChart r={r} g={g} />
+      <Sales r={r} />
+      <FollowUp r={r} s={s} />
+      <Discarded s={s} />
       <Health s={s} />
     </div>
   );
 }
 
-function Funnel({ r, s, g }: { r: EmailResult; s: Stats; g: number }) {
-  const { t, n, pct, n1 } = useCrmT();
+function Funnel({ s, g }: { s: Stats; g: number }) {
+  const { t, n, pct } = useCrmT();
   const narrow = useNarrow(640);
   const [hov, setHov] = useState<number | null>(null);
-  const openRate = s.received ? s.opened / s.received : 0;
-  const clickRate = s.received ? s.clicked / s.received : 0;
-  const cmp = (a: number, b: number | null) => {
-    if (b === null) return null;
-    const d = (a - b) * 100;
-    return { txt: t('yc.em.rs.f.vs', { d: `${d >= 0 ? '▲ +' : '▼ −'}${n1(Math.abs(d))}` }), up: d >= 0 };
-  };
   const steps = [
-    { l: t('yc.em.rs.f.sent'), v: s.n, d: t('yc.em.rs.f.sentD'), c: null },
-    { l: t('yc.em.rs.f.received'), v: s.received, d: t('yc.em.rs.f.receivedD', { n: n(s.bounced) }), c: null },
-    { l: t('yc.em.rs.f.opened'), v: s.opened, d: t('yc.em.rs.f.openedD'), c: cmp(openRate, r.avg.open_rate) },
-    { l: t('yc.em.rs.f.clicked'), v: s.clicked, d: t('yc.em.rs.f.clickedD'), c: cmp(clickRate, r.avg.click_rate) },
-    { l: t('yc.em.rs.f.ticketing'), v: s.ticketing, d: t('yc.em.rs.f.ticketingD'), c: null },
+    { l: t('yc.em.rs.f.sent'), v: s.n, d: t('yc.em.rs.f.sentD') },
+    { l: t('yc.em.rs.f.received'), v: s.received, d: t('yc.em.rs.f.receivedD', { n: n(s.bounced) }) },
+    { l: t('yc.em.rs.v2.fSeen'), v: s.ticketing, d: t('yc.em.rs.v2.fSeenD') },
     // L'entonnoir compte des PERSONNES : un acheteur de trois billets compte une fois.
-    { l: t('yc.em.rs.f.bought'), v: s.buyers ?? s.purchases, d: t('yc.em.rs.f.boughtD'), c: null },
+    { l: t('yc.em.rs.f.bought'), v: s.buyers ?? s.purchases, d: t('yc.em.rs.f.boughtD') },
   ];
   return (
     <section style={{ ...box, gap: 18 }}>
@@ -131,7 +129,6 @@ function Funnel({ r, s, g }: { r: EmailResult; s: Stats; g: number }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
                 <div style={{ flex: '0 1 auto', height: 30, width: `${w}%`, minWidth: 8, borderRadius: 99, background: i === steps.length - 1 ? 'var(--gradient-brand)' : i === 0 ? 'var(--sand-200)' : `color-mix(in srgb,var(--red-500) ${24 + i * 13}%,#fff)` }} />
                 <span style={{ flex: 'none', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{n(st.v)}</span>
-                {st.c && <span style={{ flex: 'none', height: 24, padding: '0 10px', borderRadius: 99, display: 'inline-flex', whiteSpace: 'nowrap', alignItems: 'center', fontSize: 12.5, fontWeight: 600, background: st.c.up ? 'var(--green-50)' : 'var(--red-50)', color: st.c.up ? 'var(--green-700)' : 'var(--red-700)' }}>{st.c.txt}</span>}
               </div>
               <div style={{ gridColumn: narrow ? 1 : 2, fontSize: 13, lineHeight: '17px', color: 'var(--sand-600)', maxHeight: on ? 40 : 0, opacity: on ? 1 : 0, overflow: 'hidden', transition: 'max-height 200ms,opacity 200ms' }}>{st.d}</div>
             </div>
@@ -142,77 +139,154 @@ function Funnel({ r, s, g }: { r: EmailResult; s: Stats; g: number }) {
   );
 }
 
-
-function Timeline({ r, g }: { r: EmailResult; g: number }) {
-  const { t, tp, n, pct, time, dShort, dWeek } = useCrmT();
-  const narrow = useNarrow(640);
-  const [metric, setMetric] = useState<'opens' | 'clicks'>('opens');
-  const [hov, setHov] = useState<number | null>(null);
-  const pts = r.timeline.length ? r.timeline : [{ h: 0, opens: 0, clicks: 0 }];
-  const vals = pts.map((p) => p[metric]);
-  const tot = vals[vals.length - 1] || 0;
-  const top = niceTop(tot, { headroom: 1.05, empty: 10 });
-  const sent = new Date(r.sent_at ?? Date.now());
-  const px = (h: number) => (h / 72) * 100;
-  const py = (v: number) => 100 - (v / top) * 100;
-  const line = `M${pts.map((p, i) => `${px(p.h).toFixed(2)} ${py(vals[i]).toFixed(2)}`).join(' L')}`;
-  const area = `${line} L100 100 L0 100 Z`;
-  const at = (h: number) => vals[pts.findIndex((p) => p.h >= h)] ?? tot;
-  const insight = tot > 0 ? t(metric === 'opens' ? 'yc.em.rs.t.insOpens' : 'yc.em.rs.t.insClicks', { a: pct((at(3) / tot) * 100), b: pct((at(24) / tot) * 100) }) : t('yc.em.rs.t.none');
-  const move = (e: MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const h = Math.max(0, Math.min(72, ((e.clientX - rect.left) / rect.width) * 72));
-    const i = pts.reduce((best, p, k) => (Math.abs(p.h - h) < Math.abs(pts[best].h - h) ? k : best), 0);
-    if (hov !== i) setHov(i);
-  };
-  const tip = hov !== null ? pts[hov] : null;
+function DaysChart({ r, g }: { r: EmailResult; g: number }) {
+  const { t, n, dShort } = useCrmT();
+  const days = r.days;
+  const seen = days?.seen ?? [];
+  const sold = days?.sold ?? [];
+  const later = days?.later ?? [];
+  const len = Math.max(seen.length, sold.length, later.length);
+  const top = Math.max(1, ...seen, ...sold, ...later);
+  const start = new Date(r.started_at ?? r.sent_at ?? Date.now());
+  const any = [...seen, ...sold, ...later].some((v) => v > 0);
+  const legend = [['var(--ink)', 'yc.em.rs.v2.lgSeen'], ['var(--red-500)', 'yc.em.rs.v2.lgSold'], ['var(--tangerine-500)', 'yc.em.rs.v2.lgLater']] as const;
   return (
     <section style={{ ...box, gap: 16 }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-        <div><h2 style={h2}>{t('yc.em.rs.t.t')}</h2><div style={subCss}>{t('yc.em.rs.t.s')}</div></div>
-        <div role="group" aria-label={t('yc.em.rs.t.metric')} style={{ display: 'inline-flex', padding: 3, gap: 2, background: 'var(--sand-100)', borderRadius: 99 }}>
-          {(['opens', 'clicks'] as const).map((m) => (
-            <button key={m} type="button" onClick={() => { setMetric(m); setHov(null); }} aria-pressed={metric === m} style={{ height: 34, padding: '0 16px', border: 0, borderRadius: 99, background: metric === m ? '#fff' : 'transparent', boxShadow: metric === m ? 'var(--shadow-xs)' : 'none', fontSize: 14, fontWeight: 600, color: metric === m ? 'var(--ink)' : 'var(--sand-600)', cursor: 'pointer' }}>{t(`yc.em.rs.t.${m}`)}</button>
+        <div><h2 style={h2}>{t('yc.em.rs.v2.dT')}</h2><div style={{ ...subCss, maxWidth: 560 }}>{t('yc.em.rs.v2.dS')}</div></div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 18px' }}>
+          {legend.map(([c, k]) => (
+            <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--sand-700)' }}>
+              <span style={{ width: 12, height: 12, borderRadius: 3, background: c }} />{t(k)}
+            </span>
           ))}
         </div>
       </div>
-      <div onMouseMove={move} onMouseLeave={() => setHov(null)} style={{ position: 'relative', height: 220, marginLeft: 56, cursor: 'crosshair' }}>
-        {[0, 0.5, 1].map((k) => (
-          <div key={k} style={{ position: 'absolute', left: -56, right: 0, bottom: `${k * 100}%`, borderTop: '1px solid var(--sand-100)', pointerEvents: 'none' }}>
-            <span style={{ position: 'absolute', left: 0, top: -9, width: 48, textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--sand-400)', background: '#fff', paddingRight: 4, boxSizing: 'border-box' }}>{k === 0 ? '0' : n(top * k)}</span>
+      {!len || !any ? (
+        <div style={{ padding: '14px 18px', borderRadius: 16, background: 'var(--sand-50)', fontSize: 15, color: 'var(--sand-600)' }}>{t('yc.em.rs.v2.dNone')}</div>
+      ) : (
+        <div className="yc-thin-scroll" style={{ overflowX: 'auto' }}>
+          <div style={{ minWidth: 640, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 5, height: 170, borderBottom: '1px solid var(--sand-300)' }}>
+              {Array.from({ length: len }, (_, i) => {
+                const d = new Date(start.getTime() + i * 864e5);
+                const h = (v: number) => `${((v || 0) / top) * 100 * clamp01(g * 1.3 - i * 0.01)}%`;
+                return (
+                  <div key={i} title={t('yc.em.rs.v2.dayTip', { d: dShort(d), a: n(seen[i] ?? 0), b: n(sold[i] ?? 0), c: n(later[i] ?? 0) })} style={{ flex: '1 1 0', minWidth: 0, height: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 1 }}>
+                    <div style={{ width: '30%', maxWidth: 12, height: h(seen[i]), borderRadius: '3px 3px 0 0', background: 'var(--ink)' }} />
+                    <div style={{ width: '30%', maxWidth: 12, height: h(sold[i]), borderRadius: '3px 3px 0 0', background: 'var(--red-500)' }} />
+                    <div style={{ width: '30%', maxWidth: 12, height: h(later[i]), borderRadius: '3px 3px 0 0', background: 'var(--tangerine-500)' }} />
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ display: 'flex', gap: 5 }}>
+              {Array.from({ length: len }, (_, i) => (
+                <div key={i} style={{ flex: '1 1 0', minWidth: 0, textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--sand-600)', whiteSpace: 'nowrap', overflow: 'visible' }}>
+                  {i === 0 ? dShort(start) : i % 7 === 0 ? t('yc.em.rs.v2.day', { n: i }) : ''}
+                </div>
+              ))}
+            </div>
           </div>
-        ))}
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible', clipPath: wipe(clamp01(g * 1.15)) }}>
-          <path d={area} fill="var(--red-50)" />
-          <path d={line} fill="none" stroke="var(--red-500)" strokeWidth={2.4} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
-        </svg>
-        {tip && (() => {
-          const v = vals[hov!];
-          const when = new Date(sent.getTime() + tip.h * 36e5);
-          return (
-            <>
-              <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${px(tip.h)}%`, borderLeft: '1px solid var(--sand-300)', pointerEvents: 'none' }} />
-              <i style={{ position: 'absolute', left: `${px(tip.h)}%`, top: `${py(v)}%`, width: 12, height: 12, margin: '-6px 0 0 -6px', borderRadius: 99, background: 'var(--red-500)', boxShadow: '0 0 0 4px rgba(227,20,27,.18)', pointerEvents: 'none' }} />
-              <div style={{ position: 'absolute', top: 4, left: `${px(tip.h)}%`, transform: tip.h < 40 ? 'translateX(16px)' : 'translateX(calc(-100% - 16px))', pointerEvents: 'none', background: 'var(--ink)', color: '#fff', borderRadius: 14, padding: '10px 14px', boxShadow: 'var(--shadow-md)', display: 'flex', flexDirection: 'column', gap: 2, whiteSpace: 'nowrap', zIndex: 3 }}>
-                <span style={{ fontSize: 12, color: 'rgba(255,255,255,.7)' }}>{dWeek(when)} · {time(when)}</span>
-                <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' }}>{tp(metric === 'opens' ? 'yc.em.rs.t.vOpens' : 'yc.em.rs.t.vClicks', v, { n: n(v) })}</span>
-                <span style={{ fontSize: 12, color: 'rgba(255,255,255,.7)' }}>{tip.h === 0 ? t('yc.em.rs.t.atSend') : t('yc.em.rs.t.after', { h: tip.h, p: pct(tot ? (v / tot) * 100 : 0) })}</span>
+        </div>
+      )}
+    </section>
+  );
+}
+
+const LEVEL_STYLE = {
+  certain: { bg: 'var(--green-50)', fg: 'var(--green-700)', k: 'yc.em.rs.v2.lvC' },
+  probable: { bg: 'var(--amber-50)', fg: 'var(--amber-700)', k: 'yc.em.rs.v2.lvP' },
+  later: { bg: 'var(--sand-100)', fg: 'var(--sand-700)', k: 'yc.em.rs.v2.lvL' },
+} as const;
+
+function Sales({ r }: { r: EmailResult }) {
+  const { t, n, dShort, time } = useCrmT();
+  const rows = r.sales ?? [];
+  if (!rows.length) return null;
+  const chip = (bg: string, fg: string, txt: string) => <span style={{ height: 24, padding: '0 10px', borderRadius: 99, display: 'inline-flex', alignItems: 'center', fontSize: 12.5, fontWeight: 600, background: bg, color: fg, whiteSpace: 'nowrap' }}>{txt}</span>;
+  return (
+    <section style={{ ...box, gap: 14 }}>
+      <div><h2 style={h2}>{t('yc.em.rs.v2.pT')}</h2><div style={subCss}>{t('yc.em.rs.v2.pS')}</div></div>
+      <div className="yc-thin-scroll" style={{ overflowX: 'auto' }}>
+        <div style={{ minWidth: 560, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '110px minmax(180px,1.4fr) minmax(120px,1fr) minmax(140px,1fr)', gap: 14, padding: '8px 0', borderBottom: '1px solid var(--sand-200)', fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--sand-600)' }}>
+            <span>{t('yc.em.rs.v2.pDate')}</span><span>{t('yc.em.rs.v2.pWho')}</span><span>{t('yc.em.rs.v2.pDeal')}</span><span>{t('yc.em.rs.v2.pLevel')}</span>
+          </div>
+          {rows.map((x) => {
+            const at = new Date(x.at);
+            const ls = LEVEL_STYLE[x.level];
+            return (
+              <div key={`${x.email}-${x.at}`} style={{ display: 'grid', gridTemplateColumns: '110px minmax(180px,1.4fr) minmax(120px,1fr) minmax(140px,1fr)', gap: 14, alignItems: 'center', padding: '12px 0', borderBottom: '1px solid var(--sand-100)', fontSize: 14 }}>
+                <span style={{ color: 'var(--sand-700)' }}>{dShort(at)} · {time(at)}</span>
+                <span style={{ fontWeight: 600, overflowWrap: 'anywhere' }}>{x.email}</span>
+                <span style={{ color: 'var(--sand-700)', overflowWrap: 'anywhere' }}>{x.deal ?? '—'}</span>
+                <span style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {chip(ls.bg, ls.fg, t(ls.k))}
+                  {x.shared && chip('var(--sand-100)', 'var(--sand-700)', t('yc.em.rs.v2.lvShared'))}
+                </span>
               </div>
-            </>
-          );
-        })()}
+            );
+          })}
+        </div>
       </div>
-      <div style={{ marginLeft: 56, display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--sand-500)' }}>
-        {[0, 24, 48, 72].map((h) => {
-          const d = new Date(sent.getTime() + h * 36e5);
-          if (narrow) return <span key={h}>{h === 0 ? time(d) : `+${h} h`}</span>;
-          return <span key={h}>{h === 0 ? t('yc.em.rs.t.send', { time: time(d) }) : t('yc.em.rs.t.plus', { h, date: dShort(d) })}</span>;
-        })}
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', borderRadius: 16, background: 'var(--red-50)' }}>
-        <span style={{ flex: 'none', width: 8, height: 8, borderRadius: 99, background: 'var(--red-500)' }} />
-        <span style={{ fontSize: 15, lineHeight: 1.45, fontWeight: 500, textWrap: 'pretty' }}>{insight}</span>
-      </div>
+      {(r.sales_total ?? 0) > rows.length && <div style={{ fontSize: 13.5, color: 'var(--sand-600)' }}>{t('yc.em.rs.v2.pMore', { n: n(rows.length), t: n(r.sales_total ?? 0) })}</div>}
+    </section>
+  );
+}
+
+function FollowUp({ r, s }: { r: EmailResult; s: Stats }) {
+  const { t, n } = useCrmT();
+  const f = r.follow;
+  const interest = s.interest ?? 0;
+  if (!f && !interest) return null;
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'stretch' }}>
+      {interest > 0 && (
+        <section style={{ ...box, flex: '1 1 320px', minWidth: 0, gap: 12, background: 'var(--night)', boxShadow: 'none', color: 'var(--text-on-night)' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--text-on-night-2)' }}>{t('yc.em.rs.v2.iT')}</span>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 56, lineHeight: 1, letterSpacing: '-.04em', fontVariantNumeric: 'tabular-nums' }}>{n(interest)}</span>
+            <span style={{ fontSize: 15, lineHeight: 1.4, color: 'var(--text-on-night)' }}>{t('yc.em.rs.v2.iB')}</span>
+          </div>
+          <Hv as={Link} to="?tab=who" style={{ marginTop: 'auto', height: 46, padding: '0 20px', borderRadius: 99, background: '#fff', color: 'var(--ink)', fontSize: 15, fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }} hover={{ color: 'var(--red-600)' }}>
+            {t('yc.em.rs.v2.iBtn')}<Icon name="arrowRight" size={15} stroke={2.4} />
+          </Hv>
+        </section>
+      )}
+      {f && (
+        <section style={{ ...box, flex: '2 1 380px', minWidth: 0, justifyContent: 'center', gap: 6 }}>
+          <span style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.4 }}>{t('yc.em.rs.v2.follow', { n: n(f.n), s: n(f.seen), p: n(f.sold) })}</span>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function Discarded({ s }: { s: Stats }) {
+  const { t, n } = useCrmT();
+  const [open, setOpen] = useState(false);
+  const autoClicks = s.auto_clicks ?? 0;
+  const proxy = s.opened_proxy ?? 0;
+  const client = s.opened_client ?? 0;
+  if (!autoClicks && !proxy && !client) return null;
+  const col = { flex: '1 1 260px', display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 20 } as const;
+  return (
+    <section style={{ ...box, padding: '8px clamp(20px,2.4vw,28px)' }}>
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} style={{ width: '100%', minHeight: 68, display: 'flex', flexWrap: 'wrap', gap: '8px 16px', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 0, padding: '12px 0', textAlign: 'left', cursor: 'pointer', color: 'var(--ink)' }}>
+        <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ fontSize: 16, fontWeight: 600 }}>{t('yc.em.rs.v2.xT')}</span>
+          <span style={{ fontSize: 14, color: 'var(--sand-600)' }}>{t('yc.em.rs.v2.xS', { a: n(autoClicks), b: n(proxy) })}</span>
+        </span>
+        <span style={{ height: 26, padding: '0 11px', borderRadius: 99, display: 'inline-flex', alignItems: 'center', fontSize: 13, fontWeight: 500, background: 'var(--sand-100)', color: 'var(--sand-700)' }}>{t(open ? 'yc.em.rs.v2.xClose' : 'yc.em.rs.v2.xOpen')}</span>
+      </button>
+      {open && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, padding: '0 0 26px', borderTop: '1px solid var(--sand-100)' }}>
+          <div style={col}><div style={{ fontSize: 15, fontWeight: 600 }}>{t('yc.em.rs.v2.xAutoT', { n: n(autoClicks) })}</div><div style={{ fontSize: 14, lineHeight: 1.55, color: 'var(--sand-600)' }}>{t('yc.em.rs.v2.xAutoB', { p: n(s.auto_people ?? 0) })}</div></div>
+          <div style={col}><div style={{ fontSize: 15, fontWeight: 600 }}>{t('yc.em.rs.v2.xProxyT', { n: n(proxy) })}</div><div style={{ fontSize: 14, lineHeight: 1.55, color: 'var(--sand-600)' }}>{t('yc.em.rs.v2.xProxyB')}</div></div>
+          <div style={col}><div style={{ fontSize: 15, fontWeight: 600 }}>{t('yc.em.rs.v2.xClientT', { n: n(client) })}</div><div style={{ fontSize: 14, lineHeight: 1.55, color: 'var(--sand-600)' }}>{t('yc.em.rs.v2.xClientB')}</div></div>
+        </div>
+      )}
     </section>
   );
 }

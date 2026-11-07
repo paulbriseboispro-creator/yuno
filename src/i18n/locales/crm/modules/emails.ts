@@ -100,8 +100,8 @@ const dict: CrmDict = {
   'yc.em.k.openedDef': ['Share of delivered emails opened (estimate)', 'Part des e-mails délivrés ouverts (estimation)', 'Parte de e-mails entregados abiertos (estimación)'],
   'yc.em.k.clicked': ['Clicked', 'Ont cliqué', 'Hicieron clic'],
   'yc.em.k.clickedDef': ['Clicked a link in the email', 'Ont cliqué un lien de l’e-mail', 'Hicieron clic en un enlace del e-mail'],
-  'yc.em.k.bought': ['Purchases', 'Achats', 'Compras'],
-  'yc.em.k.boughtDef': ['Within 7 days of a click', 'Dans les 7 jours après un clic', 'En los 7 días tras un clic'],
+  'yc.em.k.bought': ['Places taken', 'Places prises', 'Plazas ocupadas'],
+  'yc.em.k.boughtDef': ['With the email link, or within 7 days of a click', 'Avec le lien de l’e-mail, ou dans les 7 jours après un clic', 'Con el enlace del e-mail, o en los 7 días tras un clic'],
 
   // Entonnoir
   'yc.em.f.t': ['What happens to your emails?', 'Que deviennent vos e-mails ?', '¿Qué pasa con sus e-mails?'],
@@ -153,7 +153,7 @@ const dict: CrmDict = {
   'yc.em.last.meta': ['Sent on {date} · {n} contacts', 'Envoyée le {date} · {n} contacts', 'Enviada el {date} · {n} contactos'],
   'yc.em.st.opened': ['opened', 'ouverts', 'abiertos'],
   'yc.em.st.clicked': ['clicked', 'ont cliqué', 'hicieron clic'],
-  'yc.em.st.bought': ['purchases', 'achats', 'compras'],
+  'yc.em.st.bought': ['places taken', 'places prises', 'plazas ocupadas'],
   'yc.em.preview': ['Preview', 'Aperçu', 'Vista previa'],
 
   // Nouvelle campagne
@@ -255,6 +255,12 @@ const dict: CrmDict = {
   'yc.em.aud.custom': ['Selection', 'Sélection', 'Selección'],
   'yc.em.aud.none': ['No audience', 'Aucune audience', 'Sin audiencia'],
   'yc.em.untitled': ['Untitled campaign', 'Campagne sans titre', 'Campaña sin título'],
+  'yc.em.k.seen': ['Looked at the night', 'Ont regardé la soirée', 'Miraron la fiesta'],
+  'yc.em.k.seenDef': ['People who clicked the ticketing link', 'Personnes qui ont cliqué le lien des billets', 'Personas que hicieron clic en el enlace de las entradas'],
+  'yc.em.k.later': ['Booked later', 'Réservé ensuite', 'Reservado después'],
+  'yc.em.k.laterDef': ['Within 30 days of looking', 'Dans les 30 jours après avoir regardé', 'En los 30 días tras mirar'],
+  'yc.em.st.received': ['delivered', 'reçus', 'recibidos'],
+  'yc.em.st.seen': ['looked', 'ont regardé', 'miraron'],
 };
 
 export default dict;
