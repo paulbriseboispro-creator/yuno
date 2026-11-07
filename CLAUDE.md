@@ -1339,10 +1339,23 @@ attrib-v2,attrib-consumers,claim-holders}.sql` (rejouables par `rehearse.mjs`). 
   titulaire, `policy:holder_after_queue`, Yunit rendu) : l'envoi par vagues dure des jours.
 - Le jour 0 d'un envoi par vagues est le PREMIER envoi (`started_at`), jamais `sent_at` (le dernier) ; jours
   calendaires de Paris.
-- Reste à faire : purge de l'IP et de l'user-agent bruts après 30 jours (minimisation, CNIL 2026-042), un jeu
-  d'évaluation du classement (adresses de test d'écoles / Apple / Gmail), les écrans Analyses qui affichent encore
-  un taux d'ouverture, le renvoi aux « non-ouvreurs » (l'ouverture n'est pas une lecture), l'équivalent côté
-  Billetterie (`_tix_email_attrib`).
+- **Minimisation** (`20261201150000`) : après 30 jours, `ipAddress` et `userAgent` sont retirés de
+  `email_campaign_events.metadata` par `email_events_minimize()` (cron toutes les 10 min, lots de 20 000 lignes lues,
+  repère `email_events_minimize_state`) ; l'événement porte `minimized: true` et une ouverture garde sa nature dans
+  `open_class` (posée à l'insertion). Le classement ne rejuge JAMAIS une ligne minimisée. Une lecture qui a besoin de
+  l'IP ou du user-agent d'un événement de plus de 30 jours n'a plus de quoi.
+- **Jeu d'évaluation** : `scripts/crm-bench/smoke/classify-eval.sql` (27 clics aux schémas observés : rafale d'école,
+  ferme d'adresses, aperçus de partage, humain à 16 s, Private Relay, WOH, limite connue des deux clics rapprochés ;
+  ouvertures proxy / client ; minimisation ; clic tardif). Il fige la règle, il ne la prouve pas : la seule vérité terrain
+  est l'acheteur connu. À rejouer à chaque changement de règle (`rehearse.mjs smoke/classify-eval.sql <migration>`).
+- Analyses › Audience par groupe, Plans de soirée et tri de la liste ne montrent plus d'ouvertures ; la vue d'ensemble
+  et la liste montrent reçus / ont regardé / places prises. Billetterie : le classement vit dans l'événement, donc
+  `_tix_email_attrib` et les Parcours de la Billetterie ne lisent plus de clic automatique ; son attribution n'a pas de
+  niveau « certaine » (ses liens ne portent pas `yuno-m-`).
+- Le renvoi aux « non-ouvreurs » reste : l'ABSENCE d'ouverture (le pixel n'a jamais chargé) est un signal, l'ouverture
+  ne l'est pas. Corollaire : une adresse Apple Mail (préchargement) n'y entre jamais.
+- Reste à faire : les écrans Billetterie qui affichent un taux d'ouverture, et mesurer sur d'autres comptes le taux
+  d'erreur du classement dès qu'ils auront des ventes signées `yuno-m-`.
 
 ## Yuno CRM — l'e-mail pratique aux détenteurs d'une soirée (2026-10-18)
 
