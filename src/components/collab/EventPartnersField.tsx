@@ -1,23 +1,23 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Loader2, Mail, Plus, Search, UserRound, X } from 'lucide-react';
+import { History, Loader2, Mail, Plus, Search, UserRound, X } from 'lucide-react';
 import { OrgButton, OrgPill, OrgTabs, DarkInput, RED, T1, T2, T3, BORDER, INNER_BG } from '@/components/org-ui';
 import { searchCoorgPartners, type CoorgPartnerCandidate } from '@/lib/coorg';
 import {
-  allowedRoles, defaultRole, partnerDraftKey, principalKindFor,
+  allowedRoles, defaultRole, draftFromBook, partnerDraftKey, principalKindFor, visibleBook,
   type CollabModeDb, type InviteContext, type InviteRole, type PartnerDraft, type PartnerDraftInput, type YunoSplit,
 } from '@/lib/collabInvite';
 import { PartyAvatar, useCoorgT } from '@/components/coorg/coorgUi';
 import { Switch } from '@/components/ui/switch';
-import { guestUiWords, type GuestSpaceLanguage } from '@/lib/guestSpace';
+import { guestUiWords, loadGuestPartnerBook, type GuestPartnerBookEntry, type GuestSpaceLanguage } from '@/lib/guestSpace';
 import { GuestAvatarButton } from '@/components/guest-space/GuestPhoto';
 
 /** La photo choisie pour un invité pas encore créé : aperçu local, envoyée à l'enregistrement. */
-function GuestDraftPhoto({ file, name, kind, label, onFile }: {
-  file: File | null; name: string; kind: 'org' | 'venue'; label: string; onFile: (f: File) => void;
+function GuestDraftPhoto({ file, fallbackUrl, name, kind, label, onFile }: {
+  file: File | null; fallbackUrl?: string | null; name: string; kind: 'org' | 'venue'; label: string; onFile: (f: File) => void;
 }) {
   const url = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
   useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
-  return <GuestAvatarButton url={url} name={name} kind={kind} size={28} label={label} onFile={onFile} />;
+  return <GuestAvatarButton url={url ?? fallbackUrl ?? null} name={name} kind={kind} size={28} label={label} onFile={onFile} />;
 }
 
 const MAX_INVITES = 8;
@@ -34,7 +34,7 @@ const MAX_INVITES = 8;
  * l'enregistrement de la soirée, et personne ne rejoint sans accepter.
  */
 export function EventPartnersField({
-  drafts, onChange, ctx, excludeKeys = [], existing, mode, onModeChange, guestLanguage = 'en',
+  drafts, onChange, ctx, excludeKeys = [], existing, mode, onModeChange, guestLanguage = 'en', eventId,
 }: {
   drafts: PartnerDraft[];
   onChange: (d: PartnerDraft[]) => void;
@@ -47,6 +47,8 @@ export function EventPartnersField({
   onModeChange: (m: CollabModeDb) => void;
   /** Langue proposée pour l'espace d'un invité par email (pays de la soirée). */
   guestLanguage?: GuestSpaceLanguage;
+  /** Soirée déjà créée : le carnet n'y propose pas ceux qui y ont déjà leur espace. */
+  eventId?: string | null;
 }) {
   const { t, language } = useCoorgT();
   const gw = guestUiWords(language);
@@ -57,6 +59,13 @@ export function EventPartnersField({
   const [email, setEmail] = useState('');
   const [emailName, setEmailName] = useState('');
   const [emailKind, setEmailKind] = useState<'org' | 'venue'>('org');
+  // Les partenaires déjà invités par email sur une soirée d'avant : un clic pour les réinviter.
+  const [book, setBook] = useState<GuestPartnerBookEntry[]>([]);
+  useEffect(() => {
+    let active = true;
+    void loadGuestPartnerBook(eventId).then((rows) => { if (active) setBook(rows); });
+    return () => { active = false; };
+  }, [eventId]);
 
   useEffect(() => {
     const q = query.trim();
@@ -78,6 +87,7 @@ export function EventPartnersField({
 
   const taken = new Set([...drafts.map(partnerDraftKey), ...excludeKeys]);
   const full = drafts.length >= MAX_INVITES;
+  const bookRows = visibleBook(book, query, taken, ctx, drafts);
   const principalWord = (kind: 'org' | 'venue') => (kind === 'venue'
     ? t('Lieu', 'Venue', 'Lugar')
     : t('Organisateur', 'Organizer', 'Organizador'));
@@ -88,6 +98,12 @@ export function EventPartnersField({
     const extra = d.source === 'email' ? { guestLang: guestLanguage, guestRevenue: true, guestPlaces: 0 } : {};
     onChange([...drafts, { ...d, ...extra, role } as PartnerDraft]);
     setQuery(''); setResults([]); setEmail(''); setEmailName(''); setEmailOpen(false);
+  };
+  const addFromBook = (b: GuestPartnerBookEntry) => {
+    const d = draftFromBook(b, ctx, drafts);
+    if (!d || taken.has(partnerDraftKey(d))) return;
+    onChange([...drafts, d]);
+    setQuery(''); setResults([]);
   };
   const setRole = (key: string, role: InviteRole) =>
     onChange(drafts.map((d) => (partnerDraftKey(d) === key ? { ...d, role } : d)));
@@ -168,7 +184,7 @@ export function EventPartnersField({
                 <p className="truncate" style={{ color: T3, fontSize: 11 }}>
                   {kindLabel(d.kind)}
                   {d.source === 'email'
-                    ? ` · ${t('invitation par email', 'email invitation', 'invitación por email')}${d.name ? ` · ${d.email}` : ''}`
+                    ? ` · ${d.fromBook ? t('déjà invité', 'invited before', 'ya invitado') : t('invitation par email', 'email invitation', 'invitación por email')}${d.name ? ` · ${d.email}` : ''}`
                     : d.city ? ` · ${d.city}` : ''}
                 </p>
               </div>
@@ -183,7 +199,7 @@ export function EventPartnersField({
             <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.45 }}>{roleHint(d)}</p>
             {d.role === 'guest' && d.source === 'email' && (
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-0.5">
-                <GuestDraftPhoto file={d.guestPhoto ?? null} name={d.name || d.email} kind={d.kind} label={gw('guestSpace.org.photo')}
+                <GuestDraftPhoto file={d.guestPhoto ?? null} fallbackUrl={d.guestPhotoFrom?.url ?? null} name={d.name || d.email} kind={d.kind} label={gw('guestSpace.org.photo')}
                   onFile={(f) => patchGuest(key, { guestPhoto: f })} />
                 <div className="flex items-center gap-2">
                   <span style={{ color: T3, fontSize: 11.5 }}>{gw('guestSpace.org.language')}</span>
@@ -264,6 +280,28 @@ export function EventPartnersField({
                   <span className="min-w-0 flex-1">
                     <span className="block truncate" style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{r.name}</span>
                     <span className="block truncate" style={{ color: T3, fontSize: 11 }}>{kindLabel(r.kind)}{r.city ? ` · ${r.city}` : ''}</span>
+                  </span>
+                  <Plus className="h-4 w-4 flex-none" style={{ color: T3 }} />
+                </button>
+              ))}
+            </div>
+          )}
+
+          {bookRows.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="flex items-center gap-1.5 px-1" style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.02em' }}>
+                <History className="h-3 w-3" /> {t('Déjà invités par email', 'Invited by email before', 'Ya invitados por email')}
+              </p>
+              {bookRows.map((b) => (
+                <button key={b.email} type="button" onClick={() => addFromBook(b)}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors hover:bg-[rgb(var(--ink)/0.05)]"
+                  style={{ border: `1px solid ${BORDER}` }}>
+                  <PartyAvatar name={b.guest_name} url={b.photo_url} kind={b.guest_kind} size={30} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate" style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{b.guest_name}</span>
+                    <span className="block truncate" style={{ color: T3, fontSize: 11 }}>
+                      {kindLabel(b.guest_kind)} · {b.email}{b.last_event_title ? ` · « ${b.last_event_title} »` : ''}
+                    </span>
                   </span>
                   <Plus className="h-4 w-4 flex-none" style={{ color: T3 }} />
                 </button>

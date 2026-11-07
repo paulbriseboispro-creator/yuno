@@ -119,6 +119,7 @@ export function InviteToEventStep({ eventId, scope, settingsHref, onBack, onDone
         mode={mode}
         onModeChange={setMode}
         guestLanguage={guestLanguageForEvent(ev.timezone, ev.location_city)}
+        eventId={ev.id}
         excludeKeys={[
           scope.venueId ? `venue:${scope.venueId}` : `org:${scope.organizerUserId}`,
           ...(linked ? [lead === 'organizer' ? `venue:${linked}` : `org:${linked}`] : []),

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
-  Building2, Copy, ExternalLink, FileSignature, Loader2, Mail, MessageCircle, Plus, Power, RotateCcw, ScanLine, Settings2, UserPlus, Users,
+  Building2, Copy, ExternalLink, FileSignature, History, Loader2, Mail, MessageCircle, Plus, Power, RotateCcw, ScanLine, Settings2, UserPlus, Users,
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { OrgCard, OrgButton, OrgPill, OrgSectionLabel, OrgTabs, DarkInput, DarkTextarea, POS, RED, T1, T2, T3, BORDER, INNER_BG } from '@/components/org-ui';
@@ -12,9 +12,9 @@ import { marketCountry } from '@/lib/geo';
 import { capturePosthog } from '@/lib/posthog';
 import {
   cancelGuestContract, createGuestPass, declineGuestPlaces, doorInviteUrl, formatIban, markGuestTransferSent, proposeGuestContract, guestErrorCode, guestErrorText, guestLanguageForEvent, guestSpaceLocale, guestSpaceShareText,
-  getGuestPassLink, guestInviteUrl, guestShareUrl, guestSpacePath, guestUiWords, resetGuestPassAccess, setGuestPassDoor, setGuestPassPhoto, uploadGuestPhoto, inviteEventDoorStaff, listEventDoorStaff, listGuestPasses, revokeEventDoorStaff,
+  getGuestPassLink, guestInviteUrl, guestShareUrl, guestSpacePath, guestUiWords, loadGuestPartnerBook, resetGuestPassAccess, reuseGuestPassPhoto, setGuestPassDoor, setGuestPassPhoto, uploadGuestPhoto, inviteEventDoorStaff, listEventDoorStaff, listGuestPasses, revokeEventDoorStaff,
   sendDoorInviteEmail, sendGuestPassEmail, toGuestSpaceLanguage, updateGuestPass, whatsappHref,
-  type DoorStaffRow, type GuestContractTerms, type GuestDoorMode, type GuestKind, type GuestPassRow, type GuestSpaceLanguage,
+  type DoorStaffRow, type GuestContractTerms, type GuestDoorMode, type GuestKind, type GuestPartnerBookEntry, type GuestPassRow, type GuestSpaceLanguage,
 } from '@/lib/guestSpace';
 import { openPendingTab } from '@/lib/stripeConnectClient';
 import { GuestAvatar, GuestAvatarButton } from '@/components/guest-space/GuestPhoto';
@@ -68,10 +68,14 @@ export function GuestPassCard({ eventId, eventTitle }: { eventId: string; eventT
   const photoPreview = useMemo(() => (photo ? URL.createObjectURL(photo) : null), [photo]);
   useEffect(() => () => { if (photoPreview) URL.revokeObjectURL(photoPreview); }, [photoPreview]);
   const [door, setDoor] = useState<GuestDoorMode>('both');
+  // Partenaires déjà invités par email sur une autre soirée : un clic préremplit le formulaire (adresse, langue, porte, photo).
+  const [book, setBook] = useState<GuestPartnerBookEntry[]>([]);
+  const [photoFrom, setPhotoFrom] = useState<{ passId: string; url: string } | null>(null);
 
   const load = useCallback(async () => {
     try {
       const [r, s] = await Promise.all([listGuestPasses(eventId), listEventDoorStaff(eventId)]);
+      loadGuestPartnerBook(eventId).then(setBook);
       setRows(r.passes);
       setCanMoney(r.canShowRevenue);
       setStaff(s ?? []);
@@ -127,6 +131,8 @@ export function GuestPassCard({ eventId, eventTitle }: { eventId: string; eventT
     if (photo) {
       try { await setGuestPassPhoto(pass.id, await uploadGuestPhoto(pass.id, photo)); }
       catch (err) { toast.error(guestErrorText(guestErrorCode(err), w)); }
+    } else if (photoFrom) {
+      try { await reuseGuestPassPhoto(pass.id, photoFrom.passId); } catch { /* il garde ses initiales */ }
     }
     capturePosthog('guest_space_created', { event_id: eventId, guest_kind: kind, source: 'coorg_page', show_revenue: pass.show_revenue, channel: email.trim() ? 'email' : 'whatsapp', contract: contractOn });
     if (email.trim()) {
@@ -137,8 +143,15 @@ export function GuestPassCard({ eventId, eventTitle }: { eventId: string; eventT
       const href = whatsappHref(phone, guestSpaceShareText(lang, { guest: name.trim(), event: eventTitle, page: guestInviteUrl(pass.token) }));
       if (href && tab) tab.go(href); else tab?.close();
     }
-    setOpen(false); setEmail(''); setPhone(''); setPlaces(0); setPhoto(null);
+    setOpen(false); setEmail(''); setPhone(''); setPlaces(0); setPhoto(null); setPhotoFrom(null);
   });
+
+  const fillFromBook = (b: GuestPartnerBookEntry) => {
+    setKind(b.guest_kind); setName(b.guest_name); setEmail(b.email); setPhone('');
+    setLang(b.language); setDoor(b.door_mode ?? 'both'); setPhoto(null);
+    setPhotoFrom(b.photo_url && b.photo_pass_id ? { passId: b.photo_pass_id, url: b.photo_url } : null);
+    setOpen(true);
+  };
 
   // Un lien à partager = l'espace s'il est déjà rattaché, sinon une invitation NEUVE (jeton à usage unique).
   const share = async (r: GuestPassRow) => {
@@ -193,6 +206,24 @@ export function GuestPassCard({ eventId, eventTitle }: { eventId: string; eventT
         )}
       </div>
 
+      {book.length > 0 && live.length < 8 && (
+        <div className="mb-3 space-y-1.5">
+          <p className="flex items-center gap-1.5" style={{ color: T3, fontSize: 11, fontWeight: 600 }}>
+            <History className="h-3 w-3" /> {w('guestSpace.org.bookTitle')}
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {book.slice(0, 8).map((b) => (
+              <button key={b.email} type="button" onClick={() => fillFromBook(b)} disabled={!!busy}
+                className="flex items-center gap-2 rounded-full py-1 pl-1 pr-3 transition-colors hover:bg-[rgb(var(--ink)/0.05)]"
+                style={{ border: `1px solid ${BORDER}`, background: INNER_BG }} title={`${b.guest_name} · ${b.email}`}>
+                <GuestAvatar url={b.photo_url} name={b.guest_name} kind={b.guest_kind} size={24} />
+                <span className="max-w-[160px] truncate" style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>{b.guest_name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {open && (
         <div className="mb-3 space-y-2 rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
           <OrgTabs size="sm" value={kind} onChange={(v) => setKind(v as GuestKind)} tabs={[
@@ -219,7 +250,7 @@ export function GuestPassCard({ eventId, eventTitle }: { eventId: string; eventT
             )}
           </div>
           <div className="flex items-center gap-2.5">
-            <GuestAvatarButton url={photoPreview} name={name || '?'} kind={kind} size={36}
+            <GuestAvatarButton url={photoPreview ?? photoFrom?.url ?? null} name={name || '?'} kind={kind} size={36}
               label={w('guestSpace.org.photo')} onFile={(f) => setPhoto(f)} />
             <span style={{ color: T3, fontSize: 11.5, lineHeight: 1.4 }}>{w('guestSpace.org.photoHint')}</span>
           </div>

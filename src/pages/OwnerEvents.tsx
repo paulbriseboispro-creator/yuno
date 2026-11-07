@@ -1681,6 +1681,7 @@ export default function OwnerEvents() {
                   mode={principalMode}
                   onModeChange={setPrincipalMode}
                   guestLanguage={guestLanguageForEvent(formData.timezone, locationCity)}
+                  eventId={editingEvent?.id ?? null}
                   excludeKeys={[
                     isOrganizerScope ? `org:${organizerUserId}` : `venue:${venueId}`,
                     ...(linkedPartnerId ? [isOrganizerScope ? `venue:${linkedPartnerId}` : `org:${linkedPartnerId}`] : []),
