@@ -29,7 +29,7 @@ import { EmailsShell } from './EmailsShell';
 import { EmailMiniThumb } from './EmailThumb';
 
 type Filter = 'all' | 'draft' | 'sched' | 'sent';
-type Sort = 'def' | 'sales' | 'open';
+type Sort = 'def' | 'sales' | 'seen';
 
 const ST: Record<string, [string, string]> = {
   draft: ['var(--amber-50)', 'var(--amber-700)'],
@@ -92,7 +92,7 @@ export default function EmailCampaignsPage() {
   // Sans accès à l'argent, le serveur tait les montants : on classe par achats.
   const sales = (c: EmailCampaignRow) => (c.stats ? (caps.money && c.stats.revenue !== null ? c.stats.revenue : c.stats.purchases) : -1);
   if (sort === 'sales') list = [...list].sort((a, b) => sales(b) - sales(a));
-  if (sort === 'open') list = [...list].sort((a, b) => (rate(b.stats?.opened ?? 0, b.stats?.received ?? 0) ?? -1) - (rate(a.stats?.opened ?? 0, a.stats?.received ?? 0) ?? -1));
+  if (sort === 'seen') list = [...list].sort((a, b) => (rate(b.stats?.ticketing ?? 0, b.stats?.received ?? 0) ?? -1) - (rate(a.stats?.ticketing ?? 0, a.stats?.received ?? 0) ?? -1));
 
   const fail = () => toast(t('yc.em.ca.t.err'));
   const dup = async (list0: string[]) => {
@@ -158,7 +158,7 @@ export default function EmailCampaignsPage() {
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--sand-500)' }}>
             {t('yc.em.ca.sort')}
             <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label={t('yc.em.ca.sort')} style={{ height: 40, padding: '0 34px 0 14px', borderRadius: 99, border: '1px solid var(--sand-200)', background: "#fff url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23A39A98' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\") no-repeat right 12px center", fontSize: 14, fontWeight: 500, color: 'var(--ink)', cursor: 'pointer', appearance: 'none', WebkitAppearance: 'none', font: 'inherit' }}>
-              {(['def', 'sales', 'open'] as Sort[]).map((k) => <option key={k} value={k}>{t(`yc.em.ca.sort.${k}`)}</option>)}
+              {(['def', 'sales', 'seen'] as Sort[]).map((k) => <option key={k} value={k}>{t(`yc.em.ca.sort.${k}`)}</option>)}
             </select>
           </label>
         )}

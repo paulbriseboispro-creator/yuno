@@ -111,7 +111,7 @@ const dict: CrmDict = {
   'yc.np.c.st.paused': ['Paused', 'En pause', 'En pausa'],
   'yc.np.c.st.failed': ['Failed', 'Échec', 'Error'],
   'yc.np.c.late': ['Held: too close to the night.', 'Retenu : trop près de la soirée.', 'Retenido: demasiado cerca de la fiesta.'],
-  'yc.np.c.stats': ['{s} sent · {o} opened · {c} clicked · {b} bought', '{s} envoyés · {o} ouverts · {c} cliqués · {b} ont acheté', '{s} enviados · {o} abiertos · {c} clics · {b} compraron'],
+  'yc.np.c.stats': ['{s} sent · {c} clicked · {b} took a place', '{s} envoyés · {c} ont cliqué · {b} ont pris leur place', '{s} enviados · {c} hicieron clic · {b} ocuparon su plaza'],
   'yc.np.c.holdout': ['{n} kept aside (control)', '{n} gardés de côté (témoin)', '{n} apartados (control)'],
   'yc.np.c.protected': ['Protected: {list}', 'Protégés : {list}', 'Protegidos: {list}'],
   'yc.np.pr.holder': ['{n} already had a ticket', '{n} avaient déjà leur place', '{n} ya tenían entrada'],

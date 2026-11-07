@@ -182,7 +182,7 @@ const dict: CrmDict = {
   'yc.em.ca.sort': ['Sort', 'Trier', 'Ordenar'],
   'yc.em.ca.sort.def': ['Default', 'Par défaut', 'Por defecto'],
   'yc.em.ca.sort.sales': ['Sales', 'Ventes', 'Ventas'],
-  'yc.em.ca.sort.open': ['Opens', 'Ouvertures', 'Aperturas'],
+  'yc.em.ca.sort.seen': ['Looked at the night', 'Ont regardé la soirée', 'Miraron la fiesta'],
   'yc.em.ca.view': ['Display', 'Affichage', 'Vista'],
   'yc.em.ca.list': ['List', 'Liste', 'Lista'],
   'yc.em.ca.cal': ['Calendar', 'Calendrier', 'Calendario'],

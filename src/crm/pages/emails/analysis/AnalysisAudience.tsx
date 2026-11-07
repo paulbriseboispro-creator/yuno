@@ -66,7 +66,7 @@ function Groups({ a }: { a: EmailAnalysis }) {
   const g = useProgress(1100, 380, a.segments.length);
   const rows = LIFECYCLES.map((l) => a.segments.find((s) => s.seg === l)).filter((s): s is EmailAnalysis['segments'][number] => !!s && s.received > 0);
   const maxPerK = Math.max(0.0001, ...rows.map((s) => (s.purchases / s.received) * 1000));
-  const cols = narrow ? 'minmax(0,1fr) 70px' : 'minmax(140px,1.4fr) repeat(3,minmax(0,1fr)) 90px';
+  const cols = narrow ? 'minmax(0,1fr) 70px' : 'minmax(140px,1.4fr) repeat(2,minmax(0,1fr)) 90px';
 
   return (
     <section style={{ ...box, gap: 14 }}>
@@ -75,7 +75,7 @@ function Groups({ a }: { a: EmailAnalysis }) {
         <>
           {!narrow && (
             <div style={{ display: 'grid', gridTemplateColumns: cols, gap: '10px 18px', alignItems: 'center', fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--sand-400)', padding: '0 4px' }}>
-              <span>{t('yc.em.an.g.seg')}</span><span>{t('yc.em.an.g.open')}</span><span>{t('yc.em.an.g.click')}</span><span>{t('yc.em.an.g.perK')}</span><span style={{ textAlign: 'right' }}>{t('yc.em.an.g.reach')}</span>
+              <span>{t('yc.em.an.g.seg')}</span><span>{t('yc.em.an.g.click')}</span><span>{t('yc.em.an.g.perK')}</span><span style={{ textAlign: 'right' }}>{t('yc.em.an.g.reach')}</span>
             </div>
           )}
           <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -83,7 +83,6 @@ function Groups({ a }: { a: EmailAnalysis }) {
               const k = clamp01(g * 1.4 - i * 0.05);
               const perK = (s.purchases / s.received) * 1000;
               const metrics = [
-                { l: t('yc.em.an.g.open'), v: pct((s.opened / s.received) * 100), w: (s.opened / s.received / 0.8) * 100, fill: 'var(--red-300)' },
                 { l: t('yc.em.an.g.click'), v: pct((s.clicked / s.received) * 100), w: (s.clicked / s.received / 0.5) * 100, fill: 'var(--gradient-brand)' },
                 { l: t('yc.em.an.g.perK'), v: n1(perK), w: (perK / maxPerK) * 100, fill: 'var(--ink)' },
               ];
