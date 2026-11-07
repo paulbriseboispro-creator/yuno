@@ -45,6 +45,7 @@ import { EventGlobalCapacity } from '@/components/owner/ticketing/EventGlobalCap
 import { FreeTicketDialog, type FreeTicketPatch } from '@/components/owner/ticketing/FreeTicketDialog';
 import { FreeTicketRow } from '@/components/owner/ticketing/FreeTicketRow';
 import { FreeTicketList } from '@/components/owner/ticketing/FreeTicketList';
+import { AddExistingTicketsDialog } from '@/components/owner/ticketing/AddExistingTicketsDialog';
 import { TicketGroupDialog } from '@/components/owner/ticketing/TicketGroupDialog';
 import { mapTicketGroup, ticketDisplayName, type TicketGroup } from '@/lib/ticketGroups';
 import { FreePresetDialog, type FreePresetDraft } from '@/components/owner/ticketing/FreePresetDialog';
@@ -82,6 +83,7 @@ export default function OwnerTicketing() {
   // Packs de billets de la billetterie libre, par soirée (lib/ticketGroups).
   const [ticketGroups, setTicketGroups] = useState<Record<string, TicketGroup[]>>({});
   const [groupDialog, setGroupDialog] = useState<{ eventId: string; group: TicketGroup | null } | null>(null);
+  const [existingDialog, setExistingDialog] = useState<{ eventId: string; group: TicketGroup } | null>(null);
   const [freePresetDialog, setFreePresetDialog] = useState<{ title: string; initial: FreePresetDraft; presetId: string | null } | null>(null);
   const [activeTab, setActiveTab] = useTabParam('events', ['events', 'presets']);
   // Accordion: keep only one event expanded to full config at a time; the rest
@@ -1057,6 +1059,20 @@ export default function OwnerTicketing() {
     await fetchTicketRounds(eventId);
   };
 
+  // Range des billets déjà créés dans un pack (le nom du pack est recopié sur
+  // chaque billet par la base). Les billets déjà dans un autre pack y passent.
+  const handleAssignToGroup = async (ticketIds: string[]) => {
+    if (!existingDialog || !ticketIds.length) return;
+    const { eventId, group } = existingDialog;
+    const { data: updated, error } = await supabase
+      .from('ticket_rounds').update({ group_id: group.id }).in('id', ticketIds).select('id');
+    if (error) { toast.error(t('tickets.errorSaving')); return; }
+    if ((updated?.length ?? 0) < ticketIds.length) toast.error(t('tickets.notAllowed'));
+    else toast.success(t('tickets.packs.added'));
+    setExistingDialog(null);
+    await fetchTicketRounds(eventId);
+  };
+
   const handleMoveGroup = async (eventId: string, group: TicketGroup, dir: -1 | 1) => {
     const list = [...(ticketGroups[eventId] || [])].sort((a, b) => a.position - b.position);
     const i = list.findIndex(g => g.id === group.id);
@@ -1807,6 +1823,7 @@ export default function OwnerTicketing() {
                                   onDeleteGroup={(group) => handleDeleteGroup(event.id, group)}
                                   onMoveGroup={(group, dir) => handleMoveGroup(event.id, group, dir)}
                                   onAddTicketInGroup={(group) => setFreeTicketDialog({ eventId: event.id, ticket: null, groupId: group.id })}
+                                  onAddExistingTicket={(group) => setExistingDialog({ eventId: event.id, group })}
                                 />
                               );
                             })()}
@@ -2125,6 +2142,14 @@ export default function OwnerTicketing() {
           onOpenChange={(open) => { if (!open) setGroupDialog(null); }}
           group={groupDialog?.group ?? null}
           onSave={handleSaveGroup}
+        />
+        <AddExistingTicketsDialog
+          open={!!existingDialog}
+          onOpenChange={(open) => { if (!open) setExistingDialog(null); }}
+          group={existingDialog?.group ?? null}
+          tickets={existingDialog ? (ticketRounds[existingDialog.eventId] || []).slice().sort((a, b) => a.position - b.position) : []}
+          groups={existingDialog ? (ticketGroups[existingDialog.eventId] || []) : []}
+          onConfirm={handleAssignToGroup}
         />
         {freePresetDialog && (
           <FreePresetDialog

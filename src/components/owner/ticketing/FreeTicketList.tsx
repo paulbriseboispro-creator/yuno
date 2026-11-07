@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp, Layers, Pencil, Plus, Shapes, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Layers, ListPlus, Pencil, Plus, Shapes, Trash2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { TicketRound } from '@/types/ticketing';
 import type { TicketGroup } from '@/lib/ticketGroups';
@@ -18,6 +18,8 @@ interface FreeTicketListProps {
   onDeleteGroup: (group: TicketGroup) => void;
   onMoveGroup: (group: TicketGroup, dir: -1 | 1) => void;
   onAddTicketInGroup: (group: TicketGroup) => void;
+  /** Ouvre le choix d'un billet déjà créé à ranger dans ce pack. */
+  onAddExistingTicket: (group: TicketGroup) => void;
 }
 
 // La liste de la billetterie libre, rangée comme la page de choix : les
@@ -25,7 +27,7 @@ interface FreeTicketListProps {
 // Un pack se crée d'un bouton ; un billet y entre par « Ajouter un billet dans
 // ce pack » ou par le choix « Pack » de sa fiche.
 export function FreeTicketList({
-  tickets, groups, renderTicket, onCreateGroup, onEditGroup, onDeleteGroup, onMoveGroup, onAddTicketInGroup,
+  tickets, groups, renderTicket, onCreateGroup, onEditGroup, onDeleteGroup, onMoveGroup, onAddTicketInGroup, onAddExistingTicket,
 }: FreeTicketListProps) {
   const { t } = useLanguage();
   const known = new Set(groups.map(g => g.id));
@@ -108,15 +110,27 @@ export function FreeTicketList({
               ? <div className="space-y-2">{section(inPack)}</div>
               : <p style={{ color: T3, fontSize: 12 }}>{t('tickets.packs.emptyPack')}</p>}
 
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full h-9 text-[12.5px]"
-              onClick={() => onAddTicketInGroup(group)}
-              style={{ background: C_FAINT, border: `1px dashed ${BORDER}`, color: T2 }}
-            >
-              <Plus className="h-3.5 w-3.5 mr-1.5" />{t('tickets.packs.addTicket')}
-            </Button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 text-[12.5px]"
+                onClick={() => onAddTicketInGroup(group)}
+                style={{ background: C_FAINT, border: `1px dashed ${BORDER}`, color: T2 }}
+              >
+                <Plus className="h-3.5 w-3.5 mr-1.5" />{t('tickets.packs.addTicket')}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 text-[12.5px]"
+                disabled={tickets.every(r => r.groupId === group.id)}
+                onClick={() => onAddExistingTicket(group)}
+                style={{ background: C_FAINT, border: `1px dashed ${BORDER}`, color: T2 }}
+              >
+                <ListPlus className="h-3.5 w-3.5 mr-1.5" />{t('tickets.packs.addExisting')}
+              </Button>
+            </div>
           </div>
         );
       })}
