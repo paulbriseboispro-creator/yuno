@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  allowedRoles, clubEmailInviteRules, defaultRole, partnerDraftKey, principalKindFor, principalTerms,
-  yunoContractRules, type PartnerDraft,
+  allowedRoles, clubEmailInviteRules, defaultRole, draftFromBook, partnerDraftKey, principalKindFor, principalTerms,
+  visibleBook, yunoContractRules, type PartnerDraft,
 } from '../collabInvite';
+import type { GuestPartnerBookEntry } from '../guestSpace';
 
 const org = (id: string, role: PartnerDraft['role'] = 'viewer'): PartnerDraft =>
   ({ source: 'yuno', kind: 'org', id, name: id, avatar_url: null, city: null, role });
@@ -95,5 +96,44 @@ describe('espace invité (guest)', () => {
   it('jamais pour un club quand un club mène, ni pour une partie déjà sur Yuno', () => {
     expect(allowedRoles({ source: 'email', kind: 'venue' }, { lead: 'venue', principalOpen: true, hostOpen: true })).toEqual([]);
     expect(allowedRoles({ source: 'yuno', kind: 'venue' }, { lead: 'organizer', principalOpen: true, hostOpen: true })).not.toContain('guest');
+  });
+});
+
+describe('carnet des partenaires déjà invités par email', () => {
+  const entry = (over: Partial<GuestPartnerBookEntry> = {}): GuestPartnerBookEntry => ({
+    guest_kind: 'venue', guest_name: 'Tia Felisa', email: 'tia@felisa.es', language: 'es', door_mode: 'guest',
+    photo_url: 'https://x/guest-pass-photos/p1/a.webp', photo_pass_id: 'p1', times_invited: 1,
+    last_event_title: 'House Of Masquerade', last_event_at: '2026-10-28T22:00:00Z', last_at: '2026-10-01T10:00:00Z', linked: true, ...over,
+  });
+  const ctx = { lead: 'organizer' as const, principalOpen: true, hostOpen: true };
+
+  it('le réinviter reprend son nom, son adresse, sa langue, sa porte et sa photo', () => {
+    const d = draftFromBook(entry(), ctx);
+    expect(d).toMatchObject({
+      source: 'email', kind: 'venue', email: 'tia@felisa.es', name: 'Tia Felisa', role: 'guest', fromBook: true,
+      guestLang: 'es', guestDoor: 'guest', guestPhotoFrom: { passId: 'p1', url: 'https://x/guest-pass-photos/p1/a.webp' },
+    });
+    expect(partnerDraftKey(d!)).toBe('email:tia@felisa.es');
+  });
+
+  it('un club n’a pas de réglage de porte quand c’est une organisation, et pas de photo sans accès source', () => {
+    const d = draftFromBook(entry({ guest_kind: 'org', door_mode: null, photo_url: null, photo_pass_id: null }), ctx);
+    expect(d).toMatchObject({ kind: 'org', role: 'guest', guestDoor: undefined, guestPhotoFrom: null });
+  });
+
+  it('un club n’est pas proposé là où il ne peut pas recevoir l’espace invité', () => {
+    expect(draftFromBook(entry(), { lead: 'venue', principalOpen: true })).toBeNull();
+    // Le lieu Yuno est déjà là : le club hors Yuno ne prend plus l'espace invité non plus.
+    expect(draftFromBook(entry(), { lead: 'organizer', principalOpen: true, hostOpen: false })).toBeNull();
+    // Une organisation, elle, peut toujours l'avoir.
+    expect(draftFromBook(entry({ guest_kind: 'org' }), { lead: 'venue', principalOpen: false })).not.toBeNull();
+  });
+
+  it('écarte ceux déjà choisis ou déjà sur la soirée, et filtre par nom ou adresse', () => {
+    const book = [entry(), entry({ guest_name: 'Chin Chin', email: 'hola@chinchin.es', guest_kind: 'org' })];
+    expect(visibleBook(book, '', new Set(), ctx, []).map((b) => b.guest_name)).toEqual(['Tia Felisa', 'Chin Chin']);
+    expect(visibleBook(book, 'chin', new Set(), ctx, []).map((b) => b.guest_name)).toEqual(['Chin Chin']);
+    expect(visibleBook(book, 'FELISA.ES', new Set(), ctx, []).map((b) => b.guest_name)).toEqual(['Tia Felisa']);
+    expect(visibleBook(book, '', new Set(['email:tia@felisa.es']), ctx, []).map((b) => b.guest_name)).toEqual(['Chin Chin']);
   });
 });

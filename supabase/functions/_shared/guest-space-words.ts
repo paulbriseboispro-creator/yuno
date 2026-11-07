@@ -985,6 +985,11 @@ const WORDS = {
     "Invitation pas encore ouverte",
     "Invitación aún no abierta",
   ],
+  'guestSpace.org.bookTitle': [
+    "Invite again",
+    "Réinviter",
+    "Invitar de nuevo",
+  ],
   'guestSpace.org.resendInvite': [
     "Send a new invitation",
     "Renvoyer une invitation",

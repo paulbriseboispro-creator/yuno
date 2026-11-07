@@ -26,6 +26,7 @@
  */
 import type { PrincipalTerms } from '@/lib/coorg';
 import type { ExternalCollector } from '@/lib/splitRules';
+import type { GuestPartnerBookEntry } from '@/lib/guestSpace';
 
 export type PartyKindLite = 'org' | 'venue';
 export type InviteRole = 'principal' | 'editor' | 'viewer' | 'guest';
@@ -43,6 +44,10 @@ export type PartnerDraft =
     guestDoor?: 'organizer' | 'guest' | 'both';
     /** Photo préchargée (logo du club…), envoyée une fois l'accès créé. */
     guestPhoto?: File | null;
+    /** Partenaire déjà invité : la photo d'un ancien accès, reprise telle quelle (carnet). */
+    guestPhotoFrom?: { passId: string; url: string } | null;
+    /** Vient du carnet des partenaires déjà invités (affiché « déjà invité »). */
+    fromBook?: boolean;
   };
 
 /** Un invité avant qu'on lui donne un rôle (l'Omit distribué sur l'union). */
@@ -96,6 +101,46 @@ export function defaultRole(d: Pick<PartnerDraft, 'source' | 'kind'>, ctx: Invit
   if (roles.includes('guest')) return 'guest';
   if (roles.includes('viewer')) return 'viewer';
   return roles[0];
+}
+
+/**
+ * Un partenaire du carnet (déjà invité par email sur une soirée d'avant) devenu
+ * invité de CETTE soirée : mêmes nom, type, adresse, langue, porte et photo
+ * qu'avant, rôle « Invité » (espace invité neuf, adresse neuve, accès neuf).
+ * Rend null quand cette soirée ne peut pas accueillir un invité de ce type
+ * (un club hors Yuno ne prend l'espace invité que sur une soirée d'organisation
+ * sans club pour lieu) : il n'est alors pas proposé.
+ */
+export function draftFromBook(
+  b: Pick<GuestPartnerBookEntry, 'guest_kind' | 'guest_name' | 'email' | 'language' | 'door_mode' | 'photo_url' | 'photo_pass_id'>,
+  ctx: InviteContext,
+  others: PartnerDraft[] = [],
+): PartnerDraft | null {
+  const base = { source: 'email' as const, kind: b.guest_kind, email: b.email, name: b.guest_name };
+  if (!allowedRoles(base, ctx, others).includes('guest')) return null;
+  return {
+    ...base, role: 'guest', fromBook: true,
+    guestLang: b.language, guestRevenue: true, guestPlaces: 0,
+    guestDoor: b.guest_kind === 'venue' ? (b.door_mode ?? 'both') : undefined,
+    guestPhotoFrom: b.photo_url && b.photo_pass_id ? { passId: b.photo_pass_id, url: b.photo_url } : null,
+  };
+}
+
+/**
+ * Les partenaires du carnet à proposer : pas ceux déjà choisis ou déjà sur la
+ * soirée, seulement ceux que cette soirée peut accueillir, filtrés par ce que
+ * le pro tape (nom ou adresse). Sans saisie : les plus récents d'abord (le
+ * serveur les rend dans cet ordre).
+ */
+export function visibleBook(
+  book: GuestPartnerBookEntry[], query: string, takenKeys: Set<string>, ctx: InviteContext, drafts: PartnerDraft[], limit = 6,
+): GuestPartnerBookEntry[] {
+  const q = query.trim().toLowerCase();
+  return book
+    .filter((b) => !takenKeys.has(`email:${b.email.toLowerCase()}`))
+    .filter((b) => !q || b.guest_name.toLowerCase().includes(q) || b.email.toLowerCase().includes(q))
+    .filter((b) => draftFromBook(b, ctx, drafts) !== null)
+    .slice(0, limit);
 }
 
 export interface YunoSplit {

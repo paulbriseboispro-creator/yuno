@@ -398,6 +398,43 @@ export const guestSetPhoto = (passId: string, url: string | null) => rpc('guest_
 /** Initiales affichées sans photo. */
 export const guestInitials = (name: string) => name.split(/\s+/).map((x) => x[0]).join('').slice(0, 2).toUpperCase();
 
+/** Reprend, sur un accès neuf, la photo d'un ancien accès du même partenaire (rien n'est recopié dans le Storage). */
+export const reuseGuestPassPhoto = (passId: string, fromPassId: string) =>
+  rpc('reuse_guest_pass_photo', { p_pass_id: passId, p_from_pass_id: fromPassId });
+
+// ─── Carnet des partenaires invités par email ──────────────────────────────
+
+/**
+ * Un partenaire déjà invité par email (`get_guest_partner_book`) : une ligne par
+ * adresse, ce qu'on sait de lui d'après ses accès précédents. C'est ce qui permet
+ * de le réinviter sur la soirée suivante en un clic, sans rien retaper.
+ */
+export interface GuestPartnerBookEntry {
+  guest_kind: GuestKind;
+  guest_name: string;
+  email: string;
+  language: GuestSpaceLanguage;
+  door_mode: GuestDoorMode | null;
+  photo_url: string | null;
+  /** L'accès qui porte `photo_url` (pour la reprendre sur le nouvel accès). */
+  photo_pass_id: string | null;
+  times_invited: number;
+  last_event_title: string | null;
+  last_event_at: string | null;
+  last_at: string;
+  /** Il a déjà rattaché un compte Yuno à l'un de ses accès. */
+  linked: boolean;
+}
+
+export async function loadGuestPartnerBook(eventId?: string | null): Promise<GuestPartnerBookEntry[]> {
+  try {
+    const rows = (await rpc('get_guest_partner_book', { p_event_id: eventId ?? null })) as GuestPartnerBookEntry[] | null;
+    return (rows ?? []).map((r) => ({ ...r, language: toGuestSpaceLanguage(r.language, 'en') }));
+  } catch {
+    return []; // le carnet est un confort : sans lui, on invite par email comme avant
+  }
+}
+
 export const setGuestPassDoor = (passId: string, mode: GuestDoorMode) => rpc('set_event_guest_pass_door', { p_pass_id: passId, p_mode: mode });
 /** L'adresse à donner pour un accès : l'espace s'il est rattaché, sinon l'invitation. */
 export function guestShareUrl(r: { linked: boolean; pass_id: string; token?: string }): string {

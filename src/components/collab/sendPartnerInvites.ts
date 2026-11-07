@@ -2,7 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { inviteCohostByEmail, inviteEventCohost, coorgErrorCode, type PrincipalTerms } from '@/lib/coorg';
 import { clubEmailInviteRules, type PartnerDraft } from '@/lib/collabInvite';
 import { capturePosthog } from '@/lib/posthog';
-import { createGuestPass, guestErrorCode, proposeGuestContract, sendGuestPassEmail, setGuestPassDoor, setGuestPassPhoto, uploadGuestPhoto } from '@/lib/guestSpace';
+import { createGuestPass, guestErrorCode, proposeGuestContract, reuseGuestPassPhoto, sendGuestPassEmail, setGuestPassDoor, setGuestPassPhoto, uploadGuestPhoto } from '@/lib/guestSpace';
 
 /**
  * Envoie les invitations choisies dans « Avec qui ? », une fois la soirée
@@ -45,6 +45,9 @@ export async function sendPartnerInvites(p: {
         }
         if (d.guestPhoto instanceof File) {
           try { await setGuestPassPhoto(pass.id, await uploadGuestPhoto(pass.id, d.guestPhoto)); } catch (err) { errors.push({ name: d.name || d.email, code: guestErrorCode(err) }); }
+        } else if (d.guestPhotoFrom) {
+          // Partenaire déjà invité : sa photo d'avant, reprise sans rien renvoyer. Une photo manquée ne fait pas échouer l'invitation.
+          try { await reuseGuestPassPhoto(pass.id, d.guestPhotoFrom.passId); } catch { /* il garde ses initiales */ }
         }
         // Le contrat avant l'email : l'email dit alors qu'un contrat attend sa signature.
         if (d.guestContract) {
@@ -52,7 +55,7 @@ export async function sendPartnerInvites(p: {
             await proposeGuestContract(pass.id, { ...d.guestContract, bar_to_guest: d.kind === 'venue', note: null });
           } catch (err) { errors.push({ name: d.name || d.email, code: guestErrorCode(err) }); }
         }
-        capturePosthog('guest_space_created', { event_id: p.eventId, guest_kind: d.kind, source: 'event_form', show_revenue: pass.show_revenue, channel: 'email', contract: !!d.guestContract });
+        capturePosthog('guest_space_created', { event_id: p.eventId, guest_kind: d.kind, source: 'event_form', show_revenue: pass.show_revenue, channel: 'email', contract: !!d.guestContract, from_book: !!d.fromBook });
         try { await sendGuestPassEmail(pass.id); } catch (err) { errors.push({ name: d.name || d.email, code: guestErrorCode(err) }); }
       } catch (err) {
         errors.push({ name: d.name || d.email, code: guestErrorCode(err) });
