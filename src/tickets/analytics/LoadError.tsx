@@ -16,7 +16,7 @@ const GRAD: CSSProperties = { paddingRight: '.06em', marginRight: '-.06em', back
 
 function Title({ tpl, word }: { tpl: string; word: string }) {
   const [a, b = ''] = tpl.split('\u0001');
-  return <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 28, lineHeight: 1.1, letterSpacing: '-.04em', textWrap: 'balance' }}>{a}<span style={GRAD}>{word}</span>{b}</h2>;
+  return <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, lineHeight: 1.3, letterSpacing: '-.01em', textWrap: 'balance' }}>{a}<span style={GRAD}>{word}</span>{b}</h2>;
 }
 
 export function LoadError({ error, onRetry, retrying = false }: { error: unknown; onRetry: () => void; retrying?: boolean }) {
@@ -61,7 +61,7 @@ export function LoadError({ error, onRetry, retrying = false }: { error: unknown
       {kind !== 'forbidden' && (
         <Hv
           as="button" type="button" onClick={retry} disabled={retrying}
-          style={{ marginTop: 22, height: 46, padding: '0 28px', borderRadius: 99, border: 0, background: 'var(--ya-gradient-brand)', color: '#fff', fontSize: 15, fontWeight: 600, boxShadow: 'var(--ya-shadow-cta)', cursor: retrying ? 'default' : 'pointer', opacity: retrying ? 0.6 : 1, display: 'inline-flex', alignItems: 'center', gap: 8 }}
+          style={{ marginTop: 22, height: 40, padding: '0 28px', borderRadius: 12, border: 0, background: 'var(--ya-gradient-brand)', color: '#fff', fontSize: 14, fontWeight: 600, boxShadow: 'var(--ya-shadow-cta)', cursor: retrying ? 'default' : 'pointer', opacity: retrying ? 0.6 : 1, display: 'inline-flex', alignItems: 'center', gap: 8 }}
           hover={{ filter: 'brightness(1.05)' }} active={{ transform: 'scale(.97)' }}
         >
           <Icon name="refresh" size={16} stroke={2.2} />{t('ya.common.retry')}

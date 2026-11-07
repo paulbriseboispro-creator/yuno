@@ -13,7 +13,7 @@ import { useTixCaps } from '@/tickets/analytics/scope';
 import { useAnaFreeDetail, type AnaFreeDetail, type AnaPeriod, type FreeHolder } from '@/tickets/analytics/data';
 import { CardHead, Fill, Sk, StatePill, card, fadeIn, useGo } from './anaUi';
 
-const mono: CSSProperties = { fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' };
+const mono: CSSProperties = { fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 };
 const HOLDER_TYPES = ['club', 'organizer', 'promoter', 'dj', 'guest', 'custom'];
 
 export function FreeDetail({ period, event }: { period: AnaPeriod; event: string | null }) {
@@ -51,7 +51,7 @@ function QuotasCard({ d, ev, rv, go }: { d: AnaFreeDetail; ev: boolean; rv: bool
     <section style={{ ...card, flex: '1.4 1 460px', gap: 16, ...fadeIn(rv, 100) }}>
       <CardHead title={t('ya.fd.q.t')} sub={t(ev ? 'ya.fd.q.subEv' : 'ya.fd.q.sub')} />
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 20px' }}>
-        <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 56, lineHeight: 0.95, letterSpacing: '-.05em', fontVariantNumeric: 'tabular-nums' }}>{Q.fill !== null ? pct(Q.fill) : '—'}</span>
+        <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 36, lineHeight: 0.95, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{Q.fill !== null ? pct(Q.fill) : '—'}</span>
         <span style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingBottom: 6 }}>
           <span style={{ fontSize: 14, color: 'var(--ya-sand-500)' }}>{t('ya.fd.q.big', { filled: n(Q.filled), quota: n(Q.quota) })}</span>
           <span style={{ fontSize: 13.5, color: 'var(--ya-sand-600)' }}>
@@ -79,7 +79,7 @@ function QuotasCard({ d, ev, rv, go }: { d: AnaFreeDetail; ev: boolean; rv: bool
               as="button"
               type="button"
               onClick={() => setMore((o) => !o)}
-              style={{ alignSelf: 'flex-start', marginTop: 6, height: 36, padding: '0 14px', borderRadius: 99, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', color: 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+              style={{ alignSelf: 'flex-start', marginTop: 6, height: 36, padding: '0 14px', borderRadius: 12, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', color: 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
               hover={{ borderColor: 'var(--ya-sand-400)' }}
             >
               {more ? t('ya.fd.q.less') : t('ya.fd.q.more', { n: n(Q.nights.length) })}
@@ -109,7 +109,7 @@ function NoShowCard({ d, rv }: { d: AnaFreeDetail; rv: boolean }) {
       ) : (
         <>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 16px' }}>
-            <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 56, lineHeight: 0.95, letterSpacing: '-.05em', fontVariantNumeric: 'tabular-nums' }}>{n(N.noshow)}</span>
+            <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 36, lineHeight: 0.95, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{n(N.noshow)}</span>
             <span style={{ fontSize: 14, color: 'var(--ya-sand-500)', paddingBottom: 6 }}>
               {N.rate !== null ? t('ya.fd.ns.bigPct', { pct: pct(N.rate), n: n(N.k_entries) }) : tp('ya.fd.ns.big', N.k_entries, { n: n(N.k_entries) })}
             </span>
@@ -213,7 +213,7 @@ function WorthCard({ d, rv }: { d: AnaFreeDetail; rv: boolean }) {
         {blocks.map((b) => (
           <div key={b.k} style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '16px 18px', borderRadius: 18, background: b.k === 'pn' ? 'var(--ya-card)' : 'var(--ya-sand-50)', boxShadow: `inset 0 0 0 1px ${b.k === 'pn' ? 'var(--ya-sand-200)' : 'var(--ya-sand-100)'}` }}>
             <span style={{ fontSize: 13.5, color: 'var(--ya-sand-600)' }}>{b.l}</span>
-            <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 32, letterSpacing: '-.03em', fontVariantNumeric: 'tabular-nums' }}>{b.v !== null ? eur(b.v) : '—'}</b>
+            <b style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 28, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{b.v !== null ? eur(b.v) : '—'}</b>
             <span style={{ fontSize: 12.5, color: 'var(--ya-sand-500)' }}>{b.s}</span>
           </div>
         ))}

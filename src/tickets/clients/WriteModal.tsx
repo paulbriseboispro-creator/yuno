@@ -84,8 +84,8 @@ export function WriteModal({
   return (
     <Modal open={open} onClose={onClose} width={520} label={t('ya.cli.msg.title', { who })}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '26px 28px 8px' }}>
-        <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>{scopeLabel}</span>
-        <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 28, lineHeight: 1.08, letterSpacing: '-.03em' }}>{t('ya.cli.msg.title', { who })}</h2>
+        <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>{scopeLabel}</span>
+        <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, lineHeight: 1.3, letterSpacing: '-.01em' }}>{t('ya.cli.msg.title', { who })}</h2>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: '12px 28px 24px' }}>
         <div role="group" aria-label={t('ya.cli.msg.channel')} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -102,7 +102,7 @@ export function WriteModal({
                 hover={{ borderColor: 'var(--ya-sand-400)' }}
               >
                 <span style={{ fontSize: 15, fontWeight: 600 }}>{x.l}</span>
-                <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 26, letterSpacing: '-.03em', lineHeight: 1.15, fontVariantNumeric: 'tabular-nums' }}>{counts.isLoading ? '…' : n(x.n)}</span>
+                <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 26, letterSpacing: '-.025em', lineHeight: 1.15, fontVariantNumeric: 'tabular-nums' }}>{counts.isLoading ? '…' : n(x.n)}</span>
                 <span style={{ fontSize: 12.5, color: 'var(--ya-sand-500)' }}>{x.s}</span>
               </Hv>
             );
@@ -129,7 +129,7 @@ export function WriteModal({
         )}
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '16px 28px', background: 'var(--ya-sand-50)', borderTop: '1px solid var(--ya-sand-100)', borderRadius: '0 0 28px 28px' }}>
-        <Hv as="button" type="button" onClick={onClose} style={{ height: 44, padding: '0 18px', borderRadius: 99, border: 0, background: 'none', fontSize: 14.5, fontWeight: 600, color: 'var(--ya-sand-600)', cursor: 'pointer' }} hover={{ color: 'var(--ya-ink)' }}>
+        <Hv as="button" type="button" onClick={onClose} style={{ height: 40, padding: '0 18px', borderRadius: 12, border: 0, background: 'none', fontSize: 14.5, fontWeight: 600, color: 'var(--ya-sand-600)', cursor: 'pointer' }} hover={{ color: 'var(--ya-ink)' }}>
           {t('ya.common.cancel')}
         </Hv>
         <button
@@ -137,7 +137,7 @@ export function WriteModal({
           onClick={go}
           disabled={blocked}
           style={{
-            height: 44, padding: '0 22px', borderRadius: 99, border: 0, fontSize: 14.5, fontWeight: 600,
+            height: 40, padding: '0 22px', borderRadius: 12, border: 0, fontSize: 14.5, fontWeight: 600,
             background: blocked ? 'var(--ya-sand-100)' : 'var(--ya-gradient-brand)', color: blocked ? 'var(--ya-sand-400)' : '#fff',
             cursor: blocked ? 'not-allowed' : 'pointer', boxShadow: blocked ? 'none' : 'var(--ya-shadow-cta)',
           }}

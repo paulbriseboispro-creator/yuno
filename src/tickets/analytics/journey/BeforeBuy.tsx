@@ -56,7 +56,7 @@ export const BeforeBuy = forwardRef<HTMLDivElement, { d: Journey; f: JrFilters; 
     const sh = d.delays.b.map((x) => (dn ? x / dn : 0));
     const maxS = Math.max(0.01, ...sh);
     const w2 = sh[0] + sh[1];
-    const card: CSSProperties = { minWidth: 0, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 16, padding: 24, borderRadius: 28, background: 'var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)' };
+    const card: CSSProperties = { minWidth: 0, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 16, padding: 24, borderRadius: 18, background: 'var(--ya-card-bg)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)' };
 
     return (
       <div ref={ref} style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'stretch', ...style }}>
@@ -140,11 +140,11 @@ export const BeforeBuy = forwardRef<HTMLDivElement, { d: Journey; f: JrFilters; 
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 30, letterSpacing: '-.03em', lineHeight: 1.1 }}>{dn && d.delays.median_h !== null ? durShort(T, d.delays.median_h) : '—'}</b>
+              <b style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 28, letterSpacing: '-.025em', lineHeight: 1.1 }}>{dn && d.delays.median_h !== null ? durShort(T, d.delays.median_h) : '—'}</b>
               <span style={{ fontSize: 12.5, color: 'var(--ya-sand-500)' }}>{t('ya.jr.d.median')}</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 30, letterSpacing: '-.03em', lineHeight: 1.1 }}>{dn && d.delays.touches !== null ? T.n1(Number(d.delays.touches)) : '—'}</b>
+              <b style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 28, letterSpacing: '-.025em', lineHeight: 1.1 }}>{dn && d.delays.touches !== null ? T.n1(Number(d.delays.touches)) : '—'}</b>
               <span style={{ fontSize: 12.5, color: 'var(--ya-sand-500)' }}>{t('ya.jr.d.touches')}</span>
             </div>
           </div>

@@ -68,7 +68,7 @@ export const CampaignRank = forwardRef<HTMLElement, {
   ];
 
   return (
-    <section ref={ref} style={{ boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 20, padding: 'clamp(20px,2.4vw,32px)', borderRadius: 28, background: 'var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)', minWidth: 0, ...style }}>
+    <section ref={ref} style={{ boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 20, padding: 'clamp(20px,2.4vw,32px)', borderRadius: 18, background: 'var(--ya-card-bg)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)', minWidth: 0, ...style }}>
       <SecHead title={t('ya.jr.s3.title')} sub={`${t('ya.jr.s3.sub')}${campName ? ` ${t('ya.jr.s3.subCamp', { name: campName })}` : ''}`} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,220px),1fr))', gap: 12 }}>
@@ -88,7 +88,7 @@ export const CampaignRank = forwardRef<HTMLElement, {
             return (
               <div key={x.k} style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '16px 18px', borderRadius: 18, border: '1.5px dashed var(--ya-sand-200)', background: 'var(--ya-paper)', color: 'var(--ya-sand-500)' }}>
                 {head}
-                <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 36, lineHeight: 1, letterSpacing: '-.035em', color: 'var(--ya-sand-300)' }}>—</span>
+                <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 28, lineHeight: 1, letterSpacing: '-.025em', color: 'var(--ya-sand-300)' }}>—</span>
                 <div style={{ height: 6, borderRadius: 99, background: 'var(--ya-sand-100)' }} />
                 <span style={{ fontSize: 12.5, lineHeight: '17px' }}>{t('ya.jr.s3.soonSms')}</span>
               </div>
@@ -105,7 +105,7 @@ export const CampaignRank = forwardRef<HTMLElement, {
               hover={{ transform: 'translateY(-3px)', borderColor: 'var(--ya-sand-400)' }}
             >
               {head}
-              <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 36, lineHeight: 1, letterSpacing: '-.035em', fontVariantNumeric: 'tabular-nums' }}>{st && st.conv !== null ? pc(T, st.conv) : '—'}</span>
+              <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 28, lineHeight: 1, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{st && st.conv !== null ? pc(T, st.conv) : '—'}</span>
               <div style={{ height: 6, borderRadius: 99, background: 'var(--ya-sand-100)', overflow: 'hidden' }}>
                 <div style={{ height: '100%', width: `${(st && st.conv !== null ? Math.min(100, st.conv * 100) * clamp01(a3 * 1.3 - i * 0.1) : 0).toFixed(1)}%`, borderRadius: 99, background: 'var(--ya-gradient-brand)' }} />
               </div>
@@ -144,7 +144,7 @@ export const CampaignRank = forwardRef<HTMLElement, {
           {rankInsight && <Note>{rankInsight}</Note>}
           <div className="ya-noscroll" style={{ overflowX: 'auto', margin: '0 -8px', padding: '0 8px' }}>
             <div style={{ minWidth: money ? 780 : 680, display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: GRID(money), gap: 12, padding: '0 12px 8px', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-400)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: GRID(money), gap: 12, padding: '0 12px 8px', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-400)', fontWeight: 600 }}>
                 <span />
                 <span>{t('ya.jr.s3.col.camp')}</span>
                 <span>{t('ya.jr.s3.col.rc')}</span>
@@ -204,7 +204,7 @@ export const CampaignRank = forwardRef<HTMLElement, {
                 as="button"
                 type="button"
                 onClick={() => setAll((x) => !x)}
-                style={{ height: 40, padding: '0 16px', borderRadius: 99, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', fontSize: 14, fontWeight: 600, color: 'var(--ya-ink)', cursor: 'pointer' }}
+                style={{ height: 40, padding: '0 16px', borderRadius: 12, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', fontSize: 14, fontWeight: 600, color: 'var(--ya-ink)', cursor: 'pointer' }}
                 hover={{ borderColor: 'var(--ya-sand-300)', background: 'var(--ya-paper)' }}
               >
                 {all ? t('ya.jr.s3.less') : t('ya.jr.s3.more', { n: sorted.length })}

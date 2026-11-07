@@ -94,8 +94,8 @@ function GlBody({ d, inDrawer, onWrite, T }: { d: GL; inDrawer: boolean; onWrite
     return (
       <div style={scroll}>
         <section style={card(80, { background: 'repeating-linear-gradient(135deg,var(--ya-sand-50) 0 10px,var(--ya-card) 10px 20px)' })}>
-          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>{t('ya.gl.k')}</span>
-          <b style={{ fontFamily: 'var(--ya-font-display)', fontSize: 24, fontWeight: 600, letterSpacing: '-.03em', lineHeight: 1.15, textWrap: 'balance' }}>{t(ph === 'past' ? 'ya.gl.empty.tPast' : 'ya.gl.empty.t')}</b>
+          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>{t('ya.gl.k')}</span>
+          <b style={{ fontFamily: 'var(--ya-font-num)', fontSize: 24, fontWeight: 650, letterSpacing: '-.025em', lineHeight: 1.15, textWrap: 'balance' }}>{t(ph === 'past' ? 'ya.gl.empty.tPast' : 'ya.gl.empty.t')}</b>
           <span style={sub}>{t('ya.gl.empty.s')}</span>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,200px),1fr))', gap: 10 }}>
             {(['inv', 'free'] as const).map((k) => (
@@ -171,7 +171,7 @@ function GlBody({ d, inDrawer, onWrite, T }: { d: GL; inDrawer: boolean; onWrite
           {tiles.map((x) => (
             <div key={x.l} style={{ display: 'flex', flexDirection: 'column', gap: 3, padding: '12px 14px', borderRadius: 16, background: 'var(--ya-sand-50)', minWidth: 0 }}>
               <span style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--ya-sand-600)' }}>{x.l}</span>
-              <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 28, lineHeight: 1.05, letterSpacing: '-.035em', fontVariantNumeric: 'tabular-nums', color: x.c && x.v !== '—' && x.c !== 'var(--ya-green-700)' ? x.c : 'var(--ya-ink)' }}>{x.v}</span>
+              <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 28, lineHeight: 1.05, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums', color: x.c && x.v !== '—' && x.c !== 'var(--ya-green-700)' ? x.c : 'var(--ya-ink)' }}>{x.v}</span>
               <span style={{ fontSize: 12.5, lineHeight: 1.35, color: x.c ?? 'var(--ya-sand-500)', fontWeight: x.c ? 600 : 400 }}>{x.s}</span>
             </div>
           ))}
@@ -222,7 +222,7 @@ function GlBody({ d, inDrawer, onWrite, T }: { d: GL; inDrawer: boolean; onWrite
         <div style={{ flex: 'none', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, padding: '16px 24px', borderTop: '1px solid var(--ya-sand-100)', background: 'var(--ya-card)' }}>
           {caps.write && X.people > 0 && <CtaButton onClick={writeAll}>{tp('ya.gl.write.cta', X.people, { n: n(X.people) })}</CtaButton>}
           {X.people > 0 && (
-            <Hv as={Link} to={R.clients} style={{ height: 46, padding: '0 18px', borderRadius: 99, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', color: 'var(--ya-ink)', fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', textDecoration: 'none' }} hover={{ background: 'var(--ya-sand-50)', color: 'var(--ya-ink)', textDecoration: 'none' }}>
+            <Hv as={Link} to={R.clients} style={{ height: 40, padding: '0 18px', borderRadius: 12, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', color: 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', textDecoration: 'none' }} hover={{ background: 'var(--ya-sand-50)', color: 'var(--ya-ink)', textDecoration: 'none' }}>
               {t('ya.gl.seeClients')}
             </Hv>
           )}
@@ -240,8 +240,8 @@ function ConsoleLink({ to, children }: { to: string; children: ReactNode }) {
       as={Link}
       to={to}
       style={{
-        flex: 'none', height: 46, padding: '0 18px 0 20px', borderRadius: 99, border: '1px solid var(--ya-sand-200)',
-        background: 'var(--ya-card)', color: 'var(--ya-ink)', fontSize: 15, fontWeight: 600, display: 'inline-flex', alignItems: 'center',
+        flex: 'none', height: 40, padding: '0 18px 0 20px', borderRadius: 12, border: '1px solid var(--ya-sand-200)',
+        background: 'var(--ya-card)', color: 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center',
         gap: 8, textDecoration: 'none', boxSizing: 'border-box', transition: `translate 240ms ${EASE},box-shadow 240ms,background 160ms`,
       }}
       hover={{ translate: '0 -2px', boxShadow: 'var(--ya-shadow-md)', color: 'var(--ya-ink)', textDecoration: 'none' }}
@@ -426,7 +426,7 @@ function AfterCard({ d, T, onWrite, style }: { d: GL; T: T; onWrite: () => void;
         <span style={sub}>{t('ya.gl.after.s')}</span>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 22px' }}>
-        <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 48, lineHeight: 0.95, letterSpacing: '-.05em', fontVariantNumeric: 'tabular-nums' }}>
+        <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 36, lineHeight: 0.95, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>
           {n(a.converted)}<span style={{ fontSize: 18, color: 'var(--ya-sand-500)', letterSpacing: '-.01em' }}> / {n(a.eligible)}</span>
         </span>
         <span style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingBottom: 4 }}>
@@ -443,7 +443,7 @@ function AfterCard({ d, T, onWrite, style }: { d: GL; T: T; onWrite: () => void;
             as="button"
             type="button"
             onClick={onWrite}
-            style={{ height: 40, padding: '0 16px', borderRadius: 99, border: '1px solid var(--ya-sand-300)', background: 'var(--ya-card)', color: 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+            style={{ height: 40, padding: '0 16px', borderRadius: 12, border: '1px solid var(--ya-sand-300)', background: 'var(--ya-card)', color: 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
             hover={{ borderColor: 'var(--ya-sand-400)', background: 'var(--ya-sand-50)' }}
           >
             <Icon name="mail" size={15} stroke={2.2} />{tp('ya.gl.after.cta', stay, { n: n(stay) })}
@@ -506,7 +506,7 @@ function PeopleCard({ d, T }: { d: GL; T: T }) {
         })}
       </div>
       {more > 0 && (
-        <Hv as="button" type="button" onClick={() => setLim(lim + 20)} style={{ alignSelf: 'center', height: 40, padding: '0 18px', borderRadius: 99, border: '1px solid var(--ya-sand-300)', background: 'var(--ya-card)', color: 'var(--ya-ink)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }} hover={{ background: 'var(--ya-sand-50)' }}>
+        <Hv as="button" type="button" onClick={() => setLim(lim + 20)} style={{ alignSelf: 'center', height: 40, padding: '0 18px', borderRadius: 12, border: '1px solid var(--ya-sand-300)', background: 'var(--ya-card)', color: 'var(--ya-ink)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }} hover={{ background: 'var(--ya-sand-50)' }}>
           {t('ya.gl.people.more', { n: n(Math.min(20, more)) })}
         </Hv>
       )}

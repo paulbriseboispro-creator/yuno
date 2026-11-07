@@ -35,7 +35,7 @@ export const FAM_COLOR: Record<VisitFam, string> = {
   se: '#38BDF8', ms: 'var(--ya-amber-500)', ot: '#22C55E',
 };
 
-export const mono: CSSProperties = { fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' };
+export const mono: CSSProperties = { fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 };
 
 /** Durée lisible : « 48 s », « 2 min 29 », « 1 h 05 ». */
 export function fmtDur(T: T, s: number | null | undefined): string {
@@ -164,7 +164,7 @@ function TrafficPeriod({ q, f, setF, goTab }: { q: UseQueryResult<AnaVisits>; f:
   return (
     <>
       {/* Héros : combien de monde regarde */}
-      <section style={{ ...card, gap: 18, padding: 'clamp(20px,2.4vw,32px)', background: 'radial-gradient(60% 50% at 100% 0%,rgba(255,107,53,.07),transparent 70%),var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200),var(--ya-shadow-sm)' }}>
+      <section style={{ ...card, gap: 18, padding: 'clamp(20px,2.4vw,32px)', background: 'radial-gradient(60% 50% at 100% 0%,rgba(232,25,44,.07),transparent 70%),var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-border),var(--ya-card-shadow)' }}>
         <CardHead
           title={t('ya.tv.heroT')}
           sub={t('ya.tv.heroSub', { unit: t(`ya.ana.unit.${unit}`) })}
@@ -175,7 +175,7 @@ function TrafficPeriod({ q, f, setF, goTab }: { q: UseQueryResult<AnaVisits>; f:
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18, ...fadeIn(rv) }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 24px' }}>
-              <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(56px,8vw,112px)', lineHeight: 0.92, letterSpacing: '-.055em', fontVariantNumeric: 'tabular-nums' }}>{n(big * prog)}</span>
+              <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 0.92, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{n(big * prog)}</span>
               <span style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingBottom: 10 }}>
                 <span style={{ fontSize: 14, color: 'var(--ya-sand-500)' }}>{metric === 'v' ? t('ya.tv.bigV', { per, n: n(tt.visitors) }) : t('ya.tv.bigU', { per, n: n(tt.visits) })}</span>
                 {f.cmp && (bigD
@@ -421,7 +421,7 @@ export function Chip({ label, value, sub }: { label: string; value: ReactNode; s
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3, padding: '12px 14px', borderRadius: 16, background: 'var(--ya-sand-50)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-100)' }}>
       <span style={{ fontSize: 13, color: 'var(--ya-sand-600)' }}>{label}</span>
-      <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 24, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums' }}>{value}</b>
+      <b style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 24, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{value}</b>
       {sub && <span style={{ fontSize: 12.5, color: 'var(--ya-sand-500)' }}>{sub}</span>}
     </div>
   );
@@ -448,7 +448,7 @@ export function FunnelCard({ d, rv, go, prog, ev = false }: { d: AnaVisits; rv: 
       {fn.viewed === 0 ? <p style={{ margin: 0, fontSize: 14.5, color: 'var(--ya-sand-500)' }}>{t('ya.tv.fnNone')}</p> : (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 28 }}>
           <div style={{ flex: '0 1 220px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 56, lineHeight: 0.95, letterSpacing: '-.05em', fontVariantNumeric: 'tabular-nums' }}>{conv !== null ? pct(conv * prog, 1) : n(fn.purchased)}</span>
+            <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 36, lineHeight: 0.95, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{conv !== null ? pct(conv * prog, 1) : n(fn.purchased)}</span>
             <span style={{ fontSize: 14, color: 'var(--ya-sand-500)' }}>{conv !== null ? t('ya.tv.fnBig') : t('ya.tv.fnBigN')}</span>
           </div>
           <div style={{ flex: '1 1 420px', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -754,7 +754,7 @@ export function BridgeBand({ d, ev, onGo, rv }: { d: AnaVisits; ev: boolean; onG
   return (
     <section style={{ ...nightCard, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '18px 28px', padding: '26px 30px', ...fadeIn(rv, 200) }}>
       <div style={{ flex: '1 1 380px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(20px,2.2vw,26px)', lineHeight: 1.2, letterSpacing: '-.02em', textWrap: 'balance' }}>{head}</b>
+        <b style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 'clamp(20px,2.2vw,26px)', lineHeight: 1.2, letterSpacing: '-.025em', textWrap: 'balance' }}>{head}</b>
         <span style={{ fontSize: 14.5, lineHeight: 1.45, color: 'var(--ya-text-on-night-2)' }}>{t(ev ? 'ya.tv.bridgeSubEv' : 'ya.tv.bridgeSub')}</span>
       </div>
       <BrandArrowButton label={t(ev ? 'ya.tv.bridgeCtaEv' : 'ya.tv.bridgeCta')} onClick={onGo} />

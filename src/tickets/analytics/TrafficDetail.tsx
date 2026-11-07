@@ -14,7 +14,7 @@ import { deltaPct, jLabelFor } from './SalesTab';
 const MIN_SAMPLE = 10;
 const REF_KEYS = ['direct', 'social', 'paid_social', 'search', 'paid_search', 'email', 'affiliate', 'internal', 'referral', 'qr'];
 
-const mono: CSSProperties = { fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' };
+const mono: CSSProperties = { fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 };
 
 // ── La page du club / de l'organisateur ───────────────────────────────────
 
@@ -36,7 +36,7 @@ export function PageCard({ p, meta, cmp, rv, go, prog }: { p: TixPageTraffic; me
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24 }}>
         <div style={{ flex: '1.4 1 380px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 20px' }}>
-            <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 56, lineHeight: 0.95, letterSpacing: '-.05em', fontVariantNumeric: 'tabular-nums' }}>{n(p.visits * prog)}</span>
+            <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 36, lineHeight: 0.95, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{n(p.visits * prog)}</span>
             <span style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingBottom: 6 }}>
               <span style={{ fontSize: 14, color: 'var(--ya-sand-500)' }}>{tp('ya.tr.page.visitsN', p.visits)}</span>
               {d && <span style={{ fontSize: 14, fontWeight: 600, color: d.up ? 'var(--ya-green-700)' : 'var(--ya-red-600)' }}>{`${d.text} ${t('ya.ana.vsBefore')}`}</span>}
@@ -59,7 +59,7 @@ export function PageCard({ p, meta, cmp, rv, go, prog }: { p: TixPageTraffic; me
             {stats.map((s) => (
               <div key={s.k} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '12px 14px', borderRadius: 16, background: 'var(--ya-sand-50)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-100)' }}>
                 <span style={{ fontSize: 13, color: 'var(--ya-sand-600)' }}>{s.l}</span>
-                <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 24, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums' }}>{s.v}</b>
+                <b style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 24, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{s.v}</b>
                 {s.sub && <span style={{ fontSize: 12.5, color: 'var(--ya-sand-500)' }}>{s.sub}</span>}
               </div>
             ))}

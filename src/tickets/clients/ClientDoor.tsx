@@ -99,7 +99,7 @@ export function ClientDoor({ card: c }: { card: ClientCard }) {
           />
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <PillButton size="sm" tone="danger" onClick={() => void ban()} disabled={busy || !reason.trim()}>{t('ya.cli.door.confirm')}</PillButton>
-            <Hv as="button" type="button" onClick={() => { setAsking(false); setReason(''); }} style={{ height: 36, padding: '0 14px', border: 0, borderRadius: 99, background: 'none', color: 'var(--ya-sand-600)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }} hover={{ color: 'var(--ya-ink)' }}>
+            <Hv as="button" type="button" onClick={() => { setAsking(false); setReason(''); }} style={{ height: 36, padding: '0 14px', border: 0, borderRadius: 12, background: 'none', color: 'var(--ya-sand-600)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }} hover={{ color: 'var(--ya-ink)' }}>
               {t('ya.cli.door.cancel')}
             </Hv>
           </div>

@@ -71,10 +71,10 @@ export function MessagesCard({
   ];
 
   return (
-    <section style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: 'clamp(20px,2.4vw,32px)', borderRadius: 28, background: 'radial-gradient(60% 50% at 100% 0%,rgba(255,107,53,.07),transparent 70%),var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200),var(--ya-shadow-sm)', ...reveal(intro, 380) }}>
+    <section style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: 'clamp(20px,2.4vw,32px)', borderRadius: 18, background: 'radial-gradient(60% 50% at 100% 0%,rgba(232,25,44,.07),transparent 70%),var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-border),var(--ya-card-shadow)', ...reveal(intro, 380) }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px 24px' }}>
         <div>
-          <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' }}>{t('ya.seg.msg.title')}</h2>
+          <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, letterSpacing: '-.01em' }}>{t('ya.seg.msg.title')}</h2>
           <div style={{ fontSize: 13.5, color: 'var(--ya-sand-500)', marginTop: 2, maxWidth: 560, textWrap: 'pretty' }}>{t('ya.seg.msg.sub')}</div>
         </div>
         <Segmented value={period} onChange={setPeriod} options={PERIODS.map((p) => ({ value: p, label: t(`ya.seg.per.${p}`) }))} ariaLabel={t('ya.seg.period')} />
@@ -82,7 +82,7 @@ export function MessagesCard({
 
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: '16px 32px', opacity: busy ? 0.55 : 1, transition: 'opacity 160ms' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '4px 20px' }}>
-          <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(48px,6vw,84px)', lineHeight: 0.92, letterSpacing: '-.055em', fontVariantNumeric: 'tabular-nums' }}>{eur(tot.revenue * clamp01(cc))}</span>
+          <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 0.92, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{eur(tot.revenue * clamp01(cc))}</span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3, paddingBottom: 6 }}>
             <span style={{ fontSize: 17, fontWeight: 600, color: hDeltaFg }}>{hDelta}</span>
             <span style={{ fontSize: 14, color: 'var(--ya-sand-500)' }}>{tp('ya.seg.msg.buyers', tot.buyers, { n: n(tot.buyers), on })}</span>
@@ -100,9 +100,9 @@ export function MessagesCard({
             {tip && (
               <>
                 <i style={{ position: 'absolute', left: tip.left, top: tip.top, width: 10, height: 10, margin: '-5px 0 0 -5px', borderRadius: 99, background: 'var(--ya-red-500)', boxShadow: '0 0 0 4px rgba(227,20,27,.18)', pointerEvents: 'none' }} />
-                <div style={{ position: 'absolute', bottom: 92, left: tip.left, transform: tip.tx, pointerEvents: 'none', background: 'var(--ya-ink)', color: 'var(--ya-on-ink)', borderRadius: 12, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 1, whiteSpace: 'nowrap', boxShadow: 'var(--ya-shadow-md)', zIndex: 3 }}>
+                <div style={{ position: 'absolute', bottom: 92, left: tip.left, transform: tip.tx, pointerEvents: 'none', background: 'var(--ya-fill)', color: '#fff', borderRadius: 12, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 1, whiteSpace: 'nowrap', boxShadow: 'var(--ya-shadow-md)', zIndex: 3 }}>
                   <span style={{ fontSize: 12, color: 'var(--ya-text-on-night-2)' }}>{tip.date}</span>
-                  <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 18, letterSpacing: '-.02em' }}>{tip.v}</span>
+                  <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 18, letterSpacing: '-.025em' }}>{tip.v}</span>
                   {tip.send && <span style={{ fontSize: 12, color: 'var(--ya-text-on-night-2)' }}>{tip.send}</span>}
                 </div>
               </>
@@ -120,7 +120,7 @@ export function MessagesCard({
         {fun.map((f, i) => (
           <div key={f.l} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '16px 18px', borderRadius: 20, background: 'var(--ya-paper)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-100)' }}>
             <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ya-sand-600)' }}>{f.l}</span>
-            <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 34, lineHeight: 1.05, letterSpacing: '-.035em', fontVariantNumeric: 'tabular-nums' }}>{n(f.v * clamp01(cc * 1.1))}</span>
+            <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 28, lineHeight: 1.05, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{n(f.v * clamp01(cc * 1.1))}</span>
             <div style={{ height: 8, borderRadius: 99, background: 'var(--ya-sand-100)', overflow: 'hidden' }}>
               <div style={{ width: `${(f.w * 100 * clamp01(cc * 1.2 - i * 0.08)).toFixed(1)}%`, height: '100%', borderRadius: 99, background: 'var(--ya-gradient-brand)' }} />
             </div>

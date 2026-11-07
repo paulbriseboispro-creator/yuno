@@ -121,7 +121,7 @@ export function TrafficNight({ q, f, setF, goTab }: { q: UseQueryResult<AnaVisit
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px 18px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 200, flex: '1 1 260px' }}>
             <span style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 24, letterSpacing: '-.025em' }}>{ev.title}</span>
+              <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 24, letterSpacing: '-.025em' }}>{ev.title}</span>
               <StatePill state={state} label={t(`ya.ana.state.${state}`)} />
               {upcoming && <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 12, letterSpacing: '.06em', color: 'var(--ya-sand-500)' }}>{jNow}</span>}
             </span>
@@ -142,12 +142,12 @@ export function TrafficNight({ q, f, setF, goTab }: { q: UseQueryResult<AnaVisit
       </section>
 
       {/* Héros : la courbe cumulée */}
-      <section style={{ ...card, gap: 18, padding: 'clamp(20px,2.4vw,32px)', background: 'radial-gradient(60% 50% at 100% 0%,rgba(255,107,53,.07),transparent 70%),var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200),var(--ya-shadow-sm)' }}>
+      <section style={{ ...card, gap: 18, padding: 'clamp(20px,2.4vw,32px)', background: 'radial-gradient(60% 50% at 100% 0%,rgba(232,25,44,.07),transparent 70%),var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-border),var(--ya-card-shadow)' }}>
         <CardHead title={t('ya.tv.ev.heroT')} sub={t('ya.tv.ev.heroSub')} />
         {loading ? <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}><Sk h={72} w="min(340px,60%)" r={14} /><ChartSkeleton height={260} /></div> : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18, ...fadeIn(rv) }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 24px' }}>
-              <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(56px,8vw,112px)', lineHeight: 0.92, letterSpacing: '-.055em', fontVariantNumeric: 'tabular-nums' }}>{n(tt.visits * prog)}</span>
+              <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 0.92, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{n(tt.visits * prog)}</span>
               <span style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingBottom: 10 }}>
                 <span style={{ fontSize: 14, color: 'var(--ya-sand-500)' }}>{upcoming ? t('ya.tv.ev.bigUp', { j: jNow, n: n(tt.visitors) }) : t('ya.tv.ev.bigPast', { n: n(tt.visitors) })}</span>
                 {pev && (vD

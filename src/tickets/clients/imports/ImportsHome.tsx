@@ -105,12 +105,11 @@ export function ImportsHome({
 
   // L'en-tête reste quand la lecture échoue : la page dit où l'on est, puis l'erreur.
   const head = (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', ...reveal(intro, 100) }}>{t('ya.imp.eyebrow')}</span>
-      <h1 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 1.05, letterSpacing: '-.035em', ...reveal(intro, 170) }}>
-        {t('ya.imp.title1')}<span style={{ background: 'var(--ya-gradient-brand)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>{t('ya.imp.titleAccent')}</span>{t('ya.imp.title2')}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <h1 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 18, lineHeight: 1.3, letterSpacing: '-.01em', ...reveal(intro, 170) }}>
+        {t('ya.imp.title1')}{t('ya.imp.titleAccent')}{t('ya.imp.title2')}
       </h1>
-      <p style={{ margin: 0, maxWidth: 680, fontSize: 16, lineHeight: 1.45, fontWeight: 500, color: 'var(--ya-sand-600)', textWrap: 'pretty', ...reveal(intro, 240) }}>{t('ya.imp.sub')}</p>
+      <p style={{ margin: 0, maxWidth: 680, fontSize: 13, lineHeight: 1.45, fontWeight: 400, color: 'var(--ya-sand-500)', textWrap: 'pretty', ...reveal(intro, 240) }}>{t('ya.imp.sub')}</p>
     </div>
   );
 
@@ -133,11 +132,11 @@ export function ImportsHome({
         {/* Les ventes Yuno : la base se remplit seule, à chaque vente. */}
         <Hv
           as="section"
-          style={{ display: 'flex', flexDirection: 'column', gap: 22, padding: 'clamp(20px,2.4vw,30px)', borderRadius: 28, background: 'radial-gradient(60% 50% at 100% 0%,rgba(255,107,53,.07),transparent 70%),var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200),var(--ya-shadow-sm)', ...reveal(intro, 320) }}
+          style={{ display: 'flex', flexDirection: 'column', gap: 22, padding: 'clamp(20px,2.4vw,30px)', borderRadius: 18, background: 'radial-gradient(60% 50% at 100% 0%,rgba(232,25,44,.07),transparent 70%),var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-border),var(--ya-card-shadow)', ...reveal(intro, 320) }}
           hover={{ boxShadow: 'inset 0 0 0 1px var(--ya-sand-300),var(--ya-shadow-md)' }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>{t('ya.imp.auto')}</span>
+            <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>{t('ya.imp.auto')}</span>
             {data ? (
               <span style={{ height: 26, padding: '0 11px', borderRadius: 99, display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, fontWeight: 600, background: live ? 'var(--ya-green-50)' : 'var(--ya-sand-100)', color: live ? 'var(--ya-green-700)' : 'var(--ya-sand-600)' }}>
                 <span style={{ width: 6, height: 6, borderRadius: 99, background: 'currentColor', animation: live ? 'ya-pulse 1.8s ease-in-out infinite' : 'none' }} />{t(live ? 'ya.imp.sales.pill.on' : 'ya.imp.sales.pill.wait')}
@@ -157,7 +156,7 @@ export function ImportsHome({
             <LogoTile src={yunoIcon} alt="Yuno" />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 24, letterSpacing: '-.03em', lineHeight: 1.1, textWrap: 'balance' }}>{t('ya.imp.sales.title')}</h2>
+            <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, letterSpacing: '-.01em', lineHeight: 1.3, textWrap: 'balance' }}>{t('ya.imp.sales.title')}</h2>
             <span style={{ fontSize: 15, lineHeight: 1.45, color: 'var(--ya-sand-600)', textWrap: 'pretty' }}>
               {!data ? <Skel w={300} h={16} />
                 : live ? tp('ya.imp.sales.line', sales?.people ?? 0, { n: n(sales?.people ?? 0), m: n(sales?.month ?? 0), when: lastSale ?? '—' })
@@ -173,7 +172,7 @@ export function ImportsHome({
           </div>
           <div style={{ flex: 1 }} />
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px 12px', paddingTop: 20, borderTop: '1px solid var(--ya-sand-100)' }}>
-            <Hv as={Link} to={TIX_ROUTES.clients} style={{ height: 46, padding: '0 20px 0 16px', borderRadius: 99, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', color: 'var(--ya-ink)', fontSize: 15, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, boxShadow: 'var(--ya-shadow-xs)', whiteSpace: 'nowrap', textDecoration: 'none', transition: `translate 240ms ${EASE},box-shadow 240ms,border-color 200ms` }} hover={{ translate: '0 -2px', boxShadow: 'var(--ya-shadow-md)', borderColor: 'var(--ya-sand-300)', color: 'var(--ya-ink)', textDecoration: 'none' }} active={{ translate: '0 0' }}>
+            <Hv as={Link} to={TIX_ROUTES.clients} style={{ height: 40, padding: '0 20px 0 16px', borderRadius: 12, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', color: 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, boxShadow: 'var(--ya-shadow-xs)', whiteSpace: 'nowrap', textDecoration: 'none', transition: `translate 240ms ${EASE},box-shadow 240ms,border-color 200ms` }} hover={{ translate: '0 -2px', boxShadow: 'var(--ya-shadow-md)', borderColor: 'var(--ya-sand-300)', color: 'var(--ya-ink)', textDecoration: 'none' }} active={{ translate: '0 0' }}>
               <Icon name="users" size={17} stroke={2.2} />{t('ya.imp.sales.see')}
             </Hv>
           </div>
@@ -186,10 +185,10 @@ export function ImportsHome({
           onDrop={canWrite ? onDrop : (e) => { e.preventDefault(); setDrag(false); }}
           onMouseEnter={() => setHov(true)}
           onMouseLeave={() => setHov(false)}
-          style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 22, padding: 'clamp(20px,2.4vw,30px)', borderRadius: 28, background: drag ? 'var(--ya-red-50)' : 'var(--ya-card)', boxShadow: drag ? 'inset 0 0 0 2px var(--ya-red-400),var(--ya-shadow-md)' : hov ? 'inset 0 0 0 1px var(--ya-sand-300),var(--ya-shadow-md)' : 'inset 0 0 0 1px var(--ya-sand-200),var(--ya-shadow-sm)', ...reveal(intro, 400, 'background 240ms') }}
+          style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 22, padding: 'clamp(20px,2.4vw,30px)', borderRadius: 18, background: drag ? 'var(--ya-red-50)' : 'var(--ya-card)', boxShadow: drag ? 'inset 0 0 0 2px var(--ya-red-400),var(--ya-shadow-md)' : hov ? 'inset 0 0 0 1px var(--ya-sand-300),var(--ya-shadow-md)' : 'inset 0 0 0 1px var(--ya-border),var(--ya-card-shadow)', ...reveal(intro, 400, 'background 240ms') }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>{t('ya.imp.manual')}</span>
+            <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>{t('ya.imp.manual')}</span>
             <span style={{ height: 26, padding: '0 11px', borderRadius: 99, display: 'inline-flex', alignItems: 'center', fontFamily: 'var(--ya-font-mono)', fontSize: 12, background: 'var(--ya-sand-100)', color: 'var(--ya-sand-700)' }}>.csv · .xlsx</span>
           </div>
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center', height: 112, padding: '0 4px', borderRadius: 20, background: drag ? 'var(--ya-red-50)' : 'repeating-linear-gradient(135deg,var(--ya-sand-50) 0 10px,var(--ya-card) 10px 20px)', boxShadow: `inset 0 0 0 1.5px ${drag ? 'var(--ya-red-300)' : 'var(--ya-sand-100)'}`, transition: 'background 240ms,box-shadow 240ms' }}>
@@ -208,7 +207,7 @@ export function ImportsHome({
             <LogoTile src={yunoIcon} alt="Yuno" />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 24, letterSpacing: '-.03em', lineHeight: 1.1, textWrap: 'balance' }}>{t('ya.imp.file.title')}</h2>
+            <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, letterSpacing: '-.01em', lineHeight: 1.3, textWrap: 'balance' }}>{t('ya.imp.file.title')}</h2>
             <span style={{ fontSize: 15, lineHeight: 1.45, color: 'var(--ya-sand-600)', textWrap: 'pretty' }}>{t('ya.imp.file.sub')}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -221,37 +220,37 @@ export function ImportsHome({
           <div style={{ flex: 1 }} />
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px 12px', paddingTop: 20, borderTop: '1px solid var(--ya-sand-100)' }}>
             {canWrite ? (
-            <Hv as="button" type="button" onClick={onOpenWizard} style={{ height: 46, padding: '0 5px 0 22px', border: 0, borderRadius: 99, background: 'var(--ya-gradient-brand)', color: '#fff', fontSize: 15, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 12, boxShadow: 'var(--ya-shadow-cta)', cursor: 'pointer', whiteSpace: 'nowrap', transition: `transform 200ms ${SPRING},filter 160ms` }} hover={{ filter: 'brightness(1.05)', transform: 'translateY(-1px)' }} active={{ transform: 'scale(.97)' }}>
+            <Hv as="button" type="button" onClick={onOpenWizard} style={{ height: 40, padding: '0 5px 0 22px', border: 0, borderRadius: 12, background: 'var(--ya-gradient-brand)', color: '#fff', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 12, boxShadow: 'var(--ya-shadow-cta)', cursor: 'pointer', whiteSpace: 'nowrap', transition: `transform 200ms ${SPRING},filter 160ms` }} hover={{ filter: 'brightness(1.05)', transform: 'translateY(-1px)' }} active={{ transform: 'scale(.97)' }}>
               {t('ya.imp.file.pick')}<span style={{ width: 36, height: 36, borderRadius: 99, background: '#fff', color: 'var(--ya-red-500)', display: 'grid', placeItems: 'center' }}><Icon name="upload" size={16} stroke={2.4} /></span>
             </Hv>
             ) : <span style={{ fontSize: 14, color: 'var(--ya-sand-600)' }}>{t('ya.common.readOnly')}</span>}
-            <Hv as="button" type="button" onClick={() => { downloadText('modele-import-yuno.csv', TEMPLATE_CSV); toast(t('ya.imp.templateDone')); }} style={{ height: 46, padding: '0 14px', border: 0, background: 'none', borderRadius: 99, fontSize: 15, fontWeight: 600, color: 'var(--ya-sand-600)', display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} hover={{ color: 'var(--ya-ink)', background: 'var(--ya-sand-50)' }}>
+            <Hv as="button" type="button" onClick={() => { downloadText('modele-import-yuno.csv', TEMPLATE_CSV); toast(t('ya.imp.templateDone')); }} style={{ height: 40, padding: '0 14px', border: 0, background: 'none', borderRadius: 12, fontSize: 14, fontWeight: 600, color: 'var(--ya-sand-600)', display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} hover={{ color: 'var(--ya-ink)', background: 'var(--ya-sand-50)' }}>
               <Icon name="download" size={16} stroke={2.2} />{t('ya.imp.file.template')}
             </Hv>
           </div>
           {drag && (
             <div style={{ position: 'absolute', inset: 10, borderRadius: 20, border: '2px dashed var(--ya-red-400)', background: 'rgb(var(--page) / .94)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, pointerEvents: 'none', animation: `ya-pop 200ms ${EASE} both` }}>
               <span style={{ width: 56, height: 56, borderRadius: 99, background: 'var(--ya-gradient-brand)', color: '#fff', display: 'grid', placeItems: 'center', boxShadow: 'var(--ya-shadow-cta)', animation: 'ya-float 1.2s ease-in-out infinite' }}><Icon d="M12 19V5M5 12l7-7 7 7" size={24} stroke={2.4} /></span>
-              <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em', color: 'var(--ya-red-700)' }}>{t('ya.imp.file.drop')}</span>
+              <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 22, letterSpacing: '-.025em', color: 'var(--ya-red-700)' }}>{t('ya.imp.file.drop')}</span>
             </div>
           )}
         </section>
       </div>
 
       {/* Zéro doublon */}
-      <section style={{ position: 'relative', overflow: 'hidden', isolation: 'isolate', display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,380px),1fr))', gap: '28px 40px', padding: 'clamp(24px,3vw,40px)', borderRadius: 28, color: 'var(--ya-text-on-night)', background: NIGHT_BG, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.06)', ...reveal(intro, 480) }}>
+      <section style={{ position: 'relative', overflow: 'hidden', isolation: 'isolate', display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,380px),1fr))', gap: '28px 40px', padding: 'clamp(24px,3vw,40px)', borderRadius: 18, color: 'var(--ya-text-on-night)', background: NIGHT_BG, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.06)', ...reveal(intro, 480) }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-text-on-night-2)' }}>{t('ya.imp.zero')}</span>
-          <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(26px,2.8vw,34px)', letterSpacing: '-.035em', lineHeight: 1.08, color: '#fff', textWrap: 'balance' }}>{t('ya.imp.zeroTitle')}</h2>
+          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-text-on-night-2)', fontWeight: 600 }}>{t('ya.imp.zero')}</span>
+          <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, letterSpacing: '-.01em', lineHeight: 1.3, color: '#fff', textWrap: 'balance' }}>{t('ya.imp.zeroTitle')}</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 2 }}><NightPanelRules rules={rules} /></div>
         </div>
         <Tester sampleEmail={sampleEmail} onAdded={refresh} />
       </section>
 
       {/* Derniers ajouts */}
-      <section style={{ display: 'flex', flexDirection: 'column', padding: 'clamp(20px,2.4vw,30px)', borderRadius: 28, background: 'var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)', ...reveal(intro, 560) }}>
+      <section style={{ display: 'flex', flexDirection: 'column', padding: 'clamp(20px,2.4vw,30px)', borderRadius: 18, background: 'var(--ya-card-bg)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)', ...reveal(intro, 560) }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 8 }}>
-          <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' }}>{t('ya.imp.hist')}</h2>
+          <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, letterSpacing: '-.01em' }}>{t('ya.imp.hist')}</h2>
           <span style={{ fontSize: 14, color: 'var(--ya-sand-500)' }}>{t('ya.imp.histSub')}</span>
         </div>
         {!data && [0, 1, 2].map((i) => <div key={i} style={{ padding: '16px 0', borderTop: '1px solid var(--ya-sand-100)' }}><Skel h={44} r={12} /></div>)}
@@ -267,7 +266,7 @@ export function ImportsHome({
               dup={undone ? null : t('ya.imp.histDup', { n: n(h.existing + h.dup) })}
               undone={undone}
               action={!undone && canWrite ? (
-                <Hv as="button" type="button" onClick={() => setConfirm(h)} style={{ height: 36, padding: '0 14px', borderRadius: 99, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', fontSize: 14, fontWeight: 600, color: 'var(--ya-sand-700)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }} hover={{ borderColor: 'var(--ya-red-200)', background: 'var(--ya-red-50)', color: 'var(--ya-red-600)' }}>
+                <Hv as="button" type="button" onClick={() => setConfirm(h)} style={{ height: 36, padding: '0 14px', borderRadius: 12, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', fontSize: 14, fontWeight: 600, color: 'var(--ya-sand-700)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }} hover={{ borderColor: 'var(--ya-red-200)', background: 'var(--ya-red-50)', color: 'var(--ya-red-600)' }}>
                   <Icon d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" size={14} stroke={2.2} />{t('ya.imp.histUndo')}
                 </Hv>
               ) : null}
@@ -286,12 +285,12 @@ export function ImportsHome({
         {confirm && (
           <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '26px 28px 8px' }}>
-              <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 26, lineHeight: 1.1, letterSpacing: '-.03em' }}>{t('ya.imp.cf.title')}</h2>
+              <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, lineHeight: 1.3, letterSpacing: '-.01em' }}>{t('ya.imp.cf.title')}</h2>
               <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5, color: 'var(--ya-sand-600)' }}>{t('ya.imp.cf.body', { n: n(confirm.new), title: confirm.kind === 'manual' ? t('ya.imp.manualTitle') : confirm.title ?? '', m: n(confirm.existing) })}</p>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '16px 28px 22px' }}>
-              <Hv as="button" type="button" onClick={() => setConfirm(null)} style={{ height: 44, padding: '0 18px', borderRadius: 99, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', fontSize: 14.5, fontWeight: 600, color: 'var(--ya-ink)', cursor: 'pointer' }} hover={{ background: 'var(--ya-paper)' }}>{t('ya.imp.cf.keep')}</Hv>
-              <Hv as="button" type="button" onClick={() => void doUndo()} disabled={undoing} style={{ height: 44, padding: '0 20px', borderRadius: 99, border: 0, background: 'var(--ya-red-600)', color: '#fff', fontSize: 14.5, fontWeight: 600, cursor: undoing ? 'wait' : 'pointer', opacity: undoing ? 0.7 : 1 }} hover={{ background: 'var(--ya-red-700)' }}>{t('ya.imp.cf.go')}</Hv>
+              <Hv as="button" type="button" onClick={() => setConfirm(null)} style={{ height: 40, padding: '0 18px', borderRadius: 12, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', fontSize: 14.5, fontWeight: 600, color: 'var(--ya-ink)', cursor: 'pointer' }} hover={{ background: 'var(--ya-paper)' }}>{t('ya.imp.cf.keep')}</Hv>
+              <Hv as="button" type="button" onClick={() => void doUndo()} disabled={undoing} style={{ height: 40, padding: '0 20px', borderRadius: 12, border: 0, background: 'var(--ya-red-600)', color: '#fff', fontSize: 14.5, fontWeight: 600, cursor: undoing ? 'wait' : 'pointer', opacity: undoing ? 0.7 : 1 }} hover={{ background: 'var(--ya-red-700)' }}>{t('ya.imp.cf.go')}</Hv>
             </div>
           </>
         )}
@@ -310,7 +309,7 @@ function fdWhenShort(iso: string, t: (k: string) => string, time: (d: Date | str
 
 function LogoTile({ src, alt, left }: { src: string; alt: string; left?: boolean }) {
   return (
-    <div style={{ flex: 'none', [left ? 'marginLeft' : 'marginRight']: 22, width: 68, height: 68, borderRadius: 18, background: 'var(--ya-card)', display: 'grid', placeItems: 'center', boxShadow: '0 0 0 1px rgb(var(--ink) / .08),var(--ya-shadow-sm)', zIndex: 1 }}>
+    <div style={{ flex: 'none', [left ? 'marginLeft' : 'marginRight']: 22, width: 68, height: 68, borderRadius: 18, background: 'var(--ya-card-bg)', display: 'grid', placeItems: 'center', boxShadow: '0 0 0 1px rgb(var(--ink) / .08),var(--ya-shadow-sm)', zIndex: 1 }}>
       <img src={src} alt={alt} style={{ width: 52, height: 52, borderRadius: 13, display: 'block' }} />
     </div>
   );
@@ -442,7 +441,7 @@ function Tester({ sampleEmail, onAdded }: { sampleEmail: string | null; onAdded:
           {sample ? (
             <span style={{ flex: '1 1 100%', fontSize: 13.5, lineHeight: 1.4, color: 'var(--ya-sand-600)' }}>{t('ya.imp.testSample')}</span>
           ) : (
-            <Hv as="button" type="button" onClick={() => void add()} disabled={adding} style={{ flex: 'none', height: 40, padding: '0 18px', border: 0, borderRadius: 99, background: 'var(--ya-ink)', color: 'var(--ya-on-ink)', fontSize: 14.5, fontWeight: 600, cursor: adding ? 'wait' : 'pointer', transition: `transform 200ms ${SPRING}` }} hover={{ background: 'var(--ya-sand-700)' }} active={{ transform: 'scale(.96)' }}>
+            <Hv as="button" type="button" onClick={() => void add()} disabled={adding} style={{ flex: 'none', height: 40, padding: '0 18px', border: 0, borderRadius: 12, background: 'var(--ya-fill)', color: '#fff', fontSize: 14.5, fontWeight: 600, cursor: adding ? 'wait' : 'pointer', transition: `transform 200ms ${SPRING}` }} hover={{ background: 'var(--ya-sand-700)' }} active={{ transform: 'scale(.96)' }}>
               {t('ya.imp.testAdd')}
             </Hv>
           )}

@@ -100,7 +100,7 @@ export function SalesMade({ q, detail, f, money, goTab, onWrite }: {
         {loading ? <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}><Sk h={72} w="min(340px,60%)" r={14} /><ChartSkeleton /></div> : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18, ...fadeIn(rv) }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 24px' }}>
-              <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(48px,6vw,84px)', lineHeight: 0.95, letterSpacing: '-.05em', fontVariantNumeric: 'tabular-nums' }}>{fmt(v.tot * prog)}</span>
+              <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 0.95, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{fmt(v.tot * prog)}</span>
               <span style={{ fontSize: 14, color: 'var(--ya-sand-500)', paddingBottom: 8 }}>{metric === 'eur' ? tp('ya.mk.bigEur', v.orders, { n: n(v.orders) }) : tp('ya.mk.bigTk', v.orders, { n: n(v.orders) })}</span>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -147,7 +147,7 @@ export function SalesMade({ q, detail, f, money, goTab, onWrite }: {
         {loading ? <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{[0, 1, 2, 3, 4].map((i) => <Sk key={i} h={52} r={14} />)}</div> : (
           <div className="ya-thin-scroll" style={{ overflowX: 'auto', ...fadeIn(rv, 180) }}>
             <div style={{ minWidth: 720, display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 14, padding: '0 10px 10px', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 14, padding: '0 10px 10px', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>
                 <span>{t('ya.ana.col.source')}</span><span style={{ textAlign: 'right' }}>{t('ya.mk.col.orders')}</span><span style={{ textAlign: 'right' }}>{t('ya.mk.col.tickets')}</span>
                 <span style={{ textAlign: 'right' }}>{t('ya.ana.col.newClients')}</span><span style={{ textAlign: 'right' }}>{t('ya.mk.col.basket')}</span><span>{t(euros ? 'ya.mk.col.revenue' : 'ya.mk.col.tickets')}</span>
               </div>
@@ -197,7 +197,7 @@ export function SalesMade({ q, detail, f, money, goTab, onWrite }: {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 28, ...fadeIn(rv, 240) }}>
             <div style={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px 14px' }}>
-                <span style={{ flex: 'none', whiteSpace: 'nowrap', fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 56, lineHeight: 0.95, letterSpacing: '-.05em', fontVariantNumeric: 'tabular-nums' }}>{newPct !== null && d.buyers.buyers >= MIN_SAMPLE ? pct(newPct * prog) : n(d.buyers.new)}</span>
+                <span style={{ flex: 'none', whiteSpace: 'nowrap', fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 36, lineHeight: 0.95, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{newPct !== null && d.buyers.buyers >= MIN_SAMPLE ? pct(newPct * prog) : n(d.buyers.new)}</span>
                 <span style={{ fontSize: 14, color: 'var(--ya-sand-500)', paddingBottom: 6 }}>{tp('ya.mk.newBig', d.buyers.new, { n: n(d.buyers.new) })}</span>
               </div>
               <div style={{ display: 'flex', height: 12, gap: 2, borderRadius: 99, overflow: 'hidden' }}>
@@ -210,7 +210,7 @@ export function SalesMade({ q, detail, f, money, goTab, onWrite }: {
             </div>
             {newRows.length > 0 && (
               <div style={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>{t('ya.ana.t.newFrom')}</span>
+                <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>{t('ya.ana.t.newFrom')}</span>
                 {newRows.map((s, i) => (
                   <div key={s.k} style={{ display: 'grid', gridTemplateColumns: 'minmax(92px,140px) minmax(0,1fr) 48px', gap: 12, alignItems: 'center', fontSize: 14, fontVariantNumeric: 'tabular-nums' }}>
                     <span style={{ color: 'var(--ya-sand-700)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t(`ya.ana.src.${s.k}.s`)}</span>
@@ -247,10 +247,10 @@ function MessagesMade({ d, totalRevenue, totalOrders, money, loading, rv, onWrit
     <section style={{ ...nightCard, display: 'flex', flexDirection: 'column', gap: 18, padding: 'clamp(22px,2.6vw,30px)', ...fadeIn(rv, 120) }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: '16px 28px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
-          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: muted }}>{t('ya.mk.msgT')}</span>
+          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: muted, fontWeight: 600 }}>{t('ya.mk.msgT')}</span>
           {loading || !tot ? <Sk h={64} w={260} r={14} /> : (
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 22px' }}>
-              <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(52px,6.5vw,80px)', lineHeight: 0.95, letterSpacing: '-.05em', fontVariantNumeric: 'tabular-nums' }}>{share !== null ? pct(share) : '—'}</span>
+              <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 0.95, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{share !== null ? pct(share) : '—'}</span>
               <span style={{ fontSize: 16, lineHeight: 1.4, color: muted, maxWidth: 460, paddingBottom: 8 }}>
                 {money ? tp('ya.mk.msgS', mOrd, { v: eur(mRev), n: n(mOrd) }) : tp('ya.mk.msgSN', mOrd, { n: n(mOrd) })}
               </span>
@@ -263,7 +263,7 @@ function MessagesMade({ d, totalRevenue, totalOrders, money, loading, rv, onWrit
       {!loading && rows.length > 0 && (
         <div className="ya-thin-scroll" style={{ overflowX: 'auto' }}>
           <div style={{ minWidth: 600, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 12, padding: '0 4px 10px', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: muted, borderBottom: '1px solid rgba(255,255,255,.08)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 12, padding: '0 4px 10px', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: muted, borderBottom: '1px solid rgba(255,255,255,.08)', fontWeight: 600 }}>
               <span>{t('ya.tr.msg.col.msg')}</span><span style={{ textAlign: 'right' }}>{t('ya.mk.col.clicks')}</span><span style={{ textAlign: 'right' }}>{t('ya.mk.col.sales')}</span>
               <span style={{ textAlign: 'right' }}>{t(money ? 'ya.mk.col.revenue' : 'ya.mk.col.buyers')}</span><span style={{ textAlign: 'right' }}>{t('ya.mk.col.perClick')}</span>
             </div>

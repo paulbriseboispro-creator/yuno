@@ -140,14 +140,14 @@ export function PartnersTab({ q, f, setF }: { q: UseQueryResult<AnaPartners>; f:
   return (
     <>
       {/* Héros : ce que vos promoteurs ont vendu */}
-      <section style={{ ...card, gap: 18, padding: 'clamp(20px,2.4vw,32px)', background: 'radial-gradient(60% 50% at 100% 0%,rgba(255,107,53,.07),transparent 70%),var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200),var(--ya-shadow-sm)' }}>
+      <section style={{ ...card, gap: 18, padding: 'clamp(20px,2.4vw,32px)', background: 'radial-gradient(60% 50% at 100% 0%,rgba(232,25,44,.07),transparent 70%),var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-border),var(--ya-card-shadow)' }}>
         <CardHead title={t('ya.pa.heroT')} sub={t(money ? 'ya.pa.heroSub' : 'ya.pa.heroSubN', { unit: t(`ya.ana.unit.${ev ? 'day' : unit}`) })} />
         {loading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}><Sk h={72} w="min(340px,60%)" r={14} /><ChartSkeleton /></div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18, ...fadeIn(rv) }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 24px' }}>
-              <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(56px,8vw,112px)', lineHeight: 0.92, letterSpacing: '-.055em', fontVariantNumeric: 'tabular-nums' }}>{fmt(v.tot * prog)}</span>
+              <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 0.92, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{fmt(v.tot * prog)}</span>
               <span style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingBottom: 10 }}>
                 <span style={{ fontSize: 14, color: 'var(--ya-sand-500)' }}>{t(money ? 'ya.pa.bigSub' : 'ya.pa.bigSubN')}</span>
                 {totD && <span style={{ fontSize: 14, fontWeight: 600, color: totD.up ? 'var(--ya-green-700)' : 'var(--ya-red-600)' }}>{`${totD.text} ${ev ? t('ya.pa.vsNight') : t('ya.ana.vsBefore')}`}</span>}
@@ -232,7 +232,7 @@ function PromoterRanking({ d, money, cmp, loading, rv, go, prog }: { d: AnaPartn
         title={t('ya.pa.rank.t')}
         sub={t(money ? 'ya.pa.rank.sub' : 'ya.pa.rank.subN')}
         right={d.meta.has_promoters ? (
-          <Hv as={Link} to={R.promoters} style={{ flex: 'none', height: 36, padding: '0 14px', borderRadius: 99, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', color: 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none' }} hover={{ borderColor: 'var(--ya-sand-400)', color: 'var(--ya-ink)', textDecoration: 'none' }}>
+          <Hv as={Link} to={R.promoters} style={{ flex: 'none', height: 36, padding: '0 14px', borderRadius: 12, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', color: 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none' }} hover={{ borderColor: 'var(--ya-sand-400)', color: 'var(--ya-ink)', textDecoration: 'none' }}>
             {t('ya.pa.rank.manage')}<Icon name="arrowRight" size={14} stroke={2.4} />
           </Hv>
         ) : undefined}
@@ -242,7 +242,7 @@ function PromoterRanking({ d, money, cmp, loading, rv, go, prog }: { d: AnaPartn
       ) : (
         <div className="ya-thin-scroll" style={{ overflowX: 'auto', ...fadeIn(rv, 160) }}>
           <div style={{ minWidth: money ? 760 : 640, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 14, padding: '0 10px 10px', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 14, padding: '0 10px 10px', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>
               <span>{t('ya.pa.col.promoter')}</span>
               <span style={{ textAlign: 'right' }}>{t('ya.pa.col.sales')}</span>
               <span style={{ textAlign: 'right' }}>{t('ya.pa.col.clicks')}</span>
@@ -325,7 +325,7 @@ function PartnerLinks({ links, ev, money, loading, rv, go }: { links: AnaPartner
       ) : (
         <div className="ya-thin-scroll" style={{ overflowX: 'auto', ...fadeIn(rv, 200) }}>
           <div style={{ minWidth: 620, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 14, padding: '0 10px 10px', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 14, padding: '0 10px 10px', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>
               <span>{t('ya.pa.col.link')}</span>
               <span style={{ textAlign: 'right' }}>{t('ya.pa.col.clicks')}</span>
               <span style={{ textAlign: 'right' }}>{t('ya.pa.col.sales')}</span>
@@ -398,7 +398,7 @@ function WhoSells({ eventId, rv, go }: { eventId: string; rv: boolean; go: boole
       ) : (
         <div className="ya-thin-scroll" style={{ overflowX: 'auto' }}>
           <div style={{ minWidth: 760, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 12, padding: '0 10px 10px', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 12, padding: '0 10px 10px', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>
               <span>{t('ya.pa.who.col.party')}</span>
               <span style={{ textAlign: 'right' }}>{t('ya.pa.col.clicks')}</span>
               <span style={{ textAlign: 'right' }}>{t('ya.pa.who.col.tickets')}</span>

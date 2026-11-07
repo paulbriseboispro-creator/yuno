@@ -76,7 +76,7 @@ export function NightHeader({ report, compare, door, compareId, onCompare, night
         {ev.poster && <img src={ev.poster} alt="" style={{ width: 64, height: 64, flex: 'none', borderRadius: 16, objectFit: 'cover' }} />}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 200, flex: '1 1 260px' }}>
           <span style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 24, letterSpacing: '-.025em', textWrap: 'balance' }}>{ev.title}</span>
+            <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 24, letterSpacing: '-.025em', textWrap: 'balance' }}>{ev.title}</span>
             <StatePill state={PHASE_STATE[ev.phase]} label={t(`ya.nr.phase.${ev.phase}`)} />
             {ev.phase === 'before' && <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 12, letterSpacing: '.06em', color: 'var(--ya-sand-500)' }}>{jLabel(t, d)}</span>}
           </span>
@@ -97,7 +97,7 @@ export function NightHeader({ report, compare, door, compareId, onCompare, night
           </select>
         </label>
       </div>
-      <p style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(19px,2vw,23px)', lineHeight: 1.3, letterSpacing: '-.015em', textWrap: 'pretty' }}>
+      <p style={{ margin: 0, fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 'clamp(19px,2vw,23px)', lineHeight: 1.3, letterSpacing: '-.025em', textWrap: 'pretty' }}>
         {answerText(report, compare, door, T)}
       </p>
       <Takeaways report={report} />
@@ -152,7 +152,7 @@ function Takeaways({ report }: { report: EventReport }) {
   const dot = { good: 'var(--ya-green-500)', bad: 'var(--ya-red-500)', info: 'var(--ya-sand-400)' } as const;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '14px 18px', borderRadius: 16, background: 'var(--ya-sand-50)' }}>
-      <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>{t('ya.nr.takeaways')}</span>
+      <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>{t('ya.nr.takeaways')}</span>
       {items.map((tk) => (
         <span key={tk.key} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 14.5, lineHeight: 1.45 }}>
           <i style={{ flex: 'none', width: 8, height: 8, marginTop: 7, borderRadius: 99, background: dot[tk.tone] }} />
@@ -217,7 +217,7 @@ export function TargetCard({ report, compare, rv, go }: { report: EventReport | 
   };
 
   const pill = (label: string, onClick: () => void, primary = false) => (
-    <Hv as="button" type="button" onClick={onClick} disabled={saving} style={{ height: 34, padding: '0 14px', border: 0, borderRadius: 99, background: primary ? 'var(--ya-ink)' : 'var(--ya-sand-100)', color: primary ? 'var(--ya-card)' : 'var(--ya-ink)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', opacity: saving ? 0.6 : 1 }} hover={{ filter: 'brightness(1.05)' }}>{label}</Hv>
+    <Hv as="button" type="button" onClick={onClick} disabled={saving} style={{ height: 34, padding: '0 14px', border: 0, borderRadius: 99, background: primary ? 'var(--ya-fill)' : 'var(--ya-sand-100)', color: primary ? 'var(--ya-card)' : 'var(--ya-ink)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', opacity: saving ? 0.6 : 1 }} hover={{ filter: 'brightness(1.05)' }}>{label}</Hv>
   );
 
   let body: JSX.Element;
@@ -253,7 +253,7 @@ export function TargetCard({ report, compare, rv, go }: { report: EventReport | 
     body = (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 44, letterSpacing: '-.035em', fontVariantNumeric: 'tabular-nums' }}>{n(status.current)}</span>
+          <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 36, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{n(status.current)}</span>
           <span style={{ fontSize: 16, color: 'var(--ya-sand-500)' }}>/ {n(status.target)} {t(status.measure === 'entered' ? 'ya.nr.tg.entered' : 'ya.nr.tg.expected')}</span>
           <b style={{ marginLeft: 'auto', fontSize: 15, color: reached ? 'var(--ya-green-700)' : 'var(--ya-ink)' }}>{pct(ratio)}</b>
         </div>
@@ -352,7 +352,7 @@ export function DoorCard({ door, loading, rv, go }: { door: TixNightDoor | null;
           {stats.map((s) => (
             <div key={s.l} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '14px 16px', borderRadius: 16, background: 'var(--ya-sand-50)', minWidth: 0 }}>
               <span style={{ fontSize: 13, color: 'var(--ya-sand-600)' }}>{s.l}</span>
-              <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 28, letterSpacing: '-.03em', fontVariantNumeric: 'tabular-nums' }}>{s.v}</b>
+              <b style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 28, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{s.v}</b>
               {s.c && <span style={{ fontSize: 12.5, lineHeight: 1.35, color: 'var(--ya-sand-500)' }}>{s.c}</span>}
             </div>
           ))}

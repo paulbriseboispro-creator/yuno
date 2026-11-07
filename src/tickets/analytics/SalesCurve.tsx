@@ -70,7 +70,7 @@ export function SalesCurve({
         </g>
       </svg>
       {showCapLabel && capY !== null && detail.cap && (
-        <span style={{ position: 'absolute', right: 0, top: `${((capY / 40) * 100).toFixed(1)}%`, fontSize: 11.5, fontFamily: 'var(--ya-font-mono)', color: 'var(--ya-sand-400)', textTransform: 'uppercase', letterSpacing: '.06em', transform: 'translateY(calc(-100% - 4px))', pointerEvents: 'none' }}>
+        <span style={{ position: 'absolute', right: 0, top: `${((capY / 40) * 100).toFixed(1)}%`, fontSize: 11, fontFamily: 'var(--ya-font-mono)', color: 'var(--ya-sand-400)', textTransform: 'uppercase', letterSpacing: '.07em', transform: 'translateY(calc(-100% - 4px))', pointerEvents: 'none', fontWeight: 600 }}>
           {t('ya.ni.curve.cap', { n: n(detail.cap) })}
         </span>
       )}
@@ -79,7 +79,7 @@ export function SalesCurve({
           <i style={{ position: 'absolute', left: tip.left, top: tip.top, width: 10, height: 10, margin: '-5px 0 0 -5px', borderRadius: 99, background: 'var(--ya-red-500)', boxShadow: '0 0 0 4px rgba(232,25,44,.18)', pointerEvents: 'none' }} />
           <div style={{ position: 'absolute', top: 0, left: tip.left, transform: tip.tx, pointerEvents: 'none', background: 'var(--ya-tip-bg)', color: 'var(--ya-tip-fg)', borderRadius: 12, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 1, whiteSpace: 'nowrap', boxShadow: 'var(--ya-shadow-md)', zIndex: 3 }}>
             <span style={{ fontSize: 12, color: 'var(--ya-text-on-night-2)' }}>{tip.date}</span>
-            <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 18, letterSpacing: '-.02em' }}>{t(tipKey, { n: tip.v })}</span>
+            <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 18, letterSpacing: '-.025em' }}>{t(tipKey, { n: tip.v })}</span>
             {tip.pv !== null && <span style={{ fontSize: 12, color: 'var(--ya-text-on-night-2)' }}>{t('ya.ni.curve.tipPrev', { n: tip.pv })}</span>}
           </div>
         </>

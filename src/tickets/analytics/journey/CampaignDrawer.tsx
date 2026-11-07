@@ -65,7 +65,7 @@ export function CampaignDrawer({
   const segTot = c.buyers || 1;
   const fast = c.buyers ? c.within2d / c.buyers : 0;
   const when = !c.buyers ? t('ya.jr.dr.whenNone') : fast >= 0.5 ? t('ya.jr.dr.when', { p: T.pct(Math.round(fast * 100)) }) : t('ya.jr.dr.whenLong', { p: T.pct(Math.round(fast * 100)) });
-  const mono = { fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase' as const, color: 'var(--ya-sand-400)' };
+  const mono = { fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase' as const, color: 'var(--ya-sand-400)', fontWeight: 600 };
 
   return (
     <Portal>
@@ -74,10 +74,10 @@ export function CampaignDrawer({
         <div style={{ flex: 'none', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '22px 24px 16px' }}>
           <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
-              <span style={{ height: 24, padding: '0 10px', borderRadius: 99, display: 'inline-flex', alignItems: 'center', fontSize: 12, fontWeight: 600, background: 'var(--ya-ink)', color: 'var(--ya-on-ink)' }}>{t(`ya.jr.ch.${c.channel ?? 'email'}`)}</span>
+              <span style={{ height: 24, padding: '0 10px', borderRadius: 99, display: 'inline-flex', alignItems: 'center', fontSize: 12, fontWeight: 600, background: 'var(--ya-fill)', color: '#fff' }}>{t(`ya.jr.ch.${c.channel ?? 'email'}`)}</span>
               <span style={{ fontSize: 13, color: 'var(--ya-sand-500)' }}>{[dShort(c.sent_at), c.event_title].filter(Boolean).join(' · ')}</span>
             </div>
-            <h3 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 26, lineHeight: 1.1, letterSpacing: '-.03em', textWrap: 'balance' }}>{c.name}</h3>
+            <h3 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, lineHeight: 1.3, letterSpacing: '-.01em', textWrap: 'balance' }}>{c.name}</h3>
           </div>
           <Hv
             as="button"
@@ -93,7 +93,7 @@ export function CampaignDrawer({
 
         <div className="ya-thin-scroll" style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', padding: '0 24px 24px', display: 'flex', flexDirection: 'column', gap: 22 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 18px', padding: '18px 20px', borderRadius: 20, background: 'var(--ya-sand-50)' }}>
-            <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 64, lineHeight: 0.95, letterSpacing: '-.05em', fontVariantNumeric: 'tabular-nums' }}>{pc(T, cv)}</span>
+            <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 36, lineHeight: 0.95, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{pc(T, cv)}</span>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingBottom: 4 }}>
               {vs && <span style={{ fontSize: 14.5, fontWeight: 600, color: vsFg }}>{vs}</span>}
               <span style={{ fontSize: 13, color: 'var(--ya-sand-500)' }}>{t('ya.jr.dr.bought')}</span>
@@ -144,7 +144,7 @@ export function CampaignDrawer({
               type="button"
               onClick={() => onDup(c)}
               disabled={busy}
-              style={{ height: 44, padding: '0 16px', borderRadius: 99, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', fontSize: 14, fontWeight: 600, color: 'var(--ya-ink)', cursor: busy ? 'progress' : 'pointer', opacity: busy ? 0.6 : 1, whiteSpace: 'nowrap' }}
+              style={{ height: 40, padding: '0 16px', borderRadius: 12, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', fontSize: 14, fontWeight: 600, color: 'var(--ya-ink)', cursor: busy ? 'progress' : 'pointer', opacity: busy ? 0.6 : 1, whiteSpace: 'nowrap' }}
               hover={{ borderColor: 'var(--ya-sand-300)', background: 'var(--ya-paper)' }}
             >
               {t('ya.jr.dr.dup')}
@@ -154,7 +154,7 @@ export function CampaignDrawer({
             as="button"
             type="button"
             onClick={() => onOnly(c.id)}
-            style={{ height: 44, padding: '0 5px 0 16px', borderRadius: 99, border: 0, background: 'var(--ya-gradient-brand)', color: '#fff', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, boxShadow: 'var(--ya-shadow-cta)', cursor: 'pointer', whiteSpace: 'nowrap', transition: `transform 200ms ${SPRING},filter 160ms` }}
+            style={{ height: 40, padding: '0 5px 0 16px', borderRadius: 12, border: 0, background: 'var(--ya-gradient-brand)', color: '#fff', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, boxShadow: 'var(--ya-shadow-cta)', cursor: 'pointer', whiteSpace: 'nowrap', transition: `transform 200ms ${SPRING},filter 160ms` }}
             hover={{ filter: 'brightness(1.05)', transform: 'translateY(-1px)' }}
             active={{ transform: 'scale(.97)' }}
           >

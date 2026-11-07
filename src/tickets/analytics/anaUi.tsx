@@ -44,7 +44,7 @@ export function fadeIn(rv: boolean, delay = 0): CSSProperties {
 // ── Cartes et textes ──────────────────────────────────────────────────────
 
 export const card: CSSProperties = {
-  minWidth: 0, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 18, padding: 24, borderRadius: 28,
+  minWidth: 0, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 18, padding: 24, borderRadius: 18,
   background: 'var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)',
 };
 
@@ -52,7 +52,7 @@ export function CardHead({ title, sub, right }: { title: ReactNode; sub?: ReactN
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px 16px' }}>
       <div style={{ minWidth: 0 }}>
-        <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em', lineHeight: 1.15 }}>{title}</h2>
+        <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, letterSpacing: '-.01em', lineHeight: 1.3 }}>{title}</h2>
         {sub && <div style={{ fontSize: 13.5, color: 'var(--ya-sand-500)', marginTop: 2, lineHeight: 1.4 }}>{sub}</div>}
       </div>
       {right}
@@ -75,7 +75,7 @@ export function Takeaway({ children, cta, onCta, size = 15 }: { children: ReactN
           as="button"
           type="button"
           onClick={onCta}
-          style={{ flex: 'none', height: 36, padding: '0 4px 0 14px', border: 0, borderRadius: 99, background: 'var(--ya-card)', color: 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', boxShadow: 'inset 0 0 0 1px var(--ya-red-200)', transition: 'color 140ms' }}
+          style={{ flex: 'none', height: 36, padding: '0 4px 0 14px', border: 0, borderRadius: 12, background: 'var(--ya-card)', color: 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', boxShadow: 'inset 0 0 0 1px var(--ya-red-200)', transition: 'color 140ms' }}
           hover={{ color: 'var(--ya-red-600)' }}
         >
           {cta}
@@ -128,7 +128,7 @@ export function Tile({ t, i, go, rv }: { t: TileSpec; i: number; go: boolean; rv
     >
       <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ya-sand-600)' }}>{t.label}</span>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, minWidth: 0 }}>
-        <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: t.kind === 'txt' ? 30 : 44, lineHeight: 1.15, letterSpacing: '-.035em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{t.value}</span>
+        <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: t.kind === 'txt' ? 24 : 32, lineHeight: 1.15, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{t.value}</span>
         {t.kind === 'ring' && (
           <svg viewBox="0 0 42 42" width={58} height={58} style={{ flex: 'none', transform: 'rotate(-90deg)' }} aria-hidden>
             <circle cx={21} cy={21} r={15.9155} fill="none" stroke="var(--ya-red-100)" strokeWidth={5} />
@@ -310,7 +310,7 @@ export function TrendChart({
         {hov !== null && hov < n && (
           <div style={{ position: 'absolute', top: 6, left: `${cx.toFixed(1)}%`, transform: cx < 55 ? 'translateX(22px)' : 'translateX(calc(-100% - 22px))', pointerEvents: 'none', background: 'var(--ya-tip-bg)', color: 'var(--ya-tip-fg)', borderRadius: 14, padding: '10px 14px', boxShadow: 'var(--ya-shadow-md)', display: 'flex', flexDirection: 'column', gap: 2, whiteSpace: 'nowrap', zIndex: 3 }}>
             <span style={{ fontSize: 12, color: 'var(--ya-text-on-night-2)' }}>{tipTitle(hov)}</span>
-            <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' }}>{tipValue(cur[hov])}</span>
+            <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 22, letterSpacing: '-.025em' }}>{tipValue(cur[hov])}</span>
             {showPrev && tipPrev && prev.length > hov && <span style={{ fontSize: 12, color: 'var(--ya-text-on-night-2)' }}>{tipPrev(prev[hov])}</span>}
             {mk.get(hov) && <span style={{ marginTop: 4, fontSize: 12, fontWeight: 600, color: 'var(--ya-red-300)' }}>● {mk.get(hov)}</span>}
           </div>
@@ -373,7 +373,7 @@ export function StackChart({
         {hov !== null && hov < n && (
           <div style={{ position: 'absolute', top: 6, left: `${cx.toFixed(1)}%`, transform: cx < 55 ? 'translateX(22px)' : 'translateX(calc(-100% - 22px))', pointerEvents: 'none', background: 'var(--ya-tip-bg)', color: 'var(--ya-tip-fg)', borderRadius: 14, padding: '12px 14px', boxShadow: 'var(--ya-shadow-md)', display: 'flex', flexDirection: 'column', gap: 4, whiteSpace: 'nowrap', zIndex: 3, minWidth: 190 }}>
             <span style={{ fontSize: 12, color: 'var(--ya-text-on-night-2)' }}>{tipTitle(hov)}</span>
-            <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' }}>{tipValue(stack[hov])}</span>
+            <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 22, letterSpacing: '-.025em' }}>{tipValue(stack[hov])}</span>
             {vis.filter((s) => s.v[hov] > 0).map((s) => (
               <span key={s.k} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
                 <i style={{ width: 8, height: 8, borderRadius: 2, background: s.c, boxShadow: '0 0 0 1px rgba(255,255,255,.4)' }} />
@@ -422,7 +422,7 @@ export function Donut({ items, active, go, onEnter, onLeave, big, small }: {
       </svg>
       <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', textAlign: 'center', pointerEvents: 'none' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 32, letterSpacing: '-.04em', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{big}</span>
+          <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 28, letterSpacing: '-.025em', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{big}</span>
           <span style={{ fontSize: 13, color: 'var(--ya-sand-500)' }}>{small}</span>
         </div>
       </div>
@@ -446,7 +446,7 @@ export function Gauge({ pct, mark, go, big, cap, label }: { pct: number; mark: n
         )}
       </svg>
       <div style={{ position: 'absolute', left: 0, right: 0, bottom: 4, textAlign: 'center' }}>
-        <div style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 40, lineHeight: 1, letterSpacing: '-.03em', fontVariantNumeric: 'tabular-nums' }}>{big}<span style={{ fontSize: 18, color: 'var(--ya-sand-500)' }}>{cap ? ` ${cap}` : ''}</span></div>
+        <div style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 36, lineHeight: 1, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{big}<span style={{ fontSize: 18, color: 'var(--ya-sand-500)' }}>{cap ? ` ${cap}` : ''}</span></div>
         <div style={{ fontSize: 12.5, color: 'var(--ya-sand-500)', marginTop: 2 }}>{label}</div>
       </div>
     </div>
@@ -511,8 +511,8 @@ export function MultiLine({ lines, top, go, fy, tipTitle, tipValue, xl, height =
 // ── Bandeau sombre (« Ce qui a fait vendre », « À réveiller ») ───────────
 
 export const nightCard: CSSProperties = {
-  position: 'relative', overflow: 'hidden', isolation: 'isolate', boxSizing: 'border-box', borderRadius: 28, color: 'var(--ya-text-on-night)',
-  background: 'radial-gradient(90% 120% at 100% 110%,rgba(232,25,44,.4),transparent 65%),radial-gradient(60% 80% at 0% 0%,rgba(255,107,53,.14),transparent 70%),var(--ya-noise-night),var(--ya-night)',
+  position: 'relative', overflow: 'hidden', isolation: 'isolate', boxSizing: 'border-box', borderRadius: 18, color: 'var(--ya-text-on-night)',
+  background: 'radial-gradient(90% 120% at 100% 110%,rgba(232,25,44,.4),transparent 65%),radial-gradient(60% 80% at 0% 0%,rgba(232,25,44,.14),transparent 70%),var(--ya-noise-night),var(--ya-night)',
   boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.06)',
 };
 

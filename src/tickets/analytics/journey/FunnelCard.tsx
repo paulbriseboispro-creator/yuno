@@ -96,10 +96,10 @@ export function FunnelCard({
     : t('ya.jr.coverRule');
 
   return (
-    <section style={{ boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 20, padding: 'clamp(20px,2.4vw,32px)', borderRadius: 28, background: 'radial-gradient(60% 50% at 100% 0%,rgba(255,107,53,.07),transparent 70%),var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200),var(--ya-shadow-sm)', minWidth: 0, ...reveal(intro, 640) }}>
+    <section style={{ boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 20, padding: 'clamp(20px,2.4vw,32px)', borderRadius: 18, background: 'radial-gradient(60% 50% at 100% 0%,rgba(232,25,44,.07),transparent 70%),var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-border),var(--ya-card-shadow)', minWidth: 0, ...reveal(intro, 640) }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px 20px' }}>
         <div style={{ minWidth: 0 }}>
-          <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' }}>{t('ya.jr.s1.title')}</h2>
+          <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, letterSpacing: '-.01em' }}>{t('ya.jr.s1.title')}</h2>
           <div style={{ fontSize: 13.5, color: 'var(--ya-sand-500)', marginTop: 2 }}>{tp('ya.jr.s1.sub', S[0], { n: n(S[0]), scope })}</div>
         </div>
         <span style={{ fontSize: 13, color: 'var(--ya-sand-500)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -120,7 +120,7 @@ export function FunnelCard({
               const on = i === k;
               return (
                 <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, textAlign: 'center', padding: '0 6px' }}>
-                  <span style={{ width: 38, height: 38, borderRadius: 99, display: 'grid', placeItems: 'center', background: on ? 'var(--ya-ink)' : 'var(--ya-sand-100)', color: on ? 'var(--ya-on-ink)' : 'var(--ya-ink)', transition: 'background 200ms,color 200ms' }}>
+                  <span style={{ width: 38, height: 38, borderRadius: 99, display: 'grid', placeItems: 'center', background: on ? 'var(--ya-fill)' : 'var(--ya-sand-100)', color: on ? '#fff' : 'var(--ya-ink)', transition: 'background 200ms,color 200ms' }}>
                     <Icon d={STEP_IC[i]} size={18} stroke={2} />
                   </span>
                   <span style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.1 }}>{s}</span>
@@ -143,7 +143,7 @@ export function FunnelCard({
             <div style={{ position: 'absolute', inset: 0, display: 'grid', gridTemplateColumns: 'repeat(5,minmax(0,1fr))', pointerEvents: 'none' }}>
               {steps.map((_, i) => (
                 <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff', textAlign: 'center', opacity: clamp01(g * 2.2 - 0.5 - i * 0.18) }}>
-                  <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 26, lineHeight: 1, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums' }}>
+                  <b style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 26, lineHeight: 1, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>
                     {i ? T.pct(Math.round((S[i] / (S[i - 1] || 1)) * 100)) : T.pct(100)}
                   </b>
                   <span style={{ fontSize: 12, marginTop: 4, opacity: 0.92 }}>{t(`ya.jr.step.${i}.ctx`)}</span>
@@ -154,7 +154,7 @@ export function FunnelCard({
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,minmax(0,1fr))', paddingTop: 12 }}>
             {steps.map((_, i) => (
               <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 2, padding: '0 6px 10px' }}>
-                <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 32, lineHeight: 1.05, letterSpacing: '-.035em', fontVariantNumeric: 'tabular-nums' }}>{n(S[i] * cc)}</b>
+                <b style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 28, lineHeight: 1.05, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{n(S[i] * cc)}</b>
                 <span style={{ fontSize: 13, lineHeight: '17px', color: 'var(--ya-sand-600)', textWrap: 'balance' }}>{t(`ya.jr.step.${i}.l`)}</span>
               </div>
             ))}
@@ -188,8 +188,8 @@ export function FunnelCard({
                 title={kk === 3 ? t('ya.jr.s1.lossBack') : t('ya.jr.s1.lossT', { s: steps[kk] })}
                 style={{
                   position: 'absolute', left: `${(kk + 1) * 20}%`, top: 188, transform: 'translate(-50%,-50%)', zIndex: 2, height: 28, padding: '0 11px', borderRadius: 99,
-                  border: `1px solid ${on ? 'var(--ya-ink)' : isBig ? 'var(--ya-red-500)' : 'var(--ya-sand-200)'}`, background: on ? 'var(--ya-ink)' : isBig ? 'var(--ya-red-500)' : 'var(--ya-card)',
-                  color: on ? 'var(--ya-on-ink)' : isBig ? '#fff' : 'var(--ya-ink)', fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', cursor: 'pointer',
+                  border: `1px solid ${on ? 'var(--ya-fill)' : isBig ? 'var(--ya-red-500)' : 'var(--ya-sand-200)'}`, background: on ? 'var(--ya-fill)' : isBig ? 'var(--ya-red-500)' : 'var(--ya-card)',
+                  color: on ? '#fff' : isBig ? '#fff' : 'var(--ya-ink)', fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', cursor: 'pointer',
                   boxShadow: 'var(--ya-shadow-xs)', opacity: clamp01(g * 2.4 - 0.8 - kk * 0.15), animation: isBig && !on ? 'ya-pulse-red 1.8s ease-out infinite' : 'none',
                   transition: `background 160ms,color 160ms,transform 200ms ${SPRING}`,
                 }}
@@ -205,11 +205,11 @@ export function FunnelCard({
       {/* Qui s'arrête ici */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px 32px', padding: 24, borderRadius: 22, background: 'var(--ya-sand-50)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)', animation: anim }}>
         <div style={{ flex: '1.1 1 270px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>
+          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>
             {k === 3 ? t('ya.jr.pn.afterBack') : t('ya.jr.pn.after', { s: steps[k] })}
           </span>
           <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '4px 12px' }}>
-            <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 56, lineHeight: 0.95, letterSpacing: '-.05em', fontVariantNumeric: 'tabular-nums' }}>{n(lost * cc)}</span>
+            <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 36, lineHeight: 0.95, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{n(lost * cc)}</span>
             <span style={{ fontSize: 15, color: 'var(--ya-sand-600)' }}>{tp(k === 3 ? 'ya.jr.pn.lostBack' : 'ya.jr.pn.lost', lost)}</span>
           </div>
           <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5, color: 'var(--ya-sand-700)', textWrap: 'pretty' }}>
@@ -221,7 +221,7 @@ export function FunnelCard({
                 as="button"
                 type="button"
                 onClick={() => onRelaunch({ k, reach, emails: st?.emails ?? null })}
-                style={{ height: 44, padding: '0 5px 0 18px', borderRadius: 99, border: 0, background: 'var(--ya-gradient-brand)', color: '#fff', fontSize: 14.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 10, boxShadow: 'var(--ya-shadow-cta)', cursor: 'pointer', whiteSpace: 'nowrap', transition: `transform 200ms ${SPRING},filter 160ms` }}
+                style={{ height: 40, padding: '0 5px 0 18px', borderRadius: 12, border: 0, background: 'var(--ya-gradient-brand)', color: '#fff', fontSize: 14.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 10, boxShadow: 'var(--ya-shadow-cta)', cursor: 'pointer', whiteSpace: 'nowrap', transition: `transform 200ms ${SPRING},filter 160ms` }}
                 hover={{ filter: 'brightness(1.05)', transform: 'translateY(-1px)' }}
                 active={{ transform: 'scale(.97)' }}
               >

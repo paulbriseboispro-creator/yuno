@@ -205,7 +205,7 @@ export function ImportWizard({ initialFile, startSample, onLeave }: { initialFil
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, animation: `ya-rise 600ms ${EASE} both` }}>
       <input ref={inputRef} type="file" accept=".csv,.txt,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) { setStep(1); void handleFile(f); } }} />
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-        <Hv as="button" type="button" onClick={onLeave} style={{ height: 36, padding: '0 14px 0 8px', border: 0, borderRadius: 99, background: 'none', color: 'var(--ya-sand-600)', fontSize: 14.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }} hover={{ background: 'var(--ya-sand-100)', color: 'var(--ya-ink)' }}>
+        <Hv as="button" type="button" onClick={onLeave} style={{ height: 36, padding: '0 14px 0 8px', border: 0, borderRadius: 12, background: 'none', color: 'var(--ya-sand-600)', fontSize: 14.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }} hover={{ background: 'var(--ya-sand-100)', color: 'var(--ya-ink)' }}>
           <Icon name="chevronLeft" size={16} stroke={2.4} />{t('ya.imp.back')}
         </Hv>
         <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 10px' }}>
@@ -215,7 +215,7 @@ export function ImportWizard({ initialFile, startSample, onLeave }: { initialFil
             const done = step > s || (s === 4 && finished);
             return (
               <li key={l} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ flex: 'none', width: 28, height: 28, borderRadius: 99, background: done ? 'var(--ya-green-500)' : cur ? 'var(--ya-ink)' : 'var(--ya-sand-100)', color: done ? '#fff' : cur ? 'var(--ya-on-ink)' : 'var(--ya-sand-500)', display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 600, transition: 'background 200ms,color 200ms' }}>
+                <span style={{ flex: 'none', width: 28, height: 28, borderRadius: 99, background: done ? 'var(--ya-green-500)' : cur ? 'var(--ya-fill)' : 'var(--ya-sand-100)', color: done ? '#fff' : cur ? '#fff' : 'var(--ya-sand-500)', display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 600, transition: 'background 200ms,color 200ms' }}>
                   {done ? <Icon name="check" size={14} stroke={3} /> : s}
                 </span>
                 <span style={{ fontSize: 14, fontWeight: cur ? 600 : 500, color: cur ? 'var(--ya-ink)' : 'var(--ya-sand-500)' }}>{l}</span>
@@ -227,7 +227,7 @@ export function ImportWizard({ initialFile, startSample, onLeave }: { initialFil
       </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'flex-start' }}>
-        <section style={{ flex: '1.7 1 560px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 26, padding: 'clamp(22px,2.6vw,36px)', borderRadius: 28, background: 'var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200),var(--ya-shadow-sm)' }}>
+        <section style={{ flex: '1.7 1 560px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 26, padding: 'clamp(22px,2.6vw,36px)', borderRadius: 18, background: 'var(--ya-card-bg)', boxShadow: 'inset 0 0 0 1px var(--ya-border),var(--ya-card-shadow)' }}>
           {step === 1 && (
             <div key="s1" style={{ display: 'flex', flexDirection: 'column', gap: 24, animation: `ya-rise 600ms ${EASE} both` }}>
               <Head title={t('ya.imp.w1.title')} sub={t('ya.imp.w1.sub')} />
@@ -244,7 +244,7 @@ export function ImportWizard({ initialFile, startSample, onLeave }: { initialFil
                   hover={{ borderColor: 'var(--ya-sand-400)', background: 'var(--ya-sand-50)' }}
                 >
                   <span style={{ width: 64, height: 64, borderRadius: 99, background: drag ? 'var(--ya-gradient-brand)' : 'var(--ya-ink)', color: drag ? '#fff' : 'var(--ya-on-ink)', display: 'grid', placeItems: 'center', boxShadow: 'var(--ya-shadow-sm)', animation: 'ya-float 2.4s ease-in-out infinite' }}><Icon name="upload" size={26} stroke={2.2} /></span>
-                  <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' }}>{t(drag ? 'ya.imp.w1.dragOn' : 'ya.imp.w1.drag')}</span>
+                  <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 22, letterSpacing: '-.025em' }}>{t(drag ? 'ya.imp.w1.dragOn' : 'ya.imp.w1.drag')}</span>
                   <span style={{ fontSize: 14.5, color: 'var(--ya-sand-600)' }}>{t('ya.imp.w1.or')}<span style={{ fontWeight: 600, color: 'var(--ya-red-600)', textDecoration: 'underline', textUnderlineOffset: 3 }}>{t('ya.imp.w1.browse')}</span>{t('ya.imp.w1.formats')}</span>
                 </Hv>
               )}
@@ -265,7 +265,7 @@ export function ImportWizard({ initialFile, startSample, onLeave }: { initialFil
               )}
               {err && <Alert text={err} round />}
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px 20px', paddingTop: 20, borderTop: '1px solid var(--ya-sand-100)' }}>
-                <Hv as="button" type="button" onClick={loadSample} style={{ height: 44, padding: '0 18px', borderRadius: 99, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', fontSize: 14.5, fontWeight: 600, color: 'var(--ya-ink)', cursor: 'pointer', boxShadow: 'var(--ya-shadow-xs)' }} hover={{ borderColor: 'var(--ya-sand-300)', background: 'var(--ya-paper)' }}>{t('ya.imp.w1.sample')}</Hv>
+                <Hv as="button" type="button" onClick={loadSample} style={{ height: 40, padding: '0 18px', borderRadius: 12, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', fontSize: 14.5, fontWeight: 600, color: 'var(--ya-ink)', cursor: 'pointer', boxShadow: 'var(--ya-shadow-xs)' }} hover={{ borderColor: 'var(--ya-sand-300)', background: 'var(--ya-paper)' }}>{t('ya.imp.w1.sample')}</Hv>
                 <TextBtn onClick={() => { downloadText('modele-import-yuno.csv', TEMPLATE_CSV); toast(t('ya.imp.templateDone')); }}><Icon name="download" size={16} stroke={2.2} />{t('ya.imp.w1.dlTemplate')}</TextBtn>
               </div>
             </div>
@@ -289,9 +289,9 @@ export function ImportWizard({ initialFile, startSample, onLeave }: { initialFil
                   const sk = v === 'skip';
                   return (
                     <div key={i} style={{ flex: '1 0 168px', minWidth: 168, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h || '—'}</span>
+                      <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>{h || '—'}</span>
                       <div style={{ position: 'relative' }}>
-                        <select value={v} onChange={(e) => setCol(i, e.target.value as ColField)} aria-label={t('ya.imp.w2.fieldAria', { h })} style={{ appearance: 'none', WebkitAppearance: 'none', width: '100%', height: 46, padding: '0 38px 0 14px', borderRadius: 12, border: `1px solid ${key ? 'var(--ya-ink)' : sk ? 'var(--ya-sand-200)' : 'var(--ya-sand-400)'}`, background: key ? 'var(--ya-sand-50)' : 'var(--ya-card)', fontSize: 14.5, fontWeight: 600, color: sk ? 'var(--ya-sand-500)' : 'var(--ya-ink)', cursor: 'pointer', outline: 0, transition: 'border-color 160ms,background 160ms' }}>
+                        <select value={v} onChange={(e) => setCol(i, e.target.value as ColField)} aria-label={t('ya.imp.w2.fieldAria', { h })} style={{ appearance: 'none', WebkitAppearance: 'none', width: '100%', height: 46, padding: '0 38px 0 14px', borderRadius: 12, border: `1px solid ${key ? 'var(--ya-fill)' : sk ? 'var(--ya-sand-200)' : 'var(--ya-sand-400)'}`, background: key ? 'var(--ya-sand-50)' : 'var(--ya-card)', fontSize: 14.5, fontWeight: 600, color: sk ? 'var(--ya-sand-500)' : 'var(--ya-ink)', cursor: 'pointer', outline: 0, transition: 'border-color 160ms,background 160ms' }}>
                           {COL_FIELDS.map((f) => <option key={f} value={f}>{t(`ya.imp.f.${f}`)}</option>)}
                         </select>
                         <Icon name="chevronDown" size={16} stroke={2.4} color="var(--ya-sand-500)" style={{ position: 'absolute', right: 13, top: 15, pointerEvents: 'none' }} />
@@ -312,7 +312,7 @@ export function ImportWizard({ initialFile, startSample, onLeave }: { initialFil
                 </div>
               )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-400)' }}>{t('ya.imp.w2.consentQ')}</span>
+                <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-400)', fontWeight: 600 }}>{t('ya.imp.w2.consentQ')}</span>
                 <div role="radiogroup" aria-label={t('ya.imp.w2.consentAria')} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,240px),1fr))', gap: 10 }}>
                   {(['no', 'yes'] as const).map((c) => {
                     const on = consent === c;
@@ -332,7 +332,7 @@ export function ImportWizard({ initialFile, startSample, onLeave }: { initialFil
               </div>
               {consent === 'yes' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 18, borderRadius: 18, background: 'var(--ya-sand-50)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)', animation: `ya-pop 240ms ${EASE} both` }}>
-                  <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>{t('ya.imp.att.title')}</span>
+                  <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>{t('ya.imp.att.title')}</span>
                   <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <span style={{ fontSize: 14, fontWeight: 600 }}>{t('em.import.consentSource')}</span>
                     <select value={source} onChange={(e) => setSource(e.target.value as ConsentSource)} style={fieldStyle}>
@@ -421,8 +421,8 @@ export function ImportWizard({ initialFile, startSample, onLeave }: { initialFil
           )}
         </section>
 
-        <aside style={{ flex: '1 1 300px', minWidth: 0, position: 'relative', overflow: 'hidden', isolation: 'isolate', display: 'flex', flexDirection: 'column', gap: 20, padding: 28, borderRadius: 28, color: 'var(--ya-text-on-night)', background: NIGHT_BG, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.06)' }}>
-          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-text-on-night-2)' }}>{t('ya.imp.zero')}</span>
+        <aside style={{ flex: '1 1 300px', minWidth: 0, position: 'relative', overflow: 'hidden', isolation: 'isolate', display: 'flex', flexDirection: 'column', gap: 20, padding: 28, borderRadius: 18, color: 'var(--ya-text-on-night)', background: NIGHT_BG, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.06)' }}>
+          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-text-on-night-2)', fontWeight: 600 }}>{t('ya.imp.zero')}</span>
           <NightPanelRules rules={rules} small />
         </aside>
       </div>
@@ -469,7 +469,7 @@ function Verify({
                   <span style={{ fontSize: 15.5, fontWeight: 600 }}>{label(b.k)}</span>
                   <span style={{ fontSize: 13.5, lineHeight: 1.4, color: 'var(--ya-sand-600)' }}>{sub(b.k)}</span>
                 </span>
-                <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 30, lineHeight: 1, letterSpacing: '-.035em', fontVariantNumeric: 'tabular-nums', color: cnt ? b.fg : 'var(--ya-sand-300)' }}>{n(cnt)}</span>
+                <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 28, lineHeight: 1, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums', color: cnt ? b.fg : 'var(--ya-sand-300)' }}>{n(cnt)}</span>
                 <Icon name="chevronDown" size={18} stroke={2.4} color="var(--ya-sand-400)" style={{ flex: 'none', opacity: cnt ? 1 : 0, transform: `rotate(${o ? 180 : 0}deg)`, transition: `transform 220ms ${EASE}` }} />
               </Hv>
               {o && (
@@ -489,12 +489,12 @@ function Verify({
       </div>
       {an.exist.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-400)' }}>{t('ya.imp.w3.existFor', { n: n(an.exist.length) })}</span>
+          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-400)', fontWeight: 600 }}>{t('ya.imp.w3.existFor', { n: n(an.exist.length) })}</span>
           <div role="radiogroup" aria-label={t('ya.imp.b.exist')} style={{ display: 'inline-flex', alignSelf: 'flex-start', padding: 3, gap: 2, background: 'var(--ya-sand-100)', borderRadius: 99, flexWrap: 'wrap' }}>
             {(['complete', 'keep'] as const).map((m) => {
               const on = mode === m;
               return (
-                <button key={m} type="button" role="radio" aria-checked={on} onClick={() => setMode(m)} style={{ height: 38, padding: '0 18px', border: 0, borderRadius: 99, background: on ? 'var(--ya-seg-on)' : 'transparent', color: on ? 'var(--ya-ink)' : 'var(--ya-sand-600)', boxShadow: on ? 'var(--ya-shadow-xs)' : 'none', fontSize: 14, fontWeight: 600, cursor: 'pointer', transition: 'background 180ms,color 180ms,box-shadow 180ms' }}>
+                <button key={m} type="button" role="radio" aria-checked={on} onClick={() => setMode(m)} style={{ height: 38, padding: '0 18px', border: 0, borderRadius: 12, background: on ? 'var(--ya-seg-on)' : 'transparent', color: on ? 'var(--ya-ink)' : 'var(--ya-sand-600)', boxShadow: on ? 'var(--ya-shadow-xs)' : 'none', fontSize: 14, fontWeight: 600, cursor: 'pointer', transition: 'background 180ms,color 180ms,box-shadow 180ms' }}>
                   {t(m === 'complete' ? 'ya.imp.w3.mComplete' : 'ya.imp.w3.mKeep')}
                 </button>
               );
@@ -539,8 +539,8 @@ function Done({ an, prog, finished, failed, onRetry, onAnother }: { an: Analysis
           <Icon name={failed ? 'alert' : finished ? 'check' : 'upload'} size={30} stroke={2.4} style={{ animation: !failed && !finished ? 'ya-float 1.2s ease-in-out infinite' : undefined }} />
         </span>
         <div style={{ flex: '1 1 280px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: failed ? 'var(--ya-red-600)' : finished ? 'var(--ya-green-700)' : 'var(--ya-sand-500)' }}>{t(failed ? 'ya.imp.w4.eyeFail' : finished ? 'ya.imp.w4.eyeDone' : 'ya.imp.w4.eyeRun')}</span>
-          <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 28, letterSpacing: '-.03em', lineHeight: 1.1, textWrap: 'balance' }}>{title}</h2>
+          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: failed ? 'var(--ya-red-600)' : finished ? 'var(--ya-green-700)' : 'var(--ya-sand-500)', fontWeight: 600 }}>{t(failed ? 'ya.imp.w4.eyeFail' : finished ? 'ya.imp.w4.eyeDone' : 'ya.imp.w4.eyeRun')}</span>
+          <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, letterSpacing: '-.01em', lineHeight: 1.3, textWrap: 'balance' }}>{title}</h2>
           <span style={{ fontSize: 14.5, lineHeight: 1.45, color: 'var(--ya-sand-600)' }}>{t(failed ? 'ya.imp.w4.subFail' : finished ? 'ya.imp.w4.subDone' : 'ya.imp.w4.subRun')}</span>
         </div>
       </div>
@@ -551,7 +551,7 @@ function Done({ an, prog, finished, failed, onRetry, onAnother }: { an: Analysis
           {cols.map((c) => (
             <div key={c.l} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '16px 18px', borderRadius: 18, background: 'var(--ya-sand-50)' }}>
               <span style={{ fontSize: 13.5, lineHeight: 1.3, color: 'var(--ya-sand-600)' }}>{c.l}</span>
-              <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 34, lineHeight: 1.05, letterSpacing: '-.035em', fontVariantNumeric: 'tabular-nums', color: c.fg }}>{n(c.v * ease)}</span>
+              <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 28, lineHeight: 1.05, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums', color: c.fg }}>{n(c.v * ease)}</span>
             </div>
           ))}
         </div>
@@ -566,7 +566,7 @@ function Done({ an, prog, finished, failed, onRetry, onAnother }: { an: Analysis
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px 20px', borderTop: '1px solid var(--ya-sand-100)', paddingTop: 22 }}>
         {failed === 'cnx' && <InkBtn onClick={onRetry}>{t('ya.imp.w4.retry')}</InkBtn>}
         {!failed && (
-          <Hv as={Link} to={TIX_ROUTES.clients} style={{ height: 46, padding: '0 5px 0 22px', borderRadius: 99, background: 'var(--ya-gradient-brand)', color: '#fff', fontSize: 15, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 12, boxShadow: 'var(--ya-shadow-cta)', textDecoration: 'none', whiteSpace: 'nowrap', opacity: finished ? 1 : 0.35, pointerEvents: finished ? 'auto' : 'none', transition: 'opacity 300ms' }} hover={{ filter: 'brightness(1.05)', color: '#fff', textDecoration: 'none' }}>
+          <Hv as={Link} to={TIX_ROUTES.clients} style={{ height: 40, padding: '0 5px 0 22px', borderRadius: 12, background: 'var(--ya-gradient-brand)', color: '#fff', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 12, boxShadow: 'var(--ya-shadow-cta)', textDecoration: 'none', whiteSpace: 'nowrap', opacity: finished ? 1 : 0.35, pointerEvents: finished ? 'auto' : 'none', transition: 'opacity 300ms' }} hover={{ filter: 'brightness(1.05)', color: '#fff', textDecoration: 'none' }}>
             {t('ya.imp.w4.clients')}<span style={{ width: 36, height: 36, borderRadius: 99, background: '#fff', color: 'var(--ya-red-500)', display: 'grid', placeItems: 'center' }}><Icon name="arrowRight" size={16} stroke={2.4} /></span>
           </Hv>
         )}
@@ -579,7 +579,7 @@ function Done({ an, prog, finished, failed, onRetry, onAnother }: { an: Analysis
 function Head({ title, sub }: { title: string; sub: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 26, letterSpacing: '-.03em', lineHeight: 1.1 }}>{title}</h2>
+      <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, letterSpacing: '-.01em', lineHeight: 1.3 }}>{title}</h2>
       <span style={{ fontSize: 14.5, color: 'var(--ya-sand-600)' }}>{sub}</span>
     </div>
   );
@@ -639,7 +639,7 @@ function BrandBtn({ children, onClick, disabled }: { children: ReactNode; onClic
 
 function InkBtn({ children, onClick }: { children: ReactNode; onClick: () => void }) {
   return (
-    <Hv as="button" type="button" onClick={onClick} style={{ height: 46, padding: '0 22px', border: 0, borderRadius: 99, background: 'var(--ya-ink)', color: 'var(--ya-on-ink)', fontSize: 15, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }} hover={{ background: 'var(--ya-sand-700)' }}>
+    <Hv as="button" type="button" onClick={onClick} style={{ height: 40, padding: '0 22px', border: 0, borderRadius: 12, background: 'var(--ya-fill)', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }} hover={{ background: 'var(--ya-sand-700)' }}>
       {children}
     </Hv>
   );

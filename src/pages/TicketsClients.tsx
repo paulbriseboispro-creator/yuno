@@ -34,11 +34,10 @@ function Shell({ title, children }: { title: string; children: ReactNode }) {
 
 function ShellSkeleton() {
   return (
-    <div style={{ width: '100%', maxWidth: 1280, margin: '0 auto', boxSizing: 'border-box', padding: 'clamp(24px,3vw,36px) clamp(16px,3vw,40px)', display: 'flex', flexDirection: 'column', gap: 22 }}>
-      <div className="ya-skel" style={{ height: 14, width: 180 }} />
-      <div className="ya-skel" style={{ height: 36, width: 'min(420px, 80%)', borderRadius: 12 }} />
-      <div className="ya-skel" style={{ height: 240, borderRadius: 28 }} />
-      <div className="ya-skel" style={{ height: 420, borderRadius: 28 }} />
+    <div style={{ width: '100%', maxWidth: 1280, margin: '0 auto', boxSizing: 'border-box', padding: '20px clamp(16px,1.6vw,24px)', display: 'flex', flexDirection: 'column', gap: 22 }}>
+      <div className="ya-skel" style={{ height: 22, width: 'min(320px, 70%)', borderRadius: 8 }} />
+      <div className="ya-skel" style={{ height: 240, borderRadius: 18 }} />
+      <div className="ya-skel" style={{ height: 420, borderRadius: 18 }} />
     </div>
   );
 }

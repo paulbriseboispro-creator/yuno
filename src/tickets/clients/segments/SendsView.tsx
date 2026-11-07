@@ -51,22 +51,22 @@ export function SendsView({
   const pick = (k: string) => { setSeg(k); setLim(PAGE); setOpen(null); };
 
   return (
-    <section style={{ position: 'relative', display: 'flex', flexDirection: 'column', borderRadius: 28, background: 'var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200),var(--ya-shadow-sm)', animation: `ya-rise 520ms ${EASE} both` }}>
+    <section style={{ position: 'relative', display: 'flex', flexDirection: 'column', borderRadius: 18, background: 'var(--ya-card-bg)', boxShadow: 'inset 0 0 0 1px var(--ya-border),var(--ya-card-shadow)', animation: `ya-rise 520ms ${EASE} both` }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 'clamp(18px,2.2vw,28px) clamp(18px,2.2vw,28px) 16px' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px 20px' }}>
           <div>
-            <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' }}>{t('ya.seg.env.title')}</h2>
+            <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, letterSpacing: '-.01em' }}>{t('ya.seg.env.title')}</h2>
             <div style={{ fontSize: 13.5, color: 'var(--ya-sand-500)', marginTop: 2 }}>{t('ya.seg.env.sub')}</div>
           </div>
           <Segmented value={ch} onChange={(v) => { setCh(v); setLim(PAGE); setOpen(null); }} options={(['all', 'email', 'sms'] as const).map((k) => ({ value: k, label: t(`ya.seg.ch.${k}`) }))} ariaLabel={t('ya.cli.msg.channel')} />
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-400)', marginRight: 4 }}>{t('ya.seg.env.segment')}</span>
+          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-400)', marginRight: 4, fontWeight: 600 }}>{t('ya.seg.env.segment')}</span>
           {chips.map((c) => {
             const act = seg === c.k;
             return (
-              <Hv key={c.k} as="button" type="button" onClick={() => pick(c.k)} aria-pressed={act} style={{ height: 36, padding: '0 14px', borderRadius: 99, border: `1px solid ${act ? 'var(--ya-ink)' : 'var(--ya-sand-200)'}`, background: act ? 'var(--ya-ink)' : 'var(--ya-card)', color: act ? 'var(--ya-on-ink)' : 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 160ms,color 160ms,border-color 160ms' }} hover={{ borderColor: 'var(--ya-sand-400)' }}>
-                {c.l}<span style={{ fontSize: 13, fontWeight: 500, color: act ? 'var(--ya-on-ink)' : 'var(--ya-sand-500)', opacity: act ? .7 : 1, fontVariantNumeric: 'tabular-nums' }}>{n(c.c)}</span>
+              <Hv key={c.k} as="button" type="button" onClick={() => pick(c.k)} aria-pressed={act} style={{ height: 36, padding: '0 14px', borderRadius: 12, border: `1px solid ${act ? 'var(--ya-fill)' : 'var(--ya-sand-200)'}`, background: act ? 'var(--ya-fill)' : 'var(--ya-card)', color: act ? '#fff' : 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 160ms,color 160ms,border-color 160ms' }} hover={{ borderColor: 'var(--ya-sand-400)' }}>
+                {c.l}<span style={{ fontSize: 13, fontWeight: 500, color: act ? '#fff' : 'var(--ya-sand-500)', opacity: act ? .7 : 1, fontVariantNumeric: 'tabular-nums' }}>{n(c.c)}</span>
               </Hv>
             );
           })}
@@ -78,7 +78,7 @@ export function SendsView({
       </div>
       <div style={{ overflowX: 'auto' }}>
         <div style={{ minWidth: 900 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', gap: 14, padding: '0 clamp(18px,2.2vw,28px)', height: 44, borderBottom: '1px solid var(--ya-sand-100)', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', gap: 14, padding: '0 clamp(18px,2.2vw,28px)', height: 44, borderBottom: '1px solid var(--ya-sand-100)', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>
             <span>{t('ya.seg.env.col.msg')}</span><span>{t('ya.seg.env.col.seg')}</span><span>{t('ya.seg.env.col.recv')}</span>
             <span>{t('ya.seg.env.col.click')}</span><span>{t('ya.seg.env.col.buy')}</span><span>{t('ya.seg.env.col.sales')}</span><span />
           </div>
@@ -126,7 +126,7 @@ export function SendsView({
                     {steps.map((s) => (
                       <div key={s.l} style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '12px 14px', borderRadius: 14, background: 'var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)' }}>
                         <span style={{ fontSize: 12.5, color: 'var(--ya-sand-500)' }}>{s.l}</span>
-                        <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 24, letterSpacing: '-.03em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{n(s.v)}</span>
+                        <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 24, letterSpacing: '-.025em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{n(s.v)}</span>
                         <span style={{ height: 5, borderRadius: 99, background: 'var(--ya-sand-100)', overflow: 'hidden' }}><i style={{ display: 'block', width: `${(s.w * 100).toFixed(1)}%`, height: '100%', background: 'var(--ya-gradient-brand)', borderRadius: 99 }} /></span>
                         <span style={{ fontSize: 12.5, fontWeight: 600 }}>{s.s}</span>
                       </div>
@@ -138,10 +138,10 @@ export function SendsView({
           })}
           {list.length === 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '56px 24px', textAlign: 'center' }}>
-              <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' }}>{t('ya.seg.env.none', { on })}</span>
+              <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 22, letterSpacing: '-.025em' }}>{t('ya.seg.env.none', { on })}</span>
               <span style={{ fontSize: 14.5, lineHeight: 1.5, color: 'var(--ya-sand-500)', maxWidth: 420, textWrap: 'pretty' }}>{t('ya.seg.env.noneHint')}</span>
               {(seg !== '*' || ch !== 'all') && (
-                <Hv as="button" type="button" onClick={() => { pick('*'); setCh('all'); }} style={{ marginTop: 8, height: 42, padding: '0 20px', borderRadius: 99, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', color: 'var(--ya-ink)' }} hover={{ background: 'var(--ya-paper)' }}>
+                <Hv as="button" type="button" onClick={() => { pick('*'); setCh('all'); }} style={{ marginTop: 8, height: 40, padding: '0 20px', borderRadius: 12, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', color: 'var(--ya-ink)' }} hover={{ background: 'var(--ya-paper)' }}>
                   {t('ya.cli.list.clearFilters')}
                 </Hv>
               )}
@@ -152,7 +152,7 @@ export function SendsView({
       {list.length > shown.length && (
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px 16px', padding: '16px clamp(18px,2.2vw,28px)' }}>
           <span style={{ fontSize: 14, color: 'var(--ya-sand-500)', fontVariantNumeric: 'tabular-nums' }}>{t('ya.cli.list.shown', { a: n(shown.length), b: n(list.length) })}</span>
-          <Hv as="button" type="button" onClick={() => setLim((l) => l + PAGE)} style={{ height: 42, padding: '0 20px', borderRadius: 99, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', color: 'var(--ya-ink)', transition: `translate 200ms ${EASE},box-shadow 200ms` }} hover={{ translate: '0 -2px', boxShadow: 'var(--ya-shadow-md)' }}>
+          <Hv as="button" type="button" onClick={() => setLim((l) => l + PAGE)} style={{ height: 40, padding: '0 20px', borderRadius: 12, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', color: 'var(--ya-ink)', transition: `translate 200ms ${EASE},box-shadow 200ms` }} hover={{ translate: '0 -2px', boxShadow: 'var(--ya-shadow-md)' }}>
             {t('ya.seg.env.moreN', { n: n(Math.min(PAGE, list.length - shown.length)) })}
           </Hv>
         </div>

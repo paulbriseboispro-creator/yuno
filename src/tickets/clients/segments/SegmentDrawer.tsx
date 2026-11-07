@@ -63,7 +63,7 @@ export function SegmentDrawer({
   return (
     <Sheet open={open} onClose={() => { if (!guardEscape) onClose(); }} width={640} label={t('ya.seg.dr.label', { pos: posTxt })}>
       <div style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '14px 16px 14px 24px', borderBottom: '1px solid var(--ya-sand-100)', background: 'var(--ya-card)' }}>
-        <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>{t('ya.seg.dr.label', { pos: posTxt })}</span>
+        <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>{t('ya.seg.dr.label', { pos: posTxt })}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <HeadBtn label={t('ya.seg.dr.prev')} title={`${t('ya.seg.dr.prev')} (↑)`} dim={!pos || pos.i <= 0} onClick={() => onStep(-1)} icon="chevronUp" />
           <HeadBtn label={t('ya.seg.dr.next')} title={`${t('ya.seg.dr.next')} (↓)`} dim={!pos || pos.i >= pos.n - 1} onClick={() => onStep(1)} icon="chevronDown" />
@@ -219,10 +219,10 @@ function Body({
               onBlur={commitRename}
               maxLength={80}
               aria-label={t('ya.cli.list.segName')}
-              style={{ height: 44, width: '100%', padding: '0 16px', borderRadius: 99, border: '1px solid var(--ya-sand-400)', outline: 0, background: 'var(--ya-card)', font: '600 24px/1 var(--ya-font-display)', letterSpacing: '-.03em', color: 'var(--ya-ink)', boxShadow: 'none' }}
+              style={{ height: 40, width: '100%', padding: '0 16px', borderRadius: 12, border: '1px solid var(--ya-sand-400)', outline: 0, background: 'var(--ya-card)', font: '600 24px/1 var(--ya-font-display)', letterSpacing: '-.03em', color: 'var(--ya-ink)', boxShadow: 'none' }}
             />
           ) : (
-            <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 30, lineHeight: 1.05, letterSpacing: '-.03em', textWrap: 'balance' }}>{s.label}</h2>
+            <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, lineHeight: 1.3, letterSpacing: '-.01em', textWrap: 'balance' }}>{s.label}</h2>
           )}
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 8px' }}>
             <span style={{ height: 26, padding: '0 11px', borderRadius: 99, background: 'var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)', display: 'inline-flex', alignItems: 'center', fontSize: 13, fontWeight: 600 }}>{t(custom ? 'ya.seg.dr.badgeMine' : 'ya.seg.dr.badgeAuto')}</span>
@@ -237,7 +237,7 @@ function Body({
             as="button"
             type="button"
             onClick={onWrite}
-            style={{ height: 44, padding: '0 5px 0 18px', borderRadius: 99, border: 0, background: 'var(--ya-gradient-brand)', color: '#fff', fontSize: 14.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 10, boxShadow: 'var(--ya-shadow-cta)', cursor: 'pointer', transition: `transform 200ms ${SPRING},filter 160ms` }}
+            style={{ height: 40, padding: '0 5px 0 18px', borderRadius: 12, border: 0, background: 'var(--ya-gradient-brand)', color: '#fff', fontSize: 14.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 10, boxShadow: 'var(--ya-shadow-cta)', cursor: 'pointer', transition: `transform 200ms ${SPRING},filter 160ms` }}
             hover={{ filter: 'brightness(1.05)', transform: 'translateY(-1px)' }}
             active={{ transform: 'scale(.97)' }}
           >
@@ -246,12 +246,12 @@ function Body({
           </Hv>
         )}
         {s.n > 0 && (
-          <Hv as={Link} to={clientsHrefFor(s, TIX_ROUTES.clients)} style={{ height: 44, padding: '0 18px', borderRadius: 99, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', fontSize: 14.5, fontWeight: 600, color: 'var(--ya-ink)', display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }} hover={{ borderColor: 'var(--ya-sand-300)', background: 'var(--ya-paper)', color: 'var(--ya-ink)', textDecoration: 'none' }}>
+          <Hv as={Link} to={clientsHrefFor(s, TIX_ROUTES.clients)} style={{ height: 40, padding: '0 18px', borderRadius: 12, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', fontSize: 14.5, fontWeight: 600, color: 'var(--ya-ink)', display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }} hover={{ borderColor: 'var(--ya-sand-300)', background: 'var(--ya-paper)', color: 'var(--ya-ink)', textDecoration: 'none' }}>
             {tp('ya.seg.dr.see', s.n, { n: n(s.n) })}
           </Hv>
         )}
         {canEdit && (
-        <Hv as="button" type="button" onClick={onExport} style={{ height: 44, padding: '0 18px', borderRadius: 99, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', fontSize: 14.5, fontWeight: 600, color: 'var(--ya-ink)', cursor: 'pointer' }} hover={{ borderColor: 'var(--ya-sand-300)', background: 'var(--ya-paper)' }}>
+        <Hv as="button" type="button" onClick={onExport} style={{ height: 40, padding: '0 18px', borderRadius: 12, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', fontSize: 14.5, fontWeight: 600, color: 'var(--ya-ink)', cursor: 'pointer' }} hover={{ borderColor: 'var(--ya-sand-300)', background: 'var(--ya-paper)' }}>
           {t('ya.cli.list.export')}
         </Hv>
         )}
@@ -263,7 +263,7 @@ function Body({
         {menu && (
           <>
             <div onClick={() => setMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 1 }} />
-            <div role="menu" style={{ position: 'absolute', zIndex: 2, top: 52, right: 0, width: 220, padding: 6, borderRadius: 18, background: 'var(--ya-card)', boxShadow: 'var(--ya-shadow-md),0 0 0 1px var(--ya-sand-200)', animation: `ya-pop 200ms ${EASE}`, transformOrigin: 'top right' }}>
+            <div role="menu" style={{ position: 'absolute', zIndex: 2, top: 52, right: 0, width: 220, padding: 6, borderRadius: 18, background: 'var(--ya-card-bg)', boxShadow: 'var(--ya-shadow-md),0 0 0 1px var(--ya-sand-200)', animation: `ya-pop 200ms ${EASE}`, transformOrigin: 'top right' }}>
               <Hv as="button" type="button" role="menuitem" onClick={() => { setMenu(false); setRenName(s.label); setRen(true); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', border: 0, borderRadius: 12, background: 'none', fontSize: 14.5, fontWeight: 500, color: 'var(--ya-ink)', cursor: 'pointer', textAlign: 'left' }} hover={{ background: 'var(--ya-sand-50)' }}>
                 {t('ya.seg.dr.rename')}
               </Hv>
@@ -284,7 +284,7 @@ function Body({
         {tiles.map((x) => (
           <div key={x.l} style={{ display: 'flex', flexDirection: 'column', gap: 3, padding: '14px 16px', borderRadius: 16, background: 'var(--ya-card)', border: '1px solid var(--ya-sand-200)' }}>
             <span style={{ fontSize: 13, color: 'var(--ya-sand-500)' }}>{x.l}</span>
-            <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 30, lineHeight: 1.05, letterSpacing: '-.035em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{x.v}</span>
+            <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 28, lineHeight: 1.05, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{x.v}</span>
             <span style={{ fontSize: 12.5, fontWeight: x.fw, color: x.fg, textWrap: 'pretty' }}>{x.sub}</span>
           </div>
         ))}
@@ -314,7 +314,7 @@ function Body({
           ].map((x) => (
             <div key={x.l} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <span style={{ fontSize: 12.5, color: 'var(--ya-sand-500)' }}>{x.l}</span>
-              {x.v === null ? <Skel w={56} h={24} /> : <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.03em', fontVariantNumeric: 'tabular-nums', color: x.fg }}>{x.v}</span>}
+              {x.v === null ? <Skel w={56} h={24} /> : <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 22, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums', color: x.fg }}>{x.v}</span>}
             </div>
           ))}
         </div>
@@ -328,9 +328,9 @@ function Body({
               {tip && (
                 <>
                   <i style={{ position: 'absolute', left: tip.left, top: tip.top, width: 10, height: 10, margin: '-5px 0 0 -5px', borderRadius: 99, background: 'var(--ya-red-500)', boxShadow: '0 0 0 4px rgba(227,20,27,.18)', pointerEvents: 'none' }} />
-                  <div style={{ position: 'absolute', bottom: 120, left: tip.left, transform: tip.tx, pointerEvents: 'none', background: 'var(--ya-ink)', color: 'var(--ya-on-ink)', borderRadius: 12, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 1, whiteSpace: 'nowrap', boxShadow: 'var(--ya-shadow-md)', zIndex: 3 }}>
+                  <div style={{ position: 'absolute', bottom: 120, left: tip.left, transform: tip.tx, pointerEvents: 'none', background: 'var(--ya-fill)', color: '#fff', borderRadius: 12, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 1, whiteSpace: 'nowrap', boxShadow: 'var(--ya-shadow-md)', zIndex: 3 }}>
                     <span style={{ fontSize: 12, color: 'var(--ya-text-on-night-2)' }}>{tip.date}</span>
-                    <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 18, letterSpacing: '-.02em' }}>{tip.v}</span>
+                    <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 18, letterSpacing: '-.025em' }}>{tip.v}</span>
                   </div>
                 </>
               )}
@@ -364,7 +364,7 @@ function Body({
                 <div key={f.l} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: '6px 12px', alignItems: 'baseline' }}>
                   <span style={{ fontSize: 14, fontWeight: 500 }}>{f.l}</span>
                   <span style={{ fontSize: 14, color: 'var(--ya-sand-500)', fontVariantNumeric: 'tabular-nums' }}>
-                    <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 18, letterSpacing: '-.02em', color: 'var(--ya-ink)' }}>{n(f.v)}</b> {f.pc ? `· ${f.pc}` : ''}
+                    <b style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 18, letterSpacing: '-.025em', color: 'var(--ya-ink)' }}>{n(f.v)}</b> {f.pc ? `· ${f.pc}` : ''}
                   </span>
                   <div style={{ gridColumn: '1 / -1', position: 'relative', height: 10, borderRadius: 99, background: 'var(--ya-sand-100)' }}>
                     <i style={{ display: 'block', width: `${(f.w * 100 * clamp01(dd * 1.2 - i * 0.1)).toFixed(1)}%`, height: '100%', borderRadius: 99, background: 'var(--ya-gradient-brand)' }} />

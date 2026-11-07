@@ -128,7 +128,7 @@ function Kpi({
     >
       <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ya-sand-600)' }}>{label}</span>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, minWidth: 0 }}>
-        <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 44, lineHeight: 1.05, letterSpacing: '-.035em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', minWidth: 0 }}>{value}</span>
+        <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 36, lineHeight: 1.05, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', minWidth: 0 }}>{value}</span>
         {side}
       </div>
       <span style={{ fontSize: 13, fontWeight: 600, minHeight: 18, color: dc }}>{delta}</span>

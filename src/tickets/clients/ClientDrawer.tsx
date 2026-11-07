@@ -74,7 +74,7 @@ export function ClientDrawer({
   return (
     <Sheet open={open} onClose={() => { if (!guardEscape) onClose(); }} label={t('ya.cli.card.label', { pos: posTxt })}>
       <div style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '14px 16px 14px 24px', borderBottom: '1px solid var(--ya-sand-100)', background: 'var(--ya-card)' }}>
-        <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>{t('ya.cli.card.label', { pos: posTxt })}</span>
+        <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>{t('ya.cli.card.label', { pos: posTxt })}</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <HeadBtn label={t('ya.cli.card.prev')} title={`${t('ya.cli.card.prev')} (↑)`} dim={!pos || pos.i <= 0} onClick={() => onStep(-1)} icon="chevronUp" />
           <HeadBtn label={t('ya.cli.card.next')} title={`${t('ya.cli.card.next')} (↓)`} dim={!pos || pos.i >= pos.n - 1} onClick={() => onStep(1)} icon="chevronDown" />
@@ -293,9 +293,9 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, padding: '24px 24px 40px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <span style={{ flex: 'none', width: 68, height: 68, borderRadius: 99, background: av[0], color: av[1], display: 'grid', placeItems: 'center', fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 24, letterSpacing: '-.02em' }}>{initials(c.first_name, c.last_name, c.email)}</span>
+        <span style={{ flex: 'none', width: 68, height: 68, borderRadius: 99, background: av[0], color: av[1], display: 'grid', placeItems: 'center', fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 24, letterSpacing: '-.025em' }}>{initials(c.first_name, c.last_name, c.email)}</span>
         <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 28, lineHeight: 1.05, letterSpacing: '-.03em', overflowWrap: 'anywhere' }}>{name}</h2>
+          <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, lineHeight: 1.3, letterSpacing: '-.01em', overflowWrap: 'anywhere' }}>{name}</h2>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 8px' }}>
             <span style={{ height: 26, padding: '0 11px', borderRadius: 99, background: 'var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)', display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600 }}>
               <i style={{ width: 8, height: 8, borderRadius: 3, background: c.lifecycle === 'none' ? 'var(--ya-sand-300)' : LIFECYCLE_COLOR[c.lifecycle] }} />{t(`ya.cli.seg.${c.lifecycle}`)}
@@ -316,7 +316,7 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
             as="button"
             type="button"
             onClick={onWrite}
-            style={{ height: 44, padding: '0 5px 0 18px', borderRadius: 99, border: 0, background: 'var(--ya-gradient-brand)', color: '#fff', fontSize: 14.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 10, boxShadow: 'var(--ya-shadow-cta)', cursor: 'pointer', transition: `transform 200ms ${SPRING},filter 160ms` }}
+            style={{ height: 40, padding: '0 5px 0 18px', borderRadius: 12, border: 0, background: 'var(--ya-gradient-brand)', color: '#fff', fontSize: 14.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 10, boxShadow: 'var(--ya-shadow-cta)', cursor: 'pointer', transition: `transform 200ms ${SPRING},filter 160ms` }}
             hover={{ filter: 'brightness(1.05)', transform: 'translateY(-1px)' }}
             active={{ transform: 'scale(.97)' }}
           >
@@ -324,7 +324,7 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
             <span style={{ width: 34, height: 34, borderRadius: 99, background: '#fff', color: 'var(--ya-red-500)', display: 'grid', placeItems: 'center' }}><Icon name="arrowRight" size={15} stroke={2.4} /></span>
           </Hv>
         )}
-        <Hv as="button" type="button" onClick={copy} style={{ height: 44, padding: '0 18px', borderRadius: 99, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', fontSize: 14.5, fontWeight: 600, color: 'var(--ya-ink)', cursor: 'pointer' }} hover={{ borderColor: 'var(--ya-sand-300)', background: 'var(--ya-paper)' }}>
+        <Hv as="button" type="button" onClick={copy} style={{ height: 40, padding: '0 18px', borderRadius: 12, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', fontSize: 14.5, fontWeight: 600, color: 'var(--ya-ink)', cursor: 'pointer' }} hover={{ borderColor: 'var(--ya-sand-300)', background: 'var(--ya-paper)' }}>
           {t('ya.cli.card.copy')}
         </Hv>
       </div>
@@ -516,7 +516,7 @@ function Stat({ l, v, s, nowrap }: { l: string; v: string; s: string; nowrap?: b
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3, padding: '14px 16px', borderRadius: 16, background: 'var(--ya-card)', border: '1px solid var(--ya-sand-200)', minWidth: 0 }}>
       <span style={{ fontSize: 13, color: 'var(--ya-sand-500)' }}>{l}</span>
-      <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 30, lineHeight: 1.05, letterSpacing: '-.035em', fontVariantNumeric: 'tabular-nums', whiteSpace: nowrap ? 'nowrap' : undefined, overflow: 'hidden', textOverflow: 'ellipsis' }}>{v}</span>
+      <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 28, lineHeight: 1.05, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums', whiteSpace: nowrap ? 'nowrap' : undefined, overflow: 'hidden', textOverflow: 'ellipsis' }}>{v}</span>
       <span style={{ fontSize: 12.5, color: 'var(--ya-sand-500)' }}>{s}</span>
     </div>
   );

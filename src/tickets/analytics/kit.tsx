@@ -129,7 +129,7 @@ export function PillButton({
     transition: 'background 160ms, border-color 160ms, box-shadow 200ms, translate 240ms', boxSizing: 'border-box',
   };
   const tones: Record<string, [CSSProperties, CSSProperties]> = {
-    dark: [{ background: 'var(--ya-ink)', color: 'var(--ya-on-ink)', border: 0 }, { background: 'var(--ya-sand-700)', color: 'var(--ya-on-ink)', textDecoration: 'none' }],
+    dark: [{ background: 'var(--ya-fill)', color: '#fff', border: 0 }, { background: 'var(--ya-red-600)', color: '#fff', textDecoration: 'none' }],
     light: [{ background: 'var(--ya-card)', color: 'var(--ya-ink)', border: '1px solid var(--ya-sand-200)', boxShadow: 'var(--ya-shadow-xs)' }, { borderColor: 'var(--ya-sand-300)', background: 'var(--ya-paper)', color: 'var(--ya-ink)', textDecoration: 'none' }],
     ghost: [{ background: 'transparent', color: 'var(--ya-ink)', border: 0 }, { background: 'var(--ya-sand-50)', color: 'var(--ya-ink)', textDecoration: 'none' }],
     danger: [{ background: 'var(--ya-red-500)', color: '#fff', border: 0 }, { background: 'var(--ya-red-600)', color: '#fff', textDecoration: 'none' }],

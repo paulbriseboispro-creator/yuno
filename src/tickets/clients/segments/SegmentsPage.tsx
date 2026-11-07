@@ -178,21 +178,20 @@ export default function SegmentsPage() {
   ];
 
   return (
-    <main style={{ flex: 1, width: '100%', maxWidth: 1280, margin: '0 auto', padding: 'clamp(24px,3vw,36px) clamp(16px,3vw,40px) 96px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: '16px 24px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
-          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', ...reveal(intro, 120) }}>{t('ya.seg.eyebrow')}</span>
-          <h1 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 1.05, letterSpacing: '-.035em', ...reveal(intro, 190) }}>
-            {t('ya.seg.title1')}<span style={{ background: 'var(--ya-gradient-brand)', WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent' }}>{t('ya.seg.titleAccent')}</span>{t('ya.seg.title2')}
+    <main style={{ flex: 1, width: '100%', maxWidth: 1280, margin: '0 auto', padding: '20px clamp(16px,1.6vw,24px) 96px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px 24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+          <h1 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 18, lineHeight: 1.3, letterSpacing: '-.01em', ...reveal(intro, 190) }}>
+            {t('ya.seg.title1')}{t('ya.seg.titleAccent')}{t('ya.seg.title2')}
           </h1>
-          <p style={{ margin: 0, fontSize: 16, lineHeight: 1.45, fontWeight: 500, color: 'var(--ya-sand-600)', textWrap: 'pretty', maxWidth: 660, ...reveal(intro, 260) }}>{t('ya.seg.sub')}</p>
+          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.45, fontWeight: 400, color: 'var(--ya-sand-500)', textWrap: 'pretty', maxWidth: 660, ...reveal(intro, 260) }}>{t('ya.seg.sub')}</p>
         </div>
         {caps.write && <div style={reveal(intro, 320)}>
           <Hv
             as="button"
             type="button"
             onClick={() => setNw(true)}
-            style={{ height: 46, padding: '0 6px 0 20px', borderRadius: 99, border: 0, background: 'var(--ya-gradient-brand)', color: '#fff', fontSize: 15, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 12, boxShadow: 'var(--ya-shadow-cta)', cursor: 'pointer', whiteSpace: 'nowrap', transition: `transform 200ms ${SPRING},filter 160ms` }}
+            style={{ height: 40, padding: '0 6px 0 20px', borderRadius: 12, border: 0, background: 'var(--ya-gradient-brand)', color: '#fff', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 12, boxShadow: 'var(--ya-shadow-cta)', cursor: 'pointer', whiteSpace: 'nowrap', transition: `transform 200ms ${SPRING},filter 160ms` }}
             hover={{ filter: 'brightness(1.05)', transform: 'translateY(-1px)' }}
             active={{ transform: 'scale(.97)' }}
           >
@@ -210,12 +209,12 @@ export default function SegmentsPage() {
       )}
 
       {empty ? (
-        <section style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 'clamp(24px,3vw,40px)', borderRadius: 28, background: 'repeating-linear-gradient(135deg,var(--ya-sand-50) 0 10px,var(--ya-sand-100) 10px 20px)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)', ...reveal(intro, 400) }}>
-          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>{t('ya.seg.empty.label')}</span>
-          <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(24px,3vw,32px)', letterSpacing: '-.03em', lineHeight: 1.1, textWrap: 'balance', maxWidth: 640 }}>{t('ya.seg.empty.title')}</span>
+        <section style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 'clamp(24px,3vw,40px)', borderRadius: 18, background: 'repeating-linear-gradient(135deg,var(--ya-sand-50) 0 10px,var(--ya-sand-100) 10px 20px)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)', ...reveal(intro, 400) }}>
+          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>{t('ya.seg.empty.label')}</span>
+          <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 'clamp(24px,3vw,32px)', letterSpacing: '-.025em', lineHeight: 1.1, textWrap: 'balance', maxWidth: 640 }}>{t('ya.seg.empty.title')}</span>
           <span style={{ fontSize: 15.5, lineHeight: 1.5, color: 'var(--ya-sand-600)', maxWidth: 580, textWrap: 'pretty' }}>{t('ya.seg.empty.body')}</span>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 6 }}>
-            <Hv as={Link} to={TIX_ROUTES.imports} style={{ height: 46, padding: '0 22px', borderRadius: 99, background: 'var(--ya-ink)', color: 'var(--ya-on-ink)', fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', textDecoration: 'none' }} hover={{ background: 'var(--ya-sand-700)', color: 'var(--ya-on-ink)', textDecoration: 'none' }}>
+            <Hv as={Link} to={TIX_ROUTES.imports} style={{ height: 40, padding: '0 22px', borderRadius: 12, background: 'var(--ya-fill)', color: '#fff', fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', textDecoration: 'none' }} hover={{ background: 'var(--ya-red-600)', color: '#fff', textDecoration: 'none' }}>
               {t('ya.seg.empty.cta')}
             </Hv>
           </div>
@@ -234,7 +233,7 @@ export default function SegmentsPage() {
               onCompare={() => setView('rep')}
             />
           ) : (
-            <div aria-busy="true" style={{ display: 'flex', flexDirection: 'column', gap: 22, padding: 'clamp(20px,2.4vw,32px)', borderRadius: 28, background: 'var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200),var(--ya-shadow-sm)' }}>
+            <div aria-busy="true" style={{ display: 'flex', flexDirection: 'column', gap: 22, padding: 'clamp(20px,2.4vw,32px)', borderRadius: 18, background: 'var(--ya-card-bg)', boxShadow: 'inset 0 0 0 1px var(--ya-border),var(--ya-card-shadow)' }}>
               <Skel w={280} h={22} />
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'flex-end' }}><Skel w={300} h={70} r={14} /><Skel w={420} h={84} r={12} /></div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,210px),1fr))', gap: 12 }}>{[0, 1, 2, 3].map((i) => <Skel key={i} h={150} r={20} />)}</div>
@@ -245,8 +244,8 @@ export default function SegmentsPage() {
             {tabs.map((x) => {
               const act = view === x.k;
               return (
-                <Hv key={x.k} as="button" type="button" role="tab" aria-selected={act} onClick={() => setView(x.k)} style={{ height: 44, padding: '0 18px', borderRadius: 99, border: `1px solid ${act ? 'var(--ya-ink)' : 'var(--ya-sand-200)'}`, background: act ? 'var(--ya-ink)' : 'var(--ya-card)', color: act ? 'var(--ya-on-ink)' : 'var(--ya-ink)', fontSize: 15, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 160ms,color 160ms,border-color 160ms' }} hover={{ borderColor: 'var(--ya-sand-400)' }}>
-                  {x.l}{x.c !== null && <span style={{ fontSize: 13, fontWeight: 500, color: act ? 'var(--ya-on-ink)' : 'var(--ya-sand-500)', opacity: act ? .7 : 1, fontVariantNumeric: 'tabular-nums' }}>{n(x.c)}</span>}
+                <Hv key={x.k} as="button" type="button" role="tab" aria-selected={act} onClick={() => setView(x.k)} style={{ height: 40, padding: '0 18px', borderRadius: 12, border: `1px solid ${act ? 'var(--ya-fill)' : 'var(--ya-sand-200)'}`, background: act ? 'var(--ya-fill)' : 'var(--ya-card)', color: act ? '#fff' : 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 160ms,color 160ms,border-color 160ms' }} hover={{ borderColor: 'var(--ya-sand-400)' }}>
+                  {x.l}{x.c !== null && <span style={{ fontSize: 13, fontWeight: 500, color: act ? '#fff' : 'var(--ya-sand-500)', opacity: act ? .7 : 1, fontVariantNumeric: 'tabular-nums' }}>{n(x.c)}</span>}
                 </Hv>
               );
             })}

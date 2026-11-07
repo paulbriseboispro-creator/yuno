@@ -13,7 +13,7 @@ export function SecHead({ title, sub, right }: { title: ReactNode; sub?: ReactNo
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px 20px' }}>
       <div style={{ minWidth: 0 }}>
-        <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em', lineHeight: 1.2 }}>{title}</h2>
+        <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, letterSpacing: '-.01em', lineHeight: 1.3 }}>{title}</h2>
         {sub && <div style={{ fontSize: 13.5, color: 'var(--ya-sand-500)', marginTop: 2, lineHeight: 1.45 }}>{sub}</div>}
       </div>
       {right}
@@ -47,10 +47,10 @@ export function FilterDrop({
         aria-haspopup="listbox"
         aria-expanded={open}
         disabled={disabled}
-        style={{ height: 42, maxWidth: 'min(300px, calc(100vw - 32px))', padding: '0 12px 0 16px', borderRadius: 99, background: 'var(--ya-card)', border: `1px solid ${open ? 'var(--ya-sand-400)' : 'var(--ya-sand-200)'}`, display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 600, color: 'var(--ya-ink)', cursor: 'pointer', transition: 'border-color 140ms' }}
+        style={{ height: 40, maxWidth: 'min(300px, calc(100vw - 32px))', padding: '0 12px 0 16px', borderRadius: 12, background: 'var(--ya-card)', border: `1px solid ${open ? 'var(--ya-sand-400)' : 'var(--ya-sand-200)'}`, display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 600, color: 'var(--ya-ink)', cursor: 'pointer', transition: 'border-color 140ms' }}
         hover={{ borderColor: 'var(--ya-sand-300)' }}
       >
-        <span style={{ flex: 'none', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 500 }}>{label}</span>
+        <span style={{ flex: 'none', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>{label}</span>
         <span style={{ minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</span>
         <Icon name="chevronDown" size={14} stroke={2.4} color="var(--ya-sand-400)" style={{ transform: `rotate(${open ? 180 : 0}deg)`, transition: 'transform 200ms' }} />
       </Hv>

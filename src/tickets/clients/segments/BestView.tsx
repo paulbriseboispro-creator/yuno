@@ -57,7 +57,7 @@ export function BestView({ segs, period, onOpen }: { segs: SegVM[]; period: SegP
         <span style={{ height: 14, borderRadius: 99, background: 'var(--ya-sand-100)', overflow: 'hidden' }}>
           <i style={{ display: 'block', width: has ? `${((v / maxV) * 100 * clamp01(kk * 1.15)).toFixed(1)}%` : '0%', height: '100%', borderRadius: 99, background: has && v === maxV ? 'var(--ya-gradient-brand)' : 'var(--ya-ink)' }} />
         </span>
-        <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.03em', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: has ? 'var(--ya-ink)' : 'var(--ya-sand-400)' }}>{has ? fmtV(v, s) : '—'}</span>
+        <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 22, letterSpacing: '-.025em', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: has ? 'var(--ya-ink)' : 'var(--ya-sand-400)' }}>{has ? fmtV(v, s) : '—'}</span>
       </button>
     );
   };
@@ -69,17 +69,17 @@ export function BestView({ segs, period, onOpen }: { segs: SegVM[]; period: SegP
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, animation: `ya-rise 520ms ${EASE} both` }}>
-      <section style={{ display: 'flex', flexDirection: 'column', gap: 20, padding: 'clamp(18px,2.2vw,28px)', borderRadius: 28, background: 'var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200),var(--ya-shadow-sm)' }}>
+      <section style={{ display: 'flex', flexDirection: 'column', gap: 20, padding: 'clamp(18px,2.2vw,28px)', borderRadius: 18, background: 'var(--ya-card-bg)', boxShadow: 'inset 0 0 0 1px var(--ya-border),var(--ya-card-shadow)' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px 20px' }}>
           <div>
-            <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' }}>{t(`ya.seg.m.${metric}.t`)}</h2>
+            <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, letterSpacing: '-.01em' }}>{t(`ya.seg.m.${metric}.t`)}</h2>
             <div style={{ fontSize: 13.5, color: 'var(--ya-sand-500)', marginTop: 2, maxWidth: 560, textWrap: 'pretty' }}>{t(`ya.seg.m.${metric}.s`)}</div>
           </div>
           <Segmented<Metric> value={metric} onChange={setMetric} options={METRICS.map((m) => ({ value: m, label: t(`ya.seg.m.${m}.l`) }))} ariaLabel={t('ya.seg.tab.rep')} />
         </div>
         {withS.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '28px 8px', textAlign: 'center' }}>
-            <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 20, letterSpacing: '-.02em' }}>{t('ya.seg.rep.empty', { on })}</span>
+            <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 20, letterSpacing: '-.025em' }}>{t('ya.seg.rep.empty', { on })}</span>
             <span style={{ fontSize: 14.5, color: 'var(--ya-sand-500)' }}>{t('ya.seg.rep.emptyHint')}</span>
           </div>
         ) : (
@@ -92,14 +92,14 @@ export function BestView({ segs, period, onOpen }: { segs: SegVM[]; period: SegP
       </section>
 
       {withS.length > 0 && (
-        <section style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 'clamp(18px,2.2vw,28px)', borderRadius: 28, background: 'var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200),var(--ya-shadow-sm)' }}>
+        <section style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 'clamp(18px,2.2vw,28px)', borderRadius: 18, background: 'var(--ya-card-bg)', boxShadow: 'inset 0 0 0 1px var(--ya-border),var(--ya-card-shadow)' }}>
           <div>
-            <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' }}>{t('ya.seg.mx.title')}</h2>
+            <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, letterSpacing: '-.01em' }}>{t('ya.seg.mx.title')}</h2>
             <div style={{ fontSize: 13.5, color: 'var(--ya-sand-500)', marginTop: 2 }}>{t('ya.seg.mx.sub')}</div>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <div style={{ minWidth: 760, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: MXCOLS, gap: 6, padding: '0 4px', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: MXCOLS, gap: 6, padding: '0 4px', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>
                 <span>{t('ya.seg.col.segment')}</span><span>{t('ya.seg.mx.messages')}</span><span>{t('ya.seg.mx.click')}</span><span>{t('ya.seg.mx.ticketing')}</span>
                 <span>{t('ya.seg.mx.buy')}</span><span>{t('ya.seg.mx.sales')}</span><span>{t('ya.seg.mx.basket')}</span>
               </div>

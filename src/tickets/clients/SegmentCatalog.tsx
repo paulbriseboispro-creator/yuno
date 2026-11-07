@@ -141,11 +141,11 @@ export function SegmentCatalogModal({
         {/* En-tête */}
         <div style={{ position: 'relative', overflow: 'hidden', display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: '16px 22px', padding: 'clamp(22px,3vw,32px) clamp(20px,3vw,32px) 18px', background: 'radial-gradient(120% 140% at 100% 0%, var(--ya-red-50) 0%, rgba(255,255,255,0) 55%)' }}>
           <div style={{ flex: '1 1 380px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: 'var(--ya-font-mono)', fontSize: 11.5, letterSpacing: '.08em', textTransform: 'uppercase', color: context === 'manual' ? 'var(--ya-sand-500)' : 'var(--ya-green-700)' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: context === 'manual' ? 'var(--ya-sand-500)' : 'var(--ya-green-700)', fontWeight: 600 }}>
               {context !== 'manual' && <span style={{ width: 18, height: 18, borderRadius: 99, background: 'var(--ya-green-500)', color: '#fff', display: 'grid', placeItems: 'center' }}><Icon name="check" size={11} stroke={3.2} /></span>}
               {eyebrow}
             </span>
-            <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(26px,3vw,32px)', lineHeight: 1.06, letterSpacing: '-.035em', textWrap: 'balance' }}>
+            <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, lineHeight: 1.3, letterSpacing: '-.01em', textWrap: 'balance' }}>
               {t('ya.segcat.title1')}<span style={GRAD_TEXT}>{t('ya.segcat.accent')}</span>{t('ya.segcat.title2')}
             </h2>
             <span style={{ minHeight: 21, fontSize: 15, lineHeight: 1.45, color: 'var(--ya-sand-600)', textWrap: 'pretty', maxWidth: 560 }}>
@@ -198,7 +198,7 @@ export function SegmentCatalogModal({
             ) : (
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px 18px', padding: '18px 20px', borderRadius: 20, background: 'var(--ya-sand-50)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-100)' }}>
                 <span style={{ flex: '1 1 320px', fontSize: 14.5, lineHeight: 1.45, color: 'var(--ya-sand-700)' }}>{t(recEmptyKey)}</span>
-                <Hv as="button" type="button" onClick={() => setView('all')} style={{ height: 40, padding: '0 16px', borderRadius: 99, border: 0, background: 'var(--ya-ink)', color: 'var(--ya-on-ink)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }} hover={{ background: 'var(--ya-sand-700)' }}>
+                <Hv as="button" type="button" onClick={() => setView('all')} style={{ height: 40, padding: '0 16px', borderRadius: 12, border: 0, background: 'var(--ya-fill)', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }} hover={{ background: 'var(--ya-sand-700)' }}>
                   {t('ya.segcat.seeAll')}
                 </Hv>
               </div>
@@ -212,7 +212,7 @@ export function SegmentCatalogModal({
               <section key={g.group} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: '4px 16px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                    <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 18, letterSpacing: '-.02em' }}>{t(`ya.segcat.g.${g.group}`)}</span>
+                    <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 18, letterSpacing: '-.025em' }}>{t(`ya.segcat.g.${g.group}`)}</span>
                     <span style={{ fontSize: 13, lineHeight: 1.4, color: 'var(--ya-sand-500)' }}>{t(`ya.segcat.g.${g.group}.s`)}{nt ? ` · ${nt}` : ''}</span>
                   </div>
                   {caps.write && pickable.length > 1 && (
@@ -243,7 +243,7 @@ export function SegmentCatalogModal({
             {caps.write && count > 0 && <span style={{ fontSize: 12.5, color: 'var(--ya-sand-500)' }}>{t('ya.segcat.rename')}</span>}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
-            <Hv as="button" type="button" onClick={onClose} style={{ height: 46, padding: phone ? '0 8px' : '0 16px', borderRadius: 99, border: 0, background: 'none', fontSize: 14.5, fontWeight: 600, color: 'var(--ya-sand-600)', cursor: 'pointer', whiteSpace: 'nowrap' }} hover={{ color: 'var(--ya-ink)' }}>
+            <Hv as="button" type="button" onClick={onClose} style={{ height: 40, padding: phone ? '0 8px' : '0 16px', borderRadius: 12, border: 0, background: 'none', fontSize: 14.5, fontWeight: 600, color: 'var(--ya-sand-600)', cursor: 'pointer', whiteSpace: 'nowrap' }} hover={{ color: 'var(--ya-ink)' }}>
               {t(context === 'manual' ? 'ya.common.cancel' : 'ya.segcat.later')}
             </Hv>
             {caps.write && (
@@ -295,7 +295,7 @@ function Card({ e, on, onToggle, showIdea = false, badge = true, delay = 0 }: { 
       }}
       hover={pickable && !on ? { boxShadow: `inset 0 0 0 1.5px ${e.rec ? 'var(--ya-red-300)' : 'var(--ya-sand-400)'}` } : undefined}
     >
-      <span aria-hidden style={{ flex: 'none', marginTop: 1, width: 22, height: 22, borderRadius: 7, border: `1.5px solid ${on ? 'var(--ya-ink)' : e.existing ? 'var(--ya-green-500)' : 'var(--ya-sand-300)'}`, background: on ? 'var(--ya-ink)' : e.existing ? 'var(--ya-green-50)' : 'var(--ya-card)', color: on ? 'var(--ya-on-ink)' : 'var(--ya-green-700)', display: 'grid', placeItems: 'center', transition: 'background 160ms,border-color 160ms' }}>
+      <span aria-hidden style={{ flex: 'none', marginTop: 1, width: 22, height: 22, borderRadius: 7, border: `1.5px solid ${on ? 'var(--ya-ink)' : e.existing ? 'var(--ya-green-500)' : 'var(--ya-sand-300)'}`, background: on ? 'var(--ya-fill)' : e.existing ? 'var(--ya-green-50)' : 'var(--ya-card)', color: on ? '#fff' : 'var(--ya-green-700)', display: 'grid', placeItems: 'center', transition: 'background 160ms,border-color 160ms' }}>
         {(on || e.existing) && <Icon name="check" size={13} stroke={3} />}
       </span>
       <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -319,7 +319,7 @@ function Card({ e, on, onToggle, showIdea = false, badge = true, delay = 0 }: { 
           <span style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--ya-sand-500)', whiteSpace: 'nowrap' }}>{t('ya.segcat.nobody')}</span>
         ) : (
           <>
-            <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 20, lineHeight: 1.1, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums' }}>{n(e.n)}</b>
+            <b style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 20, lineHeight: 1.1, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{n(e.n)}</b>
             <span style={{ fontSize: 12, color: 'var(--ya-sand-500)', whiteSpace: 'nowrap' }}>
               {e.existing ? t('ya.seg.nw.done') : e.disabled ? '—' : tp('ya.segcat.people', e.n)}
             </span>
@@ -358,19 +358,19 @@ export function SegmentsNextStep({ context, autoOpen }: { context: 'file'; autoO
           <Icon name="sparkles" size={20} stroke={2.2} />
         </span>
         <span style={{ flex: '1 1 280px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-red-600)' }}>{t('ya.segcat.next.k')}</span>
+          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-red-600)', fontWeight: 600 }}>{t('ya.segcat.next.k')}</span>
           <span style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.3 }}>{made ? tp('ya.segcat.next.done', made, { n: n(made) }) : t('ya.segcat.next.title')}</span>
           {!made && <span style={{ fontSize: 13.5, lineHeight: 1.45, color: 'var(--ya-sand-600)', textWrap: 'pretty' }}>{t('ya.segcat.next.body')}</span>}
         </span>
         {made ? (
           <span style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 14px' }}>
-            <Hv as={Link} to={TIX_ROUTES.segments} style={{ height: 42, padding: '0 18px', borderRadius: 99, background: 'var(--ya-ink)', color: 'var(--ya-on-ink)', fontSize: 14.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none' }} hover={{ background: 'var(--ya-sand-700)', color: 'var(--ya-on-ink)', textDecoration: 'none' }}>
+            <Hv as={Link} to={TIX_ROUTES.segments} style={{ height: 40, padding: '0 18px', borderRadius: 12, background: 'var(--ya-fill)', color: '#fff', fontSize: 14.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none' }} hover={{ background: 'var(--ya-red-600)', color: '#fff', textDecoration: 'none' }}>
               {t('ya.segcat.next.see')}<Icon name="arrowRight" size={15} stroke={2.4} />
             </Hv>
             <button type="button" onClick={() => setOpen(true)} style={{ border: 0, background: 'none', padding: 0, fontSize: 14, fontWeight: 600, color: 'var(--ya-sand-600)', cursor: 'pointer' }}>{t('ya.segcat.next.more')}</button>
           </span>
         ) : (
-          <Hv as="button" type="button" onClick={() => setOpen(true)} style={{ height: 42, padding: '0 18px', borderRadius: 99, border: 0, background: 'var(--ya-ink)', color: 'var(--ya-on-ink)', fontSize: 14.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', whiteSpace: 'nowrap' }} hover={{ background: 'var(--ya-sand-700)' }}>
+          <Hv as="button" type="button" onClick={() => setOpen(true)} style={{ height: 40, padding: '0 18px', borderRadius: 12, border: 0, background: 'var(--ya-fill)', color: '#fff', fontSize: 14.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', whiteSpace: 'nowrap' }} hover={{ background: 'var(--ya-sand-700)' }}>
             {t('ya.segcat.next.cta')}<Icon name="arrowRight" size={15} stroke={2.4} />
           </Hv>
         )}

@@ -113,12 +113,12 @@ function PeriodView({ q, f }: { q: UseQueryResult<AnaGuestList>; f: AnaFilters }
   return (
     <>
       {/* Héros : soirée par soirée */}
-      <section style={{ ...card, gap: 18, padding: 'clamp(20px,2.4vw,32px)', background: 'radial-gradient(60% 50% at 100% 0%,rgba(255,107,53,.07),transparent 70%),var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200),var(--ya-shadow-sm)' }}>
+      <section style={{ ...card, gap: 18, padding: 'clamp(20px,2.4vw,32px)', background: 'radial-gradient(60% 50% at 100% 0%,rgba(232,25,44,.07),transparent 70%),var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-border),var(--ya-card-shadow)' }}>
         <CardHead title={t('ya.gl.a.heroT')} sub={t('ya.gl.a.heroS')} />
         {loading ? <ChartSkeleton height={220} /> : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18, ...fadeIn(rv) }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 24px' }}>
-              <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(56px,8vw,104px)', lineHeight: 0.92, letterSpacing: '-.055em', fontVariantNumeric: 'tabular-nums' }}>
+              <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 0.92, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>
                 {n(X.entries * prog)}
                 <span style={{ marginLeft: 12, fontSize: 'clamp(20px,2.4vw,28px)', letterSpacing: '-.02em', color: 'var(--ya-sand-500)' }}>{t('ya.gl.a.unit')}</span>
               </span>
@@ -150,7 +150,7 @@ function PeriodView({ q, f }: { q: UseQueryResult<AnaGuestList>; f: AnaFilters }
           <CardHead title={t('ya.gl.lists.t')} sub={t('ya.gl.a.listsS')} />
           {loading ? <Sk h={220} r={16} /> : d.lists.length === 0 ? <span style={{ fontSize: 14, color: 'var(--ya-sand-500)' }}>{t('ya.gl.a.noNights')}</span> : (
             <div style={{ display: 'flex', flexDirection: 'column', ...fadeIn(rv, 80) }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.6fr) 64px 84px 92px', gap: 12, padding: '0 4px 8px', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-400)', borderBottom: '1px solid var(--ya-sand-100)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.6fr) 64px 84px 92px', gap: 12, padding: '0 4px 8px', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-400)', borderBottom: '1px solid var(--ya-sand-100)', fontWeight: 600 }}>
                 <span>{t('ya.gl.a.col.list')}</span><span style={{ textAlign: 'right' }}>{t('ya.gl.a.col.entries')}</span><span style={{ textAlign: 'right' }}>{t('ya.gl.a.col.showup')}</span><span style={{ textAlign: 'right' }}>{t('ya.gl.a.col.conv')}</span>
               </div>
               {d.lists.map((l) => (
@@ -171,7 +171,7 @@ function PeriodView({ q, f }: { q: UseQueryResult<AnaGuestList>; f: AnaFilters }
           )}
         </section>
         {d.arrivals.slots.length > 0
-          ? <ArrivalsCard a={d.arrivals} T={T} p={prog} delay={0} style={{ flex: '1 1 380px', borderRadius: 28, padding: 24, animation: 'none' }} />
+          ? <ArrivalsCard a={d.arrivals} T={T} p={prog} delay={0} style={{ flex: '1 1 380px', borderRadius: 18, padding: 24, animation: 'none' }} />
           : (
             <section style={{ ...card, flex: '1 1 380px' }}>
               <CardHead title={t('ya.gl.arr.t')} sub={t('ya.gl.a.arrNone')} />
@@ -181,7 +181,7 @@ function PeriodView({ q, f }: { q: UseQueryResult<AnaGuestList>; f: AnaFilters }
 
       {/* Profil */}
       {(d.profile.gl?.age_med != null || d.profile.gl?.female_pct != null) && (
-        <WhoCard who={null} profile={d.profile} T={T} p={prog} delay={0} title={t('ya.gl.a.profileT')} style={{ borderRadius: 28, padding: 24, animation: 'none' }} />
+        <WhoCard who={null} profile={d.profile} T={T} p={prog} delay={0} title={t('ya.gl.a.profileT')} style={{ borderRadius: 18, padding: 24, animation: 'none' }} />
       )}
 
       {/* Lot 6 : quotas, absents, détenteurs de liste, ce que vaut un invité */}
@@ -191,13 +191,13 @@ function PeriodView({ q, f }: { q: UseQueryResult<AnaGuestList>; f: AnaFilters }
       {(todo.length > 0 || d.next) && (
         <section style={{ ...nightCard, display: 'flex', flexDirection: 'column', gap: 20, padding: 28, ...fadeIn(rv, 120) }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-text-on-night-2)' }}>{t('ya.gl.a.do.k')}</span>
-            <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 26, letterSpacing: '-.03em', lineHeight: 1.1 }}>{t('ya.gl.a.do.t')}</h2>
+            <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-text-on-night-2)', fontWeight: 600 }}>{t('ya.gl.a.do.k')}</span>
+            <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, letterSpacing: '-.01em', lineHeight: 1.3 }}>{t('ya.gl.a.do.t')}</h2>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,240px),1fr))', gap: 14 }}>
             {todo.map((w, i) => (
               <Hv key={i} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 20, borderRadius: 20, background: 'rgba(255,255,255,.06)', boxShadow: 'inset 0 0 0 1px var(--ya-border-night)', transition: 'background 160ms,transform 200ms cubic-bezier(.22,1,.36,1)' }} hover={{ background: 'rgba(255,255,255,.1)', transform: 'translateY(-2px)' }}>
-                <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 48, lineHeight: 1, letterSpacing: '-.045em', fontVariantNumeric: 'tabular-nums' }}>{n(w.big * prog)}</span>
+                <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 36, lineHeight: 1, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{n(w.big * prog)}</span>
                 <span style={{ fontSize: 16, fontWeight: 600 }}>{w.t}</span>
                 <span style={{ fontSize: 14, lineHeight: 1.45, color: 'var(--ya-text-on-night-2)', textWrap: 'pretty' }}>{w.s}</span>
                 <div style={{ alignSelf: 'flex-start', marginTop: 'auto', paddingTop: 8 }}>
@@ -211,7 +211,7 @@ function PeriodView({ q, f }: { q: UseQueryResult<AnaGuestList>; f: AnaFilters }
             ))}
             {d.next && (
               <Hv key="next" style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 20, borderRadius: 20, background: 'rgba(255,255,255,.06)', boxShadow: 'inset 0 0 0 1px var(--ya-border-night)', transition: 'background 160ms,transform 200ms cubic-bezier(.22,1,.36,1)' }} hover={{ background: 'rgba(255,255,255,.1)', transform: 'translateY(-2px)' }}>
-                <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 48, lineHeight: 1, letterSpacing: '-.045em', fontVariantNumeric: 'tabular-nums' }}>{n(d.next.entries * prog)}</span>
+                <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 36, lineHeight: 1, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{n(d.next.entries * prog)}</span>
                 <span style={{ fontSize: 16, fontWeight: 600 }}>{t('ya.gl.a.do.nextT', { title: d.next.title })}</span>
                 <span style={{ fontSize: 14, lineHeight: 1.45, color: 'var(--ya-text-on-night-2)', textWrap: 'pretty' }}>
                   {`${tzWeek(T.locale, d.next.start_at, d.next.tz)} · ${d.next.today > 0 ? t('ya.gl.a.do.nextToday', { n: n(d.next.today) }) : t('ya.gl.a.do.nextS')}`}
@@ -279,7 +279,7 @@ function NightsBars({ d, go, T }: { d: AnaGuestList; go: boolean; T: T }) {
         <div style={{ position: 'absolute', bottom: 70, left: hov.x, transform: 'translateX(-50%)', pointerEvents: 'none', background: 'var(--ya-tip-bg)', color: 'var(--ya-tip-fg)', borderRadius: 12, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 1, whiteSpace: 'nowrap', boxShadow: 'var(--ya-shadow-md)', zIndex: 3 }}>
           <span style={{ fontSize: 12, color: 'var(--ya-text-on-night-2)' }}>{tzWeek(locale, h.start_at, h.tz)}</span>
           <span style={{ fontSize: 14, fontWeight: 600 }}>{h.title}</span>
-          <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 18, letterSpacing: '-.02em' }}>
+          <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 18, letterSpacing: '-.025em' }}>
             {!h.scan_known ? t('ya.gl.a.tipEntries', { n: n(h.entries) })
               : h.showup !== null ? t('ya.gl.a.tipKnown', { came: n(h.came), n: n(h.entries), pct: pct(h.showup) })
               : t('ya.gl.a.tipSmall', { came: n(h.came), n: n(h.entries) })}
@@ -305,12 +305,12 @@ function GlNever() {
   return (
     <>
       <section style={{ ...card, gap: 16, padding: 'clamp(24px,3vw,36px)', background: 'repeating-linear-gradient(135deg,var(--ya-sand-50) 0 10px,var(--ya-card) 10px 20px)' }}>
-        <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>{t('ya.gl.k')}</span>
-        <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(24px,3vw,32px)', letterSpacing: '-.03em', lineHeight: 1.1, textWrap: 'balance', maxWidth: 680 }}>{t('ya.gl.a.never.t')}</span>
+        <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>{t('ya.gl.k')}</span>
+        <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 'clamp(24px,3vw,32px)', letterSpacing: '-.025em', lineHeight: 1.1, textWrap: 'balance', maxWidth: 680 }}>{t('ya.gl.a.never.t')}</span>
         <span style={{ fontSize: 15.5, lineHeight: 1.5, color: 'var(--ya-sand-600)', maxWidth: 620, textWrap: 'pretty' }}>{t('ya.gl.a.never.s')}</span>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,240px),1fr))', gap: 12, maxWidth: 820 }}>
           {(['inv', 'free'] as const).map((k) => (
-            <div key={k} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '16px 18px', borderRadius: 18, background: 'var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)' }}>
+            <div key={k} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '16px 18px', borderRadius: 18, background: 'var(--ya-card-bg)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)' }}>
               <b style={{ fontSize: 15 }}>{t(`ya.gl.kind.${k}`)}</b>
               <span style={{ fontSize: 14, lineHeight: 1.45, color: 'var(--ya-sand-600)' }}>{t(`ya.gl.kind.${k}.s`)}</span>
             </div>

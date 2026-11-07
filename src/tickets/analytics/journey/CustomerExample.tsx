@@ -139,9 +139,9 @@ export const CustomerExample = forwardRef<HTMLElement, {
   const canAct = canWrite && cu.email_ok && (cu.kind === 'clicked' || cu.kind === 'opened');
 
   return (
-    <section ref={ref} style={{ boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 20, padding: 'clamp(20px,2.4vw,32px)', borderRadius: 28, background: 'radial-gradient(60% 50% at 0% 0%,rgba(232,25,44,.05),transparent 70%),var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)', minWidth: 0, ...style }}>
+    <section ref={ref} style={{ boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 20, padding: 'clamp(20px,2.4vw,32px)', borderRadius: 18, background: 'radial-gradient(60% 50% at 0% 0%,rgba(232,25,44,.05),transparent 70%),var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)', minWidth: 0, ...style }}>
       <div>
-        <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' }}>{t('ya.jr.s4.title')}</h2>
+        <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, letterSpacing: '-.01em' }}>{t('ya.jr.s4.title')}</h2>
         <div style={{ fontSize: 13.5, color: 'var(--ya-sand-500)', marginTop: 2, lineHeight: 1.45 }}>{t('ya.jr.s4.sub')}</div>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px 32px' }}>
@@ -196,7 +196,7 @@ export const CustomerExample = forwardRef<HTMLElement, {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 12, animation: cardAnim }}>
             {view.stats.map(([v, l], i) => (
               <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-                <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: v.length > 10 ? 16 : 24, lineHeight: 1.1, letterSpacing: '-.03em', overflowWrap: 'anywhere' }}>{v}</b>
+                <b style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: v.length > 10 ? 16 : 24, lineHeight: 1.1, letterSpacing: '-.025em', overflowWrap: 'anywhere' }}>{v}</b>
                 <span style={{ fontSize: 12, lineHeight: '15px', color: 'var(--ya-sand-500)' }}>{l}</span>
               </div>
             ))}
@@ -208,7 +208,7 @@ export const CustomerExample = forwardRef<HTMLElement, {
                 as="button"
                 type="button"
                 onClick={() => onRelaunch(cu)}
-                style={{ height: 42, padding: '0 18px', borderRadius: 99, border: 0, background: 'var(--ya-ink)', color: 'var(--ya-on-ink)', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', transition: `transform 200ms ${SPRING},background 160ms` }}
+                style={{ height: 40, padding: '0 18px', borderRadius: 12, border: 0, background: 'var(--ya-fill)', color: '#fff', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', transition: `transform 200ms ${SPRING},background 160ms` }}
                 hover={{ background: 'var(--ya-sand-700)' }}
                 active={{ transform: 'scale(.97)' }}
               >

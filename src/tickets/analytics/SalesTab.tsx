@@ -289,7 +289,7 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
       )}
 
       {/* Héros */}
-      <section style={{ ...card, gap: 18, padding: 'clamp(20px,2.4vw,32px)', background: 'radial-gradient(60% 50% at 100% 0%,rgba(255,107,53,.07),transparent 70%),var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200),var(--ya-shadow-sm)' }}>
+      <section style={{ ...card, gap: 18, padding: 'clamp(20px,2.4vw,32px)', background: 'radial-gradient(60% 50% at 100% 0%,rgba(232,25,44,.07),transparent 70%),var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-border),var(--ya-card-shadow)' }}>
         {/* Le pilier : tout, ou un pilier (billets, tables VIP, guest list, remboursements). */}
         <div className="ya-thin-scroll" style={{ overflowX: 'auto', margin: '-4px', padding: 4 }}>
           <Segmented value={f.pillar} onChange={(x) => setF({ pillar: x })} ariaLabel={t('ya.ana.pl.label')} options={PILLARS.map((k) => ({ value: k, label: t(`ya.ana.pl.${k}`) }))} />
@@ -307,7 +307,7 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
         {loading ? <HeroSkeleton /> : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18, ...fadeIn(rv) }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 24px' }}>
-              <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(56px,8vw,112px)', lineHeight: 0.92, letterSpacing: '-.055em', fontVariantNumeric: 'tabular-nums' }}>
+              <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 0.92, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>
                 {metric === 'eur' ? eur(v.total * prog) : n(v.total * prog)}
                 {metric === 'bil' && <span style={{ marginLeft: 12, fontSize: 'clamp(20px,2.4vw,28px)', letterSpacing: '-.02em', color: 'var(--ya-sand-500)' }}>{bigUnit}</span>}
               </span>
@@ -489,7 +489,7 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
           return (
             <div style={{ overflowX: 'auto', ...fadeIn(rv, 100) }} className="ya-thin-scroll">
               <div style={{ minWidth: (showBal ? 940 : 800) + (showNew ? 90 : 0), display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 16, padding: '0 12px 10px', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: grid, gap: 16, padding: '0 12px 10px', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>
                   <span>{t('ya.ana.col.night')}</span><span>{t(isTb ? 'ya.ana.col.tablesFill' : 'ya.ana.col.fill')}</span><span>{t(isGl ? 'ya.ana.col.periodSignups' : 'ya.ana.col.periodSales')}</span><span>{t('ya.ana.col.entries')}</span>
                   {showBal && <span>{t('ya.ana.col.balance')}</span>}
                   {showNew && <span style={{ textAlign: 'right' }} title={t('ya.ana.col.newClients')}>{t('ya.ana.col.newShare')}</span>}
@@ -531,7 +531,7 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
                         {(pl === 'all' || pl === 'tickets') && <TicketSplit paid={e.paid} free={e.free} tables={e.tables} style={{ fontSize: 12.5 }} />}
                       </span>
                       <span style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 20, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums' }}>{money ? eur(amt) : cntLabel(e, amt)}</b>
+                        <b style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 20, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{money ? eur(amt) : cntLabel(e, amt)}</b>
                         <Fill pct={(amt / amtMax) * 100} go={go} delay={i * 90} h={4} bg="var(--ya-ink)" />
                       </span>
                       <DoorCell door={e.door ?? null} upcoming={e.upcoming} go={go} delay={i * 90} />
@@ -561,9 +561,9 @@ export function SalesTab({ q, f, setF, goTab }: { q: UseQueryResult<AnaSales>; f
       {/* « Tout » : ce que vous touchez. Un pilier : ce qui a fait vendre. */}
       {pl === 'all' && money && d.payout ? <PayoutCard p={d.payout} rv={rv} prog={prog} /> : !rf && <section style={{ ...nightCard, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '20px 32px', padding: '28px 32px', ...fadeIn(rv, 120) }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
-          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-text-on-night-2)' }}>{t('ya.ana.s.madeT')}</span>
+          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-text-on-night-2)', fontWeight: 600 }}>{t('ya.ana.s.madeT')}</span>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 22px' }}>
-            <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(56px,7vw,88px)', lineHeight: 0.95, letterSpacing: '-.05em', fontVariantNumeric: 'tabular-nums' }}>{share !== null ? pct(Number(share) * prog) : '—'}</span>
+            <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 0.95, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{share !== null ? pct(Number(share) * prog) : '—'}</span>
             <span style={{ fontSize: 16, lineHeight: 1.4, color: 'var(--ya-text-on-night-2)', maxWidth: 440, paddingBottom: 8 }}>
               {money ? t('ya.ana.s.madeS', { v: eur(Number(d.msg?.revenue ?? 0)) }) : isGl ? t('ya.ana.s.madeSGl', { n: n(Number(d.msg?.tickets ?? 0)) }) : t('ya.ana.s.madeSTk', { n: n(Number(d.msg?.tickets ?? 0)) })}
             </span>
@@ -617,7 +617,7 @@ function DoorCell({ door, upcoming, go, delay }: { door: AnaSales['events'][numb
   return (
     <span style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, fontSize: 13, color: 'var(--ya-sand-600)', fontVariantNumeric: 'tabular-nums' }}>
-        <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 18, letterSpacing: '-.02em', color: 'var(--ya-ink)' }}>{n(door.entered)}</b>
+        <b style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 18, letterSpacing: '-.025em', color: 'var(--ya-ink)' }}>{n(door.entered)}</b>
         {/* Jamais un pourcentage sous 10 personnes attendues. */}
         <span>{p !== null && door.expected >= 10 ? pct(p) : ''}</span>
       </span>
@@ -634,7 +634,7 @@ function BalanceCell({ night, upcoming }: { night: AnaSales['events'][number]['b
   const fees = Number(night.fees.amount ?? 0);
   return (
     <span style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
-      <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 18, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums' }}>{eur(Number(night.rest.amount ?? 0))}</b>
+      <b style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 18, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{eur(Number(night.rest.amount ?? 0))}</b>
       <span style={{ fontSize: 12.5, lineHeight: 1.35, color: 'var(--ya-sand-500)' }}>
         {upcoming ? t('ya.ana.s.balSoFar') : fees > 0 ? t('ya.ana.s.balCap', { a: eur(Number(night.revenue)), b: eur(fees) }) : t('ya.ana.s.balCapNo')}
       </span>
@@ -666,12 +666,12 @@ function PayoutCard({ p, rv, prog }: { p: TixPayout; rv: boolean; prog: number }
   return (
     <section style={{ ...nightCard, display: 'flex', flexDirection: 'column', gap: 22, padding: 'clamp(22px,2.6vw,32px)', ...fadeIn(rv, 120) }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
-        <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: muted }}>{t('ya.ana.po.t')}</span>
+        <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: muted, fontWeight: 600 }}>{t('ya.ana.po.t')}</span>
         {p.gross.n === 0 ? (
           <span style={{ fontSize: 16, color: muted }}>{t('ya.ana.po.empty')}</span>
         ) : (
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 22px' }}>
-            <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(48px,6.4vw,84px)', lineHeight: 0.95, letterSpacing: '-.05em', fontVariantNumeric: 'tabular-nums' }}>{eur(big * prog)}</span>
+            <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 0.95, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{eur(big * prog)}</span>
             <span style={{ fontSize: 16, lineHeight: 1.4, color: muted, maxWidth: 440, paddingBottom: 8 }}>{t(share ? 'ya.ana.po.shareBig' : 'ya.ana.po.netBig')}</span>
           </div>
         )}
@@ -681,7 +681,7 @@ function PayoutCard({ p, rv, prog }: { p: TixPayout; rv: boolean; prog: number }
           {cells.map((c, i) => (
             <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '16px 18px 4px 0', borderRight: i < cells.length - 1 ? '1px solid rgba(255,255,255,.08)' : 'none', paddingLeft: i > 0 ? 18 : 0, minWidth: 0 }}>
               <span style={{ fontSize: 13, color: muted }}>{c.l}</span>
-              <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: c.strong ? 26 : 22, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums', color: c.strong ? '#fff' : 'var(--ya-text-on-night)' }}>{c.v}</b>
+              <b style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: c.strong ? 26 : 22, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums', color: c.strong ? '#fff' : 'var(--ya-text-on-night)' }}>{c.v}</b>
               <span style={{ fontSize: 12.5, lineHeight: 1.35, color: muted }}>{c.c}</span>
             </div>
           ))}
@@ -727,7 +727,7 @@ function RefundCards({ rf, money, loading, rv, go }: { rf: TixRefundsBlock; mone
         {loading ? <Sk h={220} r={16} /> : rf.events.length === 0 ? empty : (
           <div style={{ overflowX: 'auto', ...fadeIn(rv, 100) }} className="ya-thin-scroll">
             <div style={{ minWidth: 520, display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px,1.4fr) minmax(200px,1fr) 100px', gap: 16, padding: '0 0 10px', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px,1.4fr) minmax(200px,1fr) 100px', gap: 16, padding: '0 0 10px', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>
                 <span>{t('ya.ana.col.night')}</span><span>{t('ya.ana.rf.col.refunds')}</span><span style={{ textAlign: 'right' }}>{money ? t('ya.ana.rf.col.amount') : ''}</span>
               </div>
               {rf.events.map((e) => {
@@ -746,7 +746,7 @@ function RefundCards({ rf, money, loading, rv, go }: { rf: TixRefundsBlock; mone
                       <b style={{ fontSize: 15, whiteSpace: 'nowrap' }}>{tp('ya.ana.nRefunds', Number(e.n), { n: n(Number(e.n)) })}{rate !== null ? ` · ${pct(rate)}` : ''}</b>
                       <span style={{ fontSize: 12.5, color: 'var(--ya-sand-500)' }}>{t('ya.ana.rf.ofSales', { n: n(Number(e.sales)) })}</span>
                     </span>
-                    <b style={{ textAlign: 'right', fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 18, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums' }}>{money && e.revenue !== null ? eur(Number(e.revenue)) : ''}</b>
+                    <b style={{ textAlign: 'right', fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 18, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{money && e.revenue !== null ? eur(Number(e.revenue)) : ''}</b>
                   </div>
                 );
               })}
@@ -856,7 +856,7 @@ function GoalCard({ d, loading, rv, go, prog }: { d: AnaSales; loading: boolean;
             {rows.map((r, i) => (
               <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, padding: '11px 0', borderTop: '1px solid var(--ya-sand-100)', fontSize: 14, color: 'var(--ya-sand-600)' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>{r.mk && <i style={{ display: 'inline-block', width: 12, height: 2.5, borderRadius: 2, background: 'var(--ya-ink)' }} />}{r.l}</span>
-                <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, fontVariantNumeric: 'tabular-nums', color: r.c ?? 'var(--ya-ink)' }}>{r.v}</b>
+                <b style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 16, fontVariantNumeric: 'tabular-nums', color: r.c ?? 'var(--ya-ink)' }}>{r.v}</b>
               </div>
             ))}
           </div>

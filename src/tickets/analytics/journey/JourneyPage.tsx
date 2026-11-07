@@ -206,23 +206,22 @@ export function JourneyPage() {
   const drawerC = drawer && d ? d.campaigns.find((c) => c.id === drawer) ?? null : null;
 
   return (
-    <div style={{ flex: 1, width: '100%', maxWidth: 1280, boxSizing: 'border-box', margin: '0 auto', padding: 'clamp(24px,3vw,36px) clamp(16px,3vw,40px) 96px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div style={{ flex: 1, width: '100%', maxWidth: 1280, boxSizing: 'border-box', margin: '0 auto', padding: '20px clamp(16px,1.6vw,24px) 96px', display: 'flex', flexDirection: 'column', gap: 24 }}>
       {pop && <div onClick={() => setPop(null)} style={{ position: 'fixed', inset: 0, zIndex: 19 }} />}
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: '16px 24px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
-          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', ...reveal(intro, 120) }}>{t('ya.jr.kick')}</span>
-          <h1 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 1.05, letterSpacing: '-.035em', ...reveal(intro, 190) }}>
-            {t('ya.jr.title.a')}<span className="ya-accent-word">{t('ya.jr.title.accent')}</span>{t('ya.jr.title.b')}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px 24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+          <h1 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 18, lineHeight: 1.3, letterSpacing: '-.01em', ...reveal(intro, 190) }}>
+            {t('ya.jr.title.a')}{t('ya.jr.title.accent')}{t('ya.jr.title.b')}
           </h1>
-          <p style={{ margin: 0, fontSize: 16, lineHeight: 1.45, fontWeight: 500, color: 'var(--ya-sand-600)', textWrap: 'pretty', maxWidth: 700, ...reveal(intro, 260) }}>{t('ya.jr.sub')}</p>
+          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.45, fontWeight: 400, color: 'var(--ya-sand-500)', textWrap: 'pretty', maxWidth: 700, ...reveal(intro, 260) }}>{t('ya.jr.sub')}</p>
         </div>
         {d?.has_campaigns && (
           <Hv
             as="button"
             type="button"
             onClick={exportCsv}
-            style={{ flex: 'none', height: 46, padding: '0 20px 0 16px', borderRadius: 99, background: 'var(--ya-card)', border: '1px solid var(--ya-sand-200)', boxShadow: 'var(--ya-shadow-xs)', color: 'var(--ya-ink)', fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', ...reveal(intro, 320, 'background 140ms') }}
+            style={{ flex: 'none', height: 40, padding: '0 20px 0 16px', borderRadius: 12, background: 'var(--ya-card)', border: '1px solid var(--ya-sand-200)', boxShadow: 'var(--ya-shadow-xs)', color: 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', ...reveal(intro, 320, 'background 140ms') }}
             hover={{ borderColor: 'var(--ya-sand-300)', background: 'var(--ya-paper)' }}
             active={{ transform: 'scale(.97)' }}
           >
@@ -238,9 +237,9 @@ export function JourneyPage() {
       {!d && !q.isError && <JourneySkeleton />}
 
       {d && !d.has_campaigns && (
-        <section style={{ boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 16, padding: 'clamp(24px,3vw,40px)', borderRadius: 28, background: 'repeating-linear-gradient(135deg,var(--ya-sand-50) 0 10px,var(--ya-sand-100) 10px 20px)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)', ...reveal(intro, 400) }}>
-          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>{t('ya.jr.none.kick')}</span>
-          <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(24px,3vw,32px)', letterSpacing: '-.03em', lineHeight: 1.1, textWrap: 'balance', maxWidth: 660 }}>{t('ya.jr.none.title')}</span>
+        <section style={{ boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 16, padding: 'clamp(24px,3vw,40px)', borderRadius: 18, background: 'repeating-linear-gradient(135deg,var(--ya-sand-50) 0 10px,var(--ya-sand-100) 10px 20px)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)', ...reveal(intro, 400) }}>
+          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>{t('ya.jr.none.kick')}</span>
+          <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 'clamp(24px,3vw,32px)', letterSpacing: '-.025em', lineHeight: 1.1, textWrap: 'balance', maxWidth: 660 }}>{t('ya.jr.none.title')}</span>
           <span style={{ fontSize: 15.5, lineHeight: 1.5, color: 'var(--ya-sand-600)', maxWidth: 600, textWrap: 'pretty' }}>{t(d.has_connection ? 'ya.jr.none.send' : 'ya.jr.none.connect')}</span>
           {(!d.has_connection || caps.write) && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 6 }}>
@@ -248,7 +247,7 @@ export function JourneyPage() {
                 as="button"
                 type="button"
                 onClick={() => navigate(R.campaignNew)}
-                style={{ height: 46, padding: '0 22px', borderRadius: 99, border: 0, background: 'var(--ya-ink)', color: 'var(--ya-on-ink)', fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+                style={{ height: 40, padding: '0 22px', borderRadius: 12, border: 0, background: 'var(--ya-fill)', color: '#fff', fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', cursor: 'pointer' }}
                 hover={{ background: 'var(--ya-sand-700)' }}
               >
                 {t(d.has_connection ? 'ya.jr.none.ctaWrite' : 'ya.jr.none.ctaConnect')}
@@ -260,7 +259,7 @@ export function JourneyPage() {
 
       {d && d.has_campaigns && (
         <>
-          <div className={narrow ? undefined : 'ya-filters'} style={{ position: narrow ? 'relative' : 'sticky', zIndex: 21, margin: '0 calc(-1 * clamp(16px,3vw,40px))', padding: '10px clamp(16px,3vw,40px)', background: 'var(--ya-glass)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderBottom: '1px solid var(--ya-sand-100)', ...reveal(intro, 340) }}>
+          <div className={narrow ? undefined : 'ya-filters'} style={{ position: narrow ? 'relative' : 'sticky', zIndex: 21, margin: '0 calc(-1 * clamp(16px,1.6vw,24px))', padding: '10px clamp(16px,1.6vw,24px)', background: 'var(--ya-glass)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderBottom: '1px solid var(--ya-sand-100)', ...reveal(intro, 340) }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px 12px' }}>
               <div role="group" aria-label={t('ya.ana.f.period')} style={{ display: 'inline-flex', padding: 3, gap: 2, background: 'var(--ya-sand-100)', borderRadius: 99, opacity: f.campaign ? 0.4 : 1, pointerEvents: f.campaign ? 'none' : 'auto', transition: 'opacity 200ms' }}>
                 {JR_PERIODS.map((p) => {
@@ -283,8 +282,8 @@ export function JourneyPage() {
               <FilterDrop label={t('ya.jr.f.channel')} value={f.channel === 'all' ? t('ya.jr.f.allM') : chLabel(f.channel)} options={chDrop} open={pop === 'ch'} onToggle={() => setPop((x) => (x === 'ch' ? null : 'ch'))} width="min(280px, calc(100vw - 32px))" disabled={!!f.campaign} />
               <FilterDrop label={t('ya.jr.f.clients')} value={f.seg === 'all' ? t('ya.jr.f.allM') : segLabel(f.seg)} options={segDrop} open={pop === 'seg'} onToggle={() => setPop((x) => (x === 'seg' ? null : 'seg'))} width="min(320px, calc(100vw - 32px))" />
               <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, fontSize: 14, fontWeight: 500, color: 'var(--ya-sand-700)', cursor: 'pointer', userSelect: 'none', opacity: cmpDisabled ? 0.4 : 1, pointerEvents: cmpDisabled ? 'none' : 'auto' }}>
-                <button type="button" role="switch" aria-checked={cmpOn} onClick={() => setF({ cmp: !f.cmp })} style={{ position: 'relative', width: 38, height: 22, padding: 0, border: 0, borderRadius: 99, background: cmpOn ? 'var(--ya-ink)' : 'var(--ya-sand-300)', cursor: 'pointer', transition: 'background 180ms' }}>
-                  <span style={{ position: 'absolute', top: 2, left: cmpOn ? 18 : 2, width: 18, height: 18, borderRadius: 99, background: 'var(--ya-card)', boxShadow: 'var(--ya-shadow-xs)', transition: `left 200ms ${SPRING}` }} />
+                <button type="button" role="switch" aria-checked={cmpOn} onClick={() => setF({ cmp: !f.cmp })} style={{ position: 'relative', width: 38, height: 22, padding: 0, border: 0, borderRadius: 99, background: cmpOn ? 'var(--ya-fill)' : 'var(--ya-sand-300)', cursor: 'pointer', transition: 'background 180ms' }}>
+                  <span style={{ position: 'absolute', top: 2, left: cmpOn ? 18 : 2, width: 18, height: 18, borderRadius: 99, background: '#fff', boxShadow: 'var(--ya-shadow-xs)', transition: `left 200ms ${SPRING}` }} />
                 </button>
                 {t('ya.ana.f.cmp')}
               </label>
@@ -305,12 +304,12 @@ export function JourneyPage() {
           </div>
 
           {!filled && (
-            <section style={{ boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 14, padding: 'clamp(24px,3vw,40px)', borderRadius: 28, background: 'repeating-linear-gradient(135deg,var(--ya-sand-50) 0 10px,var(--ya-sand-100) 10px 20px)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)', animation: `ya-swap-a 400ms ${EASE}` }}>
-              <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(22px,2.6vw,28px)', letterSpacing: '-.03em', lineHeight: 1.1, textWrap: 'balance', maxWidth: 560 }}>{t('ya.jr.empty.title')}</span>
+            <section style={{ boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 14, padding: 'clamp(24px,3vw,40px)', borderRadius: 18, background: 'repeating-linear-gradient(135deg,var(--ya-sand-50) 0 10px,var(--ya-sand-100) 10px 20px)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)', animation: `ya-swap-a 400ms ${EASE}` }}>
+              <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 'clamp(22px,2.6vw,28px)', letterSpacing: '-.025em', lineHeight: 1.1, textWrap: 'balance', maxWidth: 560 }}>{t('ya.jr.empty.title')}</span>
               <span style={{ fontSize: 15, lineHeight: 1.5, color: 'var(--ya-sand-600)', maxWidth: 560, textWrap: 'pretty' }}>
                 {f.channel === 'sms' ? t('ya.jr.empty.soon') : f.campaign ? t('ya.jr.empty.camp') : t('ya.jr.empty.any')}
               </span>
-              <Hv as="button" type="button" onClick={() => setF(DEFAULT)} style={{ height: 44, padding: '0 20px', borderRadius: 99, border: 0, background: 'var(--ya-ink)', color: 'var(--ya-on-ink)', fontSize: 15, fontWeight: 600, cursor: 'pointer' }} hover={{ background: 'var(--ya-sand-700)' }}>
+              <Hv as="button" type="button" onClick={() => setF(DEFAULT)} style={{ height: 40, padding: '0 20px', borderRadius: 12, border: 0, background: 'var(--ya-fill)', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }} hover={{ background: 'var(--ya-sand-700)' }}>
                 {t('ya.jr.empty.reset')}
               </Hv>
             </section>
@@ -362,7 +361,7 @@ function JourneySkeleton() {
           </div>
         ))}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: 'clamp(20px,2.4vw,32px)', borderRadius: 28, background: 'var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: 'clamp(20px,2.4vw,32px)', borderRadius: 18, background: 'var(--ya-card-bg)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200)' }}>
         {sk(26, 260)}{sk(18, 'min(420px,80%)')}{sk(300, '100%', 20)}{sk(180, '100%', 22)}
       </div>
     </>

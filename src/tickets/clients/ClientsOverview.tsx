@@ -63,19 +63,19 @@ export function ClientsOverview({
       <Hv
         as="section"
         style={{
-          flex: '1.8 1 600px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 22, padding: 'clamp(20px,2.4vw,32px)', borderRadius: 28,
-          background: 'radial-gradient(60% 50% at 100% 0%,rgba(255,107,53,.07),transparent 70%),var(--ya-card)',
-          boxShadow: 'inset 0 0 0 1px var(--ya-sand-200),var(--ya-shadow-sm)', ...reveal(intro, 380),
+          flex: '1.8 1 600px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 22, padding: 'clamp(20px,2.4vw,32px)', borderRadius: 18,
+          background: 'radial-gradient(60% 50% at 100% 0%,rgba(232,25,44,.07),transparent 70%),var(--ya-card)',
+          boxShadow: 'inset 0 0 0 1px var(--ya-border),var(--ya-card-shadow)', ...reveal(intro, 380),
         }}
         hover={{ boxShadow: 'inset 0 0 0 1px var(--ya-sand-300),var(--ya-shadow-md)' }}
       >
         <div>
-          <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' }}>{t('ya.cli.base.title')}</h2>
+          <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, letterSpacing: '-.01em' }}>{t('ya.cli.base.title')}</h2>
           <div style={{ fontSize: 13.5, color: 'var(--ya-sand-500)', marginTop: 2 }}>{t('ya.cli.base.sub', { time: time(data.updated_at) })}</div>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: '16px 32px' }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '4px 20px' }}>
-            <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(56px,7vw,96px)', lineHeight: 0.92, letterSpacing: '-.055em', fontVariantNumeric: 'tabular-nums' }}>{n(data.total * clamp01(cc))}</span>
+            <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 0.92, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{n(data.total * clamp01(cc))}</span>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3, paddingBottom: 6 }}>
               <span style={{ fontSize: 17, fontWeight: 600, color: data.today ? G : 'var(--ya-sand-500)' }}>{data.today ? t('ya.cli.base.today', { n: n(data.today) }) : t('ya.cli.base.noneToday')}</span>
               <span style={{ fontSize: 14, color: 'var(--ya-sand-500)' }}>{t('ya.cli.base.month', { n: n(data.month) })}</span>
@@ -93,9 +93,9 @@ export function ClientsOverview({
             {spTip && (
               <>
                 <i style={{ position: 'absolute', left: spTip.left, top: spTip.top, width: 10, height: 10, margin: '-5px 0 0 -5px', borderRadius: 99, background: 'var(--ya-red-500)', boxShadow: '0 0 0 4px rgba(227,20,27,.18)', pointerEvents: 'none' }} />
-                <div style={{ position: 'absolute', bottom: 80, left: spTip.left, transform: spTip.tx, pointerEvents: 'none', background: 'var(--ya-ink)', color: 'var(--ya-on-ink)', borderRadius: 12, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 1, whiteSpace: 'nowrap', boxShadow: 'var(--ya-shadow-md)', zIndex: 3 }}>
+                <div style={{ position: 'absolute', bottom: 80, left: spTip.left, transform: spTip.tx, pointerEvents: 'none', background: 'var(--ya-fill)', color: '#fff', borderRadius: 12, padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: 1, whiteSpace: 'nowrap', boxShadow: 'var(--ya-shadow-md)', zIndex: 3 }}>
                   <span style={{ fontSize: 12, color: 'var(--ya-text-on-night-2)' }}>{spTip.date}</span>
-                  <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 18, letterSpacing: '-.02em' }}>{spTip.v}</span>
+                  <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 18, letterSpacing: '-.025em' }}>{spTip.v}</span>
                 </div>
               </>
             )}
@@ -142,7 +142,7 @@ export function ClientsOverview({
                   {t(`ya.cli.seg.${k}`)}
                 </span>
                 <span style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                  <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 28, letterSpacing: '-.03em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums', color: 'var(--ya-ink)' }}>{n(data.lifecycle[k] * clamp01(cc))}</span>
+                  <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 28, letterSpacing: '-.025em', lineHeight: 1.1, fontVariantNumeric: 'tabular-nums', color: 'var(--ya-ink)' }}>{n(data.lifecycle[k] * clamp01(cc))}</span>
                   <span style={{ fontSize: 13, color: 'var(--ya-sand-500)', fontVariantNumeric: 'tabular-nums' }}>{pct(Math.round((data.lifecycle[k] / tot) * 100))}</span>
                 </span>
                 <span style={{ fontSize: 12.5, lineHeight: '17px', color: 'var(--ya-sand-500)' }}>{def(k)}</span>
@@ -203,7 +203,7 @@ function Kpi({
     >
       <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ya-sand-600)' }}>{label}</span>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-        <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 44, lineHeight: 1.05, letterSpacing: '-.035em', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
+        <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 36, lineHeight: 1.05, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{value}</span>
         {ring !== undefined && (
           <div style={{ position: 'relative', flex: 'none', width: 52, height: 52, borderRadius: '50%', background: `conic-gradient(var(--ya-red-500) 0 ${ring.toFixed(1)}deg,var(--ya-red-100) 0)` }}>
             <span style={{ position: 'absolute', inset: 8, borderRadius: '50%', background: 'var(--ya-card)' }} />

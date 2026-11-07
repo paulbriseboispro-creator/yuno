@@ -45,7 +45,7 @@ export default function ImportsPage() {
   };
 
   return (
-    <main style={{ flex: 1, width: '100%', maxWidth: 1280, margin: '0 auto', padding: 'clamp(24px,3vw,36px) clamp(16px,3vw,40px) 96px', display: 'flex', flexDirection: 'column', gap: 28 }}>
+    <main style={{ flex: 1, width: '100%', maxWidth: 1280, margin: '0 auto', padding: '20px clamp(16px,1.6vw,24px) 96px', display: 'flex', flexDirection: 'column', gap: 28 }}>
       <input
         ref={pickRef}
         type="file"

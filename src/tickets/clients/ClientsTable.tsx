@@ -162,15 +162,15 @@ export function ClientsTable({
   };
 
   return (
-    <section id="liste" style={{ position: 'relative', display: 'flex', flexDirection: 'column', borderRadius: 28, background: 'var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200),var(--ya-shadow-sm)', ...reveal(intro, 760) }}>
+    <section id="liste" style={{ position: 'relative', display: 'flex', flexDirection: 'column', borderRadius: 18, background: 'var(--ya-card-bg)', boxShadow: 'inset 0 0 0 1px var(--ya-border),var(--ya-card-shadow)', ...reveal(intro, 760) }}>
       {pop && <div onClick={() => setPop(null)} style={{ position: 'fixed', inset: 0, zIndex: 19 }} />}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 'clamp(18px,2.2vw,28px) clamp(18px,2.2vw,28px) 16px' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '14px 20px' }}>
           <div>
-            <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' }}>{t('ya.cli.list.title')}</h2>
+            <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, letterSpacing: '-.01em' }}>{t('ya.cli.list.title')}</h2>
             <div style={{ fontSize: 13.5, color: 'var(--ya-sand-500)', marginTop: 2 }}>{t('ya.cli.list.sub')}</div>
           </div>
-          <label style={{ flex: '0 1 360px', minWidth: 220, height: 42, display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px 0 14px', borderRadius: 99, background: 'var(--ya-card)', border: `1px solid ${sf ? 'var(--ya-sand-400)' : 'var(--ya-sand-200)'}`, boxShadow: sf ? '0 0 0 4px rgba(26,20,18,.06)' : 'none', cursor: 'text', transition: 'border-color 140ms,box-shadow 140ms' }}>
+          <label style={{ flex: '0 1 360px', minWidth: 220, height: 40, display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px 0 14px', borderRadius: 12, background: 'var(--ya-card)', border: `1px solid ${sf ? 'var(--ya-sand-400)' : 'var(--ya-sand-200)'}`, boxShadow: sf ? '0 0 0 4px rgba(26,20,18,.06)' : 'none', cursor: 'text', transition: 'border-color 140ms,box-shadow 140ms' }}>
             <Icon name="search" size={16} stroke={2.2} color="var(--ya-sand-400)" />
             <input
               ref={searchRef}
@@ -201,10 +201,10 @@ export function ClientsTable({
                 type="button"
                 onClick={() => setDef({ ...def, seg: c.k })}
                 aria-pressed={on}
-                style={{ height: 38, padding: '0 14px', borderRadius: 99, border: `1px solid ${on ? 'var(--ya-ink)' : 'var(--ya-sand-200)'}`, background: on ? 'var(--ya-ink)' : 'var(--ya-card)', color: on ? 'var(--ya-on-ink)' : 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 160ms,color 160ms,border-color 160ms' }}
+                style={{ height: 38, padding: '0 14px', borderRadius: 12, border: `1px solid ${on ? 'var(--ya-fill)' : 'var(--ya-sand-200)'}`, background: on ? 'var(--ya-fill)' : 'var(--ya-card)', color: on ? '#fff' : 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: 'background 160ms,color 160ms,border-color 160ms' }}
                 hover={{ borderColor: 'var(--ya-sand-400)' }}
               >
-                {c.l}{list && <span style={{ fontSize: 13, fontWeight: 500, color: on ? 'var(--ya-on-ink)' : 'var(--ya-sand-500)', opacity: on ? .7 : 1, fontVariantNumeric: 'tabular-nums' }}>{n(c.n)}</span>}
+                {c.l}{list && <span style={{ fontSize: 13, fontWeight: 500, color: on ? '#fff' : 'var(--ya-sand-500)', opacity: on ? .7 : 1, fontVariantNumeric: 'tabular-nums' }}>{n(c.n)}</span>}
               </Hv>
             );
           })}
@@ -212,11 +212,11 @@ export function ClientsTable({
           {saved.map((v) => {
             const on = activeSaved === v.id;
             return (
-              <span key={v.id} style={{ height: 38, padding: '0 6px 0 14px', borderRadius: 99, border: `1px dashed ${on ? 'var(--ya-ink)' : 'var(--ya-sand-300)'}`, background: on ? 'var(--ya-ink)' : 'var(--ya-card)', color: on ? 'var(--ya-on-ink)' : 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <span key={v.id} style={{ height: 38, padding: '0 6px 0 14px', borderRadius: 12, border: `1px dashed ${on ? 'var(--ya-ink)' : 'var(--ya-sand-300)'}`, background: on ? 'var(--ya-fill)' : 'var(--ya-card)', color: on ? '#fff' : 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                 <button type="button" onClick={() => onPickSaved(v)} style={{ border: 0, background: 'none', padding: 0, color: 'inherit', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, font: 'inherit' }}>
-                  {v.name}<span style={{ fontSize: 13, fontWeight: 500, color: on ? 'var(--ya-on-ink)' : 'var(--ya-sand-500)', opacity: on ? .7 : 1, fontVariantNumeric: 'tabular-nums' }}>{n(v.n)}</span>
+                  {v.name}<span style={{ fontSize: 13, fontWeight: 500, color: on ? '#fff' : 'var(--ya-sand-500)', opacity: on ? .7 : 1, fontVariantNumeric: 'tabular-nums' }}>{n(v.n)}</span>
                 </button>
-                {caps.write && (<Hv as="button" type="button" onClick={() => onDeleteSaved(v)} aria-label={t('ya.cli.list.segDelete')} title={t('ya.cli.list.segDelete')} style={{ width: 26, height: 26, border: 0, borderRadius: 99, background: 'none', color: on ? 'var(--ya-on-ink)' : 'var(--ya-sand-500)', opacity: on ? .7 : 1, cursor: 'pointer', display: 'grid', placeItems: 'center' }} hover={{ background: 'rgba(0,0,0,.08)' }}>
+                {caps.write && (<Hv as="button" type="button" onClick={() => onDeleteSaved(v)} aria-label={t('ya.cli.list.segDelete')} title={t('ya.cli.list.segDelete')} style={{ width: 26, height: 26, border: 0, borderRadius: 99, background: 'none', color: on ? '#fff' : 'var(--ya-sand-500)', opacity: on ? .7 : 1, cursor: 'pointer', display: 'grid', placeItems: 'center' }} hover={{ background: 'rgba(0,0,0,.08)' }}>
                   <Icon name="x" size={12} stroke={2.6} />
                 </Hv>)}
               </span>
@@ -225,7 +225,7 @@ export function ClientsTable({
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-400)', marginRight: 4 }}>{t('ya.cli.list.filterBy')}</span>
+          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-400)', marginRight: 4, fontWeight: 600 }}>{t('ya.cli.list.filterBy')}</span>
           {FIL.map((fl) => {
             const val = valOf(fl.k);
             const act = Array.isArray(val) ? val.length > 0 : !!val;
@@ -243,7 +243,7 @@ export function ClientsTable({
                   onClick={(e: React.MouseEvent<HTMLElement>) => { setPopRight(e.currentTarget.getBoundingClientRect().left + 296 > window.innerWidth); setPop(open ? null : fl.k); }}
                   aria-haspopup="listbox"
                   aria-expanded={open}
-                  style={{ height: 38, padding: '0 12px 0 14px', borderRadius: 99, border: `1px solid ${act ? 'var(--ya-ink)' : open ? 'var(--ya-sand-400)' : 'var(--ya-sand-200)'}`, background: act ? 'var(--ya-ink)' : 'var(--ya-card)', color: act ? 'var(--ya-on-ink)' : 'var(--ya-ink)', fontSize: 14, fontWeight: act ? 600 : 500, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background 160ms,border-color 160ms' }}
+                  style={{ height: 38, padding: '0 12px 0 14px', borderRadius: 12, border: `1px solid ${act ? 'var(--ya-fill)' : open ? 'var(--ya-sand-400)' : 'var(--ya-sand-200)'}`, background: act ? 'var(--ya-fill)' : 'var(--ya-card)', color: act ? '#fff' : 'var(--ya-ink)', fontSize: 14, fontWeight: act ? 600 : 500, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background 160ms,border-color 160ms' }}
                   hover={{ borderColor: 'var(--ya-sand-400)' }}
                 >
                   {label}
@@ -252,7 +252,7 @@ export function ClientsTable({
                 {open && (
                   <div role="listbox" style={{ position: 'absolute', zIndex: 25, top: 46, ...(popRight ? { right: 0 } : { left: 0 }), width: 'min(280px, calc(100vw - 32px))', padding: 8, borderRadius: 20, background: 'var(--ya-card)', boxShadow: 'var(--ya-shadow-md),0 0 0 1px var(--ya-sand-200)', animation: 'ya-pop 200ms cubic-bezier(.22,1,.36,1)', transformOrigin: popRight ? 'top right' : 'top left' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px 6px' }}>
-                      <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-400)' }}>{fl.title}</span>
+                      <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-400)', fontWeight: 600 }}>{fl.title}</span>
                       {act && <button type="button" onClick={() => setF(fl.k, fl.multi ? [] : '')} style={{ border: 0, background: 'none', padding: 0, fontSize: 13, fontWeight: 600, color: 'var(--ya-red-600)', cursor: 'pointer' }}>{t('ya.cli.list.clear')}</button>}
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 320, overflowY: 'auto' }}>
@@ -274,7 +274,7 @@ export function ClientsTable({
                             style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 10px', border: 0, borderRadius: 12, background: on ? 'var(--ya-sand-50)' : 'transparent', textAlign: 'left', cursor: o.disabled ? 'default' : 'pointer', color: 'var(--ya-ink)', opacity: o.disabled ? 0.5 : 1 }}
                             hover={{ background: 'var(--ya-sand-50)' }}
                           >
-                            <span style={{ flex: 'none', width: 18, height: 18, borderRadius: fl.multi ? 6 : 99, border: `1.5px solid ${on ? 'var(--ya-ink)' : 'var(--ya-sand-300)'}`, background: on ? 'var(--ya-ink)' : 'var(--ya-card)', display: 'grid', placeItems: 'center', color: 'var(--ya-on-ink)' }}>
+                            <span style={{ flex: 'none', width: 18, height: 18, borderRadius: fl.multi ? 6 : 99, border: `1.5px solid ${on ? 'var(--ya-ink)' : 'var(--ya-sand-300)'}`, background: on ? 'var(--ya-fill)' : 'var(--ya-card)', display: 'grid', placeItems: 'center', color: '#fff' }}>
                               {on && <Icon name="check" size={11} stroke={3.4} />}
                             </span>
                             <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
@@ -311,7 +311,7 @@ export function ClientsTable({
                 maxLength={80}
                 style={{ height: 34, width: 190, padding: '0 14px', borderRadius: 99, border: '1px solid var(--ya-sand-300)', outline: 0, background: 'var(--ya-card)', font: '400 14px/1 var(--ya-font-body)', color: 'var(--ya-ink)' }}
               />
-              <Hv as="button" type="button" onClick={() => void commitSave()} style={{ height: 34, padding: '0 14px', borderRadius: 99, border: 0, background: 'var(--ya-ink)', color: 'var(--ya-on-ink)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }} hover={{ background: 'var(--ya-sand-700)' }}>{t('ya.cli.list.save')}</Hv>
+              <Hv as="button" type="button" onClick={() => void commitSave()} style={{ height: 34, padding: '0 14px', borderRadius: 99, border: 0, background: 'var(--ya-fill)', color: '#fff', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }} hover={{ background: 'var(--ya-sand-700)' }}>{t('ya.cli.list.save')}</Hv>
               <Hv as="button" type="button" onClick={() => setSaving(false)} aria-label={t('ya.common.cancel')} style={{ width: 30, height: 30, border: 0, borderRadius: 99, background: 'none', color: 'var(--ya-sand-500)', cursor: 'pointer', display: 'grid', placeItems: 'center' }} hover={{ background: 'var(--ya-sand-100)' }}>
                 <Icon name="x" size={13} stroke={2.6} />
               </Hv>
@@ -340,7 +340,7 @@ export function ClientsTable({
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <div style={{ minWidth: 990 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', gap: 12, padding: '0 clamp(18px,2.2vw,28px)', height: 44, borderTop: '1px solid var(--ya-sand-100)', borderBottom: '1px solid var(--ya-sand-100)', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', gap: 12, padding: '0 clamp(18px,2.2vw,28px)', height: 44, borderTop: '1px solid var(--ya-sand-100)', borderBottom: '1px solid var(--ya-sand-100)', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>
               {caps.write ? <CheckBox
                 state={allSelVis ? 'on' : visSel > 0 ? 'part' : 'off'}
                 label={t('ya.cli.list.selectAll')}
@@ -400,9 +400,9 @@ export function ClientsTable({
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '56px 24px', textAlign: 'center' }}>
-                <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 22, letterSpacing: '-.02em' }}>{q.trim() ? t('ya.cli.list.noMatchQ', { q: q.trim() }) : t('ya.cli.list.noMatch')}</span>
+                <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 22, letterSpacing: '-.025em' }}>{q.trim() ? t('ya.cli.list.noMatchQ', { q: q.trim() }) : t('ya.cli.list.noMatch')}</span>
                 <span style={{ fontSize: 14.5, lineHeight: 1.5, color: 'var(--ya-sand-500)', maxWidth: 420 }}>{q.trim() ? t('ya.cli.list.noMatchQHint') : t('ya.cli.list.noMatchHint')}</span>
-                <Hv as="button" type="button" onClick={() => { setQ(''); setDef({ seg: 'all', f: {} }); }} style={{ marginTop: 8, height: 42, padding: '0 20px', borderRadius: 99, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', color: 'var(--ya-ink)' }} hover={{ background: 'var(--ya-paper)' }}>
+                <Hv as="button" type="button" onClick={() => { setQ(''); setDef({ seg: 'all', f: {} }); }} style={{ marginTop: 8, height: 40, padding: '0 20px', borderRadius: 12, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', color: 'var(--ya-ink)' }} hover={{ background: 'var(--ya-paper)' }}>
                   {t('ya.cli.list.clearFilters')}
                 </Hv>
               </div>
@@ -415,7 +415,7 @@ export function ClientsTable({
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px 16px', padding: '16px clamp(18px,2.2vw,28px)' }}>
           <span style={{ fontSize: 14, color: 'var(--ya-sand-500)', fontVariantNumeric: 'tabular-nums' }}>{t('ya.cli.list.shown', { a: n(shown), b: n(total) })}</span>
           {shown < total && (
-            <Hv as="button" type="button" onClick={onMore} style={{ height: 42, padding: '0 20px', borderRadius: 99, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', color: 'var(--ya-ink)', transition: 'translate 200ms cubic-bezier(.22,1,.36,1),box-shadow 200ms' }} hover={{ translate: '0 -2px', boxShadow: 'var(--ya-shadow-md)' }}>
+            <Hv as="button" type="button" onClick={onMore} style={{ height: 40, padding: '0 20px', borderRadius: 12, border: '1px solid var(--ya-sand-200)', background: 'var(--ya-card)', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', color: 'var(--ya-ink)', transition: 'translate 200ms cubic-bezier(.22,1,.36,1),box-shadow 200ms' }} hover={{ translate: '0 -2px', boxShadow: 'var(--ya-shadow-md)' }}>
               {t('ya.cli.list.more', { n: n(Math.min(12, total - shown)) })}
             </Hv>
           )}
@@ -443,7 +443,7 @@ export function CheckBox({ state, label, onClick }: { state: 'on' | 'off' | 'par
       aria-checked={state === 'on' ? true : state === 'part' ? 'mixed' : false}
       aria-label={label}
       onClick={(e) => { e.stopPropagation(); onClick(e); }}
-      style={{ width: 20, height: 20, padding: 0, borderRadius: 6, border: `1.5px solid ${on ? 'var(--ya-ink)' : 'var(--ya-sand-300)'}`, background: on ? 'var(--ya-ink)' : 'var(--ya-card)', color: 'var(--ya-on-ink)', cursor: 'pointer', display: 'grid', placeItems: 'center', transition: 'background 140ms,border-color 140ms' }}
+      style={{ width: 20, height: 20, padding: 0, borderRadius: 6, border: `1.5px solid ${on ? 'var(--ya-ink)' : 'var(--ya-sand-300)'}`, background: on ? 'var(--ya-fill)' : 'var(--ya-card)', color: '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center', transition: 'background 140ms,border-color 140ms' }}
     >
       {state === 'on' && <Icon name="check" size={12} stroke={3.4} />}
       {state === 'part' && <i style={{ width: 9, height: 2, borderRadius: 2, background: 'var(--ya-card)' }} />}

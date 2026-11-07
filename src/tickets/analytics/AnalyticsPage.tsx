@@ -164,18 +164,17 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
   };
 
   return (
-    <div style={{ flex: 1, width: '100%', maxWidth: 1280, boxSizing: 'border-box', margin: '0 auto', padding: 'clamp(24px,3vw,36px) clamp(16px,3vw,40px) 72px', display: 'flex', flexDirection: 'column', gap: 22 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: '16px 24px' }}>
-        <div key={`h-${tab}`} style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0, animation: `ya-in-blur 700ms ${EASE} both` }}>
-          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>{t('ya.ana.kick', { crumb: t(`ya.ana.tab.${tab}`) })}</span>
-          <h1 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 1.05, letterSpacing: '-.035em' }}>{t(`ya.ana.title.${tab}`)}</h1>
-          <p style={{ margin: 0, fontSize: 16, lineHeight: 1.45, fontWeight: 500, color: 'var(--ya-sand-600)', textWrap: 'pretty', maxWidth: 680 }}>{t(`ya.ana.sub.${tab}`)}</p>
+    <div style={{ flex: 1, width: '100%', maxWidth: 1280, boxSizing: 'border-box', margin: '0 auto', padding: '20px clamp(16px,1.6vw,24px) 72px', display: 'flex', flexDirection: 'column', gap: 22 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px 24px' }}>
+        <div key={`h-${tab}`} style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, animation: `ya-in-blur 700ms ${EASE} both` }}>
+          <h1 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 18, lineHeight: 1.3, letterSpacing: '-.01em' }}>{t(`ya.ana.title.${tab}`)}</h1>
+          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.45, fontWeight: 400, color: 'var(--ya-sand-500)', textWrap: 'pretty', maxWidth: 680 }}>{t(`ya.ana.sub.${tab}`)}</p>
         </div>
         {!live && !cv && <Hv
           as="button"
           type="button"
           onClick={exportCsv}
-          style={{ flex: 'none', height: 46, padding: '0 20px 0 16px', borderRadius: 99, background: 'var(--ya-card)', border: '1px solid var(--ya-sand-200)', boxShadow: 'var(--ya-shadow-xs)', color: 'var(--ya-ink)', fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: `border-color 140ms,transform 200ms ${SPRING}` }}
+          style={{ flex: 'none', height: 40, padding: '0 20px 0 16px', borderRadius: 12, background: 'var(--ya-card)', border: '1px solid var(--ya-sand-200)', boxShadow: 'var(--ya-shadow-xs)', color: 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', transition: `border-color 140ms,transform 200ms ${SPRING}` }}
           hover={{ borderColor: 'var(--ya-sand-300)', background: 'var(--ya-paper)' }}
           active={{ transform: 'scale(.97)' }}
         >
@@ -194,7 +193,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
               role="tab"
               aria-selected={on}
               onClick={() => goTab(x.k)}
-              style={{ height: 44, padding: '0 20px 0 16px', borderRadius: 99, border: `1px solid ${on ? 'var(--ya-ink)' : 'var(--ya-sand-200)'}`, background: on ? 'var(--ya-ink)' : 'var(--ya-card)', color: on ? 'var(--ya-on-ink)' : 'var(--ya-ink)', fontSize: 15, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer', transition: `background 160ms,color 160ms,border-color 160ms,transform 200ms ${SPRING}` }}
+              style={{ height: 40, padding: '0 20px 0 16px', borderRadius: 12, border: `1px solid ${on ? 'var(--ya-fill)' : 'var(--ya-sand-200)'}`, background: on ? 'var(--ya-fill)' : 'var(--ya-card)', color: on ? '#fff' : 'var(--ya-ink)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 10, cursor: 'pointer', transition: `background 160ms,color 160ms,border-color 160ms,transform 200ms ${SPRING}` }}
               hover={{ transform: 'translateY(-1px)' }}
               active={{ transform: 'scale(.97)' }}
             >
@@ -205,7 +204,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
         <Hv
           as={Link}
           to={R.journey}
-          style={{ height: 44, padding: '0 18px 0 16px', borderRadius: 99, border: '1px dashed var(--ya-sand-300)', background: 'transparent', color: 'var(--ya-sand-600)', fontSize: 15, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', transition: `color 160ms,border-color 160ms` }}
+          style={{ height: 40, padding: '0 18px 0 16px', borderRadius: 12, border: '1px dashed var(--ya-sand-300)', background: 'transparent', color: 'var(--ya-sand-600)', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', transition: `color 160ms,border-color 160ms` }}
           hover={{ color: 'var(--ya-ink)', borderColor: 'var(--ya-sand-400)', textDecoration: 'none' }}
         >
           {t('ya.ana.tab.journey')}<Icon name="arrowRight" size={15} stroke={2.2} />
@@ -213,7 +212,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
       </div>
 
       {/* Filtres */}
-      {!live && <div className="ya-filters" style={{ position: 'sticky', zIndex: 21, margin: '0 calc(-1 * clamp(16px,3vw,40px))', padding: '10px clamp(16px,3vw,40px)', background: 'var(--ya-glass)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderBottom: '1px solid var(--ya-sand-100)' }}>
+      {!live && <div className="ya-filters" style={{ position: 'sticky', zIndex: 21, margin: '0 calc(-1 * clamp(16px,1.6vw,24px))', padding: '10px clamp(16px,1.6vw,24px)', background: 'var(--ya-glass)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderBottom: '1px solid var(--ya-sand-100)' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px 14px' }}>
           <div style={{ opacity: f.event ? 0.4 : 1, pointerEvents: f.event ? 'none' : 'auto', transition: 'opacity 200ms', maxWidth: '100%', overflowX: 'auto' }} className="ya-noscroll">
             <Segmented
@@ -230,10 +229,10 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
               onClick={() => setEvOpen((o) => !o)}
               aria-haspopup="listbox"
               aria-expanded={evOpen}
-              style={{ height: 42, maxWidth: 'min(420px, calc(100vw - 32px))', padding: '0 12px 0 16px', borderRadius: 99, background: 'var(--ya-card)', border: `1px solid ${evOpen ? 'var(--ya-sand-400)' : 'var(--ya-sand-200)'}`, display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 600, color: 'var(--ya-ink)', cursor: 'pointer', transition: 'border-color 140ms' }}
+              style={{ height: 40, maxWidth: 'min(420px, calc(100vw - 32px))', padding: '0 12px 0 16px', borderRadius: 12, background: 'var(--ya-card)', border: `1px solid ${evOpen ? 'var(--ya-sand-400)' : 'var(--ya-sand-200)'}`, display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 600, color: 'var(--ya-ink)', cursor: 'pointer', transition: 'border-color 140ms' }}
               hover={{ borderColor: 'var(--ya-sand-300)' }}
             >
-              <span style={{ flex: 'none', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 500 }}>{t('ya.ana.f.night')}</span>
+              <span style={{ flex: 'none', fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>{t('ya.ana.f.night')}</span>
               <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{evLabel}</span>
               <Icon name="chevronDown" size={14} stroke={2.4} color="var(--ya-sand-400)" style={{ transform: `rotate(${evOpen ? 180 : 0}deg)`, transition: 'transform 200ms' }} />
             </Hv>
@@ -275,7 +274,7 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
                     type="button"
                     aria-pressed={on}
                     onClick={() => setF({ seg: s })}
-                    style={{ height: 36, padding: '0 14px', borderRadius: 99, border: `1px solid ${on ? 'var(--ya-ink)' : 'var(--ya-sand-200)'}`, background: on ? 'var(--ya-ink)' : 'var(--ya-card)', color: on ? 'var(--ya-on-ink)' : 'var(--ya-sand-700)', fontSize: 14, fontWeight: 600, cursor: 'pointer', transition: 'background 160ms,color 160ms,border-color 160ms' }}
+                    style={{ height: 36, padding: '0 14px', borderRadius: 12, border: `1px solid ${on ? 'var(--ya-fill)' : 'var(--ya-sand-200)'}`, background: on ? 'var(--ya-fill)' : 'var(--ya-card)', color: on ? '#fff' : 'var(--ya-sand-700)', fontSize: 14, fontWeight: 600, cursor: 'pointer', transition: 'background 160ms,color 160ms,border-color 160ms' }}
                     hover={on ? {} : { borderColor: 'var(--ya-sand-400)' }}
                   >
                     {segLabel(s)}
@@ -285,8 +284,8 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
             </div>
           )}
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, fontSize: 14, fontWeight: 500, color: 'var(--ya-sand-700)', cursor: 'pointer', userSelect: 'none' }}>
-            <button type="button" role="switch" aria-checked={f.cmp} onClick={() => setF({ cmp: !f.cmp })} style={{ position: 'relative', width: 38, height: 22, padding: 0, border: 0, borderRadius: 99, background: f.cmp ? 'var(--ya-ink)' : 'var(--ya-sand-300)', cursor: 'pointer', transition: 'background 180ms' }}>
-              <span style={{ position: 'absolute', top: 2, left: f.cmp ? 18 : 2, width: 18, height: 18, borderRadius: 99, background: 'var(--ya-card)', boxShadow: 'var(--ya-shadow-xs)', transition: `left 200ms ${SPRING}` }} />
+            <button type="button" role="switch" aria-checked={f.cmp} onClick={() => setF({ cmp: !f.cmp })} style={{ position: 'relative', width: 38, height: 22, padding: 0, border: 0, borderRadius: 99, background: f.cmp ? 'var(--ya-fill)' : 'var(--ya-sand-300)', cursor: 'pointer', transition: 'background 180ms' }}>
+              <span style={{ position: 'absolute', top: 2, left: f.cmp ? 18 : 2, width: 18, height: 18, borderRadius: 99, background: '#fff', boxShadow: 'var(--ya-shadow-xs)', transition: `left 200ms ${SPRING}` }} />
             </button>
             {t('ya.ana.f.cmp')}
           </label>

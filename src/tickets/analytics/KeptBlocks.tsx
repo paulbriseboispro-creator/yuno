@@ -22,7 +22,7 @@ function useScope() {
 
 function KeptHead({ title }: { title: string }) {
   return (
-    <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', marginTop: 8 }}>{title}</span>
+    <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', marginTop: 8, fontWeight: 600 }}>{title}</span>
   );
 }
 

@@ -7,9 +7,13 @@
  * préfixe `--ya-` (jamais `--ink` / `--paper`, qui sont les triplets RGB du
  * thème pro) et sont posées ici, sous `.ya` :
  *   - sombre par défaut (la Console), clair sous html[data-pro-theme="light"] ;
- *   - polices de la Console : Space Grotesk (titres, chiffres), Inter (texte),
- *     JetBrains Mono (étiquettes) ;
- *   - rouge Yuno #E8192C.
+ *   - grammaire de la Console (docs/DESIGN_SYSTEM.md §2-4, 2026-11-07, demande
+ *     de Paul : « la mise en page du CRM, le style de Yuno Tickets ») : titres
+ *     en Space Grotesk 16-18 px, chiffres en Inter 650, étiquettes en Inter
+ *     capitales 11 px, cartes à 18 px de rayon sur le fond des cartes pro ;
+ *   - rouge Yuno #E8192C, plein, jamais de dégradé rouge-orange.
+ * `--ya-font-mono` garde son nom (les écrans copiés le lisent) mais vaut Inter :
+ * la Console n'écrit pas ses étiquettes en police à chasse fixe.
  * Les gris (« sand » du CRM) suivent l'encre du thème pro, `rgb(var(--ink) / a)`,
  * donc basculent seuls avec le thème.
  */
@@ -25,7 +29,7 @@
   --ya-red-700: #FF6B78;
   --ya-red-800: #FFA3AB;
   --ya-red-900: #8A1420;
-  --ya-tangerine-500: #FF6B35;
+  --ya-tangerine-500: #FF5C63;
   --ya-green-50: rgba(34, 197, 94, .14);
   --ya-green-500: #22C55E;
   --ya-green-600: #16A34A;
@@ -36,6 +40,8 @@
 
   --ya-ink: rgb(var(--ink) / .96);
   --ya-on-ink: rgb(var(--paper));
+  /* Élément actif (onglet, filtre, bouton principal) : rouge plein, comme la Console. */
+  --ya-fill: #E8192C;
   --ya-card: var(--pro-card);
   --ya-paper: rgb(var(--ink) / .04);
   --ya-glass: rgb(var(--page) / .86);
@@ -49,7 +55,7 @@
   --ya-sand-600: rgb(var(--ink) / .62);
   --ya-sand-700: rgb(var(--ink) / .78);
 
-  --ya-gradient-brand: linear-gradient(110deg, #E8192C 0%, #F2392A 45%, #FF6B35 100%);
+  --ya-gradient-brand: linear-gradient(#E8192C, #E8192C);
   --ya-night: #120C0E;
   --ya-noise-night: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   --ya-text-on-night: #F7F2F1;
@@ -61,16 +67,23 @@
   --ya-shadow-xs: 0 1px 2px rgba(0, 0, 0, .35);
   --ya-shadow-sm: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 12px rgba(0, 0, 0, .3);
   --ya-shadow-md: 0 2px 4px rgba(0, 0, 0, .35), 0 12px 32px rgba(0, 0, 0, .45);
-  --ya-shadow-cta: inset 0 1px 0 rgba(255, 255, 255, .25), inset 0 -3px 0 rgba(0, 0, 0, .12), 0 8px 16px rgba(232, 25, 44, .28);
+  --ya-shadow-cta: inset 0 1px 0 rgba(255, 255, 255, .14);
+
+  /* Cartes de la Console (CARD_BG, BORDER, CARD_SHADOW de src/components/org-ui.tsx). */
+  --ya-card-bg: linear-gradient(180deg, rgb(var(--sheen) / .045) 0%, rgb(var(--sheen) / .008) 100%), var(--sf-0a0a0c);
+  --ya-border: rgb(var(--ink) / .085);
+  --ya-card-shadow: 0 1px 0 rgb(var(--sheen) / .05) inset, 0 18px 40px -28px rgb(0 0 0 / calc(.9 * var(--pro-shadow-a)));
 
   --ya-font-display: "Space Grotesk", "Helvetica Neue", Helvetica, sans-serif;
   --ya-font-body: "Inter", "Helvetica Neue", Helvetica, sans-serif;
-  --ya-font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --ya-font-num: "Inter", "Helvetica Neue", Helvetica, sans-serif;
+  --ya-font-mono: "Inter", "Helvetica Neue", Helvetica, sans-serif;
 
   font-family: var(--ya-font-body);
   font-size: 16px;
   line-height: 24px;
   color: var(--ya-ink);
+  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -93,7 +106,7 @@ html[data-pro-theme="light"] .ya {
   --ya-shadow-xs: 0 1px 2px rgba(9, 9, 11, .06);
   --ya-shadow-sm: 0 1px 2px rgba(9, 9, 11, .05), 0 4px 12px rgba(9, 9, 11, .06);
   --ya-shadow-md: 0 2px 4px rgba(9, 9, 11, .05), 0 12px 32px rgba(9, 9, 11, .10);
-  --ya-shadow-cta: inset 0 1px 0 rgba(255, 255, 255, .35), inset 0 -3px 0 rgba(0, 0, 0, .10), 0 8px 16px rgba(232, 25, 44, .32);
+  --ya-shadow-cta: inset 0 1px 0 rgba(255, 255, 255, .18);
 }
 
 .ya *, .ya *::before, .ya *::after { box-sizing: border-box; }

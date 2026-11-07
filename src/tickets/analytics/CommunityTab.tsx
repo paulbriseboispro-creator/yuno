@@ -148,7 +148,7 @@ export function CommunityTab({ q, f, setF }: { q: UseQueryResult<AnaCommunity>; 
     <>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'stretch' }}>
         {/* Héros : la base */}
-        <section style={{ ...card, flex: '1.7 1 560px', gap: 18, padding: 'clamp(20px,2.4vw,32px)', background: 'radial-gradient(60% 50% at 100% 0%,rgba(255,107,53,.07),transparent 70%),var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-sand-200),var(--ya-shadow-sm)' }}>
+        <section style={{ ...card, flex: '1.7 1 560px', gap: 18, padding: 'clamp(20px,2.4vw,32px)', background: 'radial-gradient(60% 50% at 100% 0%,rgba(232,25,44,.07),transparent 70%),var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-border),var(--ya-card-shadow)' }}>
           <CardHead
             title={v.ev ? t('ya.ana.c2.heroEv') : t('ya.ana.c2.hero')}
             sub={`${t(cm === 'new' ? 'ya.ana.c2.subNew' : 'ya.ana.c2.subTotal')}${v.ev ? ` ${t('ya.ana.c2.subEv')}` : ` · ${t('ya.ana.s.per', { unit: t(`ya.ana.unit.${unit}`) }).toLowerCase()}`} · ${t('ya.ana.c2.subUnique')}`}
@@ -157,7 +157,7 @@ export function CommunityTab({ q, f, setF }: { q: UseQueryResult<AnaCommunity>; 
           {loading ? <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}><Sk h={72} w="min(340px,60%)" r={14} /><ChartSkeleton /></div> : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18, ...fadeIn(rv) }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 24px' }}>
-                <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 'clamp(56px,8vw,112px)', lineHeight: 0.92, letterSpacing: '-.055em', fontVariantNumeric: 'tabular-nums' }}>
+                <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 0.92, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>
                   {n((cm === 'new' ? v.added : d.base) * prog)}
                   <span style={{ marginLeft: 12, fontSize: 'clamp(20px,2.4vw,28px)', letterSpacing: '-.02em', color: 'var(--ya-sand-500)' }}>{cm === 'new' ? t('ya.ana.c2.newUnit') : v.ev ? t('ya.ana.c2.buyersUnit') : t('ya.ana.c2.clientsUnit')}</span>
                 </span>
@@ -236,7 +236,7 @@ export function CommunityTab({ q, f, setF }: { q: UseQueryResult<AnaCommunity>; 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14, ...fadeIn(rv, 100) }}>
               <div className="ya-thin-scroll" style={{ overflowX: 'auto' }}>
                 <div style={{ minWidth: 480, display: 'grid', gridTemplateColumns: 'minmax(150px,1.6fr) 60px repeat(4,minmax(0,1fr))', gap: 4, fontSize: 13, alignItems: 'center' }}>
-                  {[t('ya.ana.c2.cohFirst'), t('ya.ana.c2.cohClients'), '+1', '+2', '+3', '+4'].map((h, i) => <span key={i} style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', paddingBottom: 6 }}>{h}</span>)}
+                  {[t('ya.ana.c2.cohFirst'), t('ya.ana.c2.cohClients'), '+1', '+2', '+3', '+4'].map((h, i) => <span key={i} style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', paddingBottom: 6, fontWeight: 600 }}>{h}</span>)}
                   {d.cohort.map((c, i) => [
                     <span key={`l${i}`} style={{ display: 'flex', flexDirection: 'column', fontWeight: bestCoh?.id === c.id ? 600 : 500, minWidth: 0 }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</span><span style={{ fontSize: 12, fontWeight: 400, color: 'var(--ya-sand-500)' }}>{dShort(c.night)}</span></span>,
                     <span key={`c${i}`} style={{ color: 'var(--ya-sand-500)', fontVariantNumeric: 'tabular-nums' }}>{n(c.buyers)}</span>,
@@ -315,7 +315,7 @@ export function CommunityTab({ q, f, setF }: { q: UseQueryResult<AnaCommunity>; 
                 return (
                   <div key={x.k} style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 12, borderTop: `2px solid ${AUDS[x.k].bd}` }}>
                     <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ya-sand-700)' }}>{t(`ya.ana.c2.life.${x.k}`)}</span>
-                    <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 32, lineHeight: 1.05, letterSpacing: '-.03em', fontVariantNumeric: 'tabular-nums' }}>{n(Number(x.buyers) * prog)}</b>
+                    <b style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 28, lineHeight: 1.05, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{n(Number(x.buyers) * prog)}</b>
                     <span style={{ fontSize: 13, color: 'var(--ya-sand-500)' }}>{ruleTxt(x.k)}</span>
                     {money && bk !== null && (
                       <span style={{ marginTop: 6, fontSize: 13.5, color: 'var(--ya-sand-700)' }}>
@@ -341,7 +341,7 @@ export function CommunityTab({ q, f, setF }: { q: UseQueryResult<AnaCommunity>; 
           {loading ? <Sk h={300} r={16} /> : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,220px),1fr))', gap: 24, ...fadeIn(rv, 100) }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>{t('ya.ana.c2.age')}</span>
+                <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>{t('ya.ana.c2.age')}</span>
                 {d.age.known === 0 ? <span style={{ fontSize: 14, color: 'var(--ya-sand-500)' }}>{t('ya.ana.c2.unknown')}</span> : d.age.b.map((x, i) => (
                   <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                     <span style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}><span>{ageL[i]}</span><b style={{ fontVariantNumeric: 'tabular-nums' }}>{pct((Number(x) / ageTot) * 100)}</b></span>
@@ -350,7 +350,7 @@ export function CommunityTab({ q, f, setF }: { q: UseQueryResult<AnaCommunity>; 
                 ))}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-sand-500)' }}>{t('ya.ana.c2.place')}</span>
+                <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-sand-500)', fontWeight: 600 }}>{t('ya.ana.c2.place')}</span>
                 {d.city.known === 0 ? <span style={{ fontSize: 14, color: 'var(--ya-sand-500)' }}>{t('ya.ana.c2.unknown')}</span> : cityRows.map((c, i) => (
                   <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                     <span style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}><span>{c.l}</span><b style={{ fontVariantNumeric: 'tabular-nums' }}>{pct((c.v / cityTot) * 100)}</b></span>
@@ -383,7 +383,7 @@ export function CommunityTab({ q, f, setF }: { q: UseQueryResult<AnaCommunity>; 
                       <span style={{ fontSize: 15, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
                       <span style={{ fontSize: 13, color: 'var(--ya-sand-500)' }}>{tp('ya.ana.c2.topNights', c.nights, { n: n(c.nights) })}{c.last_night ? ` · ${t('ya.ana.c2.topLast', { date: dShort(c.last_night) })}` : ''}</span>
                     </span>
-                    {money && c.spent !== null && <b style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 20, letterSpacing: '-.02em', fontVariantNumeric: 'tabular-nums' }}>{eur(Number(c.spent))}</b>}
+                    {money && c.spent !== null && <b style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 20, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{eur(Number(c.spent))}</b>}
                   </Hv>
                 );
               })}
@@ -395,13 +395,13 @@ export function CommunityTab({ q, f, setF }: { q: UseQueryResult<AnaCommunity>; 
       {/* À réveiller */}
       <section style={{ ...nightCard, display: 'flex', flexDirection: 'column', gap: 20, padding: 28, ...fadeIn(rv, 120) }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--ya-text-on-night-2)' }}>{t('ya.ana.c2.wakeK')}</span>
-          <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 26, letterSpacing: '-.03em', lineHeight: 1.1 }}>{t('ya.ana.c2.wakeT')}</h2>
+          <span style={{ fontFamily: 'var(--ya-font-mono)', fontSize: 11, letterSpacing: '.07em', textTransform: 'uppercase', color: 'var(--ya-text-on-night-2)', fontWeight: 600 }}>{t('ya.ana.c2.wakeK')}</span>
+          <h2 style={{ margin: 0, fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 16, letterSpacing: '-.01em', lineHeight: 1.3 }}>{t('ya.ana.c2.wakeT')}</h2>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,260px),1fr))', gap: 14 }}>
           {wake.map((w, i) => (
             <Hv key={i} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 20, borderRadius: 20, background: 'rgba(255,255,255,.06)', boxShadow: 'inset 0 0 0 1px var(--ya-border-night)', transition: 'background 160ms,transform 200ms cubic-bezier(.22,1,.36,1)' }} hover={{ background: 'rgba(255,255,255,.1)', transform: 'translateY(-2px)' }}>
-              <span style={{ fontFamily: 'var(--ya-font-display)', fontWeight: 600, fontSize: 48, lineHeight: 1, letterSpacing: '-.045em', fontVariantNumeric: 'tabular-nums' }}>{n(w.big * prog)}</span>
+              <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 36, lineHeight: 1, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{n(w.big * prog)}</span>
               <span style={{ fontSize: 16, fontWeight: 600 }}>{w.t}</span>
               <span style={{ fontSize: 14, lineHeight: 1.45, color: 'var(--ya-text-on-night-2)', textWrap: 'pretty' }}>{w.s}</span>
               <div style={{ alignSelf: 'flex-start', marginTop: 'auto', paddingTop: 8 }}><BrandArrowButton label={w.cta} onClick={() => navigate(w.to)} h={40} /></div>
