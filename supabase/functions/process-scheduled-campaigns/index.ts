@@ -19,7 +19,7 @@ import { sweepSendingSmsCampaigns } from "../_shared/sms-campaign-sweeper.ts";
 import { drainMetaOutbox, sweepMetaTokenExpiry } from "../_shared/meta-capi.ts";
 import { syncMetaInsights, syncMetaAudiences, processMetaLeads, ensureAppWebhookSubscription } from "../_shared/meta-ads.ts";
 import { dispatchProSignupAlerts } from "../_shared/pro-signup-alerts.ts";
-import { dispatchOpsTelegram } from "../_shared/ops-telegram.ts";
+import { dispatchOpsTelegram, handleOpsTelegramWebhook, opsWebhookSecret, setOpsTelegramWebhook } from "../_shared/ops-telegram.ts";
 import { syncGmailPostmaster } from "../_shared/gmail-postmaster.ts";
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type' };
 
@@ -27,6 +27,17 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 Deno.serve(async (req) => {
+    // Telegram webhook (Paul answers the bot): authenticated by the secret Telegram sends in its header,
+    // never by the cron secret. Answered 200 at once (Telegram retries otherwise).
+    const tgSecret = req.headers.get('x-telegram-bot-api-secret-token');
+    if (tgSecret) {
+      const expected = await opsWebhookSecret();
+      if (!expected || tgSecret !== expected) return new Response('forbidden', { status: 403 });
+      const update = await req.json().catch(() => null);
+      const status = update ? await handleOpsTelegramWebhook(createClient(SUPABASE_URL, SERVICE_KEY), update) : 'bad_json';
+      return new Response(JSON.stringify({ ok: true, status }), { headers: { 'Content-Type': 'application/json' } });
+    }
+
     // SECURITY: scheduled function — require shared cron secret or super-admin JWT
     const _cronAuth = await authorizeCronRequest(req);
     if (!_cronAuth.ok) {
@@ -57,8 +68,12 @@ Deno.serve(async (req) => {
   }
   // Tâche ciblée : un message d'un outil local de Paul (Yuno Studio) pour son Telegram
   // (ops_telegram_notify, migration 20261202100000).
+  if (task === 'ops_telegram_webhook') {
+    const result = await setOpsTelegramWebhook(`${SUPABASE_URL}/functions/v1/process-scheduled-campaigns`);
+    return new Response(JSON.stringify({ ok: true, task, result }), { headers: { 'Content-Type': 'application/json' } });
+  }
   if (task === 'ops_telegram') {
-    const result = await dispatchOpsTelegram(createClient(SUPABASE_URL, SERVICE_KEY));
+    const result = await dispatchOpsTelegram(createClient(SUPABASE_URL, SERVICE_KEY), 130_000);
     return new Response(JSON.stringify({ ok: true, task, result }), { headers: { 'Content-Type': 'application/json' } });
   }
   if (task === 'pro_signup_alerts') {
@@ -310,7 +325,7 @@ Deno.serve(async (req) => {
     // Messages Telegram des outils locaux : filet sous le réveil immédiat. File vide = rien.
     let opsTelegram: unknown = null;
     try {
-      opsTelegram = await dispatchOpsTelegram(admin);
+      opsTelegram = await dispatchOpsTelegram(admin, 40_000);
     } catch (e) {
       console.error('[OPS-TELEGRAM] dispatch failed:', String(e));
     }
