@@ -8,7 +8,7 @@ import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2
 import { telegramChat, telegramSend, telegramToken } from './telegram-ops.ts';
 import type { TelegramButton } from './pro-signup-telegram.ts';
 
-type OutboxRow = { id: string; text: string; buttons: unknown; media: unknown };
+type OutboxRow = { id: string; text: string; buttons: unknown; media: unknown; created_at: string };
 type Media = { url: string; caption?: string };
 
 const API = 'https://api.telegram.org';
@@ -69,7 +69,8 @@ export async function dispatchOpsTelegram(admin: SupabaseClient, budgetMs = 100_
   const t0 = Date.now();
   try {
     const { data } = await admin.rpc('claim_ops_telegram', { p_limit: 20 });
-    const rows = (data ?? []) as OutboxRow[];
+    // UPDATE … RETURNING gives no order: sent in the order they were written (albums, then the question)
+    const rows = ((data ?? []) as OutboxRow[]).sort((a, b) => a.created_at.localeCompare(b.created_at));
     if (!rows.length) return out;
     const token = telegramToken();
     const chat = token ? await telegramChat(admin, token) : { chatId: null, status: 'no_token' };
