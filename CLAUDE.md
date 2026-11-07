@@ -3267,9 +3267,15 @@ bas). Règles :
 - **Argent** : `_tix_money_gate` (porte `analytics_scope_gate`) ; un club ne voit pas
   le CA d'une soirée qu'il ne fait qu'accueillir (montant 0 dans `_tix_sales`).
 - **Front** = copie des écrans du CRM dans `src/tickets/analytics/` : variables
-  `--ya-*` (theme.css, sombre par défaut, clair sous `data-pro-theme`, Space Grotesk /
-  Inter / JetBrains Mono, rouge #E8192C), jamais `--ink` / `--paper` (triplets du thème
-  pro) ni `#fff` en surface ; textes `ya.*` de la section `tixana`
+  `--ya-*` (theme.css, sombre par défaut, clair sous `data-pro-theme`), jamais `--ink` /
+  `--paper` (triplets du thème pro) ni `#fff` en surface. **La mise en page est celle du
+  CRM, le style celui de la Console** (décision de Paul du 07/11) : en-tête de page = titre
+  18 px + une ligne grise, sans sur-titre ni mot en dégradé ; titres de carte 16 px ;
+  chiffres en Inter 650 (`--ya-font-num`, 36 px au plus) ; étiquettes en Inter capitales
+  11 px (`--ya-font-mono` vaut Inter) ; cartes à 18 px (`--ya-card-bg`, `--ya-border`,
+  `--ya-card-shadow`) ; boutons à coins 12 ; actif = rouge plein (`--ya-fill`), jamais
+  l'encre inversée du CRM ; `--ya-gradient-brand` est un rouge plein. Un écran recopié du
+  CRM se ramène à ces règles avant d'être livré ; textes `ya.*` de la section `tixana`
   (`src/i18n/locales/tixana/modules` : `fromCrm.ts` recopié, `tickets.ts` l'emporte).
   « Écrire à… » ouvre une campagne de la Console (pas d'audience pré-remplie),
   « Ce qui fait venir » (moteur d'analyse du CRM) n'est pas transposé.
