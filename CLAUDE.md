@@ -6796,6 +6796,4 @@ chacun avec ses rounds ou options), design validé le 04/11. Migration
   dit). Dans un pack, un billet est une ligne (`OfferCard variant="row"`), pas
   une carte dans une carte. Un pack sans billet visible ne s'affiche pas.
 - Pas encore repris : les modèles de billetterie libre et les séries
-  récurrentes ne gardent pas les packs. L'IA les écrit depuis le 07/11
-  (`set_ticketing` : `packs`, `pack`, `description`, `drink_until`, migration
-  `20261203100000`, `docs/MCP.md` § 11).
+  récurrentes ne gardent pas les packs ; l'IA (`set_ticketing`) ne les écrit pas.

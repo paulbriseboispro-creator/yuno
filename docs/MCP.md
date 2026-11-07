@@ -479,18 +479,6 @@ consignes dans `guide.ts` (section TICKETING). Règles :
   est déjà complet, gardé ouvert si le lien ne change pas). Débit : 100
   `set_ticketing` par jour et par connexion. Journal `mcp_tool_calls`
   (nombre de billets, `apply_to_live`).
-- **Packs, descriptions, boisson jusqu'à une heure (2026-11-07, migration
-  `20261203100000_mcp_ticketing_packs.sql`)** : `set_ticketing` écrit les PACKS
-  de la billetterie libre (`ticket_groups`, sections repliables de la page de
-  choix). `packs` = la liste COMPLÈTE de la soirée (nom 60, phrase 200 ; un
-  pack laissé de côté est supprimé, ses billets sortent du pack) ; omis = les
-  packs restent, les billets s'y rangent par leur nom. Chaque billet porte
-  `pack` (nom exact ou id), `description` (200) et `drink_until` (`HH:MM`,
-  boisson offerte jusqu'à cette heure : `drink_deadline_type = 'fixed_time'`).
-  Sur un billet existant, ces trois champs omis = inchangés, null / vide =
-  retirés. `get_ticketing` rend `packs` et, par billet, `pack`, `pack_id`,
-  `description`, `drink_until`. Le nom du pack est recopié sur le billet par la
-  base (`group_label`) : le billet se lit « Pack · Billet » hors de la page de choix.
 
 ## 5. Mise en service — fait le 2026-10-03
 
