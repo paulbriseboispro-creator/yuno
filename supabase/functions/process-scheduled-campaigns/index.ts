@@ -19,6 +19,7 @@ import { sweepSendingSmsCampaigns } from "../_shared/sms-campaign-sweeper.ts";
 import { drainMetaOutbox, sweepMetaTokenExpiry } from "../_shared/meta-capi.ts";
 import { syncMetaInsights, syncMetaAudiences, processMetaLeads, ensureAppWebhookSubscription } from "../_shared/meta-ads.ts";
 import { dispatchProSignupAlerts } from "../_shared/pro-signup-alerts.ts";
+import { dispatchOpsTelegram } from "../_shared/ops-telegram.ts";
 import { syncGmailPostmaster } from "../_shared/gmail-postmaster.ts";
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type' };
 
@@ -52,6 +53,12 @@ Deno.serve(async (req) => {
   if (task === 'pro_signup_alerts' && reqBody?.wait === true) {
     // Diagnostic (cron ou super admin seulement) : le passage, et son résultat.
     const result = await dispatchProSignupAlerts(createClient(SUPABASE_URL, SERVICE_KEY), { budgetMs: 140_000 });
+    return new Response(JSON.stringify({ ok: true, task, result }), { headers: { 'Content-Type': 'application/json' } });
+  }
+  // Tâche ciblée : un message d'un outil local de Paul (Yuno Studio) pour son Telegram
+  // (ops_telegram_notify, migration 20261202100000).
+  if (task === 'ops_telegram') {
+    const result = await dispatchOpsTelegram(createClient(SUPABASE_URL, SERVICE_KEY));
     return new Response(JSON.stringify({ ok: true, task, result }), { headers: { 'Content-Type': 'application/json' } });
   }
   if (task === 'pro_signup_alerts') {
@@ -300,6 +307,14 @@ Deno.serve(async (req) => {
       console.error('[PRO-SIGNUP-ALERTS] dispatch failed:', String(e));
     }
 
+    // Messages Telegram des outils locaux : filet sous le réveil immédiat. File vide = rien.
+    let opsTelegram: unknown = null;
+    try {
+      opsTelegram = await dispatchOpsTelegram(admin);
+    } catch (e) {
+      console.error('[OPS-TELEGRAM] dispatch failed:', String(e));
+    }
+
     // Meta Conversions API : filet sous le fire-and-forget des fonctions de
     // vente (retries, worker tué) + entretien (codes de test périmés, purge 90 j).
     let metaCapi: unknown = null;
@@ -327,7 +342,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ processed, followups, automations, resends, emailSweep, smsProcessed, smsSweep, pushProcessed, pushEngine, embeddings, djEmbeddings, liveOps, promoterPush, weeklyRecap,
-        weeklyDigest, nightRecap, guestNotif, crmLifecycle, crmSignup, proSignups, metaCapi }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        weeklyDigest, nightRecap, guestNotif, crmLifecycle, crmSignup, proSignups, opsTelegram, metaCapi }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
