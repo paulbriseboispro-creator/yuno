@@ -20,6 +20,7 @@ import { PlanSideCard } from './plan/PlanSideCard';
 import { GuideNavEntry } from '@/crm/guide/GuideNavEntry';
 import type { CrmScreen, NavGroupKey } from './nav';
 import yunoIcon from '@/crm/assets/yuno-app-icon.webp';
+import { CRM_MARKETING_LIVE } from '@/crm/lib/marketing';
 
 type Row =
   | { type: 'label'; t: string }
@@ -55,10 +56,12 @@ export function Sidebar({
         { id: 'trafic', t: t('yc.nav.traffic'), to: CRM_ROUTES.traffic },
         { id: 'communaute', t: t('yc.nav.community'), to: CRM_ROUTES.community },
         { id: 'guestlist', t: t('yc.nav.guestlist'), to: CRM_ROUTES.guestlist },
-        { id: 'parcours', t: t('yc.nav.journey'), to: CRM_ROUTES.journey },
+        ...(CRM_MARKETING_LIVE ? [{ id: 'parcours' as const, t: t('yc.nav.journey'), to: CRM_ROUTES.journey }] : []),
       ],
     },
     { type: 'label', t: t('yc.nav.act') },
+    // Pause du 2026-11-08 : analyse seule, pas de campagnes (`lib/marketing.ts`).
+    ...(CRM_MARKETING_LIVE ? [
     {
       type: 'group', key: 'campagnes', t: t('yc.nav.campaigns'), icon: 'send',
       badge: badges.campaigns ? { n: badges.campaigns, tone: 'red' } : undefined,
@@ -70,7 +73,8 @@ export function Sidebar({
         { id: 'auto', t: t('yc.nav.automations'), to: CRM_ROUTES.automations },
         { id: 'instagram', t: t('yc.nav.instagram'), to: CRM_ROUTES.instagram, tag: t('yc.nav.soon') },
       ],
-    },
+    } as Row,
+    ] : []),
     {
       type: 'group', key: 'soirees', t: t('yc.nav.nights'), icon: 'calendar', subs: [
         { id: 'avenir', t: t('yc.nav.upcoming'), to: CRM_ROUTES.nights },
@@ -78,14 +82,14 @@ export function Sidebar({
       ],
     },
     { type: 'label', t: t('yc.nav.know') },
-    { type: 'link', id: 'inscriptions', t: t('yc.nav.signupPages'), icon: 'qr', to: CRM_ROUTES.signupPages },
+    ...(CRM_MARKETING_LIVE ? [{ type: 'link', id: 'inscriptions', t: t('yc.nav.signupPages'), icon: 'qr', to: CRM_ROUTES.signupPages } as Row] : []),
     {
       type: 'group', key: 'clients', t: t('yc.nav.clients'), icon: 'users',
       badge: badges.clients ? { n: badges.clients, tone: 'sand' } : undefined,
       subs: [
         { id: 'clients', t: t('yc.nav.allClients'), to: CRM_ROUTES.clients },
         { id: 'segments', t: t('yc.nav.segments'), to: CRM_ROUTES.segments },
-        { id: 'imports', t: t('yc.nav.imports'), to: CRM_ROUTES.imports },
+        ...(CRM_MARKETING_LIVE ? [{ id: 'imports' as const, t: t('yc.nav.imports'), to: CRM_ROUTES.imports }] : []),
       ],
     },
   ];
@@ -239,8 +243,8 @@ export function Sidebar({
       <div style={{ flex: 1, minHeight: 12 }} />
       <PlanSideCard expanded={exp} />
       <div style={{ borderTop: '1px solid var(--sand-100)', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <GuideNavEntry expanded={exp} onNavigate={onNavigate} />
-        <Hv
+        {CRM_MARKETING_LIVE && <GuideNavEntry expanded={exp} onNavigate={onNavigate} />}
+        {CRM_MARKETING_LIVE && <Hv
           as={Link}
           to={CRM_ROUTES.yunits}
           title={t('yc.nav.yunits')}
@@ -263,7 +267,7 @@ export function Sidebar({
               <Icon name="chevronRight" size={16} stroke={2.2} color="var(--sand-400)" />
             </>
           )}
-        </Hv>
+        </Hv>}
         {foot.map((f) => {
           const on = current === f.id;
           return (

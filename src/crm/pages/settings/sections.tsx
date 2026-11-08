@@ -19,6 +19,7 @@ import { fieldCss, GreenSwitch, LockNote, SecCard, SecHead, Seg, useTween } from
 import { LearningRow } from './LearningRow';
 import { LegalDocsRow } from './LegalDocsRow';
 import { HoldoutRow } from './HoldoutRow';
+import { marketingHidden } from '@/crm/lib/marketing';
 
 type Set = <K extends keyof SettingsForm>(k: K, v: SettingsForm[K]) => void;
 
@@ -587,7 +588,7 @@ export function SectionElsewhere({ delay }: { delay: number | undefined }) {
         <span style={{ fontSize: 14, color: 'var(--sand-500)' }}>{t('yc.set.e.s')}</span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,250px),1fr))', gap: 14 }}>
-        {LINKS.map((l, i) => (
+        {LINKS.filter((l) => !marketingHidden(l.to)).map((l, i) => (
           <Hv
             key={l.k}
             as={Link}

@@ -9,6 +9,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Hv } from '@/crm/ui/Hv';
 import { Icon } from '@/crm/ui/Icon';
 import type { IconName } from '@/crm/ui/Icon';
+import { CRM_MARKETING_LIVE } from '@/crm/lib/marketing';
 import { YunitFace } from '@/crm/ui/YunitFace';
 import { useCrmT } from '@/crm/i18n';
 import { useCrmScope } from '@/crm/scope';
@@ -84,7 +85,7 @@ export function TopBar({ shell, onOpenMenu, showMenuButton }: { shell: CrmShell 
             <span style={{ flex: 'none', width: 7, height: 7, borderRadius: 99, background: sync.dot }} />
             {sync.label}
           </span>
-          <div style={{ position: 'relative' }}>
+          {CRM_MARKETING_LIVE && <div style={{ position: 'relative' }}>
             <Hv
               as="button"
               type="button"
@@ -104,7 +105,7 @@ export function TopBar({ shell, onOpenMenu, showMenuButton }: { shell: CrmShell 
               <Icon name="chevronDown" size={14} stroke={2.4} color="var(--sand-400)" style={{ transform: `rotate(${pop === 'yu' ? 180 : 0}deg)`, transition: 'transform 200ms' }} />
             </Hv>
             {pop === 'yu' && <YunitsPopover onClose={() => setPop(null)} />}
-          </div>
+          </div>}
           <NotifBell unread={shell?.notifications_unread ?? 0} />
           <ProfileMenu shell={shell} open={pop === 'pr'} onToggle={() => setPop((p) => (p === 'pr' ? null : 'pr'))} onClose={() => setPop(null)} />
         </div>

@@ -23,6 +23,7 @@ import {
   BrandArrowButton, CardHead, ChartSkeleton, Fill, Sk, StackChart, bucketTitle, card, fadeIn, nightCard, useGo, xLabels,
 } from './anaUi';
 import { jLabelFor } from './SalesTab';
+import { CRM_MARKETING_LIVE } from '@/crm/lib/marketing';
 
 type T = ReturnType<typeof useCrmT>;
 
@@ -335,7 +336,7 @@ function MessagesCard({ d, msg, money, prog, rv, T }: { d: AnaTraffic; msg: AnaS
           </div>
         </div>
       )}
-      <div style={{ marginTop: 'auto' }}><BrandArrowButton label={t('yc.ana.s.madeCta')} onClick={() => navigate(CRM_ROUTES.emailAnalysis)} /></div>
+      {CRM_MARKETING_LIVE && <div style={{ marginTop: 'auto' }}><BrandArrowButton label={t('yc.ana.s.madeCta')} onClick={() => navigate(CRM_ROUTES.emailAnalysis)} /></div>}
     </section>
   );
 }

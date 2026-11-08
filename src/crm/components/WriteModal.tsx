@@ -17,12 +17,31 @@ import { useCrmCaps } from '@/crm/scope';
 import { useSmsAccess } from '@/crm/data/smsAccess';
 import { useHoldoutSettings } from '@/crm/data/holdout';
 import { holdoutEstimate, keepsHoldout } from '@/crm/lib/holdout';
+import { CRM_MARKETING_LIVE } from '@/crm/lib/marketing';
 
 export type WriteScope = 'one' | 'sel' | 'filtered' | 'all';
 
-export function WriteModal({
-  open, onClose, scope, who, def, emails, segmentId, eyebrow, eventId,
-}: {
+/** Pause du 2026-11-08 (`lib/marketing.ts`) : la fenêtre dit que les envois sont en pause. */
+export function WriteModal(props: WriteModalProps) {
+  return CRM_MARKETING_LIVE ? <WriteModalLive {...props} /> : <SendingPausedModal open={props.open} onClose={props.onClose} />;
+}
+
+export function SendingPausedModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useCrmT();
+  return (
+    <Modal open={open} onClose={onClose} width={460} label={t('yc.pause.title')}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '26px 28px 24px' }}>
+        <h2 style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 26, lineHeight: 1.1, letterSpacing: '-.03em' }}>{t('yc.pause.title')}</h2>
+        <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5, color: 'var(--sand-600)' }}>{t('yc.pause.body')}</p>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
+          <PillButton tone="dark" onClick={onClose}>{t('yc.pause.ok')}</PillButton>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+type WriteModalProps = {
   open: boolean;
   onClose: () => void;
   scope: WriteScope;
@@ -35,7 +54,11 @@ export function WriteModal({
   eyebrow?: string;
   /** Soirée annoncée : le brouillon lui sera relié. */
   eventId?: string | null;
-}) {
+};
+
+function WriteModalLive({
+  open, onClose, scope, who, def, emails, segmentId, eyebrow, eventId,
+}: WriteModalProps) {
   const { t, tp, n } = useCrmT();
   const nav = useNavigate();
   const [ch, setCh] = useState<'email' | 'sms'>('email');

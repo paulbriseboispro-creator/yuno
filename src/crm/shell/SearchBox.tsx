@@ -3,6 +3,7 @@
  * de la Console, au clavier (↑↓, ↵, esc). Sans texte : la prochaine soirée,
  * la dernière campagne et les actions rapides.
  */
+import { CRM_MARKETING_LIVE, marketingHidden } from '@/crm/lib/marketing';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Icon } from '@/crm/ui/Icon';
@@ -69,7 +70,7 @@ export function SearchBox({ hasConnection, balance }: { hasConnection: boolean; 
       pg(t('yc.top.pr.billing'), acc, CRM_ROUTES.accountSection('billing')),
       pg(t('yc.top.pr.notifications'), acc, CRM_ROUTES.notifications),
       pg(t('yc.top.pr.help'), acc, CRM_ROUTES.accountSection('help')),
-    ];
+    ].filter((p) => !marketingHidden(p.to));
   }, [t]);
 
   const term = q.trim();
@@ -84,7 +85,7 @@ export function SearchBox({ hasConnection, balance }: { hasConnection: boolean; 
         ini: name.split(/[\s.@]+/).filter(Boolean).map((w) => w[0]).join('').slice(0, 2).toUpperCase(),
       };
     });
-    const campaigns: Item[] = (d?.campaigns ?? []).map((c) => ({
+    const campaigns: Item[] = (CRM_MARKETING_LIVE ? d?.campaigns ?? [] : []).map((c) => ({
       g: 'campaigns', tone: 'campaigns', icon: 'send' as IconName, t: c.name || '—',
       m: [c.channel === 'sms' ? 'SMS' : t('yc.nav.emails'), c.at ? dShort(c.at) : ''].filter(Boolean).join(' · '),
       to: c.status === 'sent' ? CRM_ROUTES.emailResults(c.id) : CRM_ROUTES.emailStudio(c.id),
@@ -115,7 +116,8 @@ export function SearchBox({ hasConnection, balance }: { hasConnection: boolean; 
       ];
     const recent = [...nights, ...campaigns];
     // Un lecteur ne crée ni n'importe : seules les pages restent.
-    const allowed = caps.write ? actions : actions.filter((a) => a.to === CRM_ROUTES.yunits || a.to === CRM_ROUTES.connectors);
+    const allowed = (caps.write ? actions : actions.filter((a) => a.to === CRM_ROUTES.yunits || a.to === CRM_ROUTES.connectors))
+      .filter((a) => !marketingHidden(a.to));
     return ([[t('yc.top.g.recent'), recent], [t('yc.top.g.actions'), allowed]] as [string, Item[]][]).filter((x) => x[1].length);
   }, [search.data, term, pages, t, n, dShort, dWeek, time, hasConnection, balance, caps.write]);
 

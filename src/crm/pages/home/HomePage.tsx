@@ -34,6 +34,7 @@ import { TodoList } from './TodoList';
 import { useLater } from './useLater';
 import { useGuide } from '@/crm/guide/GuideProvider';
 import { GuideCard } from '@/crm/guide/GuideCard';
+import { CRM_MARKETING_LIVE } from '@/crm/lib/marketing';
 
 export default function HomePage() {
   const T = useCrmT();
@@ -47,13 +48,14 @@ export default function HomePage() {
   const cc = useProgress(1500, 450, data ? 'ready' : 'wait', !!data);
   const [later, addLater, resetLater] = useLater(space.key);
   const guide = useGuide();
-  const guideOn = !!guide?.auto;
+  // Pause du 2026-11-08 : analyse seule, ni guide (envois), ni tâches d'envoi.
+  const guideOn = CRM_MARKETING_LIVE && !!guide?.auto;
 
   const first = shell.data?.profile?.first_name?.trim() || '';
   const alerte = !!data?.connection?.broken;
   const starting = !!data && !data.connection && data.kpi.clients.total === 0;
   // Les tâches de démarrage (brancher, choisir ses segments) sont des étapes du guide quand il est là.
-  const items = (data?.todo ?? []).filter((x) => !guideOn || !['connect', 'check', 'first_send', 'segments'].includes(x.kind));
+  const items = (CRM_MARKETING_LIVE ? data?.todo ?? [] : []).filter((x) => !guideOn || !['connect', 'check', 'first_send', 'segments'].includes(x.kind));
   const left = items.filter((x) => !later.includes(x.id));
   const urgent = left.filter((x) => x.tone === 'todo').length;
 
@@ -61,6 +63,7 @@ export default function HomePage() {
   if (data) {
     if (starting) subtitle = t('yc.home.sub.empty');
     else if (alerte) subtitle = t('yc.home.sub.alert');
+    else if (!CRM_MARKETING_LIVE) subtitle = '';
     else if (!left.length) subtitle = t('yc.home.sub.allDone');
     else subtitle = tp('yc.home.sub.actions', left.length, { n: n(left.length) })
       + (urgent ? t('yc.home.sub.urgent', { n: urgent }) : '') + t('yc.home.sub.rest');
@@ -70,7 +73,7 @@ export default function HomePage() {
     ? Math.max(1, Math.round((Date.now() - new Date(data.connection.broken_since).getTime()) / 3_600_000))
     : null;
   const today = new Date().toLocaleDateString(T.locale, { weekday: 'long', day: 'numeric', month: 'long' });
-  const m = data?.mission ?? null;
+  const m = CRM_MARKETING_LIVE ? data?.mission ?? null : null;
 
   return (
     <main style={{ flex: 1, width: '100%', maxWidth: 1280, margin: '0 auto', padding: 'clamp(24px,3vw,36px) clamp(16px,3vw,40px) 56px', display: 'flex', flexDirection: 'column', gap: 28 }}>
@@ -87,9 +90,9 @@ export default function HomePage() {
             )}
           </p>
         </div>
-        <Hv style={reveal(intro, 320)}>
+        {CRM_MARKETING_LIVE && <Hv style={reveal(intro, 320)}>
           <PillButton to={CRM_ROUTES.emailTemplates} icon="plus" style={{ height: 46, padding: '0 20px 0 16px' }}>{t('yc.home.newCampaign')}</PillButton>
-        </Hv>
+        </Hv>}
       </div>
 
       {alerte && (
@@ -152,7 +155,7 @@ export default function HomePage() {
               <span style={{ fontSize: 15, lineHeight: 1.5, color: 'var(--sand-600)', maxWidth: 560 }}>{t(data.connection ? 'yc.home.next.noneBody' : 'yc.home.next.emptyBody')}</span>
             </section>
           )}
-          {data && !(guideOn && starting) && (
+          {data && CRM_MARKETING_LIVE && !(guideOn && starting) && (
             <TodoList
               items={items}
               later={later}

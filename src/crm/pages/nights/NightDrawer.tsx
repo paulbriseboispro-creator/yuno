@@ -27,6 +27,7 @@ import { NightTargets } from './NightTargets';
 import { PracticalEmailModal } from '@/crm/components/PracticalEmailModal';
 import { ShotgunLink, StatusPill } from './nightsUi';
 import { ICO, comparedName, messageHref, priceLabel, tzLong, tzShort, tzTime } from './nightsFormat';
+import { CRM_MARKETING_LIVE } from '@/crm/lib/marketing';
 
 const UP_ST = { full: 'yc.ni.st.full', soon: 'yc.ni.st.soon', almost: 'yc.ni.st.almost', sale: 'yc.ni.st.sale' } as const;
 const PA_ST = { full: 'yc.ni.pa.full', good: 'yc.ni.pa.good', fair: 'yc.ni.pa.fair', low: 'yc.ni.pa.low', unknown: 'yc.ni.pa.unknown' } as const;
@@ -93,8 +94,9 @@ export function NightDrawer({
             value={view}
             onChange={onView}
             ariaLabel={t('yc.ni.dr.aria')}
-            options={[{ value: 'sales', label: t('yc.lk.tab.sales') }, { value: 'gl', label: t('yc.gl.tab') }, { value: 'links', label: t('yc.lk.tab.links') }, { value: 'why', label: t('yc.why.night.tab') },
-              ...(d?.upcoming || view === 'target' ? [{ value: 'target' as const, label: t('yc.tgt.tab') }] : [])]}
+            options={[{ value: 'sales', label: t('yc.lk.tab.sales') }, { value: 'gl', label: t('yc.gl.tab') }, { value: 'links', label: t('yc.lk.tab.links') },
+              ...(CRM_MARKETING_LIVE ? [{ value: 'why' as const, label: t('yc.why.night.tab') }] : []),
+              ...(CRM_MARKETING_LIVE && (d?.upcoming || view === 'target') ? [{ value: 'target' as const, label: t('yc.tgt.tab') }] : [])]}
           />
         </div>
       )}
@@ -102,9 +104,9 @@ export function NightDrawer({
         <div style={{ flex: 1, padding: 32, fontSize: 15, color: 'var(--sand-600)' }}>{t('yc.ni.dr.notFound')}</div>
       ) : id && view === 'gl' ? (
         <NightGuestList key={`gl-${id}`} eventId={id} />
-      ) : id && view === 'why' ? (
+      ) : id && CRM_MARKETING_LIVE && view === 'why' ? (
         <NightAttracted key={`why-${id}`} eventId={id} />
-      ) : id && view === 'target' ? (
+      ) : id && CRM_MARKETING_LIVE && view === 'target' ? (
         <NightTargets key={`target-${id}`} eventId={id} />
       ) : id && view === 'links' ? (
         <div key={`links-${id}`} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '20px 20px 32px' }}>
@@ -141,7 +143,7 @@ function DrawerBody({ d, onWrite }: { d: NightDetail; onWrite: (x: { id: string;
   const [fiche, setFiche] = useState(false);
   const [practical, setPractical] = useState(false);
   // E-mail pratique : jusqu'au lendemain de la soirée (le serveur tranche).
-  const practicalOpen = d.upcoming || Date.now() < new Date(d.end_at).getTime() + 24 * 3600e3;
+  const practicalOpen = CRM_MARKETING_LIVE && (d.upcoming || Date.now() < new Date(d.end_at).getTime() + 24 * 3600e3);
   const p = useProgress(1200, 350, d.id);
   const base = { sold: d.sold, cap: d.cap, sold_out: d.sold_out, sale_opens_at: d.sale_opens_at, msgs: d.msgs };
   const uk = upKind(base);
@@ -386,9 +388,9 @@ function DrawerBody({ d, onWrite }: { d: NightDetail; onWrite: (x: { id: string;
 
       {/* Actions */}
       <div style={{ flex: 'none', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, padding: '16px 24px', borderTop: '1px solid var(--sand-100)', background: '#fff' }}>
-        <CtaButton onClick={() => onWrite({ id: d.id, title: d.title, buyers: B.total })}>
+        {CRM_MARKETING_LIVE && <CtaButton onClick={() => onWrite({ id: d.id, title: d.title, buyers: B.total })}>
           {B.total > 0 ? tp('yc.ni.dr.write', B.total, { n: n(B.total) }) : t('yc.ni.dr.writeAll')}
-        </CtaButton>
+        </CtaButton>}
         <Hv as={Link} to={`${CRM_ROUTES.sales}?event=${d.id}`} style={{ height: 46, padding: '0 18px', borderRadius: 99, border: '1px solid var(--sand-200)', background: '#fff', color: 'var(--ink)', fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', textDecoration: 'none' }} hover={{ background: 'var(--sand-50)', color: 'var(--ink)', textDecoration: 'none' }}>
           {t('yc.ni.dr.analytics')}
         </Hv>

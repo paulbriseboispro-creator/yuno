@@ -45,6 +45,7 @@ import firstSteps from './firstSteps';
 import customerBasis from './customerBasis';
 import plan from './plan';
 import nightPlans from './nightPlans';
+import marketingPause from './marketingPause';
 
 /** Toutes les clés de la Console Yuno CRM, un module par écran. */
 export const CRM_DICT: CrmDict = {
@@ -94,6 +95,7 @@ export const CRM_DICT: CrmDict = {
   ...customerBasis,
   ...plan,
   ...nightPlans,
+  ...marketingPause,
 };
 
 export function pickLanguage(index: 0 | 1 | 2): Record<string, string> {

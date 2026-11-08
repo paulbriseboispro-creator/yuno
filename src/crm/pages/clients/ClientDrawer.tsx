@@ -19,6 +19,7 @@ import type { ClientCard } from '@/crm/data/clients';
 import { LIFECYCLE_AVATAR, LIFECYCLE_COLOR, fullName, initials, relDays } from '@/crm/lib/lifecycle';
 import { CrmLoadError } from '@/crm/errors/CrmLoadError';
 import { ClientHypotheses } from './ClientHypotheses';
+import { CRM_MARKETING_LIVE } from '@/crm/lib/marketing';
 
 const TL_ICON = {
   buy: 'M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0',
@@ -310,7 +311,7 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
       </div>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-        {canWrite && (
+        {CRM_MARKETING_LIVE && canWrite && (
           <Hv
             as="button"
             type="button"

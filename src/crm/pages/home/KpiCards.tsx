@@ -10,6 +10,7 @@ import { useCrmT } from '@/crm/i18n';
 import { useCustomerReachPotential } from '@/crm/data/customerBasis';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import type { CrmHome } from '@/crm/data/home';
+import { CRM_MARKETING_LIVE } from '@/crm/lib/marketing';
 
 function Card({ children, intro, delay }: { children: ReactNode; intro: boolean; delay: number }) {
   return (
@@ -135,7 +136,7 @@ export function KpiCards({ data, intro, cc }: { data: CrmHome | undefined; intro
           </div>
         </div>
         <span style={def}>{t('yc.home.kpi.reachableDef')}</span>
-        {potential && !empty && (
+        {CRM_MARKETING_LIVE && potential && !empty && (
           <Link to={CRM_ROUTES.emailSettings} style={{ marginTop: 4, fontSize: 13, lineHeight: '18px', fontWeight: 600, color: 'var(--amber-700)', textDecoration: 'none' }}>
             {t('yc.cb.pot.n', { n: n(potential.extra) })}
           </Link>

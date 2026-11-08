@@ -27,6 +27,7 @@ import {
   bucketTitle, card, fadeIn, nightCard, useGo, xLabels, type NightState, type TileSpec,
 } from './anaUi';
 import { deltaPct, jLabelFor } from './SalesTab';
+import { CRM_MARKETING_LIVE } from '@/crm/lib/marketing';
 
 type T = ReturnType<typeof useCrmT>;
 
@@ -538,9 +539,9 @@ function MessagesCard({ d, rv, T }: { d: AnaClicks; rv: boolean; T: T }) {
             <b style={{ fontSize: 14.5 }}>{tp('yc.tr.cnb.t', d.click_no_buy, { n: n(d.click_no_buy) })}</b>
             <span style={{ fontSize: 12.5, color: 'var(--sand-600)', lineHeight: 1.4 }}>{t('yc.tr.cnb.s')}</span>
           </span>
-          <Hv as={Link} to={CRM_ROUTES.automations} style={{ flex: 'none', height: 34, padding: '0 14px', borderRadius: 99, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)', color: 'var(--ink)', fontSize: 13.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }} hover={{ boxShadow: 'inset 0 0 0 1px var(--sand-400)', textDecoration: 'none' }}>
+          {CRM_MARKETING_LIVE && <Hv as={Link} to={CRM_ROUTES.automations} style={{ flex: 'none', height: 34, padding: '0 14px', borderRadius: 99, background: '#fff', boxShadow: 'inset 0 0 0 1px var(--sand-200)', color: 'var(--ink)', fontSize: 13.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }} hover={{ boxShadow: 'inset 0 0 0 1px var(--sand-400)', textDecoration: 'none' }}>
             {t('yc.tr.cnb.cta')}
-          </Hv>
+          </Hv>}
         </div>
       )}
       {msg.sms.clickers > 0 && <span style={{ fontSize: 12.5, color: 'var(--sand-500)' }}>{t('yc.tr.msg.smsFoot')}</span>}

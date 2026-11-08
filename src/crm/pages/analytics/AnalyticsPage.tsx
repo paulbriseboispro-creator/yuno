@@ -29,6 +29,7 @@ import { CommunityTab, communityCsv } from './CommunityTab';
 import { WhyView } from './WhyView';
 import { GuestListTab, guestlistCsv } from './GuestListTab';
 import { useAnaGuestList } from '@/crm/data/guestlist';
+import { CRM_MARKETING_LIVE } from '@/crm/lib/marketing';
 
 const TABS: { k: AnaTab; route: string; d: string }[] = [
   { k: 'sales', route: CRM_ROUTES.sales, d: 'M4 10h12M4 14h9M19 6a7.7 7.7 0 0 0-5.2-2A7.9 7.9 0 0 0 6 12c0 4.4 3.5 8 7.8 8 2 0 3.8-.8 5.2-2' },
@@ -70,7 +71,8 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
   const [sp, setSp] = useSearchParams();
   const f = readFilters(sp, tab);
   // Communauté › « Ce qui fait venir » : toute l'histoire du compte, sans période.
-  const why = tab === 'community' && sp.get('v') === 'why';
+  // « Ce qui fait venir » s'éteint avec le marketing (pause du 2026-11-08).
+  const why = CRM_MARKETING_LIVE && tab === 'community' && sp.get('v') === 'why';
   const setCommunityView = (v: 'overview' | 'why') => setSp((prev) => {
     const p = new URLSearchParams(prev);
     if (v === 'why') p.set('v', 'why'); else p.delete('v');
@@ -186,17 +188,17 @@ function AnalyticsView({ tab }: { tab: AnaTab }) {
             </Hv>
           );
         })}
-        <Hv
+        {CRM_MARKETING_LIVE && <Hv
           as={Link}
           to={CRM_ROUTES.journey}
           style={{ height: 44, padding: '0 18px 0 16px', borderRadius: 99, border: '1px dashed var(--sand-300)', background: 'transparent', color: 'var(--sand-600)', fontSize: 15, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', transition: `color 160ms,border-color 160ms` }}
           hover={{ color: 'var(--ink)', borderColor: 'var(--sand-400)', textDecoration: 'none' }}
         >
           {t('yc.ana.tab.journey')}<Icon name="arrowRight" size={15} stroke={2.2} />
-        </Hv>
+        </Hv>}
       </div>
 
-      {tab === 'community' && (
+      {CRM_MARKETING_LIVE && tab === 'community' && (
         <div style={{ maxWidth: '100%', overflowX: 'auto' }} className="yc-noscroll">
           <Segmented<'overview' | 'why'>
             value={why ? 'why' : 'overview'}

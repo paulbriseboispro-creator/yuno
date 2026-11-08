@@ -33,6 +33,7 @@ import { ClientsOverview } from './ClientsOverview';
 import { ClientsTable } from './ClientsTable';
 import { ClientDrawer } from './ClientDrawer';
 import { isGlFilter } from '@/crm/lib/guestlist';
+import { CRM_MARKETING_LIVE } from '@/crm/lib/marketing';
 
 const PAGE = 12;
 const LIFE: Lifecycle[] = ['hab', 'occ', 'nou', 'end', 'none'];
@@ -218,7 +219,7 @@ export default function ClientsPage() {
           <p style={{ margin: 0, fontSize: 16, lineHeight: 1.45, fontWeight: 500, color: 'var(--sand-600)', textWrap: 'pretty', maxWidth: 640, ...reveal(intro, 260) }}>{t('yc.cli.sub')}</p>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, ...reveal(intro, 320) }}>
-          {caps.write && <Hv
+          {CRM_MARKETING_LIVE && caps.write && <Hv
             as={Link}
             to={CRM_ROUTES.imports}
             style={{ height: 46, padding: '0 20px 0 16px', borderRadius: 99, background: '#fff', border: '1px solid var(--sand-200)', boxShadow: 'var(--shadow-xs)', color: 'var(--ink)', fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', transition: `translate 240ms ${EASE},box-shadow 240ms,border-color 200ms` }}
@@ -227,7 +228,7 @@ export default function ClientsPage() {
           >
             <Icon name="upload" size={18} stroke={2.2} />{t('yc.cli.import')}
           </Hv>}
-          {ov && !empty && caps.write && (
+          {CRM_MARKETING_LIVE && ov && !empty && caps.write && (
             <Hv
               as="button"
               type="button"
@@ -308,7 +309,7 @@ export default function ClientsPage() {
       {selCount > 0 && caps.write && (
         <div role="toolbar" aria-label={t('yc.cli.list.selBar')} style={{ position: 'fixed', left: '50%', bottom: 28, translate: '-50% 0', zIndex: 50, display: 'flex', alignItems: 'center', gap: 6, padding: '8px 8px 8px 18px', borderRadius: 99, background: 'var(--ink)', color: '#fff', boxShadow: '0 18px 40px -12px rgba(28,21,23,.5)', animation: `yc-toast-in 360ms ${EASE}`, maxWidth: 'calc(100vw - 24px)' }}>
           <span style={{ fontSize: 14.5, fontWeight: 600, whiteSpace: 'nowrap', marginRight: 8, fontVariantNumeric: 'tabular-nums' }}>{tp('yc.cli.list.selected', selCount, { n: n(selCount) })}</span>
-          <Hv as="button" type="button" onClick={() => openWrite('bulk')} style={{ height: 38, padding: '0 18px', borderRadius: 99, border: 0, background: 'var(--gradient-brand)', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }} hover={{ filter: 'brightness(1.08)' }}>{t('yc.cli.list.bulkWrite')}</Hv>
+          {CRM_MARKETING_LIVE && <Hv as="button" type="button" onClick={() => openWrite('bulk')} style={{ height: 38, padding: '0 18px', borderRadius: 99, border: 0, background: 'var(--gradient-brand)', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }} hover={{ filter: 'brightness(1.08)' }}>{t('yc.cli.list.bulkWrite')}</Hv>}
           <BarBtn onClick={() => { setSaveSignal((x) => x + 1); goList(); }}>{t('yc.cli.list.bulkSeg')}</BarBtn>
           <BarBtn onClick={() => void doExport()}>{t('yc.cli.list.export')}</BarBtn>
           <Hv as="button" type="button" onClick={() => { setSel([]); setSelAll(false); }} aria-label={t('yc.cli.list.bulkCancel')} style={{ width: 38, height: 38, borderRadius: 99, border: 0, background: 'none', color: 'var(--text-on-night-2)', cursor: 'pointer', display: 'grid', placeItems: 'center' }} hover={{ background: 'rgba(255,255,255,.1)', color: '#fff' }}>

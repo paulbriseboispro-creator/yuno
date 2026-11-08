@@ -2,8 +2,10 @@
  * Routes de la Console Yuno CRM. Appelé en ligne dans <Routes> (App.tsx) :
  * `{crmRoutes()}`. Une page nouvelle se déclare ici ET dans `shell/nav.ts`.
  */
+import type { ReactElement } from 'react';
 import { Navigate, Route } from 'react-router-dom';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { CRM_MARKETING_LIVE } from './lib/marketing';
 
 const CrmGate = lazyWithRetry(() => import('./shell/CrmLayout').then((m) => ({ default: m.CrmGate })));
 const CrmLayout = lazyWithRetry(() => import('./shell/CrmLayout').then((m) => ({ default: m.CrmLayout })));
@@ -55,30 +57,35 @@ const SmsAccessGate = lazyWithRetry(() => import('./pages/sms/SmsAccessGate').th
 const PricingPage = lazyWithRetry(() => import('./pages/pricing/PricingPage'));
 const CrmPreviewGate = lazyWithRetry(() => import('./pages/preview/CrmPreviewGate'));
 
+/** Pause du 2026-11-08 : un écran d'envoi renvoie à l'accueil (`lib/marketing.ts`). */
+function mk(el: ReactElement) {
+  return CRM_MARKETING_LIVE ? el : <Navigate to="/crm" replace />;
+}
+
 export function crmRoutes() {
   return (
     <>
       {/* Éditeurs plein écran : même garde et même portée, sans menu. */}
       <Route path="/crm/emails/studio/:id" element={<CrmGate><CrmBareLayout /></CrmGate>}>
-        <Route index element={<EmailStudioPage />} />
+        <Route index element={mk(<EmailStudioPage />)} />
       </Route>
       <Route path="/crm/emails/send/:id" element={<CrmGate><CrmBareLayout /></CrmGate>}>
-        <Route index element={<EmailSendPage />} />
+        <Route index element={mk(<EmailSendPage />)} />
       </Route>
       {/* Scénarios : l'éditeur (flux vertical + inspecteur). */}
       <Route path="/crm/automations/scenarios/:id" element={<CrmGate><CrmBareLayout /></CrmGate>}>
-        <Route index element={<ScenarioEditorPage />} />
+        <Route index element={mk(<ScenarioEditorPage />)} />
       </Route>
       {/* Plan de soirée (agents, lot A1) : un rapport plein écran, imprimable. */}
       <Route path="/crm/nights/:id/plan" element={<CrmGate><CrmBareLayout /></CrmGate>}>
-        <Route index element={<NightPlanPage />} />
+        <Route index element={mk(<NightPlanPage />)} />
       </Route>
       {/* SMS en bêta privée : un compte non ouvert est renvoyé sur la page de demande d'accès. */}
       <Route path="/crm/sms/compose/:id" element={<CrmGate><CrmBareLayout /></CrmGate>}>
-        <Route index element={<SmsAccessGate redirect><SmsComposePage /></SmsAccessGate>} />
+        <Route index element={mk(<SmsAccessGate redirect><SmsComposePage /></SmsAccessGate>)} />
       </Route>
       <Route path="/crm/sms/send/:id" element={<CrmGate><CrmBareLayout /></CrmGate>}>
-        <Route index element={<SmsAccessGate redirect><SmsSendPage /></SmsAccessGate>} />
+        <Route index element={mk(<SmsAccessGate redirect><SmsSendPage /></SmsAccessGate>)} />
       </Route>
       {/* Tarifs : page PUBLIQUE (visiteurs comme abonnés), hors de la porte du compte. */}
       <Route path="/crm/tarifs" element={<PricingPage />} />
@@ -88,43 +95,43 @@ export function crmRoutes() {
         <Route index element={<HomePage />} />
         <Route path="clients" element={<ClientsPage />} />
         <Route path="segments" element={<SegmentsPage />} />
-        <Route path="imports" element={<ImportsPage />} />
+        <Route path="imports" element={mk(<ImportsPage />)} />
         <Route path="nights" element={<NightsPage />} />
         <Route path="nights/past" element={<NightsPage />} />
         <Route path="nights/:id" element={<NightRedirect />} />
-        <Route path="review" element={<WeeklyReviewPage />} />
-        <Route path="plans" element={<PlansPage />} />
-        <Route path="plans/:id" element={<PlanPage />} />
+        <Route path="review" element={mk(<WeeklyReviewPage />)} />
+        <Route path="plans" element={mk(<PlansPage />)} />
+        <Route path="plans/:id" element={mk(<PlanPage />)} />
         <Route path="connectors" element={<ConnectorsPage />} />
-        <Route path="emails" element={<EmailsOverviewPage />} />
-        <Route path="emails/campaigns" element={<EmailCampaignsPage />} />
-        <Route path="emails/templates" element={<EmailTemplatesPage />} />
-        <Route path="emails/results/:id" element={<EmailResultPage />} />
-        <Route path="emails/analysis" element={<EmailAnalysisPage />} />
-        <Route path="emails/health" element={<EmailHealthPage />} />
-        <Route path="emails/settings" element={<EmailSettingsPage />} />
-        <Route path="instagram" element={<InstagramPage />} />
-        <Route path="signup-pages" element={<SignupPagesPage />} />
-        <Route path="signup-pages/new" element={<SignupWizardPage />} />
-        <Route path="signup-pages/:id" element={<SignupDetailPage />} />
-        <Route path="signup-pages/:id/edit" element={<SignupWizardPage />} />
-        <Route path="signup-pages/:id/published" element={<SignupDonePage />} />
+        <Route path="emails" element={mk(<EmailsOverviewPage />)} />
+        <Route path="emails/campaigns" element={mk(<EmailCampaignsPage />)} />
+        <Route path="emails/templates" element={mk(<EmailTemplatesPage />)} />
+        <Route path="emails/results/:id" element={mk(<EmailResultPage />)} />
+        <Route path="emails/analysis" element={mk(<EmailAnalysisPage />)} />
+        <Route path="emails/health" element={mk(<EmailHealthPage />)} />
+        <Route path="emails/settings" element={mk(<EmailSettingsPage />)} />
+        <Route path="instagram" element={mk(<InstagramPage />)} />
+        <Route path="signup-pages" element={mk(<SignupPagesPage />)} />
+        <Route path="signup-pages/new" element={mk(<SignupWizardPage />)} />
+        <Route path="signup-pages/:id" element={mk(<SignupDetailPage />)} />
+        <Route path="signup-pages/:id/edit" element={mk(<SignupWizardPage />)} />
+        <Route path="signup-pages/:id/published" element={mk(<SignupDonePage />)} />
         <Route path="account" element={<AccountPage />} />
         <Route path="account/:section" element={<AccountPage />} />
-        <Route path="yunits" element={<YunitsPage />} />
+        <Route path="yunits" element={mk(<YunitsPage />)} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="analytics" element={<Navigate to="/crm/analytics/sales" replace />} />
         <Route path="analytics/:tab" element={<AnalyticsPage />} />
-        <Route path="journey" element={<JourneyPage />} />
-        <Route path="automations" element={<AutomationsPage />} />
+        <Route path="journey" element={mk(<JourneyPage />)} />
+        <Route path="automations" element={mk(<AutomationsPage />)} />
         {/* SMS en bêta privée : /crm/sms montre la demande d'accès tant que le compte n'est pas ouvert. */}
-        <Route path="sms" element={<SmsAccessGate><SmsOverviewPage /></SmsAccessGate>} />
-        <Route path="sms/campaigns" element={<SmsAccessGate redirect><SmsCampaignsPage /></SmsAccessGate>} />
-        <Route path="sms/templates" element={<SmsAccessGate redirect><SmsTemplatesPage /></SmsAccessGate>} />
-        <Route path="sms/results/:id" element={<SmsAccessGate redirect><SmsResultPage /></SmsAccessGate>} />
-        <Route path="sms/analysis" element={<SmsAccessGate redirect><SmsAnalysisPage /></SmsAccessGate>} />
-        <Route path="sms/settings" element={<SmsAccessGate redirect><SmsSettingsPage /></SmsAccessGate>} />
+        <Route path="sms" element={mk(<SmsAccessGate><SmsOverviewPage /></SmsAccessGate>)} />
+        <Route path="sms/campaigns" element={mk(<SmsAccessGate redirect><SmsCampaignsPage /></SmsAccessGate>)} />
+        <Route path="sms/templates" element={mk(<SmsAccessGate redirect><SmsTemplatesPage /></SmsAccessGate>)} />
+        <Route path="sms/results/:id" element={mk(<SmsAccessGate redirect><SmsResultPage /></SmsAccessGate>)} />
+        <Route path="sms/analysis" element={mk(<SmsAccessGate redirect><SmsAnalysisPage /></SmsAccessGate>)} />
+        <Route path="sms/settings" element={mk(<SmsAccessGate redirect><SmsSettingsPage /></SmsAccessGate>)} />
         <Route path="sms/*" element={<Navigate to="/crm/sms" replace />} />
       </Route>
       <Route path="/crm/*" element={<CrmPublicShell><NotFoundScreen /></CrmPublicShell>} />

@@ -14,6 +14,7 @@ import { useCrmScope } from '@/crm/scope';
 import type { CrmHome } from '@/crm/data/home';
 import { CRM_ROUTES } from '@/crm/shell/nav';
 import { TicketSplit } from '@/crm/components/TicketSplit';
+import { CRM_MARKETING_LIVE } from '@/crm/lib/marketing';
 
 type Next = NonNullable<CrmHome['next']>;
 
@@ -300,9 +301,9 @@ export function WhoBuysCard({ next, intro, cc, minNights }: { next: Next; intro:
         </div>
       </div>
       <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5, color: 'var(--sand-700)' }}><Rich text={insight} /></p>
-      <div style={{ marginTop: 'auto' }}>
+      {CRM_MARKETING_LIVE && <div style={{ marginTop: 'auto' }}>
         <ArrowLink to={`${CRM_ROUTES.emailTemplates}?start=${cta}`} size={15}>{t(cta === 'welcome' ? 'yc.home.who.ctaWelcome' : 'yc.home.who.ctaThanks')}</ArrowLink>
-      </div>
+      </div>}
     </Hv>
   );
 }

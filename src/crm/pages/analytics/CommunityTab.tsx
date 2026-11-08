@@ -20,6 +20,7 @@ import {
   bucketTitle, card, fadeIn, nightCard, useGo, xLabels, type TileSpec,
 } from './anaUi';
 import { jLabelFor } from './SalesTab';
+import { CRM_MARKETING_LIVE } from '@/crm/lib/marketing';
 
 type T = ReturnType<typeof useCrmT>;
 
@@ -138,7 +139,7 @@ export function CommunityTab({ q, f, setF }: { q: UseQueryResult<AnaCommunity>; 
   const wake = [
     { big: d.wake.end.n, t: t('yc.ana.c2.w.end'), s: t('yc.ana.c2.w.endS', { m: d.rules.lapse_months, r: n(d.wake.end.reachable) }), cta: t('yc.ana.c2.w.endCta'), to: `${CRM_ROUTES.clients}?s=end` },
     { big: d.wake.once.n, t: t('yc.ana.c2.w.once'), s: t('yc.ana.c2.w.onceS', { r: n(d.wake.once.reachable) }), cta: t('yc.ana.c2.w.onceCta'), to: `${CRM_ROUTES.clients}?nb=1` },
-    d.wake.hab_no_ticket
+    CRM_MARKETING_LIVE && d.wake.hab_no_ticket
       ? { big: d.wake.hab_no_ticket.n, t: t('yc.ana.c2.w.hab'), s: t('yc.ana.c2.w.habS', { title: d.wake.hab_no_ticket.title }), cta: t('yc.ana.c2.w.habCta'), to: `${CRM_ROUTES.emailTemplates}?start=lastcall&event=${d.wake.hab_no_ticket.event_id}` }
       : { big: Number(lc.hab), t: t('yc.ana.c2.w.habAll'), s: t('yc.ana.c2.w.habAllS'), cta: t('yc.ana.c2.w.habAllCta'), to: `${CRM_ROUTES.clients}?s=hab` },
   ];
@@ -186,7 +187,7 @@ export function CommunityTab({ q, f, setF }: { q: UseQueryResult<AnaCommunity>; 
                 tipPrev={(x) => `${v.ev ? t('yc.ana.prevNight') : t('yc.ana.prevPeriod')} : ${n(x)}`}
                 xl={xLabels(m, T, jl)}
               />
-              <Takeaway cta={t('yc.ana.c2.insCta')} onCta={() => navigate(CRM_ROUTES.automations)}>{t('yc.ana.c2.ins')}</Takeaway>
+              <Takeaway cta={CRM_MARKETING_LIVE ? t('yc.ana.c2.insCta') : undefined} onCta={CRM_MARKETING_LIVE ? () => navigate(CRM_ROUTES.automations) : undefined}>{t('yc.ana.c2.ins')}</Takeaway>
             </div>
           )}
         </section>
