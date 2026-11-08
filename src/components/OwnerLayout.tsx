@@ -9,6 +9,7 @@ import { useOwnerVenueContext } from '@/contexts/OwnerVenueContext';
 import { useAccountProductFor } from '@/lib/crmProduct';
 import { isCrmPathAllowed } from '@/components/crm/crmNav';
 import { crmConsoleTarget } from '@/lib/crmConsoleRedirect';
+import { ticketsMarketingHidden } from '@/lib/ticketsMarketing';
 
 function OwnerLayoutInner() {
   const { venueId } = useOwnerVenueContext();
@@ -19,6 +20,8 @@ function OwnerLayoutInner() {
   // La Console CRM (/crm) remplace les pages CRM de la Suite qui y ont leur équivalent.
   const crmTarget = isCrm && !productLoading ? crmConsoleTarget(pathname, '/owner') : null;
   if (crmTarget) return <Navigate to={crmTarget} replace />;
+  // Yuno en pause (2026-11-08) : marketing, promoteurs et DJ renvoient à l'accueil.
+  if (ticketsMarketingHidden(pathname)) return <Navigate to="/owner/dashboard" replace />;
   if (isCrm && !productLoading && !isCrmPathAllowed(pathname, '/owner')) {
     return <Navigate to="/owner/dashboard" replace />;
   }

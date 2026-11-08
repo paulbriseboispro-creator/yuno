@@ -15,6 +15,7 @@ import { useStripeConnect } from '@/hooks/useStripeConnect';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { UpgradeModal } from '@/components/UpgradeModal';
 import { NextBestActionsCard } from '@/components/owner/NextBestActionsCard';
+import { TICKETS_MARKETING_LIVE } from '@/lib/ticketsMarketing';
 import { UpcomingEventsBoard } from '@/components/events-sales/UpcomingEventsBoard';
 import { RecentNightsKpis } from '@/components/analytics/families/RecentNightsKpis';
 import { CollabActivateBanner } from '@/components/collab/CollabActivateBanner';
@@ -220,7 +221,8 @@ export default function OwnerDashboard() {
         )}
 
         {/* ─── À faire aujourd'hui (next-best-action IA) ─── */}
-        <NextBestActionsCard />
+        {/* Pause du 2026-11-08 : l'IA ne propose plus d'envois (et ne coûte plus d'appel). */}
+        {TICKETS_MARKETING_LIVE && <NextBestActionsCard />}
 
         {/* Les chiffres des dernières soirées : MÊME source que Ventes. */}
         <RecentNightsKpis venueId={venueId} salesHref="/owner/analytics?tab=sales&view=overview" />

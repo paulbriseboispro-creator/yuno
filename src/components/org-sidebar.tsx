@@ -69,6 +69,7 @@ import { SidebarProThemeSwitch } from "@/components/ProThemeSwitch";
 import { buildCrmNavGroups } from "@/components/crm/crmNav";
 import { useAccountProductFor } from "@/lib/crmProduct";
 import { OpenCrmSidebarLink } from "@/components/crm/OpenCrmSidebarLink";
+import { pruneTicketsMarketingNav } from "@/lib/ticketsMarketing";
 
 type TT = (fr: string, en: string, es?: string) => string;
 
@@ -345,7 +346,7 @@ export function OrgAppSidebar() {
 	const { can, organizationName, organizationLogoUrl, organizerId } = useActingOrganizer();
 	// Yuno CRM : une organisation qui garde sa billetterie a sa propre barre.
 	const { isCrm, hasCrm } = useAccountProductFor({ organizerUserId: organizerId });
-	const navGroups = filterNavGroups(isCrm ? buildCrmNavGroups(t, "/organizer-app", metaLive) : buildOrgNavGroups(tt, t, metaLive, tixAnalyses, tixClients), can);
+	const navGroups = filterNavGroups(isCrm ? buildCrmNavGroups(t, "/organizer-app", metaLive) : pruneTicketsMarketingNav(buildOrgNavGroups(tt, t, metaLive, tixAnalyses, tixClients)), can);
 	const footerNavLinks = buildOrgFooterNavLinks(tt);
 
 	return (

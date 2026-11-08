@@ -20,6 +20,7 @@ import { SidebarProThemeSwitch } from "@/components/ProThemeSwitch";
 import { buildCrmNavGroups } from "@/components/crm/crmNav";
 import { useAccountProductFor } from "@/lib/crmProduct";
 import { OpenCrmSidebarLink } from "@/components/crm/OpenCrmSidebarLink";
+import { pruneTicketsMarketingNav } from "@/lib/ticketsMarketing";
 
 export function AppSidebar() {
 	const { t } = useLanguage();
@@ -29,7 +30,7 @@ export function AppSidebar() {
 	const tixClients = useTixClientsLive();
 	// Yuno CRM : un club qui garde sa billetterie a sa propre barre.
 	const { isCrm, hasCrm } = useAccountProductFor({ venueId });
-	const navGroups = isCrm ? buildCrmNavGroups(t, "/owner", metaLive) : buildNavGroups(t, metaLive, tixAnalyses, tixClients);
+	const navGroups = isCrm ? buildCrmNavGroups(t, "/owner", metaLive) : pruneTicketsMarketingNav(buildNavGroups(t, metaLive, tixAnalyses, tixClients));
 	const footerNavLinks = buildFooterNavLinks(t);
 
 	return (

@@ -1,3 +1,5 @@
+import { Navigate, useLocation } from 'react-router-dom';
+import { ticketsMarketingHidden } from '@/lib/ticketsMarketing';
 import { RequireRole } from './RequireRole';
 import { RequireStaffSession } from './RequireStaffSession';
 import { ManagerVenueProvider, useManagerVenueContext } from '@/contexts/ManagerVenueContext';
@@ -13,6 +15,9 @@ interface ManagerRouteProps {
 function ManagerVenueGate({ children }: { children: React.ReactNode }) {
   const { venueId, loading, error } = useManagerVenueContext();
   const { t } = useLanguage();
+  const { pathname } = useLocation();
+  // Yuno en pause (2026-11-08) : marketing, promoteurs et DJ renvoient à l'accueil.
+  if (ticketsMarketingHidden(pathname)) return <Navigate to="/manager/dashboard" replace />;
 
   if (loading) {
     return (

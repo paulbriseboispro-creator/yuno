@@ -32,6 +32,7 @@ import {
   Radio,
   Crown
 } from 'lucide-react';
+import { ticketsMarketingHidden } from '@/lib/ticketsMarketing';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
@@ -313,7 +314,7 @@ export default function ManagerDashboard() {
     },
   ];
 
-  const allowedCards = dashboardCards.filter(card => card.permission);
+  const allowedCards = dashboardCards.filter(card => card.permission && !ticketsMarketingHidden(card.path));
 
   return (
     <div className="min-h-screen pb-28" style={{ background: 'var(--sf-000000)' }}>
