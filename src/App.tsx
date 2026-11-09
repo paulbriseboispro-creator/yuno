@@ -14,6 +14,7 @@ import { VenueNavProvider } from "./contexts/VenueNavContext";
 import { OnboardingGate } from "./components/OnboardingGate";
 import { DashboardModeProvider } from "./contexts/DashboardModeContext";
 import { DRINKS_PILLAR_LIVE } from "@/lib/drinksPillar";
+import { PLATFORM_DOWN } from "@/lib/platformDown";
 import { crmRoutes } from "@/crm/routes";
 // Pilier boissons en pause (2026-10-01, src/lib/drinksPillar.ts) : les routes
 // du système boissons restent déclarées mais redirigent tant que le pilier
@@ -312,6 +313,7 @@ const ClubMap = lazyWithRetry(() => import("./pages/ClubMap"));
 const LiveMode = lazyWithRetry(() => import("./pages/LiveMode"));
 const ProHome = lazyWithRetry(() => import("./pages/pro/ProHome"));
 const Maintenance = lazyWithRetry(() => import("./pages/Maintenance"));
+const ServiceDown = lazyWithRetry(() => import("./pages/ServiceDown"));
 const CrmMaintenance = lazyWithRetry(() => import("./crm/errors/CrmMaintenance"));
 const AdminCrmLayout = lazyWithRetry(() => import("./crm/admin/AdminCrmLayout"));
 const AdminCrmLogin = lazyWithRetry(() => import("./crm/admin/AdminLogin"));
@@ -432,8 +434,21 @@ import { RouteSkeleton } from './components/skeletons/RouteSkeleton';
 // pas un dashboard pro générique.
 const PageLoader = () => <RouteSkeleton />;
 
-// Component to check maintenance mode and bypass for super admins or password
+// Maintenance d'urgence : backend injoignable, donc rien à lire en base. Un
+// interrupteur compilé (`PLATFORM_DOWN`) montre l'écran statique à tout le monde.
 function MaintenanceWrapper({ children }: { children: React.ReactNode }) {
+  if (PLATFORM_DOWN) {
+    return (
+      <Suspense fallback={null}>
+        <ServiceDown />
+      </Suspense>
+    );
+  }
+  return <MaintenanceGate>{children}</MaintenanceGate>;
+}
+
+// Component to check maintenance mode and bypass for super admins or password
+function MaintenanceGate({ children }: { children: React.ReactNode }) {
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
   const [maintenanceMessage, setMaintenanceMessage] = useState<string | null>(null);
   const { pathname } = useLocation();
