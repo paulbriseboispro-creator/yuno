@@ -9,4 +9,4 @@
  *
  * Pour rouvrir : repasser à `false`, redéployer.
  */
-export const PLATFORM_DOWN = true;
+export const PLATFORM_DOWN = false;
