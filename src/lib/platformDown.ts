@@ -4,9 +4,11 @@
  * injoignable. Cette constante, compilée dans le bundle, affiche l'écran
  * statique `ServiceDown` à TOUS les visiteurs, sur toutes les routes.
  *
- * Mise en service : 2026-11-09, projet Supabase restreint (HTTP 402,
- * `exceed_storage_size_quota`, Fair Use Policy) jusqu'à levée de la restriction.
+ * Mise en service : 2026-11-10, projet Supabase rétrogradé en offre gratuite
+ * (en attente du remboursement Supabase et de l'activation du free plan).
+ * Historique : 2026-11-09, projet restreint (HTTP 402,
+ * `exceed_storage_size_quota`, Fair Use Policy).
  *
  * Pour rouvrir : repasser à `false`, redéployer.
  */
-export const PLATFORM_DOWN = false;
+export const PLATFORM_DOWN = true;
