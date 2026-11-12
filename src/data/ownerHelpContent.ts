@@ -722,7 +722,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'ShoppingCart',
         actionLink: { labelKey: 'ohelp.action.goToOrders', path: '/orders' },
         relatedArticleIds: ['refund-management', 'menu-setup', 'understand-analytics'],
-        keywords: ['order', 'commande', 'drinks', 'boissons', 'tickets', 'tables', 'statut', 'status', 'paid', 'payé', 'served', 'servi', 'token', 'historique', 'recherche', 'search', 'buscar', 'pedido'],
+        keywords: ['order', 'commande', 'provenance', 'source', 'origen', 'drinks', 'boissons', 'tickets', 'tables', 'statut', 'status', 'paid', 'payé', 'served', 'servi', 'token', 'historique', 'recherche', 'search', 'buscar', 'pedido'],
         sections: [
           { headingKey: 'ohelp.pg.orders.s1h', bodyKey: 'ohelp.pg.orders.s1b' },
           { headingKey: 'ohelp.pg.orders.s2h', bodyKey: 'ohelp.pg.orders.s2b', screenshotUrl: '/help/owner-orders.webp' },
@@ -730,6 +730,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.pg.orders.s4h', bodyKey: 'ohelp.pg.orders.s4b' },
           { headingKey: 'ohelp.pg.orders.s5h', bodyKey: 'ohelp.pg.orders.s5b', type: 'tip' },
           { headingKey: 'ohelp.pg.orders.s6h', bodyKey: 'ohelp.pg.orders.s6b' },
+          { headingKey: 'ohelp.pg.orders.s7h', bodyKey: 'ohelp.pg.orders.s7b' },
         ],
       },
       {

@@ -6845,3 +6845,27 @@ chacun avec ses rounds ou options), design validé le 04/11. Migration
   une carte dans une carte. Un pack sans billet visible ne s'affiche pas.
 - Pas encore repris : les modèles de billetterie libre et les séries
   récurrentes ne gardent pas les packs ; l'IA (`set_ticketing`) ne les écrit pas.
+
+## Provenance d'une commande : un canal et un nom figés sur la vente (2026-11-12)
+
+Demande de Paul : savoir d'où vient chaque commande, et comprendre la clientèle (Instagram, promoteurs,
+DJ…). Migration `20261212100000_sale_source_channel.sql`, mots `src/lib/saleSource.ts` (testé), Console :
+`components/orders/SaleSource.tsx` (pastille de la liste + carte « Provenance » des Commandes billets,
+tables, guest list), Clients : `tickets/clients/ClientSources.tsx` (fiche client, « D'où viennent vos
+clients » sous la vue d'ensemble). Règles :
+
+- **`attribution_channel` + `attribution_label` sur `tickets`, `table_reservations`, `guest_list_entries`**,
+  posés par la BASE seule (`trg_zz_sale_source_channel`, BEFORE INSERT/UPDATE, après tous les `trg_stamp_*`,
+  recalculé dès que `attribution_source` / `attribution_ref` / `tracked_link_id` change). Règle unique
+  `sale_source_resolve` : porte (`purchase_source` manuel) > promoteur > lien suivi (`sale_channel_from_link` :
+  rôle du partenaire, DJ, co-hôte, réseau, nom du lien) > liste guest list tenue par un DJ / promoteur /
+  agence / invité > campagne e-mail > code promo > visite (`sale_channel_from_visit`) > vocabulaire
+  d'attribution. `attribution_source` ne change pas : il reste le vocabulaire des Analyses.
+- Canaux (fermés, miroir `SALE_CHANNELS`) : promoter, dj, partner, instagram, tiktok, facebook, whatsapp,
+  social, ads, email, sms, link, qr, promo_code, yuno, search, web, door, direct. Un canal ajouté = la règle
+  SQL, `SALE_CHANNELS`, ses mots ×3, sa famille.
+- **Une vente attribuée par sa visite retrouve son lien suivi** (`sale_link_from_visit` : soirée + UTM, un
+  seul lien, jamais un lien de promoteur) : les compteurs des liens partenaires remontent d'autant.
+- Lectures : `tix_client_sources(portée, email)`, `tix_clients_source_mix(portée, jours)` (porte
+  `_tix_allowed`, sans table temporaire). Canal PRINCIPAL d'un client = celui de la plupart de ses
+  commandes, « direct » et la porte ne comptant pas dès qu'un canal connu existe.
