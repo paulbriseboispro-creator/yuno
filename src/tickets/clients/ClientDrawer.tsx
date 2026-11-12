@@ -21,6 +21,7 @@ import type { ClientCard, SaleSourceLabel } from '@/tickets/clients/data/clients
 import { LIFECYCLE_AVATAR, LIFECYCLE_COLOR, fullName, initials, relDays } from '@/tickets/clients/lib/lifecycle';
 import { LoadError } from '@/tickets/analytics/LoadError';
 import { ClientDoor } from './ClientDoor';
+import { ClientSourcesCard } from './ClientSources';
 
 const TL_ICON = {
   buy: 'M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0',
@@ -374,6 +375,9 @@ function CardBody({ card: c, onWrite }: { card: ClientCard; onWrite: () => void 
           </span>
         </div>
       )}
+
+      {/* Par où cette personne arrive : canal par canal, avec les noms. */}
+      <ClientSourcesCard email={c.email} />
 
       <div style={{ display: 'flex', gap: 12, padding: '16px 18px', borderRadius: 16, background: 'var(--ya-red-50)' }}>
         <span style={{ flex: 'none', width: 8, height: 8, marginTop: 7, borderRadius: 99, background: 'var(--ya-red-500)' }} />

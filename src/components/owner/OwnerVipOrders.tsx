@@ -10,6 +10,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { tableRevenue } from '@/utils/fees';
 import { formatMoneyAuto } from '@/lib/money';
+import { SaleSourceCard, SaleSourceChip } from '@/components/orders/SaleSource';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED     = '#E8192C';
@@ -62,6 +63,9 @@ interface VipOrder {
   eventTimezone: string | null;
   venueName: string | null;
   zoneName: string | null;
+  /** Provenance figée sur la vente (canal + nom, `sale_source_resolve`). */
+  sourceChannel: string | null;
+  sourceLabel: string | null;
 }
 
 interface OwnerVipOrdersProps {
@@ -164,6 +168,8 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
         eventTimezone: r.events.timezone ?? null,
         venueName: r.events.venues?.name ?? r.events.partner_venue?.name ?? null,
         zoneName: r.table_zones?.name || null,
+        sourceChannel: r.attribution_channel ?? null,
+        sourceLabel: r.attribution_label ?? null,
       }));
       setReservations(mapped);
     } catch (error) {
@@ -302,8 +308,9 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
                     <div style={{ color: T1, fontSize: 13, fontWeight: 560 }} className="truncate">
                       {res.fullName ?? res.userEmail}
                     </div>
-                    <div style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>
+                    <div style={{ color: T3, fontSize: 11.5, marginTop: 1 }} className="flex items-center gap-1.5">
                       {format(new Date(res.createdAt), 'dd/MM HH:mm', { locale: dateLocale })}
+                      <SaleSourceChip channel={res.sourceChannel} label={res.sourceLabel} />
                     </div>
                   </div>
                   <span style={{ color: T2, fontSize: 12 }} className="truncate">{res.zoneName ?? '—'}</span>
@@ -374,6 +381,8 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
                   </p>
                 )}
               </div>
+
+              <SaleSourceCard channel={selectedReservation.sourceChannel} label={selectedReservation.sourceLabel} email={selectedReservation.userEmail} />
 
               <div>
                 <p style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 8 }}>{t('owner.items')}</p>

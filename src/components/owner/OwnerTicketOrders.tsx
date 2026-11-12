@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { fetchMinorDocsByEvents, minorDocKey, ageFromBirthDate, type MinorDoc } from '@/lib/minorTicketDocs';
 import { formatMoneyAuto } from '@/lib/money';
 import { TicketEmailBouncePanel } from '@/components/owner/TicketEmailBouncePanel';
+import { SaleSourceCard, SaleSourceChip } from '@/components/orders/SaleSource';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED     = '#E8192C';
@@ -70,6 +71,9 @@ interface TicketOrder {
   venueName: string | null;
   roundName: string;
   qrCode: string | null;
+  /** Provenance figée sur la vente (canal + nom, `sale_source_resolve`). */
+  sourceChannel: string | null;
+  sourceLabel: string | null;
 }
 
 interface OwnerTicketOrdersProps {
@@ -208,6 +212,8 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
         venueName: t.events.venues?.name ?? t.events.partner_venue?.name ?? null,
         roundName: ticketDisplayName(t.ticket_rounds.name, t.ticket_rounds.group_label),
         qrCode: t.qr_code,
+        sourceChannel: t.attribution_channel ?? null,
+        sourceLabel: t.attribution_label ?? null,
       }));
       setTickets(mapped);
 
@@ -353,6 +359,7 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
                       <Ticket className="w-3 h-3 inline" />
                       {ticket.quantity}× {ticket.roundName}
                       {ticket.ticketType === 'vip' && <span style={{ color: 'var(--acc-fcd34d)', marginLeft: 4 }}>VIP</span>}
+                      <span className="ml-1"><SaleSourceChip channel={ticket.sourceChannel} label={ticket.sourceLabel} /></span>
                     </div>
                   </div>
                   <div className="min-w-0">
@@ -411,6 +418,8 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
                 <p style={{ color: T2, fontSize: 13 }}>{selectedTicket.userEmail}</p>
                 {selectedTicket.phone && <p style={{ color: T2, fontSize: 13 }}>{selectedTicket.phone}</p>}
               </div>
+
+              <SaleSourceCard channel={selectedTicket.sourceChannel} label={selectedTicket.sourceLabel} email={selectedTicket.userEmail} />
 
               {/* Les autres personnes du billet : nom + e-mail saisis par l'acheteur. */}
               {guests.length > 0 && (

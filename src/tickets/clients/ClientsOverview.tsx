@@ -1,7 +1,8 @@
 /**
  * Haut de l'écran Clients : « Votre base de clients » (total, courbe des 30
  * jours, répartition par cycle de vie, endormis) et trois chiffres —
- * joignables, reviennent, dépense moyenne — chacun avec son lien vers la liste.
+ * joignables, reviennent, dépense moyenne — chacun avec son lien vers la liste,
+ * puis « D'où viennent vos clients » (`ClientsSourceMix`).
  */
 import { useState } from 'react';
 import { Hv } from '@/crm/ui/Hv';
@@ -10,6 +11,7 @@ import { clamp01, reveal, wipe } from '@/crm/ui/motion';
 import { useTixT } from '@/tickets/analytics/i18n';
 import type { ClientsOverview as Overview, Lifecycle } from '@/tickets/clients/data/clients';
 import { LIFECYCLE_COLOR } from '@/tickets/clients/lib/lifecycle';
+import { ClientsSourceMix } from './ClientSources';
 
 export function ClientsOverview({
   data, intro, cc, onSeg, onUnreachable, onOnce, onSpend,
@@ -187,6 +189,8 @@ export function ClientsOverview({
           cta={sp !== null ? t('ya.cli.kpi.spendCta') : null} onCta={onSpend}
         />
       </div>
+      {/* D'où viennent les clients : chacun sous le canal de la plupart de ses commandes. */}
+      <ClientsSourceMix />
     </div>
   );
 }

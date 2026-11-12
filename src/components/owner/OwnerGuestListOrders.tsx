@@ -8,6 +8,7 @@ import { RosterExportDialog } from '@/components/roster/RosterExportDialog';
 import { buildGuestListRoster } from '@/lib/rosterBuilders';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
+import { SaleSourceCard, SaleSourceChip } from '@/components/orders/SaleSource';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED     = '#E8192C';
@@ -69,6 +70,9 @@ interface GuestEntry {
   scannedAt: string | null;
   createdAt: string;
   reservationCode: string | null;
+  /** Provenance figée sur l'inscription (canal + nom, `sale_source_resolve`). */
+  sourceChannel: string | null;
+  sourceLabel: string | null;
 }
 
 interface OwnerGuestListOrdersProps {
@@ -192,7 +196,7 @@ export function OwnerGuestListOrders({ venueId, eventIds, focusOrderId }: OwnerG
       // 4. Les inscrits.
       const { data: rows, error: entryError } = await supabase
         .from('guest_list_entries')
-        .select('id, guest_list_id, full_name, email, phone, gender, entry_type, status, entry_scanned, entry_scanned_at, reservation_code, created_at')
+        .select('id, guest_list_id, full_name, email, phone, gender, entry_type, status, entry_scanned, entry_scanned_at, reservation_code, created_at, attribution_channel, attribution_label')
         .in('guest_list_id', [...partInfo.keys()])
         .order('created_at', { ascending: false });
       if (entryError) throw entryError;
@@ -218,6 +222,8 @@ export function OwnerGuestListOrders({ venueId, eventIds, focusOrderId }: OwnerG
           scannedAt: r.entry_scanned_at ?? null,
           createdAt: r.created_at,
           reservationCode: r.reservation_code ?? null,
+          sourceChannel: r.attribution_channel ?? null,
+          sourceLabel: r.attribution_label ?? null,
         }];
       });
       setEntries(mapped);
@@ -361,7 +367,10 @@ export function OwnerGuestListOrders({ venueId, eventIds, focusOrderId }: OwnerG
                   onClick={() => setSelected(entry)}
                 >
                   <div className="min-w-0">
-                    <div style={{ color: T1, fontSize: 13, fontWeight: 560 }} className="truncate">{entry.fullName}</div>
+                    <div style={{ color: T1, fontSize: 13, fontWeight: 560 }} className="truncate flex items-center gap-1.5">
+                      <span className="truncate">{entry.fullName}</span>
+                      <SaleSourceChip channel={entry.sourceChannel} label={entry.sourceLabel} />
+                    </div>
                     <div style={{ color: T3, fontSize: 11.5, marginTop: 1 }} className="truncate">{entry.email}</div>
                   </div>
                   <div className="min-w-0">
@@ -440,6 +449,8 @@ export function OwnerGuestListOrders({ venueId, eventIds, focusOrderId }: OwnerG
                   <p style={{ color: T3, fontSize: 12 }}>{t('owner.gl.code')}: <span className="tabular-nums" style={{ color: T2 }}>{selected.reservationCode}</span></p>
                 )}
               </div>
+
+              <SaleSourceCard channel={selected.sourceChannel} label={selected.sourceLabel} email={selected.email} />
             </div>
           )}
         </DialogContent>
