@@ -337,8 +337,16 @@ export interface AnaVisits {
   };
   /** Période : visites (`v`) et visiteurs (`u`) par case et par famille. */
   series: { v: Partial<Record<VisitFam, number>>; u: Partial<Record<VisitFam, number>>; visitors: number }[] | null;
-  /** Une soirée : visites cumulées de J-n à J (null après aujourd'hui), et la soirée comparée. */
-  curve: { cur: (number | null)[]; prev: number[] | null } | null;
+  /**
+   * Une soirée : visites cumulées de J-n à J (null après aujourd'hui), et la soirée comparée.
+   * `avg` / `avg_day` : moyenne des dernières soirées terminées (`avg_nights`, deux au moins,
+   * sinon null), cumulée et jour par jour, au même jour avant leur soirée.
+   */
+  curve: {
+    cur: (number | null)[]; prev: number[] | null;
+    avg?: number[] | null; avg_day?: number[] | null;
+    avg_nights?: { id: string; title: string; start_at: string }[] | null;
+  } | null;
   sources: VisitSource[];
   engagement: {
     measured: number;

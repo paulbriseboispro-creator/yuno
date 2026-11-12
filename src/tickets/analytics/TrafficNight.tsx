@@ -2,15 +2,18 @@
  * Yuno Tickets › Analyses › Trafic d'UNE soirée (`?e=`, lot T3 du plan Trafic) :
  * qui regarde cette soirée, depuis quand, d'où, et combien passent à l'achat.
  * Comparée à une autre soirée (`?ce=`, sinon la précédente de la série) AU MÊME
- * JOUR avant la soirée : la courbe cumulée des visites depuis la publication,
- * les visiteurs, le temps passé, le passage à l'achat. Lecture : le mode
- * soirée de `tix_ana_visits`.
+ * JOUR avant la soirée : la courbe des visites depuis la publication, cumulée
+ * ou jour par jour, contre la soirée comparée ou la moyenne des dernières
+ * soirées terminées (13/11) ; puis les visiteurs, le temps passé, le passage à
+ * l'achat. Lecture : le mode soirée de `tix_ana_visits`.
  */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useProgress } from '@/crm/ui/motion';
 import { niceTop, COARSE_STEPS } from '@/crm/lib/axis';
 import { useTixT } from '@/tickets/analytics/i18n';
+import { Segmented } from '@/tickets/analytics/kit';
+import { dailyFromCumulative, headlineDayIndex } from '@/tickets/analytics/visitsCurve';
 import { useTixNights } from '@/tickets/analytics/scope';
 import type { AnaFilters, AnaTab, AnaVisits, VisitFam } from '@/tickets/analytics/data';
 import {
@@ -44,14 +47,16 @@ export function TrafficNight({ q, f, setF, goTab }: { q: UseQueryResult<AnaVisit
   const prog = useProgress(1000, 0, dataKey, !loading);
   const jl = jLabelFor(t);
   const scopeNights = useTixNights();
+  // La courbe : cumulée ou jour par jour, contre la soirée comparée ou la moyenne.
+  const [metric, setMetric] = useState<'cum' | 'day'>('cum');
+  const [cmpPick, setCmpPick] = useState<'night' | 'avg'>('night');
 
   const view = useMemo(() => {
     if (!d || !ready || !d.curve) return null;
     const cur = d.curve.cur;
     const prev = d.curve.prev;
     const lastI = (() => { let k = cur.length - 1; while (k > 0 && cur[k] === null) k--; return k; })();
-    const top = niceTop(Math.max(1, ...cur.map((x) => x ?? 0), ...(prev ?? [])), { headroom: 1.08, empty: 1, steps: COARSE_STEPS });
-    return { cur, prev, lastI, top };
+    return { cur, prev, lastI };
   }, [d, ready]);
 
   if (!d || !ready || !view) {
@@ -80,6 +85,32 @@ export function TrafficNight({ q, f, setF, goTab }: { q: UseQueryResult<AnaVisit
     ? (tt.median_s === tt.prev_median_s ? { up: true, text: '=' } : { up: tt.median_s > tt.prev_median_s, text: `${tt.median_s > tt.prev_median_s ? '▲' : '▼'} ${fmtDur(T, Math.abs(tt.median_s - tt.prev_median_s))}` })
     : null;
   const vsP = pev ? t('ya.tv.ev.vs', { title: `${pev.title} (${dShort(pev.start_at)})`, j: upcoming ? jNow : '' }).replace(/\s+$/, '') : '';
+  // ── La courbe du héros ──
+  const avgNights = d.curve?.avg_nights ?? [];
+  const avgN = avgNights.length;
+  const avgOk = avgN >= 2 && !!d.curve?.avg && !!d.curve?.avg_day;
+  const nightOk = !!(view.prev && pev);
+  const cmp: 'night' | 'avg' | null = cmpPick === 'avg' && avgOk ? 'avg' : nightOk ? 'night' : avgOk ? 'avg' : null;
+  const perDay = metric === 'day';
+  const curS = perDay ? dailyFromCumulative(view.cur) : view.cur;
+  const compS: (number | null)[] | null = cmp === 'avg'
+    ? (perDay ? d.curve!.avg_day! : d.curve!.avg!)
+    : cmp === 'night' ? (perDay ? dailyFromCumulative(view.prev!) : view.prev) : null;
+  const top = niceTop(Math.max(1, ...curS.map((x) => x ?? 0), ...(compS ?? []).map((x) => x ?? 0)), { headroom: 1.08, empty: 1, steps: COARSE_STEPS });
+  // Le chiffre mis en avant : le cumul à date, ou les visites d'un seul jour (la veille d'une soirée à venir).
+  const dI = perDay ? headlineDayIndex(view.lastI, upcoming) : view.lastI;
+  const jAt = jl(m.n - 1 - dI);
+  const heroVal = perDay ? curS[dI] ?? 0 : tt.visits;
+  const compAt = compS ? compS[dI] ?? 0 : null;
+  const cmpLabel = cmp === 'avg'
+    ? t('ya.tv.ev.vsAvg', { n: avgN, j: perDay || upcoming ? jAt : '' }).replace(/\s+$/, '')
+    : pev ? t('ya.tv.ev.vs', { title: `${pev.title} (${dShort(pev.start_at)})`, j: perDay || upcoming ? jAt : '' }).replace(/\s+$/, '') : '';
+  // Cumul contre la soirée : les totaux (comme les tuiles). Sinon : les deux courbes au même point.
+  const heroDelta = cmp === null ? null
+    : cmp === 'night' && !perDay ? vD
+    : deltaPct(cmp === 'avg' && !perDay ? view.cur[view.lastI] ?? 0 : heroVal, compAt ?? 0, T);
+  const compShown = cmp === 'night' && !perDay ? n(tt.prev_visits) : compAt !== null ? `${cmp === 'avg' ? '≈ ' : ''}${n(Math.round(compAt))}` : '';
+  const todaySoFar = perDay && upcoming && dI < view.lastI ? curS[view.lastI] ?? 0 : null;
   const kb = d.known_before;
   // Visites de chaque jour (la courbe est cumulée) : l'étincelle de la tuile Visiteurs.
   const daily = view.cur.slice(0, view.lastI + 1).map((x, i, a) => (x ?? 0) - (i ? a[i - 1] ?? 0 : 0));
@@ -99,8 +130,9 @@ export function TrafficNight({ q, f, setF, goTab }: { q: UseQueryResult<AnaVisit
     return jl(m.n - 1 - i);
   });
   const lines = [
-    { name: `${ev.title} · ${dShort(ev.start_at)}`, c: 'var(--ya-red-500)', w: 3, dash: '', vals: view.cur },
-    ...(view.prev && pev ? [{ name: t('ya.tv.ev.prevLine', { title: `${pev.title} · ${dShort(pev.start_at)}` }), c: 'var(--ya-ink)', w: 2, dash: '5 5', vals: view.prev as (number | null)[] }] : []),
+    { name: `${ev.title} · ${dShort(ev.start_at)}`, c: 'var(--ya-red-500)', w: 3, dash: '', vals: curS },
+    ...(compS && cmp === 'night' && pev ? [{ name: t('ya.tv.ev.prevLine', { title: `${pev.title} · ${dShort(pev.start_at)}` }), c: 'var(--ya-ink)', w: 2, dash: '5 5', vals: compS }] : []),
+    ...(compS && cmp === 'avg' ? [{ name: t('ya.tv.ev.avgLine', { n: avgN }), c: 'var(--ya-sand-500)', w: 2, dash: '2 5', vals: compS }] : []),
   ];
   // Sources de la soirée, triées par visites.
   const src = [...d.sources].sort((a, b) => b.visits - a.visits);
@@ -143,16 +175,34 @@ export function TrafficNight({ q, f, setF, goTab }: { q: UseQueryResult<AnaVisit
 
       {/* Héros : la courbe cumulée */}
       <section style={{ ...card, gap: 18, padding: 'clamp(20px,2.4vw,32px)', background: 'radial-gradient(60% 50% at 100% 0%,rgba(232,25,44,.07),transparent 70%),var(--ya-card)', boxShadow: 'inset 0 0 0 1px var(--ya-border),var(--ya-card-shadow)' }}>
-        <CardHead title={t('ya.tv.ev.heroT')} sub={t('ya.tv.ev.heroSub')} />
+        <CardHead
+          title={t('ya.tv.ev.heroT')}
+          sub={t(perDay ? 'ya.tv.ev.heroSubDay' : 'ya.tv.ev.heroSub')}
+          right={(
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <Segmented<'cum' | 'day'> size="sm" value={metric} onChange={setMetric} ariaLabel={t('ya.tv.ev.metricAria')} options={[{ value: 'cum', label: t('ya.tv.ev.cum') }, { value: 'day', label: t('ya.tv.ev.perDay') }]} />
+              {nightOk && avgOk && cmp && (
+                <Segmented<'night' | 'avg'> size="sm" value={cmp} onChange={setCmpPick} ariaLabel={t('ya.tv.ev.cmpAria')} options={[{ value: 'night', label: t('ya.tv.ev.cmpNight') }, { value: 'avg', label: t('ya.tv.ev.cmpAvg', { n: avgN }) }]} />
+              )}
+            </div>
+          )}
+        />
         {loading ? <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}><Sk h={72} w="min(340px,60%)" r={14} /><ChartSkeleton height={260} /></div> : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18, ...fadeIn(rv) }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '6px 24px' }}>
-              <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 0.92, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{n(tt.visits * prog)}</span>
+              <span style={{ fontFamily: 'var(--ya-font-num)', fontWeight: 650, fontSize: 'clamp(28px,3vw,36px)', lineHeight: 0.92, letterSpacing: '-.025em', fontVariantNumeric: 'tabular-nums' }}>{n(heroVal * prog)}</span>
               <span style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingBottom: 10 }}>
-                <span style={{ fontSize: 14, color: 'var(--ya-sand-500)' }}>{upcoming ? t('ya.tv.ev.bigUp', { j: jNow, n: n(tt.visitors) }) : t('ya.tv.ev.bigPast', { n: n(tt.visitors) })}</span>
-                {pev && (vD
-                  ? <span style={{ fontSize: 15, fontWeight: 600, color: vD.up ? 'var(--ya-green-700)' : 'var(--ya-red-600)' }}>{`${vD.text} ${vsP} (${n(tt.prev_visits)})`}</span>
-                  : <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--ya-sand-500)' }}>{t('ya.tv.ev.noPrev', { title: pev.title })}</span>)}
+                <span style={{ fontSize: 14, color: 'var(--ya-sand-500)' }}>
+                  {perDay
+                    ? t(dI < view.lastI ? 'ya.tv.ev.dayBigYesterday' : 'ya.tv.ev.dayBig', { j: jAt })
+                    : upcoming ? t('ya.tv.ev.bigUp', { j: jNow, n: n(tt.visitors) }) : t('ya.tv.ev.bigPast', { n: n(tt.visitors) })}
+                </span>
+                {cmp && (heroDelta
+                  ? <span style={{ fontSize: 15, fontWeight: 600, color: heroDelta.up ? 'var(--ya-green-700)' : 'var(--ya-red-600)' }}>{`${heroDelta.text} ${cmpLabel} (${compShown})`}</span>
+                  : <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--ya-sand-500)' }}>
+                      {cmp === 'avg' ? t('ya.tv.ev.noAvg', { j: jAt }) : perDay ? t('ya.tv.ev.noPrevDay', { title: pev?.title ?? '', j: jAt }) : t('ya.tv.ev.noPrev', { title: pev?.title ?? '' })}
+                    </span>)}
+                {todaySoFar !== null && <span style={{ fontSize: 13, color: 'var(--ya-sand-500)' }}>{tp('ya.tv.ev.todaySoFar', todaySoFar, { n: n(todaySoFar) })}</span>}
               </span>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 22px', fontSize: 13, color: 'var(--ya-sand-600)' }}>
@@ -162,13 +212,21 @@ export function TrafficNight({ q, f, setF, goTab }: { q: UseQueryResult<AnaVisit
                 </span>
               ))}
             </div>
+            {cmp === 'avg' && (
+              <span style={{ marginTop: -8, fontSize: 12.5, lineHeight: 1.5, color: 'var(--ya-sand-500)', textWrap: 'pretty' }}>
+                {t('ya.tv.ev.avgOf', { list: avgNights.map((x) => `${x.title} (${dShort(x.start_at)})`).join(', ') })}
+              </span>
+            )}
+            {!avgOk && nightOk && (
+              <span style={{ marginTop: -8, fontSize: 12.5, color: 'var(--ya-sand-500)' }}>{t('ya.tv.ev.avgSoon')}</span>
+            )}
             <MultiLine
               lines={lines}
-              top={view.top}
+              top={top}
               go={go}
-              fy={(x) => n(x)}
+              fy={(x) => n(Math.round(x))}
               tipTitle={(i) => `${jl(m.n - 1 - i)} · ${dShort(m.labels[i])}`}
-              tipValue={(x) => tp('ya.tv.nVisits', x, { n: n(x) })}
+              tipValue={(x) => tp('ya.tv.nVisits', Math.round(x), { n: n(Math.round(x)) })}
               xl={xl}
               height={260}
             />
