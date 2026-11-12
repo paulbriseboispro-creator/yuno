@@ -9315,6 +9315,8 @@ export type Database = {
       }
       guest_list_entries: {
         Row: {
+          attribution_channel: string | null
+          attribution_label: string | null
           attribution_ref: string | null
           attribution_source: string | null
           created_at: string
@@ -9341,6 +9343,8 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          attribution_channel?: string | null
+          attribution_label?: string | null
           attribution_ref?: string | null
           attribution_source?: string | null
           created_at?: string
@@ -9367,6 +9371,8 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          attribution_channel?: string | null
+          attribution_label?: string | null
           attribution_ref?: string | null
           attribution_source?: string | null
           created_at?: string
@@ -16142,6 +16148,8 @@ export type Database = {
           age_declaration_ip: string | null
           age_declared_at: string | null
           assigned_table_id: string | null
+          attribution_channel: string | null
+          attribution_label: string | null
           attribution_ref: string | null
           attribution_source: string | null
           checked_in_at: string | null
@@ -16206,6 +16214,8 @@ export type Database = {
           age_declaration_ip?: string | null
           age_declared_at?: string | null
           assigned_table_id?: string | null
+          attribution_channel?: string | null
+          attribution_label?: string | null
           attribution_ref?: string | null
           attribution_source?: string | null
           checked_in_at?: string | null
@@ -16270,6 +16280,8 @@ export type Database = {
           age_declaration_ip?: string | null
           age_declared_at?: string | null
           assigned_table_id?: string | null
+          attribution_channel?: string | null
+          attribution_label?: string | null
           attribution_ref?: string | null
           attribution_source?: string | null
           checked_in_at?: string | null
@@ -17311,6 +17323,8 @@ export type Database = {
       }
       tickets: {
         Row: {
+          attribution_channel: string | null
+          attribution_label: string | null
           attribution_ref: string | null
           attribution_source: string | null
           cancelled_at: string | null
@@ -17370,6 +17384,8 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          attribution_channel?: string | null
+          attribution_label?: string | null
           attribution_ref?: string | null
           attribution_source?: string | null
           cancelled_at?: string | null
@@ -17429,6 +17445,8 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          attribution_channel?: string | null
+          attribution_label?: string | null
           attribution_ref?: string | null
           attribution_source?: string | null
           cancelled_at?: string | null
