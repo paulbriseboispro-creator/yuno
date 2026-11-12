@@ -105,7 +105,7 @@ function useCityData(cityName: string) {
         if (nativeRows.length) {
           const { data: rounds } = await supabase
             .from('ticket_rounds')
-            .select('event_id, price, is_active, audience, hidden, visible_from')
+            .select('event_id, price, is_active, audience, hidden, group_hidden, visible_from')
             .in('event_id', nativeRows.map((r) => r.id));
           if (cancelled) return;
           forPublicPricing(rounds || []).forEach((tr) => {

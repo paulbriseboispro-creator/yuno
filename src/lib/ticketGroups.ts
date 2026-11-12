@@ -15,6 +15,9 @@ export type TicketGroup = {
   name: string;
   description: string | null;
   position: number;
+  /** Masqué par le pro : le pack et ses billets n'apparaissent plus côté client
+   *  (`ticket_groups.hidden`, recopié sur chaque billet en `group_hidden`). */
+  hidden: boolean;
 };
 
 export type TicketGroupRow = {
@@ -23,10 +26,14 @@ export type TicketGroupRow = {
   name: string;
   description: string | null;
   position: number;
+  hidden?: boolean | null;
 };
 
 export function mapTicketGroup(row: TicketGroupRow): TicketGroup {
-  return { id: row.id, eventId: row.event_id, name: row.name, description: row.description, position: row.position };
+  return {
+    id: row.id, eventId: row.event_id, name: row.name, description: row.description, position: row.position,
+    hidden: row.hidden === true,
+  };
 }
 
 // Le nom d'un billet hors de la page de choix : « Pack · Billet » (source
@@ -54,15 +61,18 @@ export type TicketPackSection<T extends GroupableTicket> = {
  * Range les billets visibles : d'abord ceux sans pack (l'ordre de la liste,
  * comme avant), puis chaque pack dans son ordre, avec ses billets dans l'ordre
  * de la liste. Un pack sans billet visible ne s'affiche pas. Un billet qui
- * pointe un pack inconnu reste hors pack.
+ * pointe un pack inconnu reste hors pack. Un pack MASQUÉ disparaît, ses
+ * billets avec (jamais rendus hors pack).
  */
 export function groupTicketsForDisplay<T extends GroupableTicket>(
   groups: TicketGroup[],
   tickets: T[],
 ): { loose: T[]; packs: TicketPackSection<T>[] } {
   const known = new Set(groups.map(g => g.id));
+  const hidden = new Set(groups.filter(g => g.hidden).map(g => g.id));
   const loose = tickets.filter(t => !t.groupId || !known.has(t.groupId));
   const packs = [...groups]
+    .filter(g => !hidden.has(g.id))
     .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name))
     .map(group => {
       const inPack = tickets.filter(t => t.groupId === group.id);

@@ -4,7 +4,7 @@ import {
   ticketDisplayName, type TicketGroup,
 } from '../ticketGroups';
 
-const g = (id: string, position: number, name = id): TicketGroup => ({ id, eventId: 'e', name, description: null, position });
+const g = (id: string, position: number, name = id, hidden = false): TicketGroup => ({ id, eventId: 'e', name, description: null, position, hidden });
 const t = (id: string, groupId: string | null, price: number, buyable = true, position = 0) => ({ id, groupId, price, buyable, position });
 
 describe('ticketDisplayName', () => {
@@ -29,6 +29,14 @@ describe('groupTicketsForDisplay', () => {
     expect(loose.map(r => r.id)).toEqual(['x']);
     expect(packs.map(p => p.group.id)).toEqual(['a', 'b']);
     expect(packs[0].tickets.map(r => r.id)).toEqual(['a1', 'a2']);
+  });
+
+  it('drops a hidden pack and never shows its tickets outside it', () => {
+    const withHidden = [g('a', 0, 'Accès Tia Felisa'), g('b', 1, 'Tia Felisa + Chin Chin', true)];
+    const tickets = [t('x', null, 10), t('a1', 'a', 15), t('b1', 'b', 25)];
+    const { loose, packs } = groupTicketsForDisplay(withHidden, tickets);
+    expect(loose.map(r => r.id)).toEqual(['x']);
+    expect(packs.map(p => p.group.id)).toEqual(['a']);
   });
 
   it('prices "from" on buyable tickets only', () => {

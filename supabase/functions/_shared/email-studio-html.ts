@@ -2065,7 +2065,7 @@ export async function fetchStudioLiveData(
 
     const { data: roundsData } = await admin
       .from('ticket_rounds')
-      .select('event_id, name, description, price, max_tickets, tickets_sold, is_active, manually_sold_out, position, hidden, visible_from')
+      .select('event_id, name, description, price, max_tickets, tickets_sold, is_active, manually_sold_out, position, hidden, group_hidden, visible_from')
       .in('event_id', ids)
       .order('position', { ascending: true });
     const rounds = roundsData as StudioRoundRow[] | null;

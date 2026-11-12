@@ -44,7 +44,7 @@ export const communityAudienceAllows = (
  * ouvert ; s'il ne reste QUE des tarifs communauté, on les garde plutôt que
  * d'afficher « Gratuit » sur une soirée payante.
  */
-export function forPublicPricing<T extends { event_id: string; audience?: string | null; hidden?: boolean | null; visible_from?: string | null }>(rows: T[]): T[] {
+export function forPublicPricing<T extends { event_id: string; audience?: string | null; hidden?: boolean | null; group_hidden?: boolean | null; visible_from?: string | null }>(rows: T[]): T[] {
   // Billetterie libre : un billet caché ou pas encore affiché n'a pas de prix
   // public (isRowListed). Pour en profiter, la requête sélectionne `hidden,
   // visible_from` ; sans ces colonnes, rien ne change.
@@ -87,6 +87,8 @@ export type TicketRound = {
   audience?: TicketAudience;
   /** Billetterie libre (ticketPhase) : caché, visible à une date, fenêtre de vente. */
   hidden?: boolean;
+  /** Le pack du billet est masqué (posé par la base) : le billet ne s'affiche ni ne se vend. */
+  groupHidden?: boolean;
   visibleFrom?: string | null;
   saleStartsAt?: string | null;
   saleEndsAt?: string | null;

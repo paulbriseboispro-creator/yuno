@@ -51,6 +51,9 @@ describe('prix public « à partir de »', () => {
   it('écarte les billets cachés ou pas encore affichés', () => {
     expect(isRowListed({}, NOW)).toBe(true);
     expect(isRowListed({ hidden: true }, NOW)).toBe(false);
+    expect(isRowListed({ group_hidden: true }, NOW)).toBe(false);
+    expect(rowPhase({ is_active: true, group_hidden: true }, NOW)).toBe('hidden');
+    expect(ticketPhase({ isActive: true, groupHidden: true }, NOW)).toBe('hidden');
     expect(isRowListed({ visible_from: after }, NOW)).toBe(false);
     expect(isRowListed({ visible_from: before }, NOW)).toBe(true);
   });

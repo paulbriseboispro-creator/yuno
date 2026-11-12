@@ -16723,6 +16723,7 @@ export type Database = {
           created_at: string
           description: string | null
           event_id: string
+          hidden: boolean
           id: string
           name: string
           position: number
@@ -16732,6 +16733,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           event_id: string
+          hidden?: boolean
           id?: string
           name: string
           position?: number
@@ -16741,6 +16743,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           event_id?: string
+          hidden?: boolean
           id?: string
           name?: string
           position?: number
@@ -16769,6 +16772,7 @@ export type Database = {
           entry_deadline: string | null
           event_id: string
           group_id: string | null
+          group_hidden: boolean
           group_label: string | null
           group_size: number | null
           hidden: boolean
@@ -16802,6 +16806,7 @@ export type Database = {
           entry_deadline?: string | null
           event_id: string
           group_id?: string | null
+          group_hidden?: boolean
           group_label?: string | null
           group_size?: number | null
           hidden?: boolean
@@ -16835,6 +16840,7 @@ export type Database = {
           entry_deadline?: string | null
           event_id?: string
           group_id?: string | null
+          group_hidden?: boolean
           group_label?: string | null
           group_size?: number | null
           hidden?: boolean

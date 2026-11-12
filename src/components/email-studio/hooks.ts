@@ -151,7 +151,7 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
           .select('id,title,start_at,timezone,slug,poster_url,image_url,venue_id,partner_venue_id,location_name,location_city,ticketing_enabled,tables_enabled,tickets_sold_out,tables_sold_out,guest_list_sold_out,sold_out_pack_ids,external_source,external_ticket_url')
           .in('id', wanted),
         supabase.from('ticket_rounds')
-          .select('event_id,name,description,price,max_tickets,tickets_sold,is_active,manually_sold_out,position,hidden,visible_from')
+          .select('event_id,name,description,price,max_tickets,tickets_sold,is_active,manually_sold_out,position,hidden,group_hidden,visible_from')
           .in('event_id', wanted)
           .order('position', { ascending: true }),
         supabase.from('guest_lists')

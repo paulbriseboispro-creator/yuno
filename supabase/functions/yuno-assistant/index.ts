@@ -848,7 +848,7 @@ serve(async (req) => {
     const [ticketRoundsRes, guestListsRes, djSetsRes, eventPacksRes, venuePacksRes, organizersRes] = await Promise.all([
       eventIds.length
         ? supabase.from("ticket_rounds")
-            .select("id, event_id, name, description, price, max_tickets, tickets_sold, is_active, position, hidden, visible_from, sale_starts_at, sale_ends_at")
+            .select("id, event_id, name, description, price, max_tickets, tickets_sold, is_active, position, hidden, group_hidden, visible_from, sale_starts_at, sale_ends_at")
             .in("event_id", eventIds).eq("is_active", true).order("position")
         : empty,
       eventIds.length

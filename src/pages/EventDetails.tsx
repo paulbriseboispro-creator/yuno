@@ -613,6 +613,7 @@ export default function EventDetails() {
         drinkCutoffTime: r.drink_cutoff_time,
         ticketType: (r.ticket_type as 'standard' | 'vip') ?? 'standard',
         hidden: r.hidden ?? false,
+        groupHidden: r.group_hidden ?? false,
         visibleFrom: r.visible_from,
         saleStartsAt: r.sale_starts_at,
         saleEndsAt: r.sale_ends_at,

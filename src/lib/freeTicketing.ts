@@ -52,6 +52,8 @@ export function normalizeChainVisibility(v: unknown): ChainVisibility {
 export interface FreeSchedule {
   isActive: boolean;
   hidden?: boolean | null;
+  /** Le pack du billet est masqué (ticket_rounds.group_hidden, posé par la base). */
+  groupHidden?: boolean | null;
   visibleFrom?: string | null;
   saleStartsAt?: string | null;
   saleEndsAt?: string | null;
@@ -74,7 +76,7 @@ const ms = (iso?: string | null): number | null => {
  * juge à part : un billet épuisé garde sa phase, l'appelant le barre.
  */
 export function ticketPhase(t: FreeSchedule, now: number = Date.now(), chain: ChainVisibility = 'preview'): FreeTicketPhase {
-  if (t.hidden) return 'hidden';
+  if (t.hidden || t.groupHidden) return 'hidden';
   const visibleFrom = ms(t.visibleFrom);
   if (visibleFrom !== null && now < visibleFrom) return 'hidden';
   const saleEnds = ms(t.saleEndsAt);
@@ -104,7 +106,7 @@ export function isWaitingForPrevious(t: FreeSchedule): boolean {
 /** Même règle sur une ligne brute (snake_case) de ticket_rounds. */
 export function rowPhase(
   row: {
-    is_active: boolean; hidden?: boolean | null; visible_from?: string | null; sale_starts_at?: string | null; sale_ends_at?: string | null;
+    is_active: boolean; hidden?: boolean | null; group_hidden?: boolean | null; visible_from?: string | null; sale_starts_at?: string | null; sale_ends_at?: string | null;
     opens_after_round_id?: string | null; manually_sold_out?: boolean | null; tickets_sold?: number | null; max_tickets?: number | null;
   },
   now: number = Date.now(),
@@ -113,6 +115,7 @@ export function rowPhase(
   return ticketPhase({
     isActive: row.is_active,
     hidden: row.hidden,
+    groupHidden: row.group_hidden,
     visibleFrom: row.visible_from,
     saleStartsAt: row.sale_starts_at,
     saleEndsAt: row.sale_ends_at,
@@ -127,8 +130,8 @@ export function rowPhase(
  * Un billet caché (ou pas encore affiché) ne compte dans AUCUN prix public
  * « à partir de ». Lignes brutes : champs absents = billet listé.
  */
-export function isRowListed(row: { hidden?: boolean | null; visible_from?: string | null }, now: number = Date.now()): boolean {
-  if (row.hidden) return false;
+export function isRowListed(row: { hidden?: boolean | null; group_hidden?: boolean | null; visible_from?: string | null }, now: number = Date.now()): boolean {
+  if (row.hidden || row.group_hidden) return false;
   const v = ms(row.visible_from);
   return v === null || now >= v;
 }

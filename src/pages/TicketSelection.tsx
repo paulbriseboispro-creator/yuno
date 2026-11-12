@@ -204,7 +204,7 @@ export default function TicketSelection() {
         const [{ data: rounds }, { data: groups }] = await Promise.all([
           supabase.from('ticket_rounds').select('*').eq('event_id', eventId).order('position', { ascending: true }),
           // Une panne de lecture des packs ne cache aucun billet : ils s'affichent en liste.
-          supabase.from('ticket_groups').select('id, event_id, name, description, position').eq('event_id', eventId).order('position', { ascending: true }),
+          supabase.from('ticket_groups').select('id, event_id, name, description, position, hidden').eq('event_id', eventId).order('position', { ascending: true }),
         ]);
         setTicketGroups((groups || []).map(mapTicketGroup));
         if (rounds) {
@@ -219,7 +219,7 @@ export default function TicketSelection() {
             entryDeadline: r.entry_deadline ? r.entry_deadline.substring(0, 5) : undefined,
             ticketType: (r.ticket_type as 'standard' | 'vip') ?? 'standard',
             audience: normalizeTicketAudience(r.audience),
-            hidden: r.hidden ?? false, visibleFrom: r.visible_from, saleStartsAt: r.sale_starts_at, saleEndsAt: r.sale_ends_at,
+            hidden: r.hidden ?? false, groupHidden: r.group_hidden ?? false, visibleFrom: r.visible_from, saleStartsAt: r.sale_starts_at, saleEndsAt: r.sale_ends_at,
             opensAfterRoundId: r.opens_after_round_id ?? null,
             groupId: r.group_id ?? null, groupLabel: r.group_label ?? null,
             createdAt: r.created_at, updatedAt: r.updated_at,
