@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, ChevronUp, GripVertical, Layers, ListPlus, Pencil, Plus, Shapes, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Eye, EyeOff, GripVertical, Layers, ListPlus, Pencil, Plus, Shapes, Trash2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { TicketRound } from '@/types/ticketing';
 import type { TicketGroup } from '@/lib/ticketGroups';
@@ -17,6 +17,8 @@ interface FreeTicketListProps {
   onEditGroup: (group: TicketGroup) => void;
   onDeleteGroup: (group: TicketGroup) => void;
   onMoveGroup: (group: TicketGroup, dir: -1 | 1) => void;
+  /** Masque / affiche le pack côté acheteurs (ticket_groups.hidden). */
+  onToggleGroupHidden: (group: TicketGroup) => void;
   /** Nouvel ordre complet des packs (glisser-déposer). */
   onReorderGroups: (orderedIds: string[]) => void;
   onAddTicketInGroup: (group: TicketGroup) => void;
@@ -29,7 +31,7 @@ interface FreeTicketListProps {
 // Un pack se crée d'un bouton ; un billet y entre par « Ajouter un billet dans
 // ce pack » ou par le choix « Pack » de sa fiche.
 export function FreeTicketList({
-  tickets, groups, renderTicket, onCreateGroup, onEditGroup, onDeleteGroup, onMoveGroup, onReorderGroups, onAddTicketInGroup, onAddExistingTicket,
+  tickets, groups, renderTicket, onCreateGroup, onEditGroup, onDeleteGroup, onMoveGroup, onToggleGroupHidden, onReorderGroups, onAddTicketInGroup, onAddExistingTicket,
 }: FreeTicketListProps) {
   const { t } = useLanguage();
   const [dragId, setDragId] = useState<string | null>(null);
@@ -83,7 +85,7 @@ export function FreeTicketList({
 
       {orderedGroups.map((group, gi) => {
         const inPack = tickets.filter(r => r.groupId === group.id);
-        const onSale = inPack.filter(r => !r.manuallySoldOut && r.ticketsSold < r.maxTickets && r.isActive && !r.hidden);
+        const onSale = group.hidden ? [] : inPack.filter(r => !r.manuallySoldOut && r.ticketsSold < r.maxTickets && r.isActive && !r.hidden);
         const from = onSale.length ? Math.min(...onSale.map(r => r.price)) : null;
         return (
           <div
@@ -112,8 +114,16 @@ export function FreeTicketList({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <Layers className="h-3.5 w-3.5 flex-none" style={{ color: RED }} />
-                  <span className="uppercase [overflow-wrap:anywhere]" style={{ color: T1, fontSize: 13.5, fontWeight: 650, letterSpacing: '0.03em' }}>{group.name}</span>
+                  <span className="uppercase [overflow-wrap:anywhere]" style={{ color: group.hidden ? T3 : T1, fontSize: 13.5, fontWeight: 650, letterSpacing: '0.03em' }}>{group.name}</span>
+                  {group.hidden && (
+                    <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5" style={{ ...LABEL, fontSize: 10, color: T2, background: C_FAINT, border: `1px solid ${BORDER}` }}>
+                      <EyeOff className="h-3 w-3" />{t('tickets.packs.hiddenBadge')}
+                    </span>
+                  )}
                 </div>
+                {group.hidden && (
+                  <p className="mt-1" style={{ color: T2, fontSize: 12, lineHeight: 1.45 }}>{t('tickets.packs.hiddenHint')}</p>
+                )}
                 <p className="mt-1 tabular-nums" style={{ color: T3, fontSize: 12 }}>
                   {t('tickets.packs.count').replace('{n}', String(inPack.length))}
                   {from !== null && <> · {t('ticketSel.packFrom').replace('{price}', formatMoneyAuto(from))}</>}
@@ -123,6 +133,17 @@ export function FreeTicketList({
                 )}
               </div>
               <div className="flex items-center gap-1 flex-none">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => onToggleGroupHidden(group)}
+                  className="hover:bg-white/[0.06]"
+                  style={{ color: group.hidden ? T1 : T2 }}
+                  aria-label={group.hidden ? t('tickets.packs.show') : t('tickets.packs.hide')}
+                  title={group.hidden ? t('tickets.packs.show') : t('tickets.packs.hide')}
+                >
+                  {group.hidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                </Button>
                 <Button variant="ghost" size="icon-sm" onClick={() => onEditGroup(group)} className="hover:bg-white/[0.06]" style={{ color: T2 }} aria-label={t('tickets.packs.editTitle')}>
                   <Pencil className="h-4 w-4" />
                 </Button>

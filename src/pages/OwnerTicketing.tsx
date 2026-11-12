@@ -385,7 +385,7 @@ export default function OwnerTicketing() {
         .order('position', { ascending: true }),
       supabase
         .from('ticket_groups')
-        .select('id, event_id, name, description, position')
+        .select('id, event_id, name, description, position, hidden')
         .eq('event_id', eventId)
         .order('position', { ascending: true }),
     ]);
@@ -1079,6 +1079,18 @@ export default function OwnerTicketing() {
     const results = await Promise.all(orderedIds.map((id, i) =>
       supabase.from('ticket_groups').update({ position: i }).eq('id', id).select('id')));
     if (results.some(r => r.error || !r.data?.length)) toast.error(t('tickets.errorSaving'));
+    await fetchTicketRounds(eventId);
+  };
+
+  // Masquer un pack le retire de la page de choix et du paiement (la base
+  // recopie l'état sur chaque billet du pack, migration 20261213100000).
+  const handleToggleGroupHidden = async (eventId: string, group: TicketGroup) => {
+    const next = !group.hidden;
+    const { data, error } = await supabase
+      .from('ticket_groups').update({ hidden: next }).eq('id', group.id).select('id');
+    if (error || !data?.length) { toast.error(error ? t('tickets.errorSaving') : t('tickets.notAllowed')); return; }
+    capturePosthog('pro_ticket_pack_visibility', { event_id: eventId, hidden: next });
+    toast.success(next ? t('tickets.packs.hiddenToast') : t('tickets.packs.shownToast'));
     await fetchTicketRounds(eventId);
   };
 
@@ -1825,6 +1837,7 @@ export default function OwnerTicketing() {
                                   onEditGroup={(group) => setGroupDialog({ eventId: event.id, group })}
                                   onDeleteGroup={(group) => handleDeleteGroup(event.id, group)}
                                   onMoveGroup={(group, dir) => handleMoveGroup(event.id, group, dir)}
+                                  onToggleGroupHidden={(group) => handleToggleGroupHidden(event.id, group)}
                                   onReorderGroups={(ids) => handleReorderGroups(event.id, ids)}
                                   onAddTicketInGroup={(group) => setFreeTicketDialog({ eventId: event.id, ticket: null, groupId: group.id })}
                                   onAddExistingTicket={(group) => setExistingDialog({ eventId: event.id, group })}

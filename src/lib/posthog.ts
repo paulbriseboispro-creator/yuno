@@ -122,6 +122,7 @@ export type YunoEvent =
   | 'venue_went_live'
   | 'promo_code_created' //        { scope, kind: 'percent' | 'amount', pillars[] }
   | 'pro_ticket_pack_created' //   { event_id } — pack de billets (billetterie libre)
+  | 'pro_ticket_pack_visibility' // { event_id, hidden } — pack masqué / affiché
   | 'contacts_imported' //         { scope, rows, channels[] }
   | 'email_automation_toggled' //  { scope, kind, enabled }
   | 'email_campaign_sent'
