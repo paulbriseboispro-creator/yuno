@@ -74,6 +74,17 @@ const WORDS = {
   firstTime: ['First time via {x}', 'La première fois via {x}', 'La primera vez vía {x}'],
   onceRest: ['Once via {x}, the rest unknown', 'Une fois via {x}, le reste inconnu', 'Una vez vía {x}, el resto desconocido'],
   loyalTo: ['Always via {x}', 'Toujours via {x}', 'Siempre vía {x}'],
+  sameChannelMany: [
+    'Every order via a {x}, never the same one twice',
+    'Chaque commande via un {x}, jamais le même',
+    'Cada pedido vía un {x}, nunca el mismo',
+  ],
+  sameChannelSome: [
+    'Every order via a {x}, not always the same one',
+    'Chaque commande via un {x}, pas toujours le même',
+    'Cada pedido vía un {x}, no siempre el mismo',
+  ],
+  thisCustomer: ['This customer', 'Ce client', 'Este cliente'],
   mostly: ['Mostly via {x}', 'Surtout via {x}', 'Sobre todo vía {x}'],
   mixed: ['Comes through several channels', 'Vient par plusieurs canaux', 'Viene por varios canales'],
   onlyUnknown: ['No known source yet', 'Aucune provenance connue pour l’instant', 'Ningún origen conocido por ahora'],
@@ -169,6 +180,13 @@ export interface ChannelCount { channel: SaleChannel; n: number; names?: { label
  * canal (miroir de la règle du « canal principal » de `tix_clients_source_mix` :
  * « direct » et la porte ne comptent pas dès qu'un canal connu existe).
  */
+/** Les canaux qui sont des PERSONNES, et leur nom commun dans une phrase (« via un promoteur »). */
+const PERSON_NOUN: Partial<Record<SaleChannel, Triple>> = {
+  promoter: ['promoter', 'promoteur', 'promotor'],
+  dj: ['DJ', 'DJ', 'DJ'],
+  partner: ['partner', 'partenaire', 'socio'],
+};
+
 export function clientSourceSummary(counts: ChannelCount[], lang: SaleLanguage): string {
   const known = counts.filter((c) => isKnownChannel(c.channel) && c.n > 0).sort((a, b) => b.n - a.n);
   if (!known.length) return saleWord('onlyUnknown', lang);
@@ -179,9 +197,35 @@ export function clientSourceSummary(counts: ChannelCount[], lang: SaleLanguage):
   const name = who ? `${who} · ${channelName(top.channel, lang)}` : channelName(top.channel, lang);
   const unknown = counts.reduce((s, c) => s + (isKnownChannel(c.channel) ? 0 : c.n), 0);
   if (total === 1) return saleWord(unknown > 0 ? 'onceRest' : 'firstTime', lang, { x: name });
-  if (known.length === 1) return saleWord('loyalTo', lang, { x: name });
+  if (known.length === 1) {
+    // Un seul canal mais plusieurs personnes (Gaspard puis Chrysoula) : jamais « toujours via »,
+    // qui se lirait comme « toujours via cette personne ».
+    const people = top.names?.length ?? 0;
+    const noun = PERSON_NOUN[top.channel];
+    if (people >= 2 && noun) {
+      return saleWord(people === top.n ? 'sameChannelMany' : 'sameChannelSome', lang, { x: noun[IDX[lang]] });
+    }
+    return saleWord('loyalTo', lang, { x: name });
+  }
   if (top.n / total >= 0.6 && (known[1]?.n ?? 0) < top.n) return saleWord('mostly', lang, { x: name });
   return saleWord('mixed', lang);
+}
+
+/**
+ * Les pastilles d'un client : une par personne nommée (« Gaspard ×1 », « Chrysoula Fotaki ×1 »),
+ * puis une par canal pour les commandes sans nom. Jamais le nombre d'un canal posé sur un nom.
+ */
+export function clientSourceChips(counts: ChannelCount[], lang: SaleLanguage): { key: string; channel: SaleChannel; label: string; n: number }[] {
+  const out: { key: string; channel: SaleChannel; label: string; n: number }[] = [];
+  for (const c of counts) {
+    let named = 0;
+    for (const nm of c.names ?? []) {
+      named += nm.n;
+      out.push({ key: `${c.channel}:${nm.label}`, channel: c.channel, label: sourceDetail(c.channel, nm.label, lang) ?? nm.label, n: nm.n });
+    }
+    if (c.n - named > 0) out.push({ key: c.channel, channel: c.channel, label: channelName(c.channel, lang), n: c.n - named });
+  }
+  return out;
 }
 
 /** Couleur d'un canal (marque du réseau quand elle existe, sinon une teinte par famille). */

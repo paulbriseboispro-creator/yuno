@@ -7,7 +7,7 @@
 import { useLanguage } from '@/contexts/LanguageContext';
 import { tint } from '@/lib/proTheme';
 import {
-  channelColor, channelName, clientSourceSummary, isKnownChannel, saleWord, sourceDetail, toSaleChannel, toSaleLanguage,
+  channelColor, channelName, clientSourceChips, clientSourceSummary, isKnownChannel, saleWord, sourceDetail, toSaleChannel, toSaleLanguage,
 } from '@/lib/saleSource';
 import { useClientSources } from '@/tickets/clients/data/sources';
 
@@ -78,16 +78,17 @@ export function SaleSourceCard({ channel, label, email }: {
       {(!channel || ch === 'direct') && <p style={{ color: T3, fontSize: 12, lineHeight: 1.45 }}>{saleWord('unknownHint', lang)}</p>}
       {showClient && cs && (
         <div className="pt-2 mt-1 space-y-1.5" style={{ borderTop: `1px solid ${BORDER}` }}>
-          <p style={{ color: T2, fontSize: 12.5 }}>
-            <span style={{ color: T1, fontWeight: 560 }}>{clientSourceSummary(cs.channels, lang)}</span>
-            {' · '}{saleWord('clientOrders', lang, { n: cs.total })}
+          {/* Ce bloc parle de la CLIENTE (toutes ses commandes), pas de la personne qui a vendu celle-ci. */}
+          <p style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+            {saleWord('thisCustomer', lang)} · {saleWord('clientOrders', lang, { n: cs.total })}
           </p>
+          <p style={{ color: T1, fontSize: 12.5, fontWeight: 560 }}>{clientSourceSummary(cs.channels, lang)}</p>
           <div className="flex flex-wrap gap-1.5">
-            {cs.channels.map((c) => (
-              <span key={c.channel} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full"
+            {clientSourceChips(cs.channels, lang).map((c) => (
+              <span key={c.key} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full"
                 style={{ background: isKnownChannel(c.channel) ? tint(channelColor(c.channel), '1A') : 'rgb(var(--ink)/0.05)', color: T2, fontSize: 11 }}>
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: isKnownChannel(c.channel) ? channelColor(c.channel) : T3 }} />
-                {c.names[0] ? c.names[0].label : channelName(c.channel, lang)} ×{c.n}
+                {c.label} ×{c.n}
               </span>
             ))}
           </div>
