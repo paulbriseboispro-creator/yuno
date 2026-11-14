@@ -42,6 +42,28 @@ describe('outils de billetterie', () => {
     expect(validateArgs(tool, { event: 'next', tickets: [] }).ok).toBe(false);
   });
 
+  it('accepte les packs, la description et l’heure limite de la boisson', () => {
+    const tool = TOOL_BY_NAME.get('set_ticketing')!;
+    const ok = validateArgs(tool, {
+      event: 'next', apply_to_live: true,
+      packs: [{ name: 'Chin Chin + Tía Felisa', description: 'Open bar 22:30–00:30, then Tía Felisa before 1 AM.' }, { name: 'Tía Felisa' }],
+      tickets: [
+        { name: 'Open bar + Before 1 AM', price: 28, quantity: 50, entry_before: '01:00', includes_drink: true, drink_until: '02:00', description: 'Open bar at Chin Chin.', pack: 'Chin Chin + Tía Felisa' },
+        { name: 'Early Round — All Night Long', price: 10, quantity: 10, pack: 'Tía Felisa', description: null },
+      ],
+    });
+    expect(ok.ok).toBe(true);
+    expect(validateArgs(tool, { event: 'next', tickets: [{ name: 'X', price: 5, drink_until: '2am' }] }).ok).toBe(false);
+    expect(validateArgs(tool, { event: 'next', tickets: [{ name: 'X', price: 5, description: 'x'.repeat(201) }] }).ok).toBe(false);
+    expect(validateArgs(tool, { event: 'next', tickets: [{ name: 'X', price: 5 }], packs: [{ description: 'sans nom' }] }).ok).toBe(false);
+  });
+
+  it('un pack inconnu dit comment le désigner', () => {
+    expect(ticketingErrorText('unknown_pack', { index: 3 })).toMatch(/exact name or id/);
+    expect(ticketingErrorText('duplicate_pack')).toMatch(/share/);
+    expect(ticketingErrorText('invalid_pack', { message: 'name: 1 to 60 characters' })).toMatch(/60/);
+  });
+
   it('un refus dit quoi faire', () => {
     expect(ticketingErrorText('ticketing_live')).toMatch(/apply_to_live/);
     expect(ticketingErrorText('cannot_remove_sold', { tickets: 'Early' })).toMatch(/Early/);

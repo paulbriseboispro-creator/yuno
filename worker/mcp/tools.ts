@@ -144,8 +144,20 @@ const TICKET_ITEM: JsonSchema = {
     sale_starts_at: { type: 'string', description: 'ISO 8601 date-time with offset, for sale "at".' },
     sale_ends_at: { type: 'string', description: 'Optional end of sale, ISO 8601 date-time with offset: the ticket then shows "Sale ended".' },
     opens_after: { type: 'string', maxLength: 120, description: 'The ticket that must sell out first: its ref, id or exact name in this list. Each ticket has its own queue (e.g. "First Round — Before 1 AM" after "Early Round — Before 1 AM").' },
+    drink_until: { type: 'string', pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$', description: 'With includes_drink: the free drink can be collected until this time, HH:MM local time of the night ("02:00"). Omitted: unchanged on an existing ticket, no deadline on a new one.' },
+    description: { type: ['string', 'null'], maxLength: 200, description: 'One or two lines shown under the ticket on the buying page (what is included, hours). Omitted: unchanged on an existing ticket. null or empty: removed.' },
+    pack: { type: ['string', 'null'], maxLength: 120, description: 'The pack this ticket is filed under on the buying page: its exact name or id (get_ticketing lists the packs; "packs" of the same call creates them). Omitted: unchanged on an existing ticket. null or empty: no pack.' },
   },
   required: ['name', 'price'],
+};
+const PACK_ITEM: JsonSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', description: 'Id of an existing pack of the night (from get_ticketing), to keep and update it. Omitted: a new pack.' },
+    name: { type: 'string', minLength: 1, maxLength: 60, description: 'Pack name shown to buyers, e.g. "Tía Felisa" or "Chin Chin + Tía Felisa".' },
+    description: { type: ['string', 'null'], maxLength: 200, description: 'Optional line under the pack name.' },
+  },
+  required: ['name'],
 };
 const DRAFT_FIELDS: Record<string, JsonSchema> = {
   product: PRODUCT,
@@ -1101,8 +1113,8 @@ export const TOOLS: ToolDef[] = [
     products: ['suite'],
     description:
       'The ticketing of one Yuno night as it is set up now, with the ids needed to change it: whether it is on sale, the selling mode, the total capacity, '
-      + 'and each ticket (id, name, price, quantity, sold, entry deadline, free drink, visibility, sale timing, the ticket it opens after, and its status: '
-      + 'on_sale, waiting_previous, not_open, scheduled, sold_out, hidden, ended). Read it before set_ticketing on a night that already has tickets. '
+      + 'and each ticket (id, name, price, quantity, sold, entry deadline, free drink and its deadline, description, pack, visibility, sale timing, the ticket it opens after, and its status: '
+      + 'on_sale, waiting_previous, not_open, scheduled, sold_out, hidden, ended), plus the packs (named groups of tickets shown as collapsible sections). Read it before set_ticketing on a night that already has tickets. '
       + 'Examples: "what tickets are on my next night?", "which round is open?". For sales analysis, get_event_details (topic ticket_types).',
     inputSchema: {
       type: 'object',
@@ -1124,6 +1136,8 @@ export const TOOLS: ToolDef[] = [
       + 'sale dates and rounds ticket by ticket (a ticket can open by itself when another one sells out, e.g. Early, First, Second, Last Round, each in a '
       + '"Before 1 AM" and an "All Night Long" version). The list replaces the current one: tickets given with their id are updated, new ones are created, '
       + 'unsold tickets left out are removed. Tickets already sold are never removed and a quantity never goes below what is sold. '
+      + 'Tickets can be filed in packs (named collapsible sections on the buying page, each with its own tickets or rounds): `packs` is the complete list of packs of the night, '
+      + 'and each ticket names its pack; a ticket can also carry a description and a free-drink deadline (drink_until). '
       + 'It never turns sales on: on a night not yet on sale, the person reviews and clicks "Activer la vente" in the Console; on a night already on sale, '
       + 'the call is refused unless apply_to_live is true, and buyers then see the change immediately. Returns the resulting tickets with their status and the Console link.',
     inputSchema: {
@@ -1132,6 +1146,7 @@ export const TOOLS: ToolDef[] = [
         space: SPACE,
         event: EVENT,
         tickets: { type: 'array', minItems: 1, maxItems: 40, items: TICKET_ITEM, description: 'The complete list, in the order buyers see it.' },
+        packs: { type: 'array', maxItems: 20, items: PACK_ITEM, description: 'The complete list of packs of the night, in the order buyers see them. A pack left out is deleted (its tickets leave the pack). Omitted: the current packs stay, tickets name them in `pack`.' },
         capacity: { type: 'integer', minimum: 0, maximum: 99999, description: 'Optional total cap across all tickets. 0 = no total cap. Omitted: unchanged.' },
         apply_to_live: { type: 'boolean', description: 'Required (true) to change a night whose tickets are already on sale.' },
       },

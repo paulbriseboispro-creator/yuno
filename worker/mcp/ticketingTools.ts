@@ -61,6 +61,14 @@ export function ticketingErrorText(code: string, extra: Record<string, unknown> 
       return `A ticket cannot open after itself${at}.`;
     case 'chain_cycle':
       return `These tickets wait for each other in a loop, so none would ever open${at}. Each round must wait for an earlier one.`;
+    case 'invalid_pack':
+      return `Invalid pack${at}: ${String(extra.message ?? '')}. A pack has a name (60 characters at most) and an optional description (200).`;
+    case 'unknown_pack_id':
+      return `A pack id does not belong to this night${at}. get_ticketing gives the packs with their ids; omit id for a new pack.`;
+    case 'duplicate_pack':
+      return `Two packs share the same id or name${at}.`;
+    case 'unknown_pack':
+      return `The pack of this ticket does not match any pack of the night${at}. Use the exact name or id of a pack from get_ticketing, or add it to "packs" in the same call.`;
     case 'date_required':
       return `visibility "at" needs visible_from, and sale "at" needs sale_starts_at${at}.`;
     case 'invalid_ticket':
@@ -93,7 +101,7 @@ export async function runTicketing(
     ...view,
     space: w.space,
     console_url: ticketingConsoleUrl(w.space?.kind),
-    notes: 'status: on_sale, waiting_previous (opens when its opens_after ticket sells out), not_open (opened by hand in the Console), scheduled (sale date ahead), sold_out, hidden, ended. Prices in euros, Yuno service fee not included. quantity null = no limit.',
+    notes: 'packs: named groups of tickets, shown as collapsible sections (a ticket reads "Pack · Ticket" everywhere outside the buying page). status: on_sale, waiting_previous (opens when its opens_after ticket sells out), not_open (opened by hand in the Console), scheduled (sale date ahead), sold_out, hidden, ended. Prices in euros, Yuno service fee not included. quantity null = no limit.',
     ...(tool === 'set_ticketing'
       ? {
           saved: true,
