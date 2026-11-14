@@ -12,6 +12,10 @@ import { useTixScope } from '@/tickets/clients/scope';
 
 export type Lifecycle = 'hab' | 'occ' | 'nou' | 'end' | 'none';
 
+/** Une personne vue depuis une soirée (clé `rel` du filtre, `tix_night_audience`). */
+export type NightRel = 'back' | 'held' | 'new' | 'away';
+export const NIGHT_RELS: NightRel[] = ['back', 'held', 'new', 'away'];
+
 /** Définition d'un filtre de clients (= d'un segment « à vous »). */
 export interface ClientFilterDef {
   seg?: 'all' | Lifecycle;
@@ -66,6 +70,19 @@ export interface ClientFilterDef {
     gl?: '' | 'any' | 'only' | 'loyal' | 'conv' | 'noshow';
     /** Invités (invitation ou billet gratuit) de ces soirées. */
     glev?: string[];
+    /**
+     * Venu à : place SCANNÉE à l'une de ces soirées (acheteur ou invité d'un
+     * billet). `ev` dit seulement « a une place pour » : avoir une place et
+     * être venu sont deux faits (migration 20261210100000).
+     */
+    came?: string[];
+    /**
+     * La personne vue depuis une soirée : `back` a une place et est déjà venue
+     * avant, `held` a une place et en avait déjà une avant sans être venue,
+     * `new` a une place et n'en avait jamais eu, `away` est déjà venue avant et
+     * n'a pas (encore) de place pour la soirée.
+     */
+    rel?: { ev: string; k: NightRel };
   };
   q?: string;
 }
@@ -145,6 +162,25 @@ export interface ClientCard {
   door?: { banned: boolean; reason: string | null; at: string | null; incidents: { type: string; reason: string | null; at: string }[] } | null;
 }
 
+/**
+ * « Vos billets par soirée » (`tix_night_audience`) : d'où viennent les places
+ * d'une soirée. Un groupe compte des PERSONNES (acheteurs et invités d'un
+ * billet) ; billets et montant sont ceux des acheteurs du groupe. Montants
+ * `null` pour un rôle qui ne voit pas l'argent ; `pct` est `null` sous 10 personnes.
+ */
+export interface NightGroup { people: number; tickets: number; revenue: number | null }
+export interface NightAudience {
+  night: { id: string; title: string | null; start_at: string; upcoming: boolean } | null;
+  nights: { id: string; title: string | null; start_at: string; upcoming: boolean; people: number }[];
+  total?: NightGroup;
+  groups?: { back: NightGroup; held: NightGroup; new: NightGroup };
+  /** Déjà venus à une soirée plus ancienne : combien ont repris une place, combien restent à rappeler. */
+  pool?: { came_before: number; rebought: number; away: number; away_reachable: number; pct: number | null };
+  prev?: { id: string; title: string | null; start_at: string; came: number; rebought: number; pct: number | null } | null;
+  here?: { came: number };
+  updated_at: string;
+}
+
 export interface SavedSegment { id: string; name: string; description: string | null; template: string | null; definition: ClientFilterDef; n: number; reachable: number; created_at: string }
 export interface EventBrief { id: string; title: string | null; start_at: string; upcoming: boolean }
 
@@ -160,6 +196,17 @@ export function useClientsList(def: ClientFilterDef, sort: string, dir: number, 
     queryKey: ['tix-cli', qk, 'clients-list', def, sort, dir, limit],
     queryFn: () => rpc<ClientsList>('tix_clients_list', { ...args, p_def: def, p_sort: sort, p_dir: dir, p_limit: limit, p_offset: 0 }),
     staleTime: 30_000,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useNightAudience(eventId: string | null) {
+  const { rpc: args, qk, ready } = useTixScope();
+  return useQuery({
+    enabled: ready,
+    queryKey: ['tix-cli', qk, 'night-audience', eventId],
+    queryFn: () => rpc<NightAudience>('tix_night_audience', { ...args, p_event: eventId }),
+    staleTime: 60_000,
     placeholderData: keepPreviousData,
   });
 }

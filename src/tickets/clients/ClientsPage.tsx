@@ -10,7 +10,9 @@
  *
  * Adresses : `?s=hab` ouvre un groupe, `?status=unreachable` les non
  * joignables, `?nb=1` les clients venus une fois, `?seg=<id>` un segment
- * enregistré, `?c=<email>` une fiche. Tout le calcul vit dans les RPC
+ * enregistré, `?c=<email>` une fiche, `?ev=<soirée>&rel=back|held|new|away` les
+ * personnes vues depuis une soirée (carte « Vos billets par soirée »),
+ * `?came=<soirée>` ceux dont la place a été scannée à la porte. Tout le calcul vit dans les RPC
  * tix_clients_* ; la page ne fait que mettre en forme.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -25,13 +27,14 @@ import { useTixScope, useTixCaps } from '@/tickets/clients/scope';
 import { CrmRpcError, rpc } from '@/crm/lib/rpc';
 import { downloadCsv } from '@/crm/lib/csv';
 import { fullName } from '@/tickets/clients/lib/lifecycle';
-import { useClientsList, useClientsOverview, useDeleteSegment, useEventsBrief, useSaveSegment, useSegmentsBrief, hasCriteria } from '@/tickets/clients/data/clients';
-import type { ClientCard, ClientFilterDef, Lifecycle, SavedSegment } from '@/tickets/clients/data/clients';
+import { useClientsList, useClientsOverview, useDeleteSegment, useEventsBrief, useNightAudience, useSaveSegment, useSegmentsBrief, hasCriteria, NIGHT_RELS } from '@/tickets/clients/data/clients';
+import type { ClientCard, ClientFilterDef, Lifecycle, NightRel, SavedSegment } from '@/tickets/clients/data/clients';
 import { useTixClientRoutes } from '@/tickets/clients/routes';
 import { WriteModal } from '@/tickets/clients/WriteModal';
 import { LoadError } from '@/tickets/analytics/LoadError';
 import type { WriteScope } from '@/tickets/clients/WriteModal';
 import { ClientsOverview } from './ClientsOverview';
+import { NightAudience } from './NightAudience';
 import { ClientsTable } from './ClientsTable';
 import { ClientDrawer } from './ClientDrawer';
 import { isGlFilter } from '@/crm/lib/guestlist';
@@ -47,7 +50,12 @@ function defFromParams(sp: URLSearchParams): ClientFilterDef {
   const nb = sp.get('nb');
   if (nb && ['0', '1', '2', '3-5', '6+'].includes(nb)) f.nb = nb as NonNullable<ClientFilterDef['f']>['nb'];
   const ev = sp.get('ev');
-  if (ev) f.ev = [ev];
+  const rel = sp.get('rel');
+  // `?ev=<soirée>&rel=…` : les personnes vues depuis cette soirée ; sans `rel`, ceux qui ont une place.
+  if (ev && rel && (NIGHT_RELS as string[]).includes(rel)) f.rel = { ev, k: rel as NightRel };
+  else if (ev) f.ev = [ev];
+  const came = sp.get('came');
+  if (came) f.came = [came];
   // Guest list : depuis une soirée (?glev=) ou depuis Analyses › Guest list (?gl=).
   const glev = sp.get('glev');
   if (glev) f.glev = [glev];
@@ -93,6 +101,8 @@ export default function ClientsPage() {
   const list = useClientsList(fullDef, sort, dir, limit);
   const saved = useSegmentsBrief();
   const events = useEventsBrief(12);
+  const [nightId, setNightId] = useState<string | null>(() => sp.get('rel') ? sp.get('ev') : null);
+  const nights = useNightAudience(nightId);
   const saveSeg = useSaveSegment();
   const delSeg = useDeleteSegment();
 
@@ -112,6 +122,11 @@ export default function ClientsPage() {
 
   const goList = () => setTimeout(() => document.getElementById('liste')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
   const openSeg = (k: Lifecycle) => { setQ(''); setDef({ seg: k, f: {} }); goList(); };
+
+  /** Une personne vue depuis une soirée (carte « Vos billets par soirée ») : la liste se filtre dessus. */
+  const openRel = (eventId: string, k: NightRel) => { setQ(''); setDef({ seg: 'all', f: { rel: { ev: eventId, k } } }); goList(); };
+  const rel = def.f?.rel;
+  const relTitle = rel ? (nights.data?.nights.find((x) => x.id === rel.ev)?.title ?? events.data?.find((x) => x.id === rel.ev)?.title ?? '—') : null;
 
   const total = list.data?.total ?? 0;
   const rows = useMemo(() => list.data?.rows ?? [], [list.data]);
@@ -267,6 +282,25 @@ export default function ClientsPage() {
             />
           ) : (
             <LoadError error={overview.error} onRetry={() => { void overview.refetch(); }} retrying={overview.isFetching} />
+          )}
+          {nights.data?.night && (
+            <NightAudience
+              data={nights.data}
+              intro={intro}
+              cc={cc}
+              onPick={setNightId}
+              onSeg={openRel}
+            />
+          )}
+          {rel && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: -8 }}>
+              <span style={{ height: 34, padding: '0 6px 0 14px', borderRadius: 12, background: 'var(--ya-fill)', color: '#fff', fontSize: 14, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                {t('ya.na.chip', { night: relTitle, group: t(`ya.na.g.${rel.k}`) })}
+                <Hv as="button" type="button" onClick={() => setDef({ seg: 'all', f: {} })} aria-label={t('ya.cli.list.clear')} title={t('ya.cli.list.clear')} style={{ width: 26, height: 26, border: 0, borderRadius: 99, background: 'none', color: '#fff', opacity: 0.8, cursor: 'pointer', display: 'grid', placeItems: 'center' }} hover={{ background: 'rgba(255,255,255,.16)' }}>
+                  <Icon name="x" size={12} stroke={2.6} />
+                </Hv>
+              </span>
+            </div>
           )}
           <ClientsTable
             intro={intro}

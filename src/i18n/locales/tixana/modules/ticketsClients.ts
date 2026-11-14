@@ -136,6 +136,67 @@ const dict: Record<string, Triple> = {
   'ya.imp.sales.p3': ['Each buyer’s consent is respected, unsubscribed people excluded', 'L’accord de chaque acheteur est respecté, désabonnés exclus', 'Se respeta el consentimiento de cada comprador, bajas excluidas'],
   'ya.imp.sales.see': ['See clients', 'Voir les clients', 'Ver los clientes'],
   'ya.imp.att.title': ['Your attestation', 'Votre attestation', 'Su declaración'],
+  // « Avoir une place » et « être venu » sont deux faits (11/11) : le filtre Soirée se lisait
+  // « A participé à » alors qu'il retient les places, venues ou non.
+  'ya.cli.f.ev': ['Place for', 'Place pour', 'Plaza para'],
+  'ya.cli.f.ev.title': ['Has a place for', 'A une place pour', 'Tiene plaza para'],
+  'ya.cli.f.came': ['Came to', 'Venu à', 'Vino a'],
+  'ya.cli.f.came.title': ['Scanned at the door of', 'Scanné à la porte de', 'Escaneado en la puerta de'],
+
+  // Vos billets, soirée par soirée : d'où viennent les places d'une soirée.
+  'ya.na.title': ['Your tickets, night by night', 'Vos billets, soirée par soirée', 'Sus entradas, fiesta por fiesta'],
+  'ya.na.sub': [
+    'Who is behind the places of a night: people who already came, or new faces?',
+    'Qui est derrière les places d’une soirée : des clients déjà venus, ou de nouveaux visages ?',
+    '¿Quién está detrás de las plazas de una fiesta: gente que ya vino o caras nuevas?',
+  ],
+  'ya.na.pick': ['Choose a night', 'Choisir une soirée', 'Elegir una fiesta'],
+  'ya.na.upcoming': ['Upcoming', 'À venir', 'Próxima'],
+  'ya.na.people.one': ['{n} person', '{n} personne', '{n} persona'],
+  'ya.na.people.other': ['{n} people', '{n} personnes', '{n} personas'],
+  'ya.na.tickets.one': ['{n} ticket', '{n} billet', '{n} entrada'],
+  'ya.na.tickets.other': ['{n} tickets', '{n} billets', '{n} entradas'],
+  'ya.na.here': ['{n} scanned at the door', '{n} scannés à la porte', '{n} escaneados en la puerta'],
+  'ya.na.empty': ['No place sold for this night yet.', 'Aucune place pour cette soirée pour l’instant.', 'Aún no hay plazas para esta fiesta.'],
+  'ya.na.g.back': ['Already came', 'Déjà venus', 'Ya vinieron'],
+  'ya.na.g.back.def': [
+    'Have a place and came to an earlier night (ticket scanned at the door)',
+    'Ont une place et sont déjà venus à une soirée plus ancienne (place scannée à la porte)',
+    'Tienen plaza y ya vinieron a una fiesta anterior (entrada escaneada en la puerta)',
+  ],
+  'ya.na.g.held': ['Had a place before', 'Avaient déjà une place', 'Ya tenían plaza'],
+  'ya.na.g.held.def': [
+    'Have a place and already held one for an earlier night, without being scanned at the door',
+    'Ont une place et en avaient déjà une pour une soirée plus ancienne, sans être passés par la porte',
+    'Tienen plaza y ya tuvieron una para una fiesta anterior, sin pasar por la puerta',
+  ],
+  'ya.na.g.new': ['New faces', 'Nouveaux visages', 'Caras nuevas'],
+  'ya.na.g.new.def': ['First place with you', 'Première place chez vous', 'Primera plaza con usted'],
+  'ya.na.g.away': ['Came before, no place yet', 'Déjà venus, pas encore de place', 'Ya vinieron, aún sin plaza'],
+  'ya.na.pool.one': [
+    'Among everyone who already came ({a}), 1 holds a place for {night}.',
+    'Parmi tous ceux déjà venus ({a}), 1 a une place pour {night}.',
+    'De todos los que ya vinieron ({a}), 1 tiene plaza para {night}.',
+  ],
+  'ya.na.pool.other': [
+    'Among everyone who already came ({a}), {n} hold a place for {night}.',
+    'Parmi tous ceux déjà venus ({a}), {n} ont une place pour {night}.',
+    'De todos los que ya vinieron ({a}), {n} tienen plaza para {night}.',
+  ],
+  'ya.na.pool.rate': ['{pct} of past guests are back', '{pct} des anciens sont de retour', '{pct} de los anteriores han vuelto'],
+  'ya.na.pool.none': [
+    'Nobody has come to an earlier night yet: every place here is a first.',
+    'Personne n’est encore venu à une soirée plus ancienne : chaque place ici est une première.',
+    'Nadie ha venido todavía a una fiesta anterior: cada plaza aquí es una primera.',
+  ],
+  'ya.na.away.cta': ['See who has no place yet ({n})', 'Voir ceux qui n’ont pas encore de place ({n})', 'Ver a quien aún no tiene plaza ({n})'],
+  'ya.na.see': ['See them', 'Les voir', 'Verlos'],
+  'ya.na.chip': ['Seen from {night}: {group}', 'Vu depuis {night} : {group}', 'Visto desde {night}: {group}'],
+  'ya.na.note': [
+    'Came = ticket scanned at the door. A ticket bought but not scanned is a place, not a visit. Guests of a multi-person ticket count as people; tickets and amounts are the buyers’.',
+    'Venu = place scannée à la porte. Un billet acheté mais pas scanné est une place, pas une venue. Les invités d’un billet de plusieurs personnes comptent comme des personnes ; billets et montants sont ceux des acheteurs.',
+    'Vino = entrada escaneada en la puerta. Una entrada comprada pero no escaneada es una plaza, no una visita. Los invitados de una entrada de varias personas cuentan como personas; entradas e importes son los de los compradores.',
+  ],
 };
 
 export default dict;

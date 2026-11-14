@@ -16,7 +16,7 @@ import type { ClientFilterDef, ClientRow, ClientsList, EventBrief, Lifecycle, Sa
 import { LIFECYCLE_AVATAR, LIFECYCLE_COLOR, fullName, initials, relDays } from '@/tickets/clients/lib/lifecycle';
 import { LoadError } from '@/tickets/analytics/LoadError';
 
-export type FilterKey = 'ev' | 'last' | 'nb' | 'sp' | 'rc' | 'src' | 'gl' | 'glev';
+export type FilterKey = 'ev' | 'came' | 'last' | 'nb' | 'sp' | 'rc' | 'src' | 'gl' | 'glev';
 type Opt = { v: string; l: string; s?: string; short?: string; disabled?: boolean };
 
 const COLS = '44px minmax(260px,2.4fr) 150px 84px 132px 96px 140px 24px';
@@ -100,6 +100,11 @@ export function ClientsTable({
         { v: 'T', l: t('ya.cli.f.ev.tonight'), short: t('ya.cli.f.ev.tonightShort') },
         ...events.map((e) => ({ v: e.id, l: e.title ?? '—', s: e.upcoming ? `${t('ya.cli.f.ev.upcoming')} · ${T.dShort(e.start_at)}` : T.dShort(e.start_at) })),
       ],
+    },
+    // Venu à : place SCANNÉE à la porte (avoir une place et être venu sont deux faits).
+    {
+      k: 'came', l: t('ya.cli.f.came'), title: t('ya.cli.f.came.title'), multi: true,
+      opts: events.map((e) => ({ v: e.id, l: e.title ?? '—', s: e.upcoming ? `${t('ya.cli.f.ev.upcoming')} · ${T.dShort(e.start_at)}` : T.dShort(e.start_at) })),
     },
     { k: 'last', l: t('ya.cli.f.last'), title: t('ya.cli.f.last'), opts: ['0-30', '30-90', '90-180', '180+'].map((v) => ({ v, l: t(`ya.cli.f.last.${v}`), short: t(`ya.cli.f.last.${v}.s`) })) },
     { k: 'nb', l: t('ya.cli.f.nb'), title: t('ya.cli.f.nb.title'), opts: ['1', '2', '3-5', '6+'].map((v) => ({ v, l: t(`ya.cli.f.nb.${v}`), short: t(`ya.cli.f.nb.${v}.s`) })) },
