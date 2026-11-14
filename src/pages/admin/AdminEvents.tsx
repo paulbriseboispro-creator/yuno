@@ -8,8 +8,9 @@ import { Ban, CalendarDays, Check, Clock, ExternalLink, Eye, EyeOff, RefreshCw, 
 import { AdminPage, Card, Stat, Btn, Pill, Modal, Field, TableWrap, Th, Td, EmptyState, Spinner, INPUT_STYLE, T1, T3 } from '@/components/admin/ui';
 import { fmtDate, fmtNum, fmtPlural } from '@/lib/adminFormat';
 import { Paginator, SearchBox } from './directory/Paginator';
+import { canAdminRepublish, discoveryBlockers } from '@/lib/adminEventDiscovery';
 
-interface EventRow { id: string; title: string | null; start_at: string; end_at: string | null; venue_id: string | null; partner_venue_id: string | null; location_name: string | null; location_city: string | null; discovery_status: string | null; visibility: string | null; is_discoverable: boolean; is_active: boolean; status: string; is_bde: boolean | null; slug: string | null; organizer_user_id: string | null }
+interface EventRow { id: string; title: string | null; start_at: string; end_at: string | null; venue_id: string | null; partner_venue_id: string | null; location_name: string | null; location_city: string | null; discovery_status: string | null; visibility: string | null; is_discoverable: boolean; is_active: boolean; status: string; is_bde: boolean | null; slug: string | null; organizer_user_id: string | null; event_kind: string | null; poster_url: string | null; description: string | null }
 type Mod = 'all' | 'pending' | 'approved' | 'rejected';
 type St = 'all' | 'upcoming' | 'live' | 'depublished' | 'cancelled';
 const PAGE_SIZE = 25;
@@ -36,7 +37,7 @@ export default function AdminEvents() {
     // filtre / pagine côté client. La porte démo vient de demo_event_ids(),
     // jamais d'un `not.in` de 100 uuids dans l'URL PostgREST.
     const [ev, vs, de] = await Promise.all([
-      supabase.from('events').select('id, title, start_at, end_at, venue_id, partner_venue_id, location_name, location_city, discovery_status, visibility, is_discoverable, is_active, status, is_bde, slug, organizer_user_id').is('external_source', null).order('start_at', { ascending: false }).limit(2000),
+      supabase.from('events').select('id, title, start_at, end_at, venue_id, partner_venue_id, location_name, location_city, discovery_status, visibility, is_discoverable, is_active, status, is_bde, slug, organizer_user_id, event_kind, poster_url, description').is('external_source', null).order('start_at', { ascending: false }).limit(2000),
       supabase.from('venues').select('id, name'),
       supabase.rpc('demo_event_ids' as never),
     ]);
@@ -90,7 +91,22 @@ export default function AdminEvents() {
 
   const modLabel = (s: string | null) => (s ? t(`adm.events.mod.${s}`) : t('adm.events.mod.none'));
   const where = (e: EventRow) => venues[e.venue_id ?? e.partner_venue_id ?? ''] ?? e.location_name ?? e.location_city ?? '—';
-  const state = (e: EventRow): { label: string; tone: 'neg' | 'pos' | 'muted' | 'default' } => e.status === 'cancelled' ? { label: t('adm.events.st.cancelled'), tone: 'neg' } : e.visibility && e.visibility !== 'public' ? { label: t('adm.events.st.private'), tone: 'default' } : e.is_discoverable && e.is_active && e.status === 'active' ? { label: t('adm.events.st.live'), tone: 'pos' } : { label: t('adm.events.st.depublished'), tone: 'muted' };
+  // L'état dit QUI tient la soirée hors d'Explore : Yuno (« Dépubliée par
+  // Yuno ») ou un critère que l'organisateur n'a pas rempli (« Hors Explore »
+  // + ce qui manque). Jamais « Dépubliée » pour une soirée que personne n'a
+  // dépubliée.
+  const state = (e: EventRow): { label: string; tone: 'neg' | 'pos' | 'muted' | 'default'; why?: string } => {
+    if (e.status === 'cancelled') return { label: t('adm.events.st.cancelled'), tone: 'neg' };
+    if (e.is_discoverable && e.is_active && e.status === 'active') return { label: t('adm.events.st.live'), tone: 'pos' };
+    const blockers = discoveryBlockers(e, demo.has(e.id));
+    if (blockers[0] === 'rejected') {
+      const rest = blockers.slice(1).map((k) => t(`adm.events.why.${k}`)).join(' · ');
+      return { label: t('adm.events.st.rejectedByYuno'), tone: 'neg', why: rest || undefined };
+    }
+    if (blockers.length === 1 && blockers[0] === 'private') return { label: t('adm.events.st.private'), tone: 'default' };
+    if (blockers.length > 0) return { label: t('adm.events.st.outOfExplore'), tone: 'muted', why: blockers.map((k) => t(`adm.events.why.${k}`)).join(' · ') };
+    return { label: t('adm.events.st.depublished'), tone: 'muted' };
+  };
 
   return (
     <AdminPage eyebrow={t('adm.events.eyebrow')} title={t('adm.events.title')} subtitle={t('adm.events.subtitle')}
@@ -124,14 +140,15 @@ export default function AdminEvents() {
                   <Td>{where(ev)}</Td>
                   <Td muted style={{ whiteSpace: 'nowrap' }}>{fmtDate(ev.start_at, language, 'datetime')}</Td>
                   <Td>{ev.discovery_status ? <Pill size="xs" tone={ev.discovery_status === 'approved' ? 'pos' : ev.discovery_status === 'rejected' ? 'neg' : 'accent'}>{modLabel(ev.discovery_status)}</Pill> : <span style={{ color: T3 }}>—</span>}</Td>
-                  <Td><Pill size="xs" tone={s.tone}>{s.label}</Pill></Td>
+                  <Td><div className="flex flex-col items-start gap-1"><Pill size="xs" tone={s.tone}>{s.label}</Pill>{s.why && <span style={{ color: T3, fontSize: 11.5, lineHeight: 1.3, maxWidth: 220 }}>{s.why}</span>}</div></Td>
                   <Td right>
                     <div className="flex items-center justify-end gap-1.5 flex-wrap">
                       {ev.discovery_status === 'pending' && ev.status !== 'cancelled' && (<>
                         <Btn size="sm" variant="primary" icon={Check} loading={b} onClick={() => setDiscovery(ev, 'approved')} title={t('adm.events.approveTitle')}>{t('adm.events.approve')}</Btn>
                         <Btn size="sm" icon={X} disabled={b} onClick={() => setDiscovery(ev, 'rejected')} title={t('adm.events.rejectTitle')}>{t('adm.events.reject')}</Btn>
                       </>)}
-                      {ev.status !== 'cancelled' && <Btn size="sm" icon={ev.is_discoverable ? EyeOff : Eye} disabled={b} onClick={() => togglePublish(ev)}>{ev.is_discoverable ? t('adm.events.unpublish') : t('adm.events.republish')}</Btn>}
+                      {ev.status !== 'cancelled' && ev.is_discoverable && <Btn size="sm" icon={EyeOff} disabled={b} onClick={() => togglePublish(ev)}>{t('adm.events.unpublish')}</Btn>}
+                      {canAdminRepublish(ev) && <Btn size="sm" icon={Eye} disabled={b} onClick={() => togglePublish(ev)}>{t('adm.events.republish')}</Btn>}
                       <Btn size="sm" variant="danger" icon={ShieldAlert} disabled={b || ev.status === 'cancelled'} onClick={() => { setReason(''); setCancelTarget(ev); }}>{t('adm.events.cancel')}</Btn>
                     </div>
                   </Td>
