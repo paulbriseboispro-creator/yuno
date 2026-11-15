@@ -3,8 +3,9 @@
  * vendre des billets et des guest lists, rien d'autre. À false, les Consoles
  * Club, Organisateur et Manager retirent de leurs menus tout ce qui envoie ou
  * pousse (e-mails, SMS, push, publicités Meta, intégrations), les programmes
- * promoteurs / agences, les DJ, la rareté (FOMO), la fidélité et l'import de
- * fichiers ; leurs adresses renvoient à l'accueil. Rien n'est supprimé du code.
+ * promoteurs / agences, les DJ, la fidélité et l'import de fichiers ; leurs
+ * adresses renvoient à l'accueil. Rien n'est supprimé du code. La rareté (FOMO)
+ * reste visible (15/11) : elle ne règle que l'affichage de la page publique.
  *
  * Miroir serveur : `platform_pause.marketing_paused` (migration 20261208100000),
  * qui refuse de toute façon tout envoi marketing. Relancer = passer ceci à true
@@ -17,7 +18,7 @@ const CONSOLE_BASES = ['/owner', '/organizer-app', '/manager'];
 
 const MARKETING_SEGMENTS = [
   'campaigns', 'sms-campaigns', 'sms', 'push', 'ads', 'integrations',
-  'promoters', 'agencies', 'djs', 'book-dj', 'scarcity', 'loyalty',
+  'promoters', 'agencies', 'djs', 'book-dj', 'loyalty',
   'clients/imports',
 ];
 
