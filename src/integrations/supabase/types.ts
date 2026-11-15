@@ -23984,6 +23984,7 @@ export type Database = {
           code: string
           conversions: number
           created_at: string
+          engaged_visits: number
           event_id: string
           id: string
           is_active: boolean
