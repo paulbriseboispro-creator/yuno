@@ -21,12 +21,14 @@ import {
 import { buildPartnerShare, contactKindOf, partnerConversion, partnerInitial } from '@/lib/partnerLinks';
 import { PARTNER_LANGUAGE_NAMES } from '@/lib/partnerLinkWords';
 import type { PartnerLinkRow } from './PartnerLinkDialog';
+import { EngagedVisits } from './EngagedVisits';
 
 export interface PartnerStatsRow extends PartnerLinkRow {
   clicks: number;
   conversions: number;
   revenue: number | null;
   is_active: boolean;
+  engaged_visits?: number | null;
 }
 
 interface Props {
@@ -138,6 +140,7 @@ export function PartnerLinksPanel({ rows, eventTitle, formatMoney, onCreate, onE
 
                 <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/55">
                   <span><span className="font-medium text-white/85">{row.clicks}</span> {t('tlink.clicks')}</span>
+                  <EngagedVisits value={row.engaged_visits} />
                   <span><span className="font-medium text-white/85">{row.conversions}</span> {t('tlink.sales')}</span>
                   {row.revenue !== null && row.revenue !== undefined && (
                     <span><span className="font-medium text-white/85">{formatMoney(Number(row.revenue) || 0)}</span> {t('tlink.revenue')}</span>

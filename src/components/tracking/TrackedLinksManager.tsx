@@ -19,6 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { EngagedVisits } from './EngagedVisits';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
@@ -62,6 +63,9 @@ interface LinkRow {
   conversions: number;
   /** NULL pour un membre d'équipe qui ne voit pas l'argent (get_tracked_link_stats). */
   revenue: number | null;
+  /** Personnes arrivées sur la page de la soirée par ce lien et restées ≥ 3 s.
+   *  NULL hors lien de soirée (la page d'arrivée ne se mesure pas ainsi). */
+  engaged_visits?: number | null;
 }
 
 const CHANNEL_PRESETS = ['instagram', 'tiktok', 'newsletter', 'facebook', 'whatsapp', 'flyer', 'snapchat'];
@@ -235,7 +239,7 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
       .map((r) => ({
         ...partnerMeta[r.id],
         id: r.id, code: r.code, clicks: r.clicks, conversions: Number(r.conversions) || 0,
-        revenue: r.revenue, is_active: r.is_active,
+        revenue: r.revenue, is_active: r.is_active, engaged_visits: r.engaged_visits ?? null,
       }))
       .sort((a, b) => b.conversions - a.conversions || b.clicks - a.clicks),
     [rows, partnerMeta],
@@ -385,6 +389,7 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
                     dépassaient la carte — la ligne doit pouvoir casser. */}
                 <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/55">
                   <span><span className="text-white/85 font-medium">{row.clicks}</span> {t('tlink.clicks')}</span>
+                  <EngagedVisits value={row.engaged_visits} />
                   <span>
                     <span className="text-white/85 font-medium">{row.conversions}</span>{' '}
                     {isGuestList ? t('tlink.signups') : t('tlink.sales')}

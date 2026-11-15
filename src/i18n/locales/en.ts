@@ -17,6 +17,8 @@ const en: Record<string, string> = {
   'tlink.deleted': 'Link deleted',
   'tlink.deleteError': 'Could not delete link',
   'tlink.clicks': 'clicks',
+  'tlink.engaged': 'stayed 3s+',
+  'tlink.engagedHint': 'People this link brought to the event page who stayed 3 seconds or more. Compare this to the “website visits” of a Meta ad: a click also counts people who close the page straight away. It can be higher than clicks when the event address was shared with its tracking parameters.',
   'tlink.sales': 'sales',
   'tlink.signups': 'signups',
   'tlink.revenue': 'revenue',

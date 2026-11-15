@@ -17,6 +17,8 @@ const es: Record<string, string> = {
   'tlink.deleted': 'Enlace eliminado',
   'tlink.deleteError': 'No se pudo eliminar',
   'tlink.clicks': 'clics',
+  'tlink.engaged': '3 s o más',
+  'tlink.engagedHint': 'Personas que este enlace llevó a la página del evento y que se quedaron 3 segundos o más. Es la cifra que se compara con las «visitas al sitio» de un anuncio de Meta: un clic también cuenta a quien cierra enseguida. Puede superar los clics cuando la dirección del evento se compartió con sus parámetros de seguimiento.',
   'tlink.sales': 'ventas',
   'tlink.signups': 'inscritos',
   'tlink.revenue': 'ingresos',

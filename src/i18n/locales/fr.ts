@@ -17,6 +17,8 @@ const fr: Record<string, string> = {
   'tlink.deleted': 'Lien supprimé',
   'tlink.deleteError': 'Suppression impossible',
   'tlink.clicks': 'clics',
+  'tlink.engaged': 'restés 3 s+',
+  'tlink.engagedHint': 'Personnes amenées par ce lien sur la page de la soirée et restées 3 secondes ou plus. C’est le chiffre à comparer aux « visites du site » d’une pub Meta : un clic compte aussi qui referme aussitôt. Il peut dépasser les clics quand l’adresse de la soirée a été partagée avec ses paramètres de suivi.',
   'tlink.sales': 'ventes',
   'tlink.signups': 'inscrits',
   'tlink.revenue': 'CA',
