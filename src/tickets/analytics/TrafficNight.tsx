@@ -20,6 +20,7 @@ import {
   CardHead, ChartSkeleton, Fill, MultiLine, Sk, StatePill, Tile, TileSkeleton, card, fadeIn, useGo, type NightState, type TileSpec,
 } from './anaUi';
 import { deltaPct, jLabelFor } from './SalesTab';
+import { ChoicesCard } from './FunnelFlow';
 import { BridgeBand, Chip, FAM_COLOR, FunnelCard, LinksCard, MIN_SAMPLE, countryName, fmtDur, peakHours, rate } from './TrafficTab';
 
 
@@ -238,6 +239,10 @@ export function TrafficNight({ q, f, setF, goTab }: { q: UseQueryResult<AnaVisit
         {loading ? [0, 1, 2, 3].map((i) => <TileSkeleton key={i} />) : tiles.map((x, i) => <Tile key={i} t={x} i={i} go={go} rv={rv} />)}
       </div>
 
+      {/* De la visite à la commande, puis les billets choisis (achetés ou non). */}
+      <FunnelCard d={d} rv={rv} go={go} prog={prog} ev />
+      {d.funnel.flow && <ChoicesCard d={d} rv={rv} go={go} ev />}
+
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'flex-start' }}>
         {/* D'où arrivent-ils pour cette soirée ? */}
         <section style={{ ...card, flex: '1 1 440px', gap: 14 }}>
@@ -262,9 +267,6 @@ export function TrafficNight({ q, f, setF, goTab }: { q: UseQueryResult<AnaVisit
             </div>
           )}
         </section>
-        <div style={{ flex: '1.4 1 520px', minWidth: 0, display: 'flex' }}>
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}><FunnelCard d={d} rv={rv} go={go} prog={prog} ev /></div>
-        </div>
       </div>
 
       <LinksCard links={d.links} rv={rv} go={go} ev />

@@ -20,6 +20,7 @@ import { useTixT } from '@/tickets/analytics/i18n';
 import { VISIT_FAMS, type AnaFilters, type AnaTab, type AnaVisits, type VisitFam, type VisitKid, type VisitLink } from '@/tickets/analytics/data';
 import { PageCard } from './TrafficDetail';
 import { TrafficNight } from './TrafficNight';
+import { ChoicesCard, PurchaseFunnelCard } from './FunnelFlow';
 import {
   BrandArrowButton, CardHead, ChartSkeleton, Fill, Sk, StackChart, StatePill, Tile, TileSkeleton, bucketTitle, card, fadeIn, nightCard, useGo, xLabels, type TileSpec,
 } from './anaUi';
@@ -223,6 +224,10 @@ function TrafficPeriod({ q, f, setF, goTab }: { q: UseQueryResult<AnaVisits>; f:
 
       {d.keep.length > 0 && <KeepCard d={d} />}
 
+      {/* De la visite à la commande, puis les billets choisis (achetés ou non). */}
+      <FunnelCard d={d} rv={rv} go={go} prog={prog} />
+      {d.funnel.flow && <ChoicesCard d={d} rv={rv} go={go} />}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,250px),1fr))', gap: 16 }}>
         {loading ? [0, 1, 2, 3].map((i) => <TileSkeleton key={i} />) : tiles.map((x, i) => <Tile key={i} t={x} i={i} go={go} rv={rv} />)}
       </div>
@@ -308,7 +313,6 @@ function TrafficPeriod({ q, f, setF, goTab }: { q: UseQueryResult<AnaVisits>; f:
       </section>
 
       <EngagementCard d={d} rv={rv} go={go} />
-      <FunnelCard d={d} rv={rv} go={go} prog={prog} />
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'stretch' }}>
         <HeatCard heat={d.heat} rv={rv} go={go} />
@@ -430,6 +434,12 @@ export function Chip({ label, value, sub }: { label: string; value: ReactNode; s
 // ── Du coup d'œil à l'achat ───────────────────────────────────────────────
 
 export function FunnelCard({ d, rv, go, prog, ev = false }: { d: AnaVisits; rv: boolean; go: boolean; prog: number; ev?: boolean }) {
+  if (d.funnel.flow) return <PurchaseFunnelCard d={d} rv={rv} go={go} prog={prog} />;
+  return <LegacyFunnelCard d={d} rv={rv} go={go} prog={prog} ev={ev} />;
+}
+
+/** Le tunnel d'avant `funnel.flow` (réponse d'une base pas encore à jour). */
+function LegacyFunnelCard({ d, rv, go, prog, ev = false }: { d: AnaVisits; rv: boolean; go: boolean; prog: number; ev?: boolean }) {
   const T = useTixT();
   const { t, tp, n, pct } = T;
   const fn = d.funnel;

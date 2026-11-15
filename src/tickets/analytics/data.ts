@@ -363,6 +363,8 @@ export interface AnaVisits {
     failed: number; failed_open: number; shared: number; waitlist: number;
     reasons: { reason: string; n: number }[];
     unpaid: { pillar: 'tickets' | 'tables'; n: number; name: string | null } | null;
+    /** Le tunnel en cinq étapes, par pilier, comparé, et les billets choisis (migration 20261216100000). */
+    flow?: FunnelFlow;
   };
   heat: number[][];
   devices: { mobile: number; desktop: number; tablet: number; unknown: number };
@@ -653,6 +655,31 @@ export interface JrPerson {
   email: string; first_name: string | null; last_name: string | null;
   lifecycle: Lifecycle; nights: number; email_ok: boolean; phone_ok: boolean;
   events: { at: string; t: JrEventKind; s: string | null; amount: number | null; qty: number | null; ev_at: string | null }[];
+}
+
+/** Une visite = une soirée dans un onglet, comptée à son étape la plus avancée et à toutes celles d'avant. */
+export interface FunnelSteps { viewed: number; selected: number; checkout: number; details: number; payment: number; purchased: number }
+export type FunnelPillar = 'tickets' | 'tables' | 'guest_list';
+export interface FunnelChoice {
+  pillar: 'tickets' | 'tables'; id: string; name: string; pack: string | null; price: number | null;
+  event_id: string; event_title: string; event_start: string;
+  /** Visites qui l'ont choisi (tap ou « Continuer »). */
+  chosen: number;
+  /** Visites qui l'ont choisi puis acheté. */
+  bought: number;
+  /** Visites dont c'était le dernier choix et qui n'ont rien acheté, et où elles se sont arrêtées. */
+  left: number; at_choice: number; at_info: number; at_pay: number;
+  /** Places restées dans ces paniers. */
+  seats: number;
+  /** Visites qui l'ont vu « Épuisé ». */
+  soldout_seen: number;
+}
+export interface FunnelFlow {
+  steps: FunnelSteps;
+  prev: FunnelSteps | null;
+  prev_kind: 'event' | 'period';
+  by_pillar: Partial<Record<FunnelPillar, Omit<FunnelSteps, 'viewed'>>>;
+  choices: FunnelChoice[];
 }
 
 export interface Journey {
