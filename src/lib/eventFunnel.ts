@@ -68,6 +68,10 @@ export function funnelRowFor(event: string, props: Record<string, unknown> | und
       const quantity = asInt(p.quantity);
       return { ...base, step: 'selected', pillar: 'tickets', ref: asStr(p.tier_id), quantity, amountCents: cents(p.price, quantity) };
     }
+    // Un tap sur un billet, une formule ou la guest list (avant « Continuer ») : c'est déjà un choix.
+    // Le passage à « Vos infos » (`checkout`) dit ensuite qui a continué.
+    case 'offer_picked':
+      return pillar ? { ...base, step: 'selected', pillar, ref: pillar === 'guest_list' ? null : asStr(p.ref_id), quantity: 1, amountCents: cents(p.price, 1) } : null;
     case 'table_pack_selected': {
       const quantity = asInt(p.guests);
       return { ...base, step: 'selected', pillar: 'tables', ref: asStr(p.pack_id), quantity, amountCents: cents(p.price, 1) };

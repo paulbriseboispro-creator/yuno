@@ -540,8 +540,10 @@ export default function TicketSelection() {
   };
 
   const selectItem = (type: SelectionType, id: string, price: number, name: string, zoneId?: string, deposit?: number, depositType?: 'fixed' | 'percentage', onSite?: boolean) => {
-    if (selection?.id === id) { setSelection(null); }
-    else { setSelection({ type, id, quantity: 1, price, name, zoneId, deposit, depositType, onSite }); }
+    if (selection?.id === id) { setSelection(null); return; }
+    setSelection({ type, id, quantity: 1, price, name, zoneId, deposit, depositType, onSite });
+    // Le choix compte dès le tap (Analyses › Trafic : billets choisis, même sans achat).
+    capturePosthog('offer_picked', { pillar: type === 'ticket' ? 'tickets' : type === 'table' ? 'tables' : 'guest_list', ref_id: id, price, ...selectionMarket });
   };
 
   const updateQuantity = (delta: number) => {
@@ -899,6 +901,7 @@ export default function TicketSelection() {
                     onClick={() => {
                       if (isFull) return;
                       setSelection(isSel ? null : { type: 'guestlist', id: selId, quantity: 1, price: 0, name: c.label, gender: c.gender });
+                      if (!isSel) capturePosthog('offer_picked', { pillar: 'guest_list', ref_id: null, price: 0, ...selectionMarket });
                     }}
                     className={cn(
                       'relative w-full rounded border p-4 text-left transition-all',

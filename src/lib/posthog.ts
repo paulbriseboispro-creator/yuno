@@ -89,6 +89,7 @@ export type YunoEvent =
   | 'checkout_started' //          { pillar, + géo }
   | 'checkout_step_completed' //   { pillar, step: 'quantity' | 'tier' | 'details' | 'payment' }
   | 'ticket_tier_selected' //      { tier_id, price, quantity }
+  | 'offer_picked' //              { pillar, ref_id, price } — tap sur un billet / une formule / la guest list (page de choix), avant « Continuer »
   | 'promo_code_applied' //        { pillar, result: 'applied' | 'rejected', reason }
   | 'promoter_attributed' //       { pillar, source: 'link' | 'code' }
   | 'table_zone_viewed' //         { zone_id }

@@ -27,6 +27,15 @@ describe('funnelRowFor : les événements du plan de marquage → étapes du tun
     });
   });
 
+  it('un tap sur un billet, une formule ou la guest list est un choix, avant « Continuer »', () => {
+    expect(funnelRowFor('offer_picked', { event_id: EV, pillar: 'tickets', ref_id: 't1', price: 8 })).toMatchObject({
+      step: 'selected', pillar: 'tickets', ref: 't1', quantity: 1, amountCents: 800,
+    });
+    expect(funnelRowFor('offer_picked', { event_id: EV, pillar: 'tables', ref_id: 'p1', price: 300 })).toMatchObject({ step: 'selected', pillar: 'tables', ref: 'p1' });
+    expect(funnelRowFor('offer_picked', { event_id: EV, pillar: 'guest_list', ref_id: 'gl:female', price: 0 })).toMatchObject({ step: 'selected', pillar: 'guest_list', ref: null });
+    expect(funnelRowFor('offer_picked', { event_id: EV, ref_id: 't1' })).toBeNull();
+  });
+
   it('l’étape « palier » d’un billet ou d’une table n’est pas comptée deux fois ; celle de la guest list l’est', () => {
     expect(funnelRowFor('checkout_step_completed', { event_id: EV, pillar: 'tickets', step: 'tier' })).toBeNull();
     expect(funnelRowFor('checkout_step_completed', { event_id: EV, pillar: 'tables', step: 'tier' })).toBeNull();
