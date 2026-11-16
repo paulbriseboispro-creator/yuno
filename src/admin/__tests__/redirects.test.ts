@@ -21,8 +21,10 @@ const TABLE: Array<[string, string]> = [
   ['/admin/organizers', '/admin/pros?type=organizer'],
   ['/admin/agencies', '/admin/pros?type=agency'],
   ['/admin/events', '/admin/clients/events'],
-  ['/admin/people', '/admin/clients/people'],
-  ['/admin/people/6f1c0e2a-0000-4000-8000-000000000001', '/admin/clients/people/6f1c0e2a-0000-4000-8000-000000000001'],
+  ['/admin/people', '/admin/clients/directory'],
+  ['/admin/people/6f1c0e2a-0000-4000-8000-000000000001', '/admin/clients/6f1c0e2a-0000-4000-8000-000000000001'],
+  ['/admin/clients/people', '/admin/clients/directory'],
+  ['/admin/clients/people/6f1c0e2a-0000-4000-8000-000000000001', '/admin/clients/6f1c0e2a-0000-4000-8000-000000000001'],
   ['/admin/orders', '/admin/money/orders'],
   ['/admin/demo-access', '/admin/pros/demo'],
   ['/admin/support', '/admin/pros/support'],
@@ -46,8 +48,8 @@ const TABLE: Array<[string, string]> = [
   ['/admin/accounting', '/admin/money'],
   ['/admin/traffic', '/admin/pilot/growth'],
   ['/admin/segmentation', '/admin/clients'],
-  ['/admin/directory', '/admin/clients/people'],
-  ['/admin/directory/user/u1', '/admin/clients/people/u1'],
+  ['/admin/directory', '/admin/clients/directory'],
+  ['/admin/directory/user/u1', '/admin/clients/u1'],
   ['/admin/directory/venue/v1', '/admin/pros/venue:v1'],
   ['/admin/affiliates', '/admin/pros?type=agency'],
   ['/admin/emails', '/admin/comms'],
@@ -76,7 +78,7 @@ const TABLE: Array<[string, string]> = [
 ];
 
 /** Pages de détail montées par les rubriques (hors menu, sous une entrée). */
-const DETAIL = [/^\/admin\/pros\/(venue|org|agency):[^/]+$/, /^\/admin\/clients\/people\/[^/]+$/, /^\/admin\/comms\/email\//, /^\/admin\/comms\/sms\/[^/]+$/, /^\/admin\/system\/crm\/plan\//, /^\/admin\/system\/drinks$/, /^\/admin\/login$/];
+const DETAIL = [/^\/admin\/pros\/(venue|org|agency):[^/]+$/, /^\/admin\/clients\/[^/]+$/, /^\/admin\/comms\/email\//, /^\/admin\/comms\/sms\/[^/]+$/, /^\/admin\/system\/crm\/plan\//, /^\/admin\/system\/drinks$/, /^\/admin\/login$/];
 
 describe('legacyAdminTarget', () => {
   it.each(TABLE)('%s → %s', (from, to) => {
@@ -163,7 +165,7 @@ describe('search result links', () => {
     expect(searchResultHref(row('organizer', 'u9'))).toBe('/admin/pros/org:u9');
     expect(searchResultHref(row('agency', 'a1'))).toBe('/admin/pros/agency:a1');
     expect(searchResultHref(row('crm', 'org:abc'))).toBe('/admin/pros/org:abc');
-    expect(searchResultHref(row('person', 'u1'))).toBe('/admin/clients/people/u1');
+    expect(searchResultHref(row('person', 'u1'))).toBe('/admin/clients/u1');
     expect(searchResultHref(row('event', 'e1'))).toBe('/admin/clients/events?q=e1');
     expect(searchResultHref(row('ticket', 't1'))).toBe('/admin/money/orders');
   });

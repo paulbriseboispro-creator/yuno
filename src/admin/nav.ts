@@ -87,9 +87,10 @@ export const ADMIN_NAV: AdminRubric[] = [
   {
     id: 'clients', base: '/admin/clients', icon: 'Users',
     entries: [
-      { key: 'buyers', path: '/admin/clients', end: true },
+      { key: 'overview', path: '/admin/clients', end: true },
+      { key: 'list', path: '/admin/clients/list' },
       { key: 'events', path: '/admin/clients/events' },
-      { key: 'people', path: '/admin/clients/people' },
+      { key: 'directory', path: '/admin/clients/directory' },
     ],
   },
   {

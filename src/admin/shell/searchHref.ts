@@ -22,7 +22,8 @@ export function searchResultHref(r: AdminSearchRow): string {
       const i = r.id.indexOf(':');
       return i > 0 ? `/admin/pros/${r.id.slice(0, i)}:${enc(r.id.slice(i + 1))}` : '/admin/pros';
     }
-    case 'person': return `/admin/clients/people/${enc(r.id)}`;
+    // Une personne : la fiche unique (l'id de compte est résolu en e-mail par admin_person).
+    case 'person': return `/admin/clients/${enc(r.id)}`;
     case 'event': return `/admin/clients/events?q=${enc(r.id)}`;
     case 'ticket':
     case 'table': return '/admin/money/orders';
