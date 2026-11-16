@@ -5,6 +5,7 @@
 // live here so the full-page inbox and the header bell popover stay in sync.
 
 import { eventReportHref } from '@/lib/analyticsNav';
+import { currentAdminHref } from '@/admin/redirects';
 import {
   ShoppingCart, Ticket, Crown, Users, Star,
   Heart, Zap, BarChart3, Mail, Calendar,
@@ -629,7 +630,17 @@ function affiliateNotifLink(n: AppNotif): string | null {
  * from a search. Deadline alerts land back on the alerts page itself, where the
  * registry and its "renewed today" button live.
  */
+/**
+ * Lien d'une alerte plateforme. Les règles ci-dessous parlent encore les
+ * anciennes adresses ; la refonte de l'admin (16/11) les range à leur
+ * nouvelle place en un seul endroit (src/admin/redirects.ts).
+ */
 function adminNotifLink(n: AppNotif): string | null {
+  const link = adminNotifLinkLegacy(n);
+  return link ? currentAdminHref(link) : null;
+}
+
+function adminNotifLinkLegacy(n: AppNotif): string | null {
   const ref = n.reference_id;
 
   switch (n.notification_type) {

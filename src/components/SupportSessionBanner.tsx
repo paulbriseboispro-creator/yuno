@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LifeBuoy, LogOut, Loader2 } from 'lucide-react';
 import { getSupportSession, endSupportSession, type SupportSessionState } from '@/lib/supportSession';
+import { onCrmHost, TICKETING_ORIGIN } from '@/lib/productHost';
 
 const AMBER = '#F5A524';
 
@@ -47,9 +48,12 @@ export function SupportSessionBanner() {
     setLeaving(true);
     await endSupportSession();
     setSession(null);
-    // Depuis la Console Yuno CRM : retour à l'Admin CRM (migration 20261019420000).
+    // Depuis la Console Yuno CRM : retour à l'Accès assisté CRM de l'admin unique,
+    // qui vit sur yunoapp.eu : depuis crm.yunoapp.eu on y part directement (la
+    // landing qui sert ce domaine ne relaie pas `/admin/login`).
     if (window.location.pathname === '/crm' || window.location.pathname.startsWith('/crm/')) {
-      window.location.assign(`/admin/crm/login?next=${encodeURIComponent('/admin/crm/support')}`);
+      const origin = onCrmHost() ? TICKETING_ORIGIN : '';
+      window.location.assign(`${origin}/admin/login?next=${encodeURIComponent('/admin/pros/crm-support')}`);
       return;
     }
     navigate('/auth', { replace: true });

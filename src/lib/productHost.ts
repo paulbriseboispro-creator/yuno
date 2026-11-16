@@ -1,7 +1,12 @@
 /**
  * Deux produits, deux adresses (décision de Paul, 2026-10-04) :
  *   • yunoapp.eu      → Yuno Billetterie (app client, Consoles de la Suite) ;
- *   • crm.yunoapp.eu  → Yuno CRM (connexion `/login`, Console `/crm`, Admin CRM).
+ *   • crm.yunoapp.eu  → Yuno CRM (connexion `/login`, Console `/crm`).
+ *
+ * Le super admin est UN admin, sur yunoapp.eu (`/admin`, refonte du 16/11) :
+ * les anciennes adresses de l'Admin CRM (`/admin/crm/...`) ouvertes sur
+ * crm.yunoapp.eu (relayées par la landing, qui garde `/admin/crm` dans sa liste)
+ * repartent sur yunoapp.eu, où src/admin/redirects.ts les range.
  *
  * crm.yunoapp.eu est servi par le Worker de la LANDING (repo Yuno-landing) : il
  * garde ses pages (`/`, `/fr`, `/es`, `/start`) et relaie à l'app les chemins
@@ -23,11 +28,11 @@ const TICKETING_HOSTS = new Set(['yunoapp.eu', 'www.yunoapp.eu']);
 
 /**
  * Chemins de Yuno CRM : sur crm.yunoapp.eu seulement. `/open/crm` est l'ajout
- * du CRM à un compte Billetterie (OpenProduct), `/crm-admin` et `/admin/crm`
- * l'Admin CRM du super admin, `/j` les Pages d'inscription publiques des fans
+ * du CRM à un compte Billetterie (OpenProduct), `/crm-admin` un ancien alias,
+ * `/j` les Pages d'inscription publiques des fans
  * (`/j/<slug>`, confirmation `/j/<slug>/ok`).
  */
-export const CRM_PATH_PREFIXES = ['/crm', '/crm-admin', '/admin/crm', '/login', '/open/crm', '/j'] as const;
+export const CRM_PATH_PREFIXES = ['/crm', '/crm-admin', '/login', '/open/crm', '/j'] as const;
 
 /**
  * Chemins communs aux deux produits : connexion et passage de session

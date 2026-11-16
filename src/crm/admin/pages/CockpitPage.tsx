@@ -168,7 +168,7 @@ function todoText(t: ReturnType<typeof useCrmT>['t'], x: Todo): { title: string;
   }
 }
 
-function TodoCard({ todo }: { todo: Todo[] }) {
+export function TodoCard({ todo }: { todo: Todo[] }) {
   const { t } = useCrmT();
   const [done, setDone] = useState<string[]>(readDone);
   const save = (v: string[]) => { setDone(v); try { localStorage.setItem(DONE_KEY, JSON.stringify(v)); } catch { /* préférence perdue : sans gravité */ } };

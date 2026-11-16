@@ -19,14 +19,14 @@ describe('isCrmHostname', () => {
 });
 
 describe('isCrmPath / isSharedProductPath', () => {
-  it('owns the CRM console, its login, its admin and the CRM opening', () => {
-    for (const p of ['/crm', '/crm/', '/crm/clients', '/crm/emails/studio/1', '/login', '/admin/crm', '/admin/crm/login', '/crm-admin', '/open/crm', '/j/nuit-electro', '/j/nuit-electro/ok']) {
+  it('owns the CRM console, its login and the CRM opening', () => {
+    for (const p of ['/crm', '/crm/', '/crm/clients', '/crm/emails/studio/1', '/login', '/crm-admin', '/open/crm', '/j/nuit-electro', '/j/nuit-electro/ok']) {
       expect(isCrmPath(p)).toBe(true);
     }
   });
 
   it('never claims a lookalike path', () => {
-    for (const p of ['/crmx', '/admin', '/admin/crmx', '/owner/crm/nights', '/open/suite', '/logins', '/']) {
+    for (const p of ['/crmx', '/admin', '/admin/crm', '/admin/crm/login', '/admin/crmx', '/owner/crm/nights', '/open/suite', '/logins', '/']) {
       expect(isCrmPath(p)).toBe(false);
     }
   });
@@ -44,7 +44,11 @@ describe('productHostDecision on crm.yunoapp.eu', () => {
     expect(productHostDecision(at('crm.yunoapp.eu', '/crm/clients'))).toEqual({ kind: 'stay' });
     expect(productHostDecision(at('crm.yunoapp.eu', '/login', '?redirect=%2Fcrm'))).toEqual({ kind: 'stay' });
     expect(productHostDecision(at('crm.yunoapp.eu', '/auth/handoff'))).toEqual({ kind: 'stay' });
-    expect(productHostDecision(at('crm.yunoapp.eu', '/admin/crm'))).toEqual({ kind: 'stay' });
+  });
+
+  it('sends the old CRM admin addresses to the single admin on yunoapp.eu (refonte du 16/11)', () => {
+    expect(productHostDecision(at('crm.yunoapp.eu', '/admin/crm/clients', '?tab=risks')))
+      .toEqual({ kind: 'cross', origin: TICKETING_ORIGIN, path: '/admin/crm/clients?tab=risks' });
   });
 
   it('sends the generic sign-in to the CRM one, query and anchor kept', () => {
@@ -84,12 +88,10 @@ describe('productHostDecision on yunoapp.eu', () => {
       .toEqual({ kind: 'cross', origin: CRM_ORIGIN, path: '/j/nuit-electro/ok?t=abc' });
     expect(productHostDecision(at('yunoapp.eu', '/open/crm', '?token=t')))
       .toEqual({ kind: 'cross', origin: CRM_ORIGIN, path: '/open/crm?token=t' });
-    expect(productHostDecision(at('yunoapp.eu', '/admin/crm/clients')))
-      .toEqual({ kind: 'cross', origin: CRM_ORIGIN, path: '/admin/crm/clients' });
   });
 
   it('keeps ticketing and shared pages, the Suite CRM v1 pages included', () => {
-    for (const p of ['/', '/owner', '/owner/crm/nights', '/organizer-app', '/auth', '/auth/handoff', '/get-started', '/admin', '/open/suite']) {
+    for (const p of ['/', '/owner', '/owner/crm/nights', '/organizer-app', '/auth', '/auth/handoff', '/get-started', '/admin', '/admin/crm/clients', '/admin/login', '/open/suite']) {
       expect(productHostDecision(at('yunoapp.eu', p))).toEqual({ kind: 'stay' });
     }
   });
