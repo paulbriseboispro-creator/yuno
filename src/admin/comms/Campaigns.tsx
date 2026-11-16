@@ -7,15 +7,18 @@
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useState } from 'react';
 import { Badge, Card, DataTable, Kpi, KpiRow, Page, Tabs, useAdminT, useTab, type ColumnDef, type Tone } from '@/admin/ui';
+import ContactImportDialog from '@/components/contacts/ContactImportDialog';
 import { fmtDate, fmtNum, fmtPct } from '@/lib/adminFormat';
 import { rpc } from '../system/data';
+import { Meter } from './Meter';
 import {
   COMMS_KEY, useEmailCampaigns, useMarketingOverview, usePushCampaigns, useSmsCampaigns,
-  type EmailCampaignRow, type PushCampaignRow, type SmsCampaignRow,
+  type EmailCampaignRow, type PushCampaignRow, type SmsCampaignRow, type MarketingOverview,
 } from './data';
 
-const STATUS_TONE: Record<string, Tone> = { draft: 'neutral', scheduled: 'accent', sending: 'warning', sent: 'positive', paused: 'warning', failed: 'negative', cancelled: 'neutral' };
+const STATUS_TONE: Record<string, Tone> = { draft: 'neutral', scheduled: 'neutral', sending: 'warning', sent: 'positive', paused: 'warning', failed: 'negative', cancelled: 'neutral' };
 
 export default function Campaigns() {
   const { t, lang } = useAdminT();
@@ -29,7 +32,9 @@ export default function Campaigns() {
     { value: 'email', label: t('adm.comms.cp.tab.email'), count: emails.data?.length },
     { value: 'sms', label: t('adm.comms.cp.tab.sms'), count: sms.data?.length },
     { value: 'push', label: t('adm.comms.cp.tab.push'), count: push.data?.length },
+    { value: 'lists', label: t('adm.comms.cp.tab.lists'), count: ov.data?.imports.length },
   ];
+  const [importOpen, setImportOpen] = useState(false);
   const [tab, setTab] = useTab(tabs);
 
   const sync = useMutation({
@@ -61,6 +66,11 @@ export default function Campaigns() {
     { id: 'failed', header: t('adm.comms.cp.c.failed'), meta: { align: 'right' }, accessorFn: (r) => r.failed_count ?? 0, cell: (c) => fmtNum(c.getValue<number>(), lang) },
     { id: 'date', header: t('adm.comms.cp.c.date'), accessorFn: (r) => r.sent_at ?? r.scheduled_at ?? r.created_at, cell: ({ row }) => when(row.original) },
   ];
+  const listCols: ColumnDef<MarketingOverview['imports'][number], unknown>[] = [
+    { id: 'name', header: t('adm.comms.cp.c.list'), accessorFn: (r) => r.list_name || (r.filename || '').replace(/\.[a-z0-9]+$/i, '') || t('pm.importUnnamed'), cell: (x) => <span className="a-t1 font-medium">{x.getValue<string>()}</span> },
+    { accessorKey: 'contacts', header: t('adm.comms.cp.c.contacts'), meta: { align: 'right' }, cell: (x) => fmtNum(x.getValue<number>(), lang) },
+    { accessorKey: 'created_at', header: t('adm.comms.cp.c.imported'), cell: (x) => fmtDate(x.getValue<string>(), lang) },
+  ];
   const pushCols: ColumnDef<PushCampaignRow, unknown>[] = [
     { accessorKey: 'title', header: t('adm.comms.cp.c.name'), cell: ({ row }) => <div className="min-w-0"><div className="a-t1 truncate font-medium">{row.original.title}</div><div className="a-t3 text-[12px]">{row.original.segment}</div></div> },
     { id: 'status', header: t('adm.comms.cp.c.status'), accessorFn: (r) => r.status ?? 'sent', cell: ({ row }) => status(row.original.status ?? 'sent') },
@@ -74,9 +84,7 @@ export default function Campaigns() {
     <Page title={t('adm.comms.cp.title')} subtitle={t('adm.comms.cp.sub')}
       actions={(
         <>
-          <button type="button" className="a-btn" onClick={() => sync.mutate()} disabled={sync.isPending}>{sync.isPending ? t('adm.ui.working') : t('adm.comms.cp.sync')}</button>
-          <button type="button" className="a-btn" onClick={() => navigate('/admin/comms/automations')}>{t('adm.comms.cp.recipes')}</button>
-          <button type="button" className="a-btn" onClick={() => navigate('/admin/comms/push')}>{t('adm.comms.cp.newPush')}</button>
+          <button type="button" className="a-btn" onClick={() => navigate('/admin/comms/push?new=1')}>{t('adm.comms.cp.newPush')}</button>
           <button type="button" className="a-btn" onClick={() => navigate('/admin/comms/sms')}>{t('adm.comms.cp.newSms')}</button>
           <button type="button" className="a-btn a-btn--primary" onClick={() => navigate('/admin/comms/email/new')}>{t('adm.comms.cp.newEmail')}</button>
         </>
@@ -88,7 +96,32 @@ export default function Campaigns() {
         <Kpi label={t('adm.comms.cp.k.sent')} value={fmtNum(sentCount, lang)} hint={t('adm.comms.cp.k.sentHint')} loading={ov.isLoading} />
         <Kpi label={t('adm.comms.cp.k.drafts')} value={fmtNum(draftCount, lang)} loading={ov.isLoading} />
       </KpiRow>
-      <Tabs items={tabs} value={tab} onChange={setTab} />
+      {o?.quota && (
+        <details className="a-card">
+          <summary className="a-t1 flex min-h-[44px] cursor-pointer items-center px-4 text-[14px] font-semibold">{t('adm.comms.cp.quota')}</summary>
+          <div className="grid grid-cols-1 gap-5 border-t p-4 md:grid-cols-3">
+            {([
+              ['quotaMonth', o.quota.used, o.quota.free],
+              ['quotaDay', o.quota.day_used, o.quota.day_cap],
+              ['quotaPool', o.quota.pool_used, o.quota.pool_cap],
+            ] as const).map(([k, used, cap]) => (
+              <div key={k} className="flex flex-col gap-2">
+                <div className="flex items-baseline justify-between gap-2"><span className="a-t2 text-[12.5px]">{t(`pm.${k}`)}</span><span className="a-t1 a-num text-[13px] font-medium">{fmtNum(used, lang)} / {fmtNum(cap, lang)}</span></div>
+                <Meter used={used} cap={cap} />
+              </div>
+            ))}
+            <p className="a-t3 text-[12.5px] md:col-span-3">{t('pm.quotaHint')}</p>
+          </div>
+        </details>
+      )}
+      <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+        <Tabs className="min-w-0 flex-1" items={tabs} value={tab} onChange={setTab} />
+        <div className="flex flex-wrap gap-2 pb-1.5">
+          <button type="button" className="a-btn a-btn--sm" onClick={() => sync.mutate()} disabled={sync.isPending}>{sync.isPending ? t('adm.ui.working') : t('adm.comms.cp.sync')}</button>
+          <button type="button" className="a-btn a-btn--sm" onClick={() => setImportOpen(true)}>{t('adm.comms.cp.import')}</button>
+          <button type="button" className="a-btn a-btn--sm" onClick={() => navigate('/admin/comms/automations')}>{t('adm.comms.cp.recipes')}</button>
+        </div>
+      </div>
       <Card padded={false}>
         {tab === 'email' && (
           <DataTable data={emails.data} columns={emailCols} loading={emails.isLoading} error={emails.error} onRetry={() => void emails.refetch()} searchable getRowId={(r) => r.id}
@@ -103,7 +136,12 @@ export default function Campaigns() {
           <DataTable data={push.data} columns={pushCols} loading={push.isLoading} error={push.error} onRetry={() => void push.refetch()} searchable getRowId={(r) => r.id}
             onRowClick={() => navigate('/admin/comms/push')} empty={{ title: t('adm.comms.cp.emptyPush'), body: t('adm.comms.cp.emptyBody') }} />
         )}
+        {tab === 'lists' && (
+          <DataTable data={o?.imports} columns={listCols} loading={ov.isLoading} error={ov.error} onRetry={() => void ov.refetch()} getRowId={(r) => r.id}
+            initialSort={[{ id: 'created_at', desc: true }]} empty={{ title: t('adm.comms.cp.emptyLists'), body: t('adm.comms.cp.emptyListsBody') }} />
+        )}
       </Card>
+      <ContactImportDialog open={importOpen} onClose={() => setImportOpen(false)} scope={{ kind: 'platform' }} onChanged={() => void qc.invalidateQueries({ queryKey: COMMS_KEY })} />
     </Page>
   );
 }

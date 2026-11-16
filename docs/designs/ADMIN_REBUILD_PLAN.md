@@ -551,13 +551,11 @@ claire et sombre de chaque rubrique dans `docs/designs/admin-rebuild/`.
 |---|---|---|---|
 | `AdminDemoAccess` | Pros › Démo (onglet Billetterie) | Suite | 988 |
 | `AdminVenues` | `/admin/pros/venues` (caché : purge, gestes de club) | Suite | 705 |
-| `AdminNotificationAutomations` | Communication › Notifications (règles, textes, crédits) | Suite | 673 |
-| `AdminLinks` | Communication › Page bio | Suite | 618 |
+| `AdminNotificationAutomations` (registre des notifications unitaires, `SystemTab` seul) | Système › Interrupteurs | Suite | 154 |
 | `AdminProSignups` | `/admin/pilot/signups` (caché) | Suite | 478 |
 | `InvitePage` (CRM) | Pros › Inviter (onglet CRM) | CRM | 398 |
-| `AdminMarketing` (éditeur, rapport, modèles, automatisations) | `/admin/comms/email/*`, `automations` | Suite | 391 |
+| `AdminMarketing` (Email Studio, rapport, modèles, recettes : partagés avec la Console des pros) | `/admin/comms/email/*`, `automations` | Suite (barre de retour au kit) | 43 |
 | `AdminSubscriptions` | `/admin/money/subscriptions` (caché) | Suite | 371 |
-| `AdminPushNotifications` | `/admin/comms/push` | Suite | 348 |
 | `AdminProduct` | Pilotage › Produit (onglet Signaux) | Suite | 256 |
 | `DemoPage` (CRM) | Pros › Démo (onglet CRM) | CRM | 252 |
 | `AdminOrganizers` | `/admin/pros/organizers` (caché) | Suite | 250 |
@@ -571,10 +569,16 @@ claire et sombre de chaque rubrique dans `docs/designs/admin-rebuild/`.
 | `LandingTab` (CRM) | Pilotage › Acquisition (page publique CRM) | CRM | 110 |
 | `LearningTab` (CRM) | Système › Offre et tarifs (analyse client) | CRM | 101 |
 | `ProductPage` (CRM) | Pilotage › Produit (onglet CRM) | CRM | 75 |
-| `AdminMarketingSms` | `/admin/comms/sms` | Suite | 71 |
+| `SmsCampaignsPanel` (éditeur SMS, partagé avec la Console des pros) | `/admin/comms/sms` | Suite (entrée au kit) | partagé |
 | `PriceTierCard` (CRM) | Système › Offre et tarifs | CRM | 58 |
 | `NightPlanAdminPage` (CRM) | `/admin/system/connectors/plan/*` | CRM | 51 |
 | `AdminDrinkCatalog` | `/admin/system/drinks` (fermé, pilier en pause) | Suite | 380 |
+
+**Communication réécrite au kit (17/11)** : Notifications automatiques (règles en tableau + tiroir,
+politique en formulaires, crédits en tableau avec « offrir » par `ReasonDialog` et allocation par dialogue),
+Page bio (audience, réglages, liste d'attente), Campagnes (base, quota, listes importées, import), Push de Yuno
+(historique + tiroir « Nouveau push »). Restent dans leur cadre : Email Studio, recettes e-mail, éditeur SMS
+(partagés avec la Console des pros), derrière une barre de retour au kit (`EditorFrame`).
 
 Ces écrans ont les couleurs, la police et le rouge du kit, mais gardent leur
 mise en page (cartes à grands rayons, boutons et tableaux à eux). L'ancien kit
