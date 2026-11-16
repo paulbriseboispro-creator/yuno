@@ -1,23 +1,28 @@
 /**
  * Rubrique « Argent » : qu'a-t-on vendu, gagné, et que reste-t-il à régler ?
- * (`/admin/money/*`). Lot 0 : écrans existants remontés tels quels.
- * Chemins RELATIFS.
+ * (`/admin/money/*`). Lot 4 : Ventes, Commandes, À régler, Abonnements et
+ * Yunits, Coûts et marge, réécrits avec le kit. Chemins RELATIFS.
  */
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
-import { CrmFrame, SuiteFrame } from '../shell/frames';
+import { SuiteFrame } from '../shell/frames';
 
-const AdminRevenue = lazyWithRetry(() => import('@/pages/admin/AdminRevenue'));
-const AdminOrders = lazyWithRetry(() => import('@/pages/admin/AdminOrders'));
+const SalesPage = lazyWithRetry(() => import('./SalesPage'));
+const OrdersPage = lazyWithRetry(() => import('./OrdersPage'));
+const IssuesPage = lazyWithRetry(() => import('./IssuesPage'));
+const CrmMoneyPage = lazyWithRetry(() => import('./CrmMoneyPage'));
+const CostsPage = lazyWithRetry(() => import('./CostsPage'));
 const AdminSubscriptions = lazyWithRetry(() => import('@/pages/admin/AdminSubscriptions'));
-const CrmMoney = lazyWithRetry(() => import('@/crm/admin/pages/MoneyPage'));
 
 export default function MoneyRoutes() {
   return (
     <Routes>
-      <Route index element={<SuiteFrame><AdminRevenue /></SuiteFrame>} />
-      <Route path="orders" element={<SuiteFrame><AdminOrders /></SuiteFrame>} />
-      <Route path="crm" element={<CrmFrame><CrmMoney /></CrmFrame>} />
+      <Route index element={<SalesPage />} />
+      <Route path="orders" element={<OrdersPage />} />
+      <Route path="issues" element={<IssuesPage />} />
+      <Route path="crm" element={<CrmMoneyPage />} />
+      <Route path="costs" element={<CostsPage />} />
+      <Route path="invoices" element={<Navigate to="/admin/money/costs?tab=invoices" replace />} />
       {/* Abonnements de la Suite : fonctionnalité coupée, hors menu (entrée `hidden`). */}
       <Route path="subscriptions" element={<SuiteFrame><AdminSubscriptions /></SuiteFrame>} />
       <Route path="*" element={<Navigate to="/admin/money" replace />} />
