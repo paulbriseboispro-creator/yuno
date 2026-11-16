@@ -158,6 +158,43 @@ Rangement provisoire des écrans existants (remontés tels quels, rien réécrit
 | Légal | `/admin/legal`, `deadlines`, `audit` | Légal CRM, Alertes (échéances), Journal |
 | Système | `/admin/system`, `crm(/plan/...)`, `settings` | Santé, Plateforme CRM, Réglages CRM |
 
+### Lot 3 : Clients (`src/admin/clients/`, branche `claude/admin-rebuild-lot3-795c5d`)
+
+Question : « Qui achète sur Yuno ? ». Cinq pages, kit seulement : **Vue d'ensemble**
+(`/admin/clients` : clients, joignables, actifs, nouveaux, taux de retour comparés
+à la période précédente, courbe des nouveaux, segments RFM cliquables, cohortes),
+**Tous les clients** (`/list`, filtres en puces dans l'adresse, tri et pagination
+côté serveur par `admin_segmentation_customers`, export CSV conservé),
+**fiche UNIQUE** (`/admin/clients/:id`), **Soirées** (`/events`, modération par
+motif) et **Annuaire** (`/directory`, DJ / promoteurs / staff).
+
+- **Clé d'une personne = l'e-mail encodé** (sept clients sur neuf n'ont pas de
+  compte ; c'est aussi la clé des étiquettes et des notes). Un id de compte (uuid :
+  recherche ⌘K, anciennes adresses `/admin/people/:id`) est accepté, la RPC le
+  résout en e-mail (`personKey.ts`, testé). `/admin/clients/people[/:id]` et les
+  anciennes adresses redirigent (`redirects.ts` + test) ; `searchHref.ts` ouvre
+  cette fiche.
+- **Fiche** : en-tête (identité, segment, compte / app / joignable), cinq onglets :
+  Achats (billets, tables, guest list un par un, tous clubs ; les boissons n'y sont
+  pas, pilier en pause), Messages (e-mails de campagne et push, 50 derniers ; les
+  e-mails de service ne sont pas listés), Consentements, Compte (rôles, 2FA,
+  suspension, mot de passe : chaque geste par `ReasonDialog` + `admin_log_action`),
+  Notes et étiquettes (`admin_crm_*`).
+- **Migration `20261218130000_admin_clients.sql`** (répétée annulée sur la prod, NON
+  appliquée) : `admin_clients_period(p_days)` (chiffres comparés + courbe, n'assemble
+  que `_admin_customer_activity()`) et `admin_person(p_email, p_user_id)` (assemble
+  `admin_customer_detail` + achats, consentements, messages, compte). Super admin
+  seul, REVOKE / GRANT, aucune table temporaire.
+- **Limites assumées** : la base clients ne prend pas `p_include_demo` (les fonctions
+  de base `_admin_customer_*` excluent la démo par construction, y ajouter le
+  paramètre changerait leur signature) : la Vue d'ensemble le dit quand l'interrupteur
+  démo est allumé. Pas de filtre « ville » (`admin_segmentation_customers` ne le
+  propose pas). L'annuaire promoteurs ne montre plus les clics / conversions (une
+  requête par ligne) mais le montant dû et versé. Les clés `adminSeg.*` du
+  dictionnaire principal ne servent plus à l'admin (non supprimées).
+- Supprimés : `AdminCustomers`, `AdminUserDetail`, `AdminPeople`, `AdminEvents`,
+  `directory/Directory{DJs,Promoters,Staff}`.
+
 ## 8. Conventions pour les lots 1 à 6
 
 1. **Où poser une page** : dans le dossier de SA rubrique,
