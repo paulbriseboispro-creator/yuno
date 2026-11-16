@@ -3,9 +3,11 @@
  * Une ligne par compte, tous produits (admin_accounts). Cinq chiffres en tête,
  * chacun comparé à la période précédente quand la comparaison a un sens, et
  * chacun filtre la liste. Les filtres vivent dans l'adresse (`?type=&product=&status=&city=`).
+ * Deux vues des comptes Yuno CRM remplacent la liste (`?view=risk|onboarding`,
+ * CrmViews.tsx) : santé et risques, mise en route des comptes récents.
  */
 import { useMemo } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { Info, Plus } from 'lucide-react';
 import { DataTable, Kpi, KpiRow, Page, Status, Badge, useAdminT, useAdminFilters, type ColumnDef } from '@/admin/ui';
 import { fmtEur, fmtNum, fmtRelative } from '@/lib/adminFormat';
@@ -15,6 +17,7 @@ import {
 } from './accounts';
 import { useAccounts } from './data';
 import { ProductBadges, TypeLabel } from './bits';
+import { CrmViews, type CrmView } from './CrmViews';
 
 const TYPES: AccountType[] = ['club', 'organizer', 'association', 'agency'];
 const PRODUCTS: AccountFilters['product'][] = ['tickets', 'crm', 'both'];
@@ -38,6 +41,11 @@ export default function AccountsPage() {
   const [sp, setSp] = useSearchParams();
   const f = readFilters(sp);
   const rows = q.data?.accounts;
+  // `?tab=risks|onboarding` et `?open=<compte>` : liens de l'ancienne liste des comptes CRM.
+  const legacyTab = sp.get('tab') === 'risks' ? 'risk' : sp.get('tab');
+  const view = (['risk', 'onboarding'] as const).find((v) => v === (sp.get('view') ?? legacyTab)) ?? 'all';
+  const legacyOpen = sp.get('open');
+  const setView = (v: 'all' | CrmView) => setSp((prev) => { const n = new URLSearchParams(prev); n.delete('tab'); if (v === 'all') n.delete('view'); else n.set('view', v); return n; }, { replace: true });
 
   const setFilter = (k: keyof AccountFilters, v: string) => setSp((prev) => {
     const next = new URLSearchParams(prev);
@@ -121,6 +129,8 @@ export default function AccountsPage() {
     </select>
   );
 
+  if (legacyOpen && legacyOpen.includes(':')) return <Navigate to={accountHref(legacyOpen)} replace />;
+
   return (
     <Page
       title={t('adm.pros.list.title')}
@@ -142,7 +152,13 @@ export default function AccountsPage() {
           to={qs({ product: 'crm' })} />
       </KpiRow>
 
-      <DataTable
+      <div className="a-seg flex-wrap self-start" role="group" aria-label={t('adm.pros.cv.view')}>
+        {(['all', 'risk', 'onboarding'] as const).map((v) => (
+          <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)}>{t(`adm.pros.cv.v.${v}`)}</button>
+        ))}
+      </div>
+
+      {view !== 'all' ? <CrmViews view={view} /> : <DataTable
         data={shown}
         columns={columns}
         loading={q.isLoading}
@@ -163,7 +179,7 @@ export default function AccountsPage() {
             {select('city', cities.map((v) => ({ v, label: v })))}
           </div>
         )}
-      />
+      />}
     </Page>
   );
 }

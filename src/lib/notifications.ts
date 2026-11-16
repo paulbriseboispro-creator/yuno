@@ -828,10 +828,10 @@ function adminNotifLinkLegacy(n: AppNotif): string | null {
       return '/admin/system/switches';
 
     // Le club purgé n'existe plus : la liste des clubs est le seul point
-    // d'atterrissage qui reste vrai (et celui d'où on relance une purge ratée).
+    // d'atterrissage qui reste vrai (une purge ratée se relance de la fiche du club).
     case 'admin_venue_purged':
     case 'admin_venue_purge_failed':
-      return '/admin/pros/venues';
+      return '/admin/pros?type=club';
 
     case 'admin_security_burst':
       return '/admin/legal/audit';

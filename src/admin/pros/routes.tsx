@@ -4,14 +4,13 @@
  * associations, agences, comptes Yuno CRM), prospects réunis, une porte pour
  * inviter, une page Démo, une page Accès assisté. Chemins RELATIFS.
  *
- * Les anciennes listes (Clubs, Organisateurs, Agences, Comptes CRM) restent
- * joignables hors menu pour les gestes que la fiche ne reprend pas encore :
- * purge d'un club de test, organisateur vitrine, invitations d'agence à
- * relancer, tiroir CRM.
+ * Les anciennes listes (Clubs, Organisateurs, Agences, Comptes CRM) sont
+ * supprimées : leurs gestes vivent sur la fiche d'un pro, dans la liste des
+ * invitations et dans Démo › Vitrines ; leurs adresses passent par
+ * redirects.ts (liste filtrée).
  */
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
-import { CrmFrame, SuiteFrame } from '../shell/frames';
 import { legacyAdminTarget } from '../redirects';
 
 const AccountsPage = lazyWithRetry(() => import('./AccountsPage'));
@@ -20,10 +19,6 @@ const ProspectsPage = lazyWithRetry(() => import('./ProspectsPage'));
 const InvitePage = lazyWithRetry(() => import('./InvitePage'));
 const DemoPage = lazyWithRetry(() => import('./DemoPage'));
 const SupportPage = lazyWithRetry(() => import('./SupportPage'));
-const AdminVenues = lazyWithRetry(() => import('@/pages/admin/AdminVenues'));
-const AdminOrganizers = lazyWithRetry(() => import('@/pages/admin/AdminOrganizers'));
-const AdminAgencies = lazyWithRetry(() => import('@/pages/admin/AdminAgencies'));
-const CrmClients = lazyWithRetry(() => import('@/crm/admin/pages/ClientsPage'));
 
 /** Une adresse du lot 0 (`/admin/pros/venues/<id>`, `/admin/pros/crm/<clé>`…) : sa nouvelle place. */
 function ProsLegacy() {
@@ -39,11 +34,6 @@ export default function ProsRoutes() {
       <Route path="invite" element={<InvitePage />} />
       <Route path="demo" element={<DemoPage />} />
       <Route path="support" element={<SupportPage />} />
-      {/* Hors menu (nav.ts : hidden). */}
-      <Route path="venues" element={<SuiteFrame><AdminVenues /></SuiteFrame>} />
-      <Route path="organizers" element={<SuiteFrame><AdminOrganizers /></SuiteFrame>} />
-      <Route path="agencies" element={<SuiteFrame><AdminAgencies /></SuiteFrame>} />
-      <Route path="crm" element={<CrmFrame><CrmClients /></CrmFrame>} />
       {/* La fiche : `venue:<id>`, `org:<uuid>`, `agency:<uuid>`. Une clé illisible repart par ProsLegacy. */}
       <Route path=":key" element={<AccountPage />} />
       <Route path="*" element={<ProsLegacy />} />
