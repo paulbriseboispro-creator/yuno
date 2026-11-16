@@ -9,12 +9,6 @@ const dict: AdminDict = {
   // Six chiffres
   'adm.today.kpi.title': ['This week', 'Cette semaine', 'Esta semana'],
   'adm.today.kpi.desc': ['The last 7 days, compared with the 7 days before.', 'Les 7 derniers jours, comparés aux 7 jours d’avant.', 'Los últimos 7 días, comparados con los 7 días anteriores.'],
-  'adm.today.kpi.gmv': ['Sales', 'Ventes', 'Ventas'],
-  'adm.today.kpi.gmv.hint': ['Platform sales: everything buyers paid for tickets and tables on Yuno, fees included.', 'Ventes de la plateforme : tout ce que les acheteurs ont payé en billets et tables sur Yuno, frais compris.', 'Ventas de la plataforma: todo lo que los compradores pagaron en entradas y mesas en Yuno, comisiones incluidas.'],
-  'adm.today.kpi.revenue': ['Yuno revenue', 'Revenu Yuno', 'Ingresos Yuno'],
-  'adm.today.kpi.revenue.hint': ['Yuno commissions on paid sales: service fee and insurance on tickets, service and management fees on tables.', 'Commissions de Yuno sur les ventes payées : frais de service et assurance sur les billets, frais de service et de gestion sur les tables.', 'Comisiones de Yuno sobre las ventas pagadas: gastos de servicio y seguro en entradas, gastos de servicio y gestión en mesas.'],
-  'adm.today.kpi.mrr': ['Yuno CRM MRR', 'MRR Yuno CRM', 'MRR Yuno CRM'],
-  'adm.today.kpi.mrr.hint': ['Monthly recurring revenue of paying Yuno CRM subscriptions (yearly plans divided by 12). Last week = subscriptions already started 7 days ago: cancellations are not dated.', 'Revenu mensuel récurrent des abonnements Yuno CRM payants (annuel divisé par 12). La semaine d’avant = abonnements déjà souscrits il y a 7 jours : les résiliations ne sont pas datées.', 'Ingreso mensual recurrente de las suscripciones de pago de Yuno CRM (anual dividido entre 12). La semana anterior = suscripciones ya iniciadas hace 7 días: las bajas no tienen fecha.'],
   'adm.today.kpi.newPros': ['New pros', 'Nouveaux pros', 'Nuevos pros'],
   'adm.today.kpi.newPros.hint': ['Clubs, organisations (showcase pages excluded) and agencies created during the week, demo excluded.', 'Clubs, organisations (hors vitrines) et agences créés pendant la semaine, démo exclue.', 'Clubs, organizaciones (sin escaparates) y agencias creados durante la semana, demo excluida.'],
   'adm.today.kpi.activePros': ['Active pros', 'Pros actifs', 'Pros activos'],

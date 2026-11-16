@@ -15,6 +15,7 @@ import {
 import { fmtDate, fmtEur, fmtNum } from '@/lib/adminFormat';
 import { rpc, personName, type Person, type Purchase } from './data';
 import { parsePersonKey } from './personKey';
+import { orderHref } from '../money/orderLink';
 import PersonAccount from './PersonAccount';
 
 const SEG_TONE: Record<string, Tone> = { champions: 'positive', loyal: 'positive', promising: 'accent', new: 'accent', at_risk: 'warning', dormant: 'neutral', lost: 'negative' };
@@ -151,7 +152,7 @@ function Purchases({ rows }: { rows: Purchase[] }) {
   ];
   return (
     <DataTable data={rows} columns={cols} searchable pageSize={15} initialSort={[{ id: 'at', desc: true }]}
-      getRowId={(r) => `${r.kind}:${r.id}`} rowHref={(r) => `/admin/money/orders?q=${encodeURIComponent(r.ref ?? r.id)}`}
+      getRowId={(r) => `${r.kind}:${r.id}`} rowHref={(r) => (r.kind === 'ticket' || r.kind === 'table' ? orderHref(r.kind, r.id) : `/admin/money/orders?q=${encodeURIComponent(r.ref ?? r.id)}`)}
       empty={{ title: t('adm.cl.p.purchases.empty') }} />
   );
 }

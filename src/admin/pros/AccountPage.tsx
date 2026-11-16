@@ -83,6 +83,14 @@ export default function AccountPage() {
       actions={<AccountGestures card={card} />}
     >
       <Tabs items={items} value={tab} onChange={setTab} />
+      {tab === 'overview' && (
+        <nav aria-label={t('adm.pros.card.elsewhere')} className="flex flex-wrap items-center gap-2 text-[13px]">
+          <span className="a-t3">{t('adm.pros.card.elsewhere')}</span>
+          <Link className="a-btn a-btn--sm" to={`/admin/money/orders?q=${encodeURIComponent(String(id.name ?? ''))}`}>{t('adm.pros.card.seeOrders')}</Link>
+          <Link className="a-btn a-btn--sm" to={`/admin/legal/sellers?q=${encodeURIComponent(String(id.name ?? ''))}`}>{t('adm.pros.card.seeLegal')}</Link>
+          <Link className="a-btn a-btn--sm" to={`/admin/comms/deliverability?q=${encodeURIComponent(String(id.name ?? ''))}`}>{t('adm.pros.card.seeSending')}</Link>
+        </nav>
+      )}
       {tab === 'overview' && <OverviewTab card={card} onTab={setTab} />}
       {tab === 'sales' && <SalesTab card={card} />}
       {tab === 'events' && <EventsTab card={card} />}

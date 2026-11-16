@@ -48,16 +48,18 @@ export interface DataTableProps<T> {
   /** Contenu à droite de la barre (filtres, export). */
   toolbar?: ReactNode;
   getRowId?: (row: T, index: number) => string;
+  /** Recherche déjà posée à l'ouverture (lien « voir ce compte » d'une autre page, `?q=`). */
+  initialSearch?: string | null;
 }
 
 export function DataTable<T>({
   data, columns, loading, error, onRetry, searchable, searchPlaceholder, pageSize = 25,
-  initialSort = [], onRowClick, rowHref, empty, toolbar, getRowId,
+  initialSort = [], onRowClick, rowHref, empty, toolbar, getRowId, initialSearch,
 }: DataTableProps<T>) {
   const { t, lang: language } = useAdminT();
   const navigate = useNavigate();
   const [sorting, setSorting] = useState<SortingState>(initialSort);
-  const [globalFilter, setGlobalFilter] = useState('');
+  const [globalFilter, setGlobalFilter] = useState(initialSearch ?? '');
   const rows = useMemo(() => data ?? [], [data]);
 
   const table = useReactTable({

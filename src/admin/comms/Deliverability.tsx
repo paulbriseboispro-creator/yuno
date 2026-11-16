@@ -5,6 +5,7 @@
  * comptes expéditeurs, sous-domaines d'envoi, liste de suppression. Le pool
  * e-mail du mois n'est affiché qu'ici.
  */
+import { useSearchParams } from 'react-router-dom';
 import { useMemo } from 'react';
 import { rpc } from '../system/data';
 import {
@@ -129,6 +130,7 @@ export default function Deliverability() {
 type Ask = ReturnType<typeof useReasonAction>['ask'];
 
 function SendersTable({ rows, loading, error, onRetry, ask }: { rows: Sender[]; loading: boolean; error: unknown; onRetry: () => void; ask: Ask }) {
+  const [searchParams] = useSearchParams();
   const { t, lang } = useAdminT();
   const setBurst = (s: Sender, allowed: boolean) => ask({
     title: t(allowed ? 'adm.comms.dl.s.burstOnTitle' : 'adm.comms.dl.s.burstOffTitle', { name: s.name }),
@@ -178,7 +180,7 @@ function SendersTable({ rows, loading, error, onRetry, ask }: { rows: Sender[]; 
   return (
     <Section title={t('adm.comms.dl.s.title')} description={t('adm.comms.dl.s.sub')}>
       <Card padded={false}>
-        <DataTable data={rows} columns={columns} loading={loading} error={error} onRetry={onRetry} searchable initialSort={[{ id: 'sent', desc: true }]}
+        <DataTable data={rows} columns={columns} loading={loading} error={error} onRetry={onRetry} searchable initialSearch={searchParams.get('q')} initialSort={[{ id: 'sent', desc: true }]}
           empty={{ title: t('adm.comms.dl.s.none') }} getRowId={(s) => s.scope_key} />
       </Card>
     </Section>

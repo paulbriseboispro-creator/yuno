@@ -4,19 +4,23 @@
  * les anciennes adresses `/admin/crm/...` redirigent (src/admin/redirects.ts).
  */
 export const ADMIN_ROUTES = {
-  cockpit: '/admin/pilot/crm',
+  cockpit: '/admin/pilot',
   login: '/admin/login',
-  cockpitActivity: '/admin/pilot/crm?tab=activity',
-  acquisition: '/admin/pilot/crm-acquisition',
-  sales: '/admin/pros/sales',
+  cockpitActivity: '/admin',
+  acquisition: '/admin/pilot/acquisition',
+  sales: '/admin/pros/prospects?tab=pipeline',
   invite: '/admin/pros/invite',
-  demo: '/admin/pros/crm-demo',
-  support: '/admin/pros/crm-support',
-  clients: '/admin/pros/crm',
+  demo: '/admin/pros/demo?tab=crm',
+  support: '/admin/pros/support',
+  clients: '/admin/pros?product=crm',
   clientsRisks: '/admin/pros/crm?tab=risks',
   clientsOnboarding: '/admin/pros/crm?tab=onboarding',
-  account: (id: string) => `/admin/pros/crm/${encodeURIComponent(id)}`,
-  product: '/admin/pilot/crm-product',
+  // Fiche unique d'un pro : clé `venue:` | `org:` (lot 2).
+  account: (id: string) => {
+    const i = id.indexOf(':');
+    return i > 0 ? `/admin/pros/${id.slice(0, i)}:${encodeURIComponent(id.slice(i + 1))}` : `/admin/pros/${encodeURIComponent(id)}`;
+  },
+  product: '/admin/pilot/product?tab=crm',
   money: '/admin/money/crm',
   platform: '/admin/system/connectors',
   legal: '/admin/legal',

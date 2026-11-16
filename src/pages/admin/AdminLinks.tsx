@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import WaitlistTab from './links/WaitlistTab';
 import { Pill } from '@/components/admin/ui';
 import { toast } from 'sonner';
@@ -301,7 +301,6 @@ export default function AdminLinks() {
   const tabs: { key: Tab; label: string; icon: LucideIcon; badge?: number }[] = [
     { key: 'audience', label: t('adminLinks.tabAudience'), icon: Eye },
     { key: 'settings', label: t('adminLinks.tabSettings'), icon: Link2 },
-    { key: 'leads', label: t('adminLinks.tabLeads'), icon: Briefcase, badge: leads.filter((l) => !l.contacted_at).length || undefined },
     { key: 'waitlist', label: t('adm.links.tabWaitlist'), icon: Users },
   ];
 
@@ -472,7 +471,8 @@ export default function AdminLinks() {
                       {(stats!.lead_types ?? []).map((x) => <BarRow key={x.k} label={leadTypeLabel(x.k)} value={x.n} max={max(stats!.lead_types, 'n')} />)}
                       {!stats!.lead_types?.length && <p style={{ color: T3, fontSize: 13 }}>{t('adminLinks.leadsEmpty')}</p>}
                     </div>
-                    <button type="button" onClick={() => setTab('leads')} style={{ display: 'inline-flex', marginTop: 14, color: RED, fontSize: 12.5, fontWeight: 600, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>{t('adminLinks.tabLeads')}</button>
+                    {/* Les leads pro se traitent dans Pros › Prospects (une seule liste, une seule case « contacté »). */}
+                    <Link to="/admin/pros/prospects" style={{ display: 'inline-flex', marginTop: 14, color: RED, fontSize: 12.5, fontWeight: 600 }}>{t('adminLinks.tabLeads')}</Link>
                   </Card>
                 </div>
               </>

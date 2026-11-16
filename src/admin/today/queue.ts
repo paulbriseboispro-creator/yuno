@@ -128,20 +128,28 @@ const SUITE_FAMILY: Record<string, FeedFamily> = {
 };
 
 export function suiteFeedHref(item: Pick<SuiteFeedItem, 'ref_type' | 'ref_id' | 'title'>): string | null {
+  const id = item.ref_id ? encodeURIComponent(item.ref_id) : null;
   switch (item.ref_type) {
-    case 'user': return item.ref_id ? `/admin/clients/people/${item.ref_id}` : null;
-    case 'organizer': return item.ref_id ? `/admin/clients/people/${item.ref_id}` : null;
+    case 'user': return id ? `/admin/clients/${id}` : null;
+    case 'organizer': return id ? `/admin/pros/org:${id}` : null;
     case 'event': return `/admin/clients/events?q=${encodeURIComponent(item.title ?? '')}`;
-    case 'venue': return item.ref_id ? `/admin/pros/venues/${item.ref_id}` : null;
-    case 'agency': return '/admin/pros/agencies';
-    case 'ai': return '/admin/pilot/ai';
-    case 'lead': return '/admin/comms/links';
-    case 'waitlist': return '/admin/comms/links?tab=waitlist';
+    case 'venue': return id ? `/admin/pros/venue:${id}` : null;
+    case 'agency': return id ? `/admin/pros/agency:${id}` : '/admin/pros?type=agency';
+    case 'ai': return '/admin/pilot/product?tab=ai';
+    case 'lead': return '/admin/pros/prospects';
+    case 'waitlist': return '/admin/comms/links';
     case 'feedback': return '/admin/today/feedback';
     case 'alert': return '/admin/today/alerts';
     case 'device': return '/admin/system';
     default: return null;
   }
+}
+
+/** Fiche unique d'un compte CRM (clé `venue:` | `org:`). */
+export function crmAccountHref(key: string | null): string | null {
+  if (!key) return null;
+  const i = key.indexOf(':');
+  return i > 0 ? `/admin/pros/${key.slice(0, i)}:${encodeURIComponent(key.slice(i + 1))}` : `/admin/pros?product=crm&open=${encodeURIComponent(key)}`;
 }
 
 export function fromSuite(item: SuiteFeedItem, i: number): FeedRow | null {
@@ -171,7 +179,7 @@ export function fromCrm(item: CrmFeedItem, i: number): FeedRow {
     source: 'crm',
     kind: `crm_${item.k}${item.k === 'signup' && item.tag === 'dropped' ? '_dropped' : ''}`,
     title: item.who, sub, amount: item.k === 'buy' && typeof meta.eur === 'number' ? meta.eur : null,
-    href: item.id ? `/admin/pros/crm?open=${encodeURIComponent(item.id)}` : null,
+    href: crmAccountHref(item.id),
     tone,
   };
 }

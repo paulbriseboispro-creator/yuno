@@ -413,6 +413,10 @@ const dict: AdminDict = {
   'adm.pros.sup.askBody': ['Choose the account. Its owner receives the request by e-mail and in their Console.', 'Choisissez le compte. Son titulaire reçoit la demande par e-mail et dans sa Console.', 'Elija la cuenta. Su titular recibe la petición por e-mail y en su Consola.'],
   'adm.pros.sup.pick': ['Choose an account…', 'Choisir un compte…', 'Elegir una cuenta…'],
   'adm.pros.sup.pickFirst': ['Choose an account first.', 'Choisissez d’abord un compte.', 'Elija primero una cuenta.'],
+  'adm.pros.card.elsewhere': ['Elsewhere in the admin:', 'Ailleurs dans l’admin :', 'En otras partes del admin:'],
+  'adm.pros.card.seeOrders': ['Their orders', 'Ses commandes', 'Sus pedidos'],
+  'adm.pros.card.seeLegal': ['Their legal identity', 'Son identité légale', 'Su identidad legal'],
+  'adm.pros.card.seeSending': ['Their email deliverability', 'Sa délivrabilité e-mail', 'Su entregabilidad de e-mail'],
 };
 
 export default dict;

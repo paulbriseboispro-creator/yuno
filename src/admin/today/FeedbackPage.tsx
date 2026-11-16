@@ -161,13 +161,13 @@ export default function FeedbackPage() {
               {
                 label: t('adm.today.fb.col.account'),
                 value: selected.venue_id
-                  ? <Link className="hover:underline" style={{ color: 'var(--a-accent-text)' }} to={`/admin/pros/venues/${selected.venue_id}`}>{selected.venue_name ?? selected.venue_id}</Link>
+                  ? <Link className="hover:underline" style={{ color: 'var(--a-accent-text)' }} to={`/admin/pros/venue:${encodeURIComponent(selected.venue_id)}`}>{selected.venue_name ?? selected.venue_id}</Link>
                   : t('adm.today.fb.noAccount'),
               },
               {
                 label: t('adm.today.fb.reporter'),
                 value: selected.reported_by
-                  ? <Link className="hover:underline" style={{ color: 'var(--a-accent-text)' }} to={`/admin/clients/people/${selected.reported_by}`}>{selected.reporter_email ?? selected.reported_by}</Link>
+                  ? <Link className="hover:underline" style={{ color: 'var(--a-accent-text)' }} to={`/admin/clients/${encodeURIComponent(selected.reported_by)}`}>{selected.reporter_email ?? selected.reported_by}</Link>
                   : t('adm.today.fb.byAdmin'),
               },
               ...(selected.resolved_at ? [{ label: label('adm.today.fb.st', 'resolved'), value: fmtDate(selected.resolved_at, lang, 'datetime') }] : []),

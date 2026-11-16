@@ -15,6 +15,7 @@ import { Kpi, KpiRow, Page, Section, useAdminFilters, useAdminT } from '@/admin/
 import { TODAY_KEY, useCockpit, useToday } from './data';
 import { TodayQueue } from './TodayQueue';
 import { HealthLights } from './HealthLights';
+import { moneyHintKey, moneyLabelKey } from '../money/terms';
 import { ActivityFeed } from './ActivityFeed';
 
 export default function TodayHome() {
@@ -40,16 +41,16 @@ export default function TodayHome() {
       )}>
       <Section title={t('adm.today.kpi.title')} description={t('adm.today.kpi.desc')}>
         <KpiRow>
-          <Kpi label={t('adm.today.kpi.gmv')} hint={t('adm.today.kpi.gmv.hint')} loading={!gmv}
-            value={fmtEur(gmv?.week.gmv, lang)} current={gmv?.week.gmv} previous={gmv?.prev_week.gmv} to="/admin/money/orders" />
-          <Kpi label={t('adm.today.kpi.revenue')} hint={t('adm.today.kpi.revenue.hint')} loading={!k}
+          <Kpi label={t(moneyLabelKey('sales'))} hint={t(moneyHintKey('sales'))} loading={!gmv}
+            value={fmtEur(gmv?.week.gmv, lang)} current={gmv?.week.gmv} previous={gmv?.prev_week.gmv} to="/admin/money" />
+          <Kpi label={t(moneyLabelKey('fees'))} hint={t(moneyHintKey('fees'))} loading={!k}
             value={fmtEur(k?.revenue.cur, lang)} current={k?.revenue.cur} previous={k?.revenue.prev} to="/admin/money" />
-          <Kpi label={t('adm.today.kpi.mrr')} hint={t('adm.today.kpi.mrr.hint')} loading={!k}
+          <Kpi label={t(moneyLabelKey('mrr'))} hint={t(moneyHintKey('mrr'))} loading={!k}
             value={fmtEur(k?.mrr.cur, lang)} current={k?.mrr.cur} previous={k?.mrr.prev} to="/admin/money/crm" />
           <Kpi label={t('adm.today.kpi.newPros')} hint={t('adm.today.kpi.newPros.hint')} loading={!k}
-            value={fmtNum(k?.new_pros.cur, lang)} current={k?.new_pros.cur} previous={k?.new_pros.prev} to="/admin/pilot/signups" />
+            value={fmtNum(k?.new_pros.cur, lang)} current={k?.new_pros.cur} previous={k?.new_pros.prev} to="/admin/pilot/acquisition" />
           <Kpi label={t('adm.today.kpi.activePros')} hint={t('adm.today.kpi.activePros.hint')} loading={!k}
-            value={fmtNum(k?.active.cur, lang)} current={k?.active.cur} previous={k?.active.prev} to="/admin/pros/venues" />
+            value={fmtNum(k?.active.cur, lang)} current={k?.active.cur} previous={k?.active.prev} to="/admin/pros" />
           <Kpi label={t('adm.today.kpi.buyers')} hint={t('adm.today.kpi.buyers.hint')} loading={!k}
             value={fmtNum(k?.buyers.cur, lang)} current={k?.buyers.cur} previous={k?.buyers.prev} to="/admin/clients" />
         </KpiRow>

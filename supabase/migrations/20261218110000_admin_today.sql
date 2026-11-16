@@ -111,7 +111,7 @@ BEGIN
            (p->>'last_at')::timestamptz AS at, NULL::timestamptz AS due_at,
            CASE WHEN COALESCE((p->>'retries_after_account')::int, 0) > 0 THEN 1
                 WHEN (p->>'last_at')::timestamptz > now() - interval '48 hours' THEN 1 ELSE 2 END AS urgency,
-           '/admin/pilot/signups'::text AS href,
+           '/admin/pros/prospects'::text AS href,
            jsonb_build_object('step', p->>'furthest_step', 'kind', p->>'kind') AS params
       FROM jsonb_array_elements(v_signups) p
      WHERE (p->>'contacted_at') IS NULL
@@ -125,7 +125,7 @@ BEGIN
            COALESCE(NULLIF(l.org_name, ''), NULLIF(l.name, ''), l.email), 'lead', l.id::text,
            concat_ws(' · ', NULLIF(l.name, ''), l.city, l.org_type), l.created_at, NULL,
            CASE WHEN l.created_at > now() - interval '7 days' THEN 2 ELSE 3 END,
-           '/admin/comms/links', '{}'::jsonb
+           '/admin/pros/prospects', '{}'::jsonb
       FROM public.links_pro_leads l
      WHERE l.contacted_at IS NULL
        AND (p_include_demo OR l.email IS NULL OR NOT public.is_demo_email(l.email))
@@ -136,7 +136,7 @@ BEGIN
            pr.name, 'prospect', pr.id::text, concat_ws(' · ', pr.next_action, pr.contact, pr.city),
            pr.stage_changed_at, pr.next_at::timestamptz,
            CASE WHEN pr.next_at < CURRENT_DATE THEN 1 ELSE 2 END,
-           '/admin/pros/sales', jsonb_build_object('stage', pr.stage)
+           '/admin/pros/prospects?tab=pipeline', jsonb_build_object('stage', pr.stage)
       FROM public.crm_prospects pr
      WHERE pr.next_at IS NOT NULL AND pr.next_at <= CURRENT_DATE
        AND NOT COALESCE(pr.opposed, false)
@@ -150,7 +150,7 @@ BEGIN
            r->>'name', 'crm', r->>'id', concat_ws(' · ', r->>'contact', r->>'city'),
            (r->>'signup_at')::timestamptz, (r->>'trial_ends_at')::timestamptz,
            CASE WHEN (r->>'trial_ends_at')::timestamptz <= now() + interval '1 day' OR r->>'sync' = 'none' THEN 1 ELSE 2 END,
-           '/admin/pros/crm?open=' || (r->>'id'), jsonb_build_object('days', r->>'trial_left')
+           '/admin/pros/' || (r->>'id'), jsonb_build_object('days', r->>'trial_left')
       FROM crm
      WHERE r->>'state' = 'trial'
        AND (r->>'trial_ends_at')::timestamptz > now()
@@ -159,25 +159,25 @@ BEGIN
     SELECT 'sync', 'sync_error', 'sync:' || (r->>'id') || ':' || COALESCE(r->>'sync_error_at', ''),
            r->>'name', 'crm', r->>'id', left(r->>'sync_error', 200),
            (r->>'sync_error_at')::timestamptz, NULL, 1,
-           '/admin/pros/crm?open=' || (r->>'id'), jsonb_build_object('provider', r->>'provider')
+           '/admin/pros/' || (r->>'id'), jsonb_build_object('provider', r->>'provider')
       FROM crm WHERE r->>'sync' = 'error'
     UNION ALL
     SELECT 'billing', 'billing_late', 'billing:' || (r->>'id') || ':' || COALESCE(r->>'period_end', ''),
            r->>'name', 'crm', r->>'id', concat_ws(' · ', r->>'contact', r->>'email'),
            (r->>'period_end')::timestamptz, NULL, 1,
-           '/admin/pros/crm?open=' || (r->>'id'), '{}'::jsonb
+           '/admin/pros/' || (r->>'id'), '{}'::jsonb
       FROM crm WHERE r->>'state' = 'late'
     UNION ALL
     SELECT 'frozen', 'frozen', 'frozen:' || (r->>'id') || ':' || (r->>'frozen_at'),
            r->>'name', 'crm', r->>'id', left(r->>'frozen_reason', 200),
            (r->>'frozen_at')::timestamptz, NULL, 3,
-           '/admin/pros/crm?open=' || (r->>'id'), '{}'::jsonb
+           '/admin/pros/' || (r->>'id'), '{}'::jsonb
       FROM crm WHERE r->>'frozen_at' IS NOT NULL
     UNION ALL
     SELECT 'silent', 'silent_paid', 'silent:' || (r->>'id') || ':' || COALESCE(left(r->>'last_send_at', 10), 'never'),
            r->>'name', 'crm', r->>'id', concat_ws(' · ', r->>'contact', r->>'email'),
            (r->>'last_send_at')::timestamptz, NULL, 2,
-           '/admin/pros/crm?open=' || (r->>'id'),
+           '/admin/pros/' || (r->>'id'),
            jsonb_build_object('days', CASE WHEN r->>'last_send_at' IS NOT NULL
              THEN floor(extract(epoch FROM now() - (r->>'last_send_at')::timestamptz) / 86400)::int END)
       FROM crm
@@ -188,7 +188,7 @@ BEGIN
     UNION ALL
     SELECT 'yunits', 'yunits_low', 'yunits:' || (r->>'id') || ':' || to_char(now(), 'IYYY-IW'),
            r->>'name', 'crm', r->>'id', NULL, NULL, NULL, 3,
-           '/admin/pros/crm?open=' || (r->>'id'), jsonb_build_object('balance', r->>'balance')
+           '/admin/pros/' || (r->>'id'), jsonb_build_object('balance', r->>'balance')
       FROM crm
      WHERE r->>'state' IN ('paid', 'trial') AND COALESCE((r->>'balance')::numeric, 0) < 500
     UNION ALL
@@ -196,7 +196,7 @@ BEGIN
            r->>'name', 'crm', r->>'id', concat_ws(' · ', r->>'contact', r->>'email'),
            (r->>'deletion_requested_at')::timestamptz,
            (r->>'deletion_requested_at')::timestamptz + interval '30 days', 2,
-           '/admin/pros/crm?open=' || (r->>'id'), '{}'::jsonb
+           '/admin/legal/requests', '{}'::jsonb
       FROM crm WHERE r->>'deletion_requested_at' IS NOT NULL
 
     UNION ALL
@@ -233,7 +233,7 @@ BEGIN
            concat_ws(' → ', t->>'from_name', t->>'to_name'),
            COALESCE((t->>'disputed_at')::timestamptz, (t->>'due_at')::timestamptz), (t->>'due_at')::timestamptz,
            CASE WHEN t->>'status' = 'disputed' THEN 1 ELSE 2 END,
-           '/admin/today/alerts',
+           '/admin/money/issues',
            jsonb_build_object('amount', t->'amount', 'days', t->'days_late')
       FROM jsonb_array_elements(public.admin_coorg_transfer_issues()) t CROSS JOIN d
      WHERE NOT COALESCE((t->>'event_id')::uuid = ANY (d.de), false)
@@ -291,7 +291,7 @@ BEGIN
     SELECT 'incident', 'incident', 'incident:' || i.id, left(i.nature, 120), 'incident', i.id::text,
            left(i.measures, 200), i.discovered_at, i.discovered_at + interval '72 hours',
            CASE WHEN i.discovered_at + interval '72 hours' <= now() + interval '24 hours' THEN 1 ELSE 2 END,
-           '/admin/legal', jsonb_build_object('accounts', COALESCE(array_length(i.accounts, 1), 0))
+           '/admin/legal/incidents', jsonb_build_object('accounts', COALESCE(array_length(i.accounts, 1), 0))
       FROM public.crm_incidents i
      WHERE i.closed_at IS NULL AND i.cnil_notified_at IS NULL
   )

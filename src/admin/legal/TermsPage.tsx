@@ -6,6 +6,7 @@
  * et, en compteur, les preuves d'acceptation des CGV par les acheteurs
  * (`terms_acceptances`, écrites par recordTermsAcceptance).
  */
+import { useSearchParams } from 'react-router-dom';
 import { useMemo } from 'react';
 import { Badge, DataTable, Kpi, KpiRow, Page, Section, Tabs, useAdminT, useTab, type ColumnDef } from '@/admin/ui';
 import { LEGAL_VERSIONS } from '@/lib/legal';
@@ -19,6 +20,7 @@ type ProRow = TermsPayload['pros'][number];
 type DocRow = TermsPayload['docs'][number];
 
 export default function TermsPage() {
+  const [searchParams] = useSearchParams();
   const { t, lang } = useAdminT();
   const q = useLegalTerms();
   const d = q.data;
@@ -71,7 +73,7 @@ export default function TermsPage() {
       <Section title={t('adm.lg2.tm.pros')} description={t('adm.lg2.tm.prosSub')}>
         <Tabs items={tabs} value={tab} onChange={setTab} />
         <DataTable data={tab === 'missing' ? missing : pros} columns={pcols} loading={q.isLoading} error={q.isError ? q.error : undefined}
-          onRetry={() => void q.refetch()} searchable getRowId={(r) => r.key} rowHref={(r) => proHref(r.key)}
+          onRetry={() => void q.refetch()} searchable initialSearch={searchParams.get('q')} getRowId={(r) => r.key} rowHref={(r) => proHref(r.key)}
           empty={{ title: tab === 'missing' ? t('adm.lg2.tm.allUpToDate') : t('adm.lg2.empty') }} />
       </Section>
       <Section title={t('adm.lg2.tm.docs')} description={t('adm.lg2.tm.docsSub')}>

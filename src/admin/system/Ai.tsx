@@ -30,7 +30,7 @@ export default function Ai() {
   const days = (d?.by_day ?? []).map((x) => ({ day: x.d.slice(0, 10), cost: x.cost_usd, errors: x.errors }));
 
   return (
-    <Page title={t('adm.sys.ai.title')} subtitle={t('adm.sys.ai.sub')} period actions={<Link to="/admin/pilot/ai" className="a-btn">{t('adm.sys.ai.usage')}</Link>}>
+    <Page title={t('adm.sys.ai.title')} subtitle={t('adm.sys.ai.sub')} period actions={<Link to="/admin/pilot/product?tab=ai" className="a-btn">{t('adm.sys.ai.usage')}</Link>}>
       <KpiRow>
         <Kpi label={t('adm.sys.ai.k.cost')} value={fmtUsd(tt?.cost_usd ?? 0, lang)} current={tt?.cost_usd} previous={tt?.prev_cost_usd} invert loading={q.isLoading} />
         <Kpi label={t('adm.sys.ai.k.calls')} value={fmtNum(tt?.events ?? 0, lang)} current={tt?.events} previous={tt?.prev_events} loading={q.isLoading} />

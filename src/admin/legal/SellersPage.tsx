@@ -6,6 +6,7 @@
  * l'année encaissées par son compte Stripe, avec les repères DAC7 (30 ventes,
  * 2 000 €). Seuils et statut de Yuno à confirmer par un juriste.
  */
+import { useSearchParams } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { Download } from 'lucide-react';
 import { Badge, DataTable, Kpi, KpiRow, Page, Section, Status, useAdminT, type ColumnDef } from '@/admin/ui';
@@ -17,6 +18,7 @@ import { Seg, SourceNote } from './ui';
 import { tOr } from './format';
 
 export default function SellersPage() {
+  const [searchParams] = useSearchParams();
   const { t, lang } = useAdminT();
   const thisYear = new Date().getFullYear();
   const [year, setYear] = useState(thisYear);
@@ -76,7 +78,7 @@ export default function SellersPage() {
       </KpiRow>
       <Section title={t('adm.lg2.sl.list')} description={t('adm.lg2.sl.listSub')}>
         <DataTable data={rows} columns={columns} loading={q.isLoading} error={q.isError ? q.error : undefined} onRetry={() => void q.refetch()}
-          searchable getRowId={(r) => r.key} rowHref={(r) => proHref(r.key)} empty={{ title: t('adm.lg2.sl.empty') }} />
+          searchable initialSearch={searchParams.get('q')} getRowId={(r) => r.key} rowHref={(r) => proHref(r.key)} empty={{ title: t('adm.lg2.sl.empty') }} />
       </Section>
       <SourceNote jurist>{t('adm.lg2.sl.note', { s: DAC7_MARKERS.sales, a: fmtEur(DAC7_MARKERS.amount, lang) })}</SourceNote>
     </Page>

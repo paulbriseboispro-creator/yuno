@@ -118,7 +118,7 @@ export default function PersonAccount({ p, onChanged }: { p: Person; onChanged: 
         {acc.owned_venues.length > 0 && (
           <p className="a-t2 mt-4 text-[12.5px]">
             {t('adm.cl.acc.owns')}{' '}
-            {acc.owned_venues.map((v, i) => <span key={v.id}>{i > 0 && ', '}<Link className="underline" to={`/admin/pros/venues/${encodeURIComponent(v.id)}`}>{v.name}</Link></span>)}
+            {acc.owned_venues.map((v, i) => <span key={v.id}>{i > 0 && ', '}<Link className="underline" to={`/admin/pros/venue:${encodeURIComponent(v.id)}`}>{v.name}</Link></span>)}
           </p>
         )}
       </Card>

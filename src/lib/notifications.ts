@@ -640,6 +640,19 @@ function adminNotifLink(n: AppNotif): string | null {
   return link ? currentAdminHref(link) : null;
 }
 
+/** Fiche unique d'un pro dans l'admin (`/admin/pros/<type>:<id>`). */
+function proHref(kind: 'venue' | 'org' | 'agency', id: string): string {
+  return `/admin/pros/${kind}:${encodeURIComponent(id)}`;
+}
+
+/** Une clé de portée CRM (`venue:…` | `org:…`) → la fiche du pro, sinon null. */
+function scopeHref(key: string | null | undefined): string | null {
+  if (!key) return null;
+  if (key.startsWith('venue:')) return proHref('venue', key.slice(6));
+  if (key.startsWith('org:')) return proHref('org', key.slice(4));
+  return null;
+}
+
 function adminNotifLinkLegacy(n: AppNotif): string | null {
   const ref = n.reference_id;
 
@@ -648,27 +661,26 @@ function adminNotifLinkLegacy(n: AppNotif): string | null {
     case 'admin_credential_urgent':
     case 'admin_credential_overdue':
     case 'admin_credential_undated':
-      return '/admin/alerts';
+      return '/admin/legal/deadlines';
 
     case 'admin_new_venue':
     case 'admin_venue_first_sale':
     case 'admin_stripe_onboarding_stuck':
-      return ref ? `/admin/venues/${ref}` : '/admin/venues';
+      return ref ? proHref('venue', ref) : '/admin/pros?type=club';
 
     case 'admin_new_organizer':
-      return ref ? `/admin/people/${ref}` : '/admin/organizers';
+      return ref ? proHref('org', ref) : '/admin/pros?type=organizer';
 
     // Accès assisté prêt : atterrir directement sur la fiche du pro, là où vit
     // le bouton « Ouvrir une session ».
     case 'admin_support_access_ready': {
       // Un compte Yuno CRM : sa page d'Accès assisté dans l'Admin CRM (20261019420000).
-      if (n.metadata?.crm === true) return '/admin/crm/support';
-      const target = typeof n.metadata?.target_user_id === 'string' ? n.metadata.target_user_id : null;
-      return target ? `/admin/people/${target}` : '/admin/support';
+      // Une seule page d'accès assisté, Billetterie et CRM (Pros › Accès assisté).
+      return '/admin/pros/support';
     }
 
     case 'admin_new_agency':
-      return '/admin/agencies';
+      return ref ? proHref('agency', ref) : '/admin/pros?type=agency';
 
     // Délivrabilité e-mail : la carte « Reprise Gmail » de Santé technique.
     case 'admin_email_cold_halted':
@@ -680,14 +692,14 @@ function adminNotifLinkLegacy(n: AppNotif): string | null {
     case 'admin_email_google_spam':
     case 'admin_gmail_escalation_ready':
     case 'admin_email_test_watch':
-      return '/admin/system';
+      return '/admin/comms/deliverability';
 
     // Quota email : atterrir sur la fiche du compte concerné.
     case 'admin_email_quota_80':
     case 'admin_email_quota_100': {
       const v = typeof n.metadata?.venue_id === 'string' ? n.metadata.venue_id : null;
       const o = typeof n.metadata?.organizer_user_id === 'string' ? n.metadata.organizer_user_id : null;
-      return v ? `/admin/venues/${v}` : o ? `/admin/people/${o}` : '/admin/people';
+      return v ? proHref('venue', v) : o ? proHref('org', o) : '/admin/comms/deliverability';
     }
 
     // Campagne fermée avec des destinataires en attente : la fiche du compte
@@ -695,7 +707,7 @@ function adminNotifLinkLegacy(n: AppNotif): string | null {
     case 'admin_campaign_closed_early': {
       const v = typeof n.metadata?.venue_id === 'string' ? n.metadata.venue_id : null;
       const o = typeof n.metadata?.organizer_user_id === 'string' ? n.metadata.organizer_user_id : null;
-      return v ? `/admin/venues/${v}` : o ? `/admin/people/${o}` : '/admin/marketing';
+      return v ? proHref('venue', v) : o ? proHref('org', o) : '/admin/comms';
     }
 
     case 'admin_agency_club_lead':
@@ -714,8 +726,9 @@ function adminNotifLinkLegacy(n: AppNotif): string | null {
     case 'admin_waitlist_signup':
       return '/admin/links?tab=waitlist';
 
+    // Un lead pro de la page bio se traite dans Pros › Prospects (refonte de l'admin).
     case 'admin_links_pro_lead':
-      return '/admin/links';
+      return '/admin/pros/prospects';
 
     // Virements à trancher : Argent › À régler (refonte de l'admin, lot 4).
     case 'admin_coorg_transfer_overdue':
@@ -733,7 +746,7 @@ function adminNotifLinkLegacy(n: AppNotif): string | null {
     case 'admin_ticket_email_bounced':
     case 'admin_table_email_bounced':
     case 'admin_guest_list_email_bounced':
-      return '/admin/orders';
+      return '/admin/money/orders';
 
     // Ce qui demande une action d'argent : Argent › À régler (lot 4).
     case 'admin_paid_sale_unfulfilled':
@@ -746,7 +759,7 @@ function adminNotifLinkLegacy(n: AppNotif): string | null {
     case 'admin_pro_signup_lead':
     case 'admin_pro_signup_stalled':
     case 'admin_pro_account_deleted':
-      return '/admin/signups';
+      return '/admin/pros/prospects';
 
     // Le message vit dans le corps de l'alerte elle-même.
     case 'admin_host_pass_lead':
@@ -757,8 +770,7 @@ function adminNotifLinkLegacy(n: AppNotif): string | null {
     // Un compte a ouvert l'autre produit (Billetterie ⇄ CRM) : sa fiche.
     case 'admin_account_product_added': {
       const ref = n.reference_id ?? '';
-      if (ref.startsWith('venue:')) return `/admin/venues/${ref.slice(6)}`;
-      return '/admin/organizers';
+      return scopeHref(ref) ?? '/admin/pros';
     }
 
     // Demande de crédits push : l'onglet Crédits du moteur de notifications,
@@ -771,14 +783,14 @@ function adminNotifLinkLegacy(n: AppNotif): string | null {
     // Stripe a refusé d'ouvrir le compte connecté d'un pro : on ouvre sa fiche.
     case 'admin_stripe_connect_failed':
       if (!n.reference_id) return '/admin/alerts';
-      return n.reference_type === 'venue' ? `/admin/venues/${n.reference_id}` : `/admin/people/${n.reference_id}`;
+      return proHref(n.reference_type === 'venue' ? 'venue' : 'org', n.reference_id);
 
     case 'admin_security_self_organizer':
-      return '/admin/organizers';
+      return '/admin/pros?type=organizer';
 
     case 'admin_security_onboarding_link': {
       const v = typeof n.metadata?.venue_id === 'string' ? n.metadata.venue_id : null;
-      return v ? `/admin/venues/${v}` : '/admin/alerts';
+      return v ? proHref('venue', v) : '/admin/today/alerts';
     }
 
     // Le rapport de la campagne, pas la liste : l'alerte annonce un resultat.
@@ -786,10 +798,10 @@ function adminNotifLinkLegacy(n: AppNotif): string | null {
       return n.reference_id ? `/admin/marketing/email/${n.reference_id}/report` : '/admin/marketing';
 
     case 'admin_subscription_changed':
-      return '/admin/system';
+      return '/admin/money/crm';
 
     case 'admin_refund_spike':
-      return '/admin/orders';
+      return '/admin/money/orders?status=refunded';
 
     // Pas de page dédiée aux règlements promoteur côté admin : la fiche de
     // l'organisateur ou du club concerné est le point d'atterrissage.
@@ -798,23 +810,23 @@ function adminNotifLinkLegacy(n: AppNotif): string | null {
 
     case 'admin_feedback_new':
     case 'admin_feedback_critical':
-      return '/admin/feedback';
+      return '/admin/today/feedback';
 
     case 'admin_mfa_reset_requested':
       return ref ? `/admin/people/${ref}` : '/admin/people';
 
     case 'admin_maintenance_mode':
     case 'admin_payments_switch':
-      return '/admin/system';
+      return '/admin/system/switches';
 
     // Le club purgé n'existe plus : la liste des clubs est le seul point
     // d'atterrissage qui reste vrai (et celui d'où on relance une purge ratée).
     case 'admin_venue_purged':
     case 'admin_venue_purge_failed':
-      return '/admin/venues';
+      return '/admin/pros/venues';
 
     case 'admin_security_burst':
-      return '/admin/audit';
+      return '/admin/legal/audit';
 
     case 'admin_push_queue_stuck':
       return '/admin/push';
@@ -828,21 +840,19 @@ function adminNotifLinkLegacy(n: AppNotif): string | null {
     case 'admin_ticketing_token_invalid':
     case 'admin_ticketing_sync_failing': {
       const scopeKey = typeof n.metadata?.scope === 'string' ? n.metadata.scope : '';
-      if (scopeKey.startsWith('venue:')) return `/admin/venues/${scopeKey.slice(6)}`;
-      if (scopeKey.startsWith('org:')) return `/admin/people/${scopeKey.slice(4)}`;
-      return '/admin/alerts';
+      return scopeHref(scopeKey) ?? '/admin/today/alerts';
     }
 
     case 'admin_crm_incident_deadline':
-      return '/admin/crm/legal';
+      return '/admin/legal/incidents';
 
     case 'admin_crm_daily':
-      return '/admin/crm/platform?tab=day';
+      return '/admin/system/connectors?tab=day';
 
     // Invitations Yuno CRM (offre fondateurs comprise) : Admin CRM › Inviter.
     case 'admin_crm_offer_claimed':
     case 'admin_crm_invite_claimed':
-      return '/admin/crm/invite';
+      return '/admin/pros/invite';
 
     // Analyse client d'un espace Yuno CRM et demande d'accès SMS (carte « SMS ·
     // bêta privée ») : le tiroir du compte dans l'Admin CRM (référence = clé de
@@ -850,16 +860,15 @@ function adminNotifLinkLegacy(n: AppNotif): string | null {
     case 'admin_crm_analysis_failed':
     case 'admin_crm_score_drift':
     case 'admin_crm_sms_access_request':
-      return n.reference_id ? `/admin/crm/clients?open=${encodeURIComponent(n.reference_id)}` : '/admin/crm/clients';
+      return scopeHref(n.reference_id) ?? '/admin/pros?product=crm';
 
     // Réglages d'un espace Yuno CRM (référence = clé de portée).
+    // Une demande de suppression : le registre RGPD (échéance d'un mois).
     case 'admin_crm_deletion_request':
-    case 'admin_crm_retention_failed': {
-      const scopeKey = n.reference_id ?? '';
-      if (scopeKey.startsWith('venue:')) return `/admin/venues/${scopeKey.slice(6)}`;
-      if (scopeKey.startsWith('org:')) return `/admin/people/${scopeKey.slice(4)}`;
-      return '/admin/alerts';
-    }
+      return '/admin/legal/requests';
+
+    case 'admin_crm_retention_failed':
+      return scopeHref(n.reference_id) ?? '/admin/today/alerts';
 
     default:
       return null;
