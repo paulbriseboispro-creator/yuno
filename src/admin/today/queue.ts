@@ -7,7 +7,7 @@
 
 export const TODAY_FAMILIES = [
   'signup', 'lead', 'prospect', 'trial', 'sync', 'billing', 'frozen', 'silent', 'yunits', 'deletion',
-  'moderation', 'feedback', 'transfer', 'alert', 'deadline', 'support', 'claim', 'incident',
+  'moderation', 'feedback', 'transfer', 'alert', 'support', 'claim', 'incident',
 ] as const;
 export type TodayFamily = (typeof TODAY_FAMILIES)[number];
 

@@ -42,7 +42,6 @@ export default function OverviewPage() {
           <Kpi label={t('adm.lg2.ov.kl.incidents')} loading={!o} value={fmtNum(o?.incidents.open, lang)} to="/admin/legal/incidents" hint={t('adm.lg2.ov.k.incidents')} />
           <Kpi label={t('adm.lg2.ov.kl.terms')} loading={!o} value={fmtNum(o?.terms.missing, lang)} to="/admin/legal/terms" hint={t('adm.lg2.ov.k.terms', { n: o?.terms.pros ?? 0 })} />
           <Kpi label={t('adm.lg2.ov.kl.sellers')} loading={!o} value={fmtNum(o?.sellers.incomplete, lang)} to="/admin/legal/sellers" hint={t('adm.lg2.ov.k.sellers', { n: o?.sellers.with_stripe ?? 0 })} />
-          <Kpi label={t('adm.lg2.ov.kl.deadlines')} loading={!o} value={fmtNum((o?.deadlines.overdue ?? 0) + (o?.deadlines.soon ?? 0) + (o?.deadlines.undated ?? 0), lang)} to="/admin/legal/deadlines" hint={t('adm.lg2.ov.k.deadlines')} />
           <Kpi label={t('adm.lg2.ov.kl.support')} loading={!o} value={fmtNum((o?.support.grants ?? 0) + (o?.support.sessions ?? 0), lang)} to="/admin/pros/support" hint={t('adm.lg2.ov.k.support')} />
         </KpiRow>
       )}

@@ -13,7 +13,7 @@ function item(p: Partial<TodayItem>): TodayItem {
 describe('today queue', () => {
   const items = [
     item({ key: 'a', urgency: 1, family: 'sync' }),
-    item({ key: 'b', urgency: 3, family: 'deadline' }),
+    item({ key: 'b', urgency: 3, family: 'alert' }),
     item({ key: 'c', urgency: 1, family: 'signup', mark: { status: 'snoozed', until: '2099-01-01', at: '2026-01-01', reason: null } }),
     item({ key: 'd', urgency: 2, family: 'signup' }),
   ];
@@ -31,7 +31,7 @@ describe('today queue', () => {
   });
 
   it('counts open lines per family, in the canonical order', () => {
-    expect(familyCounts(items)).toEqual([{ family: 'signup', n: 1 }, { family: 'sync', n: 1 }, { family: 'deadline', n: 1 }]);
+    expect(familyCounts(items)).toEqual([{ family: 'signup', n: 1 }, { family: 'sync', n: 1 }, { family: 'alert', n: 1 }]);
   });
 
   it('days until a date', () => {

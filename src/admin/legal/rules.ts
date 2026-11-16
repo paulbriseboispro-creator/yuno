@@ -74,12 +74,11 @@ export interface OverviewPayload {
   incidents: { open: number; cnil_pending: number; overdue: number; next: string | null };
   terms: { pros: number; missing: number };
   sellers: { with_stripe: number; incomplete: number };
-  deadlines: { active: number; undated: number; soon: number; overdue: number; next: string | null };
   support: { grants: number; sessions: number };
   reports: { pending: number; total: number };
 }
 
-export type ObligationId = 'requests' | 'incidents' | 'terms' | 'sellers' | 'deadlines' | 'support' | 'reports';
+export type ObligationId = 'requests' | 'incidents' | 'terms' | 'sellers' | 'support' | 'reports';
 
 export interface Obligation {
   id: ObligationId;
@@ -104,7 +103,6 @@ export function obligations(o: OverviewPayload): Obligation[] {
     { id: 'incidents', state: st(o.incidents.overdue > 0, o.incidents.open > 0), count: o.incidents.open, next: o.incidents.next, path: '/admin/legal/incidents' },
     { id: 'terms', state: st(false, o.terms.missing > 0), count: o.terms.missing, next: null, path: '/admin/legal/terms' },
     { id: 'sellers', state: st(false, o.sellers.incomplete > 0), count: o.sellers.incomplete, next: null, path: '/admin/legal/sellers' },
-    { id: 'deadlines', state: st(o.deadlines.overdue > 0, o.deadlines.soon > 0 || o.deadlines.undated > 0), count: o.deadlines.overdue + o.deadlines.soon + o.deadlines.undated, next: o.deadlines.next, path: '/admin/legal/deadlines' },
     { id: 'support', state: st(false, o.support.grants + o.support.sessions > 0), count: o.support.grants + o.support.sessions, next: null, path: '/admin/pros/support' },
     { id: 'reports', state: st(false, o.reports.pending > 0), count: o.reports.pending, next: null, path: '/admin/legal/reports' },
   ];

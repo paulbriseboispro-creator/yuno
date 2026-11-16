@@ -531,6 +531,8 @@ travail de chacun (`nav.ts`, `redirects.ts` et son test, `searchHref.ts`,
   saisis à la main dans Argent › Coûts et marge (`admin_costs`) ; l'IA est lue
   automatiquement si rien n'est saisi.
 
+- Échéances à saisir à la main retirées de l'admin le 16/11 à la demande de Paul ; la table `admin_credential_deadlines` et son balayage restent en base.
+
 ## 8. Conventions pour les lots 1 à 6
 
 1. **Où poser une page** : dans le dossier de SA rubrique,

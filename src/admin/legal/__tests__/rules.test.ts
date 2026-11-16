@@ -53,7 +53,7 @@ describe('obligations', () => {
   const base: OverviewPayload = {
     requests: { open: 0, overdue: 0, next: null }, incidents: { open: 0, cnil_pending: 0, overdue: 0, next: null },
     terms: { pros: 10, missing: 0 }, sellers: { with_stripe: 3, incomplete: 0 },
-    deadlines: { active: 4, undated: 0, soon: 0, overdue: 0, next: '2027-01-24' }, support: { grants: 0, sessions: 0 }, reports: { pending: 0, total: 0 },
+    support: { grants: 0, sessions: 0 }, reports: { pending: 0, total: 0 },
   };
   it('is all compliant on an empty payload', () => {
     expect(obligations(base).every((o) => o.state === 'ok')).toBe(true);
@@ -106,7 +106,7 @@ describe('links', () => {
 describe('menu and addresses', () => {
   const legal = ADMIN_NAV.find((r) => r.id === 'legal');
   it('has the ten entries in order', () => {
-    expect(legal?.entries.map((e) => e.key)).toEqual(['overview', 'requests', 'consents', 'terms', 'sellers', 'incidents', 'reports', 'documents', 'deadlines', 'audit']);
+    expect(legal?.entries.map((e) => e.key)).toEqual(['overview', 'requests', 'consents', 'terms', 'sellers', 'incidents', 'reports', 'documents', 'audit']);
   });
   it('labels every entry in three languages', () => {
     for (const e of legal?.entries ?? []) expect(shellDict[entryLabelKey('legal', e.key)]).toHaveLength(3);
@@ -134,7 +134,7 @@ describe('texts', () => {
   it('every templated key family is complete', () => {
     const fams: [string, string[]][] = [
       ['adm.lg2.state', ['ok', 'todo', 'late']],
-      ['adm.lg2.ob', ['requests', 'incidents', 'terms', 'sellers', 'deadlines', 'support', 'reports']],
+      ['adm.lg2.ob', ['requests', 'incidents', 'terms', 'sellers', 'support', 'reports']],
       ['adm.lg2.rq.kind', ['access', 'erasure', 'objection', 'rectification', 'portability', 'other']],
       ['adm.lg2.rq.status', ['open', 'in_progress', 'done', 'refused']],
       ['adm.lg2.rq.src', ['manual', 'account_deleted', 'meta', 'ticketing_erasure', 'crm_erasure']],
@@ -144,12 +144,11 @@ describe('texts', () => {
       ['adm.lg2.product', ['tickets', 'crm', 'platform']],
       ['adm.lg2.au.src', ['all', 'admin', 'support', 'agent']],
       ['adm.lg2.sl.gap', ['legal_name', 'id', 'address', 'vat', 'stripe']],
-      ['adm.lg2.dl.sev', ['normal', 'high', 'critical']],
       ['adm.lg2.doc', ['cgu', 'cgv_users', 'terms_pro', 'confidentiality', 'demo_confidentiality', 'privacy', 'terms_crm', 'dpa']],
     ];
     const missing = fams.flatMap(([p, ks]) => ks.map((k) => `${p}.${k}`)).filter((k) => !(k in legalDict));
     expect(missing).toEqual([]);
-    for (const k of ['requests', 'incidents', 'terms', 'sellers', 'deadlines', 'support', 'reports']) expect(`adm.lg2.ob.${k}.src` in legalDict).toBe(true);
+    for (const k of ['requests', 'incidents', 'terms', 'sellers', 'support', 'reports']) expect(`adm.lg2.ob.${k}.src` in legalDict).toBe(true);
   });
 
   it('never uses an em dash', () => {

@@ -97,7 +97,6 @@ const dict: AdminDict = {
   'adm.nav2.legal.incidents': ['Incidents', 'Incidents', 'Incidentes'],
   'adm.nav2.legal.reports': ['Reports', 'Signalements', 'Denuncias'],
   'adm.nav2.legal.documents': ['Documents', 'Documents', 'Documentos'],
-  'adm.nav2.legal.deadlines': ['Deadlines', 'Échéances', 'Vencimientos'],
   'adm.nav2.legal.audit': ['Audit log', 'Journal', 'Registro'],
 
   'adm.nav2.system': ['System', 'Système', 'Sistema'],

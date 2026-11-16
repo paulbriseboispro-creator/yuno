@@ -318,6 +318,8 @@ export interface FeedConfig {
   realtimeFilter: string;
   /** Stable channel suffix. */
   channelKey: string;
+  /** Notification types never shown nor counted in this feed. */
+  hiddenTypes?: readonly string[];
 }
 
 /**
@@ -326,6 +328,10 @@ export interface FeedConfig {
  * identical to the two scoped feeds. Its page lives at `/admin/alerts` and not
  * `/admin/notifications`, which is already the automatic-push registry.
  */
+export const ADMIN_HIDDEN_TYPES = [
+  'admin_credential_due', 'admin_credential_urgent', 'admin_credential_overdue', 'admin_credential_undated',
+] as const;
+
 export const ADMIN_FEED_CONFIG: FeedConfig = {
   table: 'admin_notifications',
   filterColumn: 'scope',
@@ -334,6 +340,8 @@ export const ADMIN_FEED_CONFIG: FeedConfig = {
   pagePath: '/admin/alerts',
   realtimeFilter: 'scope=eq.platform',
   channelKey: 'admin_platform',
+  // Registre des échéances retiré de l'admin : ses alertes ne s'affichent plus.
+  hiddenTypes: ADMIN_HIDDEN_TYPES,
 };
 
 /**
@@ -661,7 +669,7 @@ function adminNotifLinkLegacy(n: AppNotif): string | null {
     case 'admin_credential_urgent':
     case 'admin_credential_overdue':
     case 'admin_credential_undated':
-      return '/admin/legal/deadlines';
+      return '/admin/today/alerts';
 
     case 'admin_new_venue':
     case 'admin_venue_first_sale':

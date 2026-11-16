@@ -113,7 +113,7 @@ function QueueRow({ item }: { item: TodayItem }) {
   const days = p.days != null ? Number(p.days) : daysUntil(item.due_at);
   const title = t(`adm.today.k.${item.kind}`, { name, days: days ?? '' });
   const when = item.due_at
-    ? t('adm.today.due', { when: fmtDate(item.due_at, lang, item.family === 'deadline' ? 'short' : 'datetime') })
+    ? t('adm.today.due', { when: fmtDate(item.due_at, lang, 'datetime') })
     : item.at ? t('adm.today.since', { when: fmtRelative(item.at, lang) }) : null;
   const href = hrefOf(item);
   const external = /^https?:/.test(href);

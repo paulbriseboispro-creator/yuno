@@ -21,8 +21,6 @@
 --   transfer    admin_coorg_transfer_issues : litige ou retard      /admin/today/alerts
 --   alert       admin_notifications non lues, priorité urgente      lien de l'alerte
 --               ou haute, hors types déjà couverts ci-dessus
---   deadline    admin_credential_deadlines échues, sous 30 j,       /admin/legal/deadlines
---               ou sans date
 --   support     admin_support_grants en attente                     /admin/pros/support
 --   claim       showcase_claim_requests en attente                  /admin/pros/demo
 --   incident    crm_incidents ouverts, CNIL pas prévenue (72 h)     /admin/legal
@@ -252,17 +250,6 @@ BEGIN
        AND n.notification_type NOT LIKE 'admin\_credential\_%'
        AND n.notification_type NOT LIKE 'admin\_coorg\_transfer%'
        AND n.notification_type NOT IN ('admin_pro_lead', 'admin_links_pro_lead', 'admin_crm_incident_deadline')
-
-    UNION ALL
-    -- Échéances (secrets, certificats) échues, proches, ou sans date.
-    SELECT 'deadline', CASE WHEN cd.due_at IS NULL THEN 'deadline_undated'
-                            WHEN cd.due_at < CURRENT_DATE THEN 'deadline_overdue' ELSE 'deadline_soon' END,
-           'deadline:' || cd.key || ':' || COALESCE(cd.due_at::text, 'none'),
-           cd.label, 'deadline', cd.key, cd.provider, NULL, cd.due_at::timestamptz,
-           CASE WHEN cd.due_at IS NULL THEN 3 WHEN cd.due_at <= CURRENT_DATE + 7 THEN 1 ELSE 2 END,
-           '/admin/legal/deadlines', jsonb_build_object('days', cd.due_at - CURRENT_DATE)
-      FROM public.admin_credential_deadlines cd
-     WHERE cd.is_active AND (cd.due_at IS NULL OR cd.due_at <= CURRENT_DATE + 30)
 
     UNION ALL
     -- Accès assisté demandé, pas encore accordé par le pro.

@@ -123,7 +123,6 @@ export const ADMIN_NAV: AdminRubric[] = [
       { key: 'incidents', path: '/admin/legal/incidents' },
       { key: 'reports', path: '/admin/legal/reports' },
       { key: 'documents', path: '/admin/legal/documents' },
-      { key: 'deadlines', path: '/admin/legal/deadlines' },
       { key: 'audit', path: '/admin/legal/audit' },
     ],
   },

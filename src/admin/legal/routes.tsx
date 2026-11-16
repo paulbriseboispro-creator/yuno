@@ -14,7 +14,6 @@ const SellersPage = lazyWithRetry(() => import('./SellersPage'));
 const IncidentsPage = lazyWithRetry(() => import('./IncidentsPage'));
 const ReportsPage = lazyWithRetry(() => import('./ReportsPage'));
 const DocumentsPage = lazyWithRetry(() => import('./DocumentsPage'));
-const DeadlinesPage = lazyWithRetry(() => import('./DeadlinesPage'));
 const AuditPage = lazyWithRetry(() => import('./AuditPage'));
 
 export default function LegalRoutes() {
@@ -28,7 +27,7 @@ export default function LegalRoutes() {
       <Route path="incidents" element={<IncidentsPage />} />
       <Route path="reports" element={<ReportsPage />} />
       <Route path="documents" element={<DocumentsPage />} />
-      <Route path="deadlines" element={<DeadlinesPage />} />
+      <Route path="deadlines" element={<Navigate to="/admin/legal" replace />} />
       <Route path="audit" element={<AuditPage />} />
       <Route path="*" element={<Navigate to="/admin/legal" replace />} />
     </Routes>

@@ -162,32 +162,6 @@ export function useContentReports() {
 }
 export const useContentReportSave = () => useLegalWrite<{ p_id: string | null; p_patch: Record<string, unknown>; p_reason: string }>('admin_content_report_save');
 
-// ── Échéances (RPC existantes, inchangées) ──
-
-export interface Deadline {
-  key: string; label: string; provider: string; description: string | null; console_url: string | null;
-  interval_months: number; due_at: string | null; last_rotated_at: string | null; remind_days: number[];
-  severity: 'normal' | 'high' | 'critical'; is_active: boolean; is_builtin: boolean; notes: string | null;
-}
-export function useDeadlines() {
-  return useQuery({
-    queryKey: [LEGAL_QK, 'deadlines'],
-    staleTime: 30_000,
-    queryFn: async () => {
-      const { data, error } = await supabase.from('admin_credential_deadlines' as never).select('*');
-      if (error) throw new Error(error.message);
-      return (data ?? []) as unknown as Deadline[];
-    },
-  });
-}
-export function useDeadlineRpc() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ fn, args }: { fn: string; args: Record<string, unknown> }) => rpc<unknown>(fn, args),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: [LEGAL_QK] }); },
-  });
-}
-
 // ── Journal ──
 
 export type AuditSource = 'all' | 'admin' | 'support' | 'agent';

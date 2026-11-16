@@ -39,6 +39,7 @@ interface NotifQuery extends PromiseLike<{ data: NotifRow[] | null; count: numbe
   update(values: { read_at: string; read_by: string | undefined }): NotifQuery;
   eq(column: string, value: string): NotifQuery;
   is(column: string, value: null): NotifQuery;
+  not(column: string, operator: 'in', value: string): NotifQuery;
   gte(column: string, value: string): NotifQuery;
   order(column: string, options: { ascending: boolean }): NotifQuery;
   limit(count: number): NotifQuery;
@@ -80,6 +81,7 @@ export function NotificationsBell({ config }: { config: FeedConfig | null }) {
   const table = config?.table;
   const filterColumn = config?.filterColumn;
   const filterValue = config?.filterValue;
+  const hiddenIn = config?.hiddenTypes?.length ? `(${config.hiddenTypes.join(',')})` : null;
 
   // Live unread count (last 30 days), kept in sync via realtime.
   useEffect(() => {
@@ -89,11 +91,13 @@ export function NotificationsBell({ config }: { config: FeedConfig | null }) {
     const fetchCount = async () => {
       const since = new Date();
       since.setDate(since.getDate() - 30);
-      const { count } = await notifTable(table)
+      let q = notifTable(table)
         .select('id', { count: 'exact', head: true })
         .eq(filterColumn, filterValue)
         .is('read_at', null)
         .gte('created_at', since.toISOString());
+      if (hiddenIn) q = q.not('notification_type', 'in', hiddenIn);
+      const { count } = await q;
       if (active) setUnread(count ?? 0);
     };
 
@@ -101,7 +105,9 @@ export function NotificationsBell({ config }: { config: FeedConfig | null }) {
 
     const channel = supabase
       .channel(`bell_${config.channelKey}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table, filter: config.realtimeFilter }, () => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table, filter: config.realtimeFilter }, (payload) => {
+        const type = (payload.new as { notification_type?: string }).notification_type;
+        if (type && config.hiddenTypes?.includes(type)) return;
         setUnread((p) => p + 1);
         loadedOnce.current = false; // force a refresh of the preview list next open
       })
@@ -114,7 +120,7 @@ export function NotificationsBell({ config }: { config: FeedConfig | null }) {
     // config is read via its stable primitive fields (channelKey / realtimeFilter);
     // depending on the object itself would re-subscribe every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [table, filterColumn, filterValue, config?.channelKey, config?.realtimeFilter]);
+  }, [table, filterColumn, filterValue, config?.channelKey, config?.realtimeFilter, hiddenIn]);
 
   const fetchPreview = useCallback(async () => {
     if (!table || !filterColumn || !filterValue) return;
@@ -122,10 +128,12 @@ export function NotificationsBell({ config }: { config: FeedConfig | null }) {
     try {
       const since = new Date();
       since.setDate(since.getDate() - 30);
-      const { data } = await notifTable(table)
+      let q = notifTable(table)
         .select('*')
         .eq(filterColumn, filterValue)
-        .gte('created_at', since.toISOString())
+        .gte('created_at', since.toISOString());
+      if (hiddenIn) q = q.not('notification_type', 'in', hiddenIn);
+      const { data } = await q
         .order('created_at', { ascending: false })
         .limit(PREVIEW_LIMIT);
       setItems((data ?? []).map(mapRow));
@@ -133,7 +141,7 @@ export function NotificationsBell({ config }: { config: FeedConfig | null }) {
     } finally {
       setLoading(false);
     }
-  }, [table, filterColumn, filterValue]);
+  }, [table, filterColumn, filterValue, hiddenIn]);
 
   // Load the preview the first time the popover opens (and after new arrivals).
   useEffect(() => {

@@ -796,13 +796,6 @@ BEGIN
         'with_stripe', count(*),
         'incomplete', count(*) FILTER (WHERE p.legal_name IS NULL OR (p.siret IS NULL AND p.rna IS NULL) OR p.legal_address IS NULL))
       FROM public._admin_legal_pros(p_include_demo) p WHERE NOT p.closed AND p.stripe_account IS NOT NULL),
-    'deadlines', (SELECT jsonb_build_object(
-        'active', count(*),
-        'undated', count(*) FILTER (WHERE d.due_at IS NULL),
-        'soon', count(*) FILTER (WHERE d.due_at >= current_date AND d.due_at <= current_date + 30),
-        'overdue', count(*) FILTER (WHERE d.due_at < current_date),
-        'next', min(d.due_at) FILTER (WHERE d.due_at >= current_date))
-      FROM public.admin_credential_deadlines d WHERE d.is_active),
     'support', jsonb_build_object(
         'grants', (SELECT count(*) FROM public.admin_support_grants g WHERE g.status = 'active' AND g.revoked_at IS NULL),
         'sessions', (SELECT count(*) FROM public.admin_support_sessions s WHERE s.ended_at IS NULL AND s.expires_at > now())),
