@@ -533,6 +533,53 @@ travail de chacun (`nav.ts`, `redirects.ts` et son test, `searchHref.ts`,
 
 - Échéances à saisir à la main retirées de l'admin le 16/11 à la demande de Paul ; la table `admin_credential_deadlines` et son balayage restent en base.
 
+### Passe de design (17/11)
+
+Direction : `docs/designs/ADMIN_DESIGN_SYSTEM.md` (une page) et sa page vivante
+`/admin/system/ui` (hors menu). Rouge seul accent (échelle Radix à 12 pas, aplat
+assombri pour du blanc en AA), neutres chauds, statuts distincts de l'accent (une
+baisse en encre neutre, « à traiter » ambre, « critique » aplat bordeaux avec un
+mot), palette de graphiques rouge / bleu / sarcelle / violet validée clair et
+sombre, tuiles à 26 px sans orpheline, tableaux à 40 px, page à 1280 px. Les cadres
+hérités redéfinissent leurs variables sur les tokens du kit (`.a-legacy`,
+`.a-crm-legacy` dans `admin.css`). Toutes les alertes réécrite au kit. Captures
+claire et sombre de chaque rubrique dans `docs/designs/admin-rebuild/`.
+
+**Reste hérité après cette passe** (lignes de code de l'écran, à répartir) :
+
+| Écran | Adresse | Cadre | Lignes |
+|---|---|---|---|
+| `AdminDemoAccess` | Pros › Démo (onglet Billetterie) | Suite | 988 |
+| `AdminVenues` | `/admin/pros/venues` (caché : purge, gestes de club) | Suite | 705 |
+| `AdminNotificationAutomations` | Communication › Notifications (règles, textes, crédits) | Suite | 673 |
+| `AdminLinks` | Communication › Page bio | Suite | 618 |
+| `AdminProSignups` | `/admin/pilot/signups` (caché) | Suite | 478 |
+| `InvitePage` (CRM) | Pros › Inviter (onglet CRM) | CRM | 398 |
+| `AdminMarketing` (éditeur, rapport, modèles, automatisations) | `/admin/comms/email/*`, `automations` | Suite | 391 |
+| `AdminSubscriptions` | `/admin/money/subscriptions` (caché) | Suite | 371 |
+| `AdminPushNotifications` | `/admin/comms/push` | Suite | 348 |
+| `AdminProduct` | Pilotage › Produit (onglet Signaux) | Suite | 256 |
+| `DemoPage` (CRM) | Pros › Démo (onglet CRM) | CRM | 252 |
+| `AdminOrganizers` | `/admin/pros/organizers` (caché) | Suite | 250 |
+| `ClientsPage` (CRM) | `/admin/pros/crm` (caché) | CRM | 245 |
+| `SalesPage` (CRM) | Pros › Prospects (onglet Pipeline) | CRM | 236 |
+| `AdminAi` | Pilotage › Produit (onglet IA) | Suite | 231 |
+| `SettingsPage` (CRM) | Système › Offre et tarifs (offre, historique) | CRM | 191 |
+| `CustomerBasisAdmin` (CRM) | Système › Offre et tarifs (« Vos clients ») | CRM | 176 |
+| `AdminAgencies` | `/admin/pros/agencies` (caché) | Suite | 166 |
+| `LifecycleTab` (CRM) | Système › Offre et tarifs (cycle de vie) | CRM | 127 |
+| `LandingTab` (CRM) | Pilotage › Acquisition (page publique CRM) | CRM | 110 |
+| `LearningTab` (CRM) | Système › Offre et tarifs (analyse client) | CRM | 101 |
+| `ProductPage` (CRM) | Pilotage › Produit (onglet CRM) | CRM | 75 |
+| `AdminMarketingSms` | `/admin/comms/sms` | Suite | 71 |
+| `PriceTierCard` (CRM) | Système › Offre et tarifs | CRM | 58 |
+| `NightPlanAdminPage` (CRM) | `/admin/system/connectors/plan/*` | CRM | 51 |
+| `AdminDrinkCatalog` | `/admin/system/drinks` (fermé, pilier en pause) | Suite | 380 |
+
+Ces écrans ont les couleurs, la police et le rouge du kit, mais gardent leur
+mise en page (cartes à grands rayons, boutons et tableaux à eux). L'ancien kit
+(`src/components/admin/ui.tsx`, `src/crm/admin/ui.tsx`) disparaît avec le dernier.
+
 ## 8. Conventions pour les lots 1 à 6
 
 1. **Où poser une page** : dans le dossier de SA rubrique,
