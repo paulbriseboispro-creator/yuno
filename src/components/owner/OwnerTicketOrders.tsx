@@ -146,7 +146,6 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
   // (ticket_attendees) : la place 1 est l'acheteur, les autres sont ses invités.
   const openTicketId = selectedTicket?.id;
   const openTicketQty = selectedTicket?.quantity ?? 0;
-  const openTicketBuyer = selectedTicket?.userEmail ?? '';
   useEffect(() => {
     setGuests([]);
     if (!openTicketId || openTicketQty < 2) return;
@@ -154,14 +153,15 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
     (async () => {
       const { data, error } = await supabase
         .from('ticket_attendees')
-        .select('id, full_name, email, phone, entry_scanned, created_at')
+        .select('id, full_name, email, phone, entry_scanned, created_at, qr_code')
         .eq('ticket_id', openTicketId)
         .order('created_at', { ascending: true });
       if (cancelled || error || !data) return;
-      const buyerEmail = openTicketBuyer.trim().toLowerCase();
-      let others = data.filter((a) => (a.email ?? '').trim().toLowerCase() !== buyerEmail);
-      // Place de l'acheteur sans e-mail identique (adresse corrigée depuis) : c'est la 1re.
-      if (others.length >= openTicketQty) others = others.slice(1);
+      // La place 1 est l'acheteur (créée la première, QR « …-1 ») : on la repère
+      // par son rang, jamais par son e-mail — un invité saisi avec la même
+      // adresse que l'acheteur disparaissait de la liste.
+      const buyerPlace = data.find((a) => /-1$/.test(a.qr_code ?? '')) ?? data[0];
+      const others = data.filter((a) => a !== buyerPlace);
       setGuests(others.map((a) => ({
         id: a.id,
         fullName: a.full_name,
@@ -171,7 +171,7 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
       })));
     })();
     return () => { cancelled = true; };
-  }, [openTicketId, openTicketQty, openTicketBuyer]);
+  }, [openTicketId, openTicketQty]);
 
   const fetchTickets = async () => {
     try {
@@ -417,31 +417,29 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
                 {selectedTicket.fullName && <p style={{ color: T1, fontSize: 13 }}>{selectedTicket.fullName}</p>}
                 <p style={{ color: T2, fontSize: 13 }}>{selectedTicket.userEmail}</p>
                 {selectedTicket.phone && <p style={{ color: T2, fontSize: 13 }}>{selectedTicket.phone}</p>}
+
+                {/* Les autres personnes du billet : nom, e-mail et téléphone saisis par l'acheteur. */}
+                {guests.map((g, idx) => (
+                  <div key={g.id} className="space-y-0.5 pt-3 mt-3" style={{ borderTop: `1px solid ${F_BORDER}` }}>
+                    <div className="flex items-center justify-between gap-2">
+                      <p style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+                        {t('owner.ticketGuest')} {idx + 1}
+                      </p>
+                      {g.entered && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold shrink-0"
+                          style={{ background: STATUS_STYLE.paid.bg, color: STATUS_STYLE.paid.color }}>
+                          {t('owner.ticketGuestEntered')}
+                        </span>
+                      )}
+                    </div>
+                    <p style={{ color: T1, fontSize: 13 }}>{g.fullName || '—'}</p>
+                    {g.email && <p style={{ color: T2, fontSize: 13 }}>{g.email}</p>}
+                    {g.phone && <p style={{ color: T2, fontSize: 13 }}>{g.phone}</p>}
+                  </div>
+                ))}
               </div>
 
               <SaleSourceCard channel={selectedTicket.sourceChannel} label={selectedTicket.sourceLabel} email={selectedTicket.userEmail} />
-
-              {/* Les autres personnes du billet : nom + e-mail saisis par l'acheteur. */}
-              {guests.length > 0 && (
-                <div className="p-4 rounded-xl space-y-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-                  <p style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{t('owner.ticketGuests')}</p>
-                  {guests.map((g) => (
-                    <div key={g.id} className="space-y-0.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <p style={{ color: T1, fontSize: 13 }}>{g.fullName || '—'}</p>
-                        {g.entered && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold shrink-0"
-                            style={{ background: STATUS_STYLE.paid.bg, color: STATUS_STYLE.paid.color }}>
-                            {t('owner.ticketGuestEntered')}
-                          </span>
-                        )}
-                      </div>
-                      {g.email && <p style={{ color: T2, fontSize: 13 }}>{g.email}</p>}
-                      {g.phone && <p style={{ color: T2, fontSize: 13 }}>{g.phone}</p>}
-                    </div>
-                  ))}
-                </div>
-              )}
 
               {/* E-mail du billet rebondi (adresse qui n'existe pas) : corriger et renvoyer. */}
               <TicketEmailBouncePanel

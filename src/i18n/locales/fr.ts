@@ -3920,6 +3920,7 @@ const fr: Record<string, string> = {
   'owner.vipOrderDetails': 'Détails de la Réservation VIP',
   'owner.eventDate': 'Date de l\'événement',
   'owner.customerInfo': 'Client',
+  'owner.ticketGuest': 'Invité',
   'owner.ticketGuests': 'Invités de cette commande',
   'owner.ticketGuestEntered': 'Entré(e)',
   'owner.serviceFee': 'Frais de service',
