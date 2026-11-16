@@ -20,22 +20,22 @@ const RULES: readonly Rule[] = [
   [/^\/admin\/crm\/invite$/, '/admin/pros/invite'],
   [/^\/admin\/crm\/demo$/, '/admin/pros/demo?tab=crm'],
   [/^\/admin\/crm\/support$/, '/admin/pros/support'],
-  [/^\/admin\/crm\/acquisition$/, '/admin/pilot/crm-acquisition'],
-  [/^\/admin\/crm\/product$/, '/admin/pilot/crm-product'],
+  [/^\/admin\/crm\/acquisition$/, '/admin/pilot/acquisition'],
+  [/^\/admin\/crm\/product$/, '/admin/pilot/product?tab=crm'],
   [/^\/admin\/crm\/money$/, '/admin/money/crm'],
   [/^\/admin\/crm\/platform\/plan\/(.+)$/, '/admin/system/crm/plan/$1'],
   [/^\/admin\/crm\/platform$/, '/admin/system/crm'],
   [/^\/admin\/crm\/legal$/, '/admin/legal'],
   [/^\/admin\/crm\/settings$/, '/admin/system/settings'],
-  [/^\/admin\/crm$/, '/admin/pilot/crm'],
+  [/^\/admin\/crm$/, '/admin/pilot'],
   // Écran « bientôt » de l'Admin CRM (toute autre adresse sous /admin/crm).
   [/^\/admin\/crm\/.+$/, '/admin'],
 
   // ── Admin de la Suite : Pilotage ──
-  [/^\/admin\/(growth|traffic)$/, '/admin/pilot/growth'],
+  [/^\/admin\/(growth|traffic)$/, '/admin/pilot/audience'],
   [/^\/admin\/signups$/, '/admin/pilot/signups'],
   [/^\/admin\/product$/, '/admin/pilot/product'],
-  [/^\/admin\/ai$/, '/admin/pilot/ai'],
+  [/^\/admin\/ai$/, '/admin/pilot/product?tab=ai'],
   // ── Argent ──
   [/^\/admin\/(revenue|analytics|accounting)$/, '/admin/money'],
   [/^\/admin\/orders$/, '/admin/money/orders'],

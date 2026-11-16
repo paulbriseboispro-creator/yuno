@@ -38,12 +38,14 @@ import shell from './shell';
 import today from './today';
 import pros from './pros';
 import clients from './clients';
+import pilotage from './pilotage';
+import money from './money';
 
 /** Toutes les clés du super admin, un module par page. */
 export const ADMIN_DICT: AdminDict = {
   ...common, ...layout, ...cockpit, ...growth, ...revenue, ...product, ...ai, ...customers, ...links,
   ...venues, ...organizers, ...agencies, ...events, ...people, ...orders, ...demo, ...support, ...alerts,
-  ...audit, ...feedback, ...push, ...automations, ...system, ...marketing, ...drinks, ...signups, ...crmAdmin, ...crmAdmin2, ...crmAdmin3, ...crmAdmin4, ...crmAdminAnalysis, ...crmAdminFounder, ...crmAdminInvite, ...crmAdminSms, ...crmAdminCustomerBasis, ...shell, ...today, ...pros, ...clients,
+  ...audit, ...feedback, ...push, ...automations, ...system, ...marketing, ...drinks, ...signups, ...crmAdmin, ...crmAdmin2, ...crmAdmin3, ...crmAdmin4, ...crmAdminAnalysis, ...crmAdminFounder, ...crmAdminInvite, ...crmAdminSms, ...crmAdminCustomerBasis, ...shell, ...today, ...pros, ...clients, ...pilotage, ...money,
 };
 
 export function pickLanguage(index: 0 | 1 | 2): Record<string, string> {

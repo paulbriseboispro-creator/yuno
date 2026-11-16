@@ -2,6 +2,8 @@
  * Où mène un résultat de `admin_search`. Module pur (testé). Un pro ouvre sa
  * fiche unique (lot 2) ; une personne, sa fiche de compte.
  */
+import { orderHref } from '../money/orderLink';
+
 export interface AdminSearchRow {
   kind: 'venue' | 'organizer' | 'agency' | 'crm' | 'person' | 'event' | 'ticket' | 'table';
   id: string;
@@ -25,8 +27,8 @@ export function searchResultHref(r: AdminSearchRow): string {
     // Une personne : la fiche unique (l'id de compte est résolu en e-mail par admin_person).
     case 'person': return `/admin/clients/${enc(r.id)}`;
     case 'event': return `/admin/clients/events?q=${enc(r.id)}`;
-    case 'ticket':
-    case 'table': return '/admin/money/orders';
+    case 'ticket': return orderHref('ticket', r.id);
+    case 'table': return orderHref('table', r.id);
     default: return '/admin';
   }
 }
