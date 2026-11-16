@@ -20,42 +20,58 @@
   --a-radius: 8px;
   --a-radius-lg: 12px;
 
-  /* Clair (défaut) */
-  --a-bg: #fafafa;
+  /* Clair (défaut). Neutres : Radix « sand » (gris chaud). Accent : rouge, seul.
+   * Système de design : docs/designs/ADMIN_DESIGN_SYSTEM.md (contrastes calculés). */
+  --a-bg: #f9f9f8;
   --a-panel: #ffffff;
-  --a-subtle: #f4f4f5;
-  --a-hover: #efeff1;
-  --a-active: #e8e8eb;
-  --a-border: #e6e6e9;
-  --a-border-strong: #d4d4d8;
-  --a-text: #18181b;
-  --a-text-2: #52525b;
-  --a-text-3: #8a8a93;
-  --a-accent: #3e63dd;
-  --a-accent-hover: #3358d4;
+  --a-subtle: #f4f3f1;
+  --a-hover: #efeeec;
+  --a-active: #e9e8e6;
+  --a-border: #e7e5e2;
+  --a-border-strong: #d2d0cb;
+  --a-text: #21201c;
+  --a-text-2: #5c5b56;
+  --a-text-3: #6f6d66;
+
+  /* Rouge, 12 pas (Radix red, pas 9-10 assombris pour porter du blanc en AA). */
+  --a-red-1: #fffcfc; --a-red-2: #fff7f7; --a-red-3: #feebec; --a-red-4: #ffdbdc;
+  --a-red-5: #ffcdce; --a-red-6: #fdbdbe; --a-red-7: #f4a9aa; --a-red-8: #eb8e90;
+  --a-red-9: #d42b38; --a-red-10: #c01f2d; --a-red-11: #c01f2d; --a-red-12: #641723;
+
+  --a-accent: var(--a-red-9);
+  --a-accent-hover: var(--a-red-10);
   --a-accent-fg: #ffffff;
-  --a-accent-soft: #edf2fe;
-  --a-accent-text: #3a5bc7;
-  --a-ring: rgba(62, 99, 221, 0.35);
-  --a-pos: #15803d;
-  --a-pos-soft: #ecfdf3;
-  --a-neg: #c62828;
-  --a-neg-soft: #fef2f2;
-  --a-warn: #b45309;
-  --a-warn-soft: #fffbeb;
-  --a-prev: #b4b4bb;
-  --a-grid: #ececef;
-  --a-chart-1: #3e63dd;
-  --a-chart-2: #0d9488;
-  --a-chart-3: #d97706;
-  --a-chart-4: #9333ea;
-  --a-chart-5: #db2777;
-  --a-shadow: 0 1px 2px rgba(16, 16, 20, 0.04), 0 1px 1px rgba(16, 16, 20, 0.02);
-  --a-shadow-pop: 0 12px 40px -8px rgba(16, 16, 20, 0.22), 0 0 0 1px rgba(16, 16, 20, 0.06);
-  --a-overlay: rgba(10, 10, 12, 0.32);
+  --a-accent-soft: var(--a-red-3);
+  --a-accent-text: var(--a-red-11);
+  --a-ring: rgba(212, 43, 56, 0.32);
+
+  /* États. Le rouge d'accent ne dit JAMAIS « mauvais » : une baisse est en encre
+   * neutre, « à traiter » est ambre, « critique / en retard » est un aplat bordeaux
+   * plein, toujours avec un mot. */
+  --a-pos: #1f7a4f;
+  --a-pos-soft: #e9f6ee;
+  --a-warn: #9a5b00;
+  --a-warn-soft: #fff7c2;
+  --a-neg: #9b1c25;
+  --a-neg-soft: #9b1c25;
+  --a-neg-fg: #ffffff;
+
+  /* Graphiques : rouge, puis bleu, sarcelle, violet (validés, daltonisme compris). */
+  --a-prev: #b9b7b0;
+  --a-grid: #edebe8;
+  --a-axis: #6f6d66;
+  --a-chart-1: var(--a-red-9);
+  --a-chart-2: #3358d4;
+  --a-chart-3: #0f9488;
+  --a-chart-4: #7c5cd6;
+  --a-chart-5: #8d8d86;
+  --a-shadow: 0 1px 2px rgba(33, 32, 28, 0.04);
+  --a-shadow-pop: 0 12px 40px -8px rgba(33, 32, 28, 0.2), 0 0 0 1px rgba(33, 32, 28, 0.06);
+  --a-overlay: rgba(17, 17, 16, 0.32);
 
   color-scheme: light;
   font-family: var(--a-font-sans);
+  font-size: 14px;
   color: var(--a-text);
   background: var(--a-bg);
   font-feature-settings: 'cv11', 'ss01';
@@ -63,38 +79,40 @@
 }
 
 [data-admin][data-admin-theme='dark'] {
-  --a-bg: #0a0a0b;
-  --a-panel: #111113;
-  --a-subtle: #17171a;
-  --a-hover: #1d1d21;
-  --a-active: #232328;
-  --a-border: #232327;
-  --a-border-strong: #313137;
-  --a-text: #ededef;
-  --a-text-2: #a3a3ab;
-  --a-text-3: #6f6f78;
-  --a-accent: #5b7ff0;
-  --a-accent-hover: #7090f3;
-  --a-accent-fg: #ffffff;
-  --a-accent-soft: #182449;
-  --a-accent-text: #9db1ff;
-  --a-ring: rgba(91, 127, 240, 0.45);
-  --a-pos: #3fbf72;
-  --a-pos-soft: #0f2a1b;
-  --a-neg: #f0625d;
-  --a-neg-soft: #33130f;
-  --a-warn: #f0a33a;
-  --a-warn-soft: #2e2010;
-  --a-prev: #4b4b53;
-  --a-grid: #1f1f23;
-  --a-chart-1: #5b7ff0;
-  --a-chart-2: #2dd4bf;
-  --a-chart-3: #f0a33a;
-  --a-chart-4: #b67cf5;
-  --a-chart-5: #f472b6;
-  --a-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --a-bg: #111110;
+  --a-panel: #191918;
+  --a-subtle: #222221;
+  --a-hover: #2a2a28;
+  --a-active: #31312e;
+  --a-border: #2a2a28;
+  --a-border-strong: #3b3a37;
+  --a-text: #eeeeec;
+  --a-text-2: #b5b3ad;
+  --a-text-3: #8f8d86;
+
+  --a-red-1: #191111; --a-red-2: #201314; --a-red-3: #3b1219; --a-red-4: #500f1c;
+  --a-red-5: #611623; --a-red-6: #72232d; --a-red-7: #8c333a; --a-red-8: #b54548;
+  --a-red-9: #d42b38; --a-red-10: #e5484d; --a-red-11: #ff8f8a; --a-red-12: #ffd1d9;
+
+  --a-ring: rgba(229, 72, 77, 0.45);
+  --a-pos: #3dd68c;
+  --a-pos-soft: #113b29;
+  --a-warn: #ffca16;
+  --a-warn-soft: #302008;
+  --a-neg: #ff9b94;
+  --a-neg-soft: #641723;
+  --a-neg-fg: #ffd1d9;
+  --a-prev: #5c5a55;
+  --a-grid: #232322;
+  --a-axis: #8f8d86;
+  --a-chart-1: #ec5d5e;
+  --a-chart-2: #5b7ff0;
+  --a-chart-3: #19a393;
+  --a-chart-4: #8f72ea;
+  --a-chart-5: #7c7b74;
+  --a-shadow: none;
   --a-shadow-pop: 0 16px 48px -8px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06);
-  --a-overlay: rgba(0, 0, 0, 0.55);
+  --a-overlay: rgba(0, 0, 0, 0.6);
   color-scheme: dark;
 }
 
@@ -154,7 +172,7 @@
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
-  transition: background 120ms, border-color 120ms, color 120ms;
+  transition: background 120ms ease-out, border-color 120ms ease-out, color 120ms ease-out;
 }
 [data-admin] .a-btn:hover { background: var(--a-hover); }
 [data-admin] .a-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -170,11 +188,11 @@
 }
 [data-admin] .a-btn--primary:hover { background: var(--a-accent-hover); }
 [data-admin] .a-btn--danger {
-  background: var(--a-neg);
-  border-color: var(--a-neg);
-  color: #fff;
+  background: var(--a-neg-soft);
+  border-color: var(--a-neg-soft);
+  color: var(--a-neg-fg);
 }
-[data-admin] .a-btn--danger:hover { filter: brightness(1.06); background: var(--a-neg); }
+[data-admin] .a-btn--danger:hover { filter: brightness(1.08); }
 [data-admin] .a-btn--ghost {
   border-color: transparent;
   background: transparent;
@@ -254,13 +272,13 @@
   font-size: 12px;
   text-align: left;
   padding: 0 12px;
-  height: 34px;
+  height: 36px;
   border-bottom: 1px solid var(--a-border);
   white-space: nowrap;
 }
 [data-admin] .a-table td {
   padding: 0 12px;
-  height: 42px;
+  height: 40px;
   border-bottom: 1px solid var(--a-border);
   color: var(--a-text);
 }
@@ -306,9 +324,10 @@
   cursor: pointer;
   user-select: none;
 }
-[data-admin] [cmdk-item][data-selected='true'] { background: var(--a-hover); }
+[data-admin] [cmdk-item][data-selected='true'] { background: var(--a-accent-soft); color: var(--a-accent-text); box-shadow: inset 2px 0 0 var(--a-accent); }
 [data-admin] [cmdk-empty] { padding: 24px 12px; color: var(--a-text-3); font-size: 13.5px; text-align: center; }
 
 @media (prefers-reduced-motion: reduce) {
   [data-admin] .a-skel { animation: none; }
+  [data-admin] * { transition-duration: 0ms !important; }
 }

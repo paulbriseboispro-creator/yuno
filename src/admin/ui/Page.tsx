@@ -20,11 +20,11 @@ export function Page({
   width?: 'wide' | 'narrow';
 }) {
   return (
-    <div className={cn('mx-auto w-full px-5 py-6 md:px-8 md:py-8', width === 'wide' ? 'max-w-[1360px]' : 'max-w-[880px]')}>
+    <div className={cn('mx-auto w-full px-5 py-6 md:px-8 md:py-8', width === 'wide' ? 'max-w-[1280px]' : 'max-w-[880px]')}>
       <header className="mb-6 flex flex-wrap items-start gap-x-6 gap-y-3">
         <div className="min-w-0 flex-1">
-          <h1 className="a-t1 text-[22px] font-semibold leading-tight tracking-[-0.02em]" style={{ textWrap: 'balance' }}>{title}</h1>
-          {subtitle && <p className="a-t2 mt-1.5 max-w-[68ch] text-[13.5px] leading-relaxed">{subtitle}</p>}
+          <h1 className="a-t1 text-[22px] font-semibold leading-[1.25] tracking-[-0.02em]" style={{ textWrap: 'balance' }}>{title}</h1>
+          {subtitle && <p className="a-t2 mt-1 max-w-[80ch] text-[14px] leading-normal">{subtitle}</p>}
         </div>
         {(actions || period) && (
           <div className="flex flex-wrap items-center gap-2">
@@ -52,8 +52,8 @@ export function Section({
       {(title || actions) && (
         <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-0 flex-1">
-            {title && <h2 className="a-t1 text-[15px] font-semibold tracking-[-0.01em]">{title}</h2>}
-            {description && <p className="a-t3 mt-0.5 text-[12.5px]">{description}</p>}
+            {title && <h2 className="a-t1 text-[16px] font-semibold tracking-[-0.01em]">{title}</h2>}
+            {description && <p className="a-t3 mt-0.5 text-[13px]">{description}</p>}
           </div>
           {actions && <div className="flex items-center gap-2">{actions}</div>}
         </div>
@@ -77,7 +77,7 @@ export function Card({
     <div className={cn('a-card flex min-w-0 flex-col', className)}>
       {(title || actions) && (
         <div className="flex min-h-[44px] items-center gap-3 border-b px-4 py-2.5">
-          <div className="a-t1 min-w-0 flex-1 truncate text-[13.5px] font-semibold">{title}</div>
+          <div className="a-t1 min-w-0 flex-1 truncate text-[14px] font-semibold">{title}</div>
           {actions}
         </div>
       )}

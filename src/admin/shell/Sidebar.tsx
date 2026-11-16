@@ -34,7 +34,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <div key={r.id}>
             <div className="flex items-center">
               <Link to={visible[0]?.path ?? r.base} onClick={onNavigate}
-                className={cn('a-focus flex h-8 min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 text-[13px] no-underline transition-colors hover:bg-[var(--a-hover)]')}
+                className={cn('a-focus flex h-8 min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 text-[13.5px] no-underline transition-colors hover:bg-[var(--a-hover)]')}
                 style={{ color: here ? 'var(--a-text)' : 'var(--a-text-2)', fontWeight: here ? 600 : 500 }}>
                 <Icon className="h-4 w-4 flex-none" style={{ color: here ? 'var(--a-accent)' : 'var(--a-text-3)' }} />
                 <span className="flex-1 truncate">{t(rubricLabelKey(r.id))}</span>
@@ -55,8 +55,10 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                   const n = e.badge ? badges[e.badge] ?? 0 : 0;
                   return (
                     <Link key={e.path} to={e.path} onClick={onNavigate} aria-current={on ? 'page' : undefined}
-                      className="a-focus flex h-7 items-center gap-2 rounded-md px-2 text-[12.5px] no-underline transition-colors hover:bg-[var(--a-hover)]"
-                      style={{ color: on ? 'var(--a-text)' : 'var(--a-text-2)', fontWeight: on ? 600 : 400, background: on ? 'var(--a-active)' : undefined }}>
+                      className="a-focus relative flex h-8 items-center gap-2 rounded-md px-2 text-[13px] no-underline transition-colors hover:bg-[var(--a-hover)]"
+                      style={{ color: on ? 'var(--a-accent-text)' : 'var(--a-text-2)', fontWeight: on ? 600 : 400, background: on ? 'var(--a-accent-soft)' : undefined }}>
+                      {/* L'entrée active : une barre rouge sur le rail, un fond doux. */}
+                      {on && <span aria-hidden className="absolute -left-[9px] top-1.5 bottom-1.5 w-[2px] rounded-full" style={{ background: 'var(--a-accent)' }} />}
                       <span className="flex-1 truncate">{t(entryLabelKey(r.id, e.key))}</span>
                       {n > 0 && <CountBadge n={n} />}
                     </Link>
@@ -74,6 +76,6 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 function CountBadge({ n }: { n: number }) {
   return (
     <span className="a-num grid h-[18px] min-w-[18px] place-items-center rounded-full px-1.5 text-[11px] font-semibold"
-      style={{ background: 'var(--a-accent)', color: 'var(--a-accent-fg)' }}>{n > 99 ? '99+' : n}</span>
+      style={{ background: 'var(--a-active)', color: 'var(--a-text)' }}>{n > 99 ? '99+' : n}</span>
   );
 }

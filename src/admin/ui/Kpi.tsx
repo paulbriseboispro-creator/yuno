@@ -3,7 +3,7 @@
  * mini-courbe, et le lien vers la liste qui le compose. Quatre à six par
  * page (KpiRow), jamais plus.
  */
-import type { ReactNode } from 'react';
+import { Children, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowDownRight, ArrowUpRight, ChevronRight, Minus } from 'lucide-react';
 import { Line, LineChart, ResponsiveContainer } from 'recharts';
@@ -36,7 +36,8 @@ export function DeltaBadge({ current, previous, invert = false }: {
   if (d == null) return <span className="a-t3 text-[12px]">{t('adm.ui.kpi.noCompare')}</span>;
   const flat = Math.abs(d) < 0.005;
   const good = flat ? null : (d > 0) !== invert;
-  const color = flat ? 'var(--a-text-3)' : good ? 'var(--a-pos)' : 'var(--a-neg)';
+  // Le rouge est l'accent : une mauvaise évolution s'écrit en encre neutre, avec sa flèche.
+  const color = flat ? 'var(--a-text-3)' : good ? 'var(--a-pos)' : 'var(--a-text-2)';
   const Icon = flat ? Minus : d > 0 ? ArrowUpRight : ArrowDownRight;
   return (
     <span className="a-num inline-flex items-center gap-0.5 text-[12px] font-medium" style={{ color }} title={t('adm.ui.kpi.vsPrev')}>
@@ -67,14 +68,14 @@ export function Kpi({
   const body = (
     <div className="a-card flex h-full flex-col gap-2 p-4 transition-colors" style={to ? { cursor: 'pointer' } : undefined}>
       {/* Libellé sur deux lignes au plus, jamais coupé en « Ventes de la platef… ». */}
-      <div className="flex min-h-[2.4em] items-start gap-1 text-[12.5px] leading-[1.2]">
-        <span className="a-t2 line-clamp-2 min-w-0 flex-1 break-words font-medium" title={hint}>{label}</span>
+      <div className="flex min-h-[2.4em] items-start gap-1 text-[12px] leading-[1.25]">
+        <span className="a-t2 line-clamp-2 min-w-0 flex-1 break-words" title={hint}>{label}</span>
         {to && <ChevronRight className="a-t3 mt-px h-3.5 w-3.5 flex-none" />}
       </div>
       {loading ? (
         <div className="a-skel h-7 w-24" />
       ) : (
-        <div className="a-t1 a-num text-[24px] font-semibold leading-none tracking-[-0.02em]">{value}</div>
+        <div className="a-t1 a-num truncate text-[26px] font-semibold leading-none tracking-[-0.02em]">{value}</div>
       )}
       <div className="flex items-end gap-3">
         <div className="flex-none">{!loading && previous !== undefined && <DeltaBadge current={current} previous={previous} invert={invert} />}</div>
@@ -86,6 +87,12 @@ export function Kpi({
   return to ? <Link to={to} className="a-focus block rounded-[12px] [&>div:hover]:border-[var(--a-border-strong)]">{body}</Link> : body;
 }
 
+/**
+ * La rangée de chiffres : 4 à 6 tuiles de même largeur, jamais une tuile orpheline.
+ * Le nombre de colonnes suit le nombre de tuiles (6 → 3 puis 6, 5 → 5, 4 → 2 puis 4).
+ */
 export function KpiRow({ children }: { children: ReactNode }) {
-  return <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>{children}</div>;
+  const n = Children.toArray(children).filter(Boolean).length;
+  const cols = n >= 6 ? 'sm:grid-cols-3 xl:grid-cols-6' : n === 5 ? 'sm:grid-cols-3 lg:grid-cols-5' : n === 4 ? 'sm:grid-cols-2 lg:grid-cols-4' : n === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2';
+  return <div className={`grid grid-cols-2 gap-3 ${cols}`}>{children}</div>;
 }

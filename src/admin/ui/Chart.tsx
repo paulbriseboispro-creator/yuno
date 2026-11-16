@@ -5,7 +5,10 @@
  *   - UNE seule échelle par graphique (jamais de second axe caché : deux
  *     ordres de grandeur = deux graphiques) ;
  *   - la période précédente, quand elle est donnée, en gris pointillé ;
- *   - aucune animation (lecture immédiate, captures fiables).
+ *   - aucune animation (lecture immédiate, captures fiables) ;
+ *   - série principale en rouge (`--a-chart-1`), puis bleu, sarcelle, violet ;
+ *     légende seulement à partir de deux séries, texte en encre neutre ;
+ *     barres empilées : la série principale en bas (la première de `series`).
  *
  *   <Chart kind="line" data={rows} x="day" unit="eur"
  *     series={[{ key: 'revenue', label: t('…') }]} previous={{ key: 'prevRevenue', label: t('…') }} />
@@ -39,6 +42,7 @@ export interface ChartProps {
   /** La même mesure sur la période précédente (gris, pointillé). Courbe seulement. */
   previous?: { key: string; label: string };
   unit: ChartUnit;
+  /** Hauteur : 280 (grand, défaut), 200 (moyen) ; une mini-courbe passe par Sparkline. */
   height?: number;
   loading?: boolean;
   error?: unknown;
@@ -46,7 +50,7 @@ export interface ChartProps {
   empty?: ReactNode;
 }
 
-export function Chart({ kind, data, x, formatX, series, previous, unit, height = 260, loading, error, onRetry, empty }: ChartProps) {
+export function Chart({ kind, data, x, formatX, series, previous, unit, height = 280, loading, error, onRetry, empty }: ChartProps) {
   const { t, lang } = useAdminT();
   const fmt = (v: number): string => {
     if (typeof unit === 'object') return unit.format(v);
@@ -66,17 +70,17 @@ export function Chart({ kind, data, x, formatX, series, previous, unit, height =
   if (loading) return <div className="a-skel w-full" style={{ height }} aria-busy />;
   if (!data || data.length === 0) return <div style={{ minHeight: height }} className="grid place-items-center"><EmptyState title={empty ?? t('adm.ui.chart.empty')} /></div>;
 
-  const axisTick = { fill: 'var(--a-text-3)', fontSize: 11.5, fontFamily: 'var(--a-font-sans)' };
+  const axisTick = { fill: 'var(--a-axis)', fontSize: 12, fontFamily: 'var(--a-font-sans)', fontVariantNumeric: 'tabular-nums' };
   const common = {
     data,
-    margin: { top: 8, right: 8, bottom: 0, left: 8 },
+    margin: { top: 8, right: 4, bottom: 0, left: 4 },
   };
   const xAxis = (
-    <XAxis dataKey={x} tick={axisTick} tickLine={false} axisLine={{ stroke: 'var(--a-border-strong)' }}
+    <XAxis dataKey={x} tick={axisTick} tickLine={false} axisLine={{ stroke: 'var(--a-border)' }} tickMargin={8}
       tickFormatter={formatX} minTickGap={24} />
   );
   const yAxis = (
-    <YAxis tick={axisTick} tickLine={false} axisLine={{ stroke: 'var(--a-border-strong)' }} width={56}
+    <YAxis tick={axisTick} tickLine={false} axisLine={false} width={60} tickMargin={6}
       tickFormatter={(v: number) => fmt(v)} allowDecimals={unit !== 'count'}
       label={{ value: unitLabel, angle: -90, position: 'insideLeft', offset: 0, style: { ...axisTick, textAnchor: 'middle' } }} />
   );
@@ -84,15 +88,17 @@ export function Chart({ kind, data, x, formatX, series, previous, unit, height =
   const tooltip = (
     <Tooltip
       cursor={kind === 'line' ? { stroke: 'var(--a-border-strong)' } : { fill: 'var(--a-hover)' }}
-      contentStyle={{ background: 'var(--a-panel)', border: '1px solid var(--a-border)', borderRadius: 8, boxShadow: 'var(--a-shadow-pop)', fontSize: 12.5, color: 'var(--a-text)' }}
+      contentStyle={{ background: 'var(--a-panel)', border: '1px solid var(--a-border)', borderRadius: 8, boxShadow: 'var(--a-shadow-pop)', fontSize: 12.5, color: 'var(--a-text)', fontVariantNumeric: 'tabular-nums', padding: '8px 10px' }}
+      itemStyle={{ color: 'var(--a-text)', padding: '1px 0' }}
       labelStyle={{ color: 'var(--a-text-2)', marginBottom: 4 }}
       labelFormatter={(v) => (formatX ? formatX(String(v)) : String(v))}
       formatter={(v: number | string, name: string) => [typeof v === 'number' ? fmtFull(v) : v, name]}
     />
   );
   const legend = (series.length > 1 || previous) ? (
-    <Legend verticalAlign="top" align="right" height={28} iconType="plainline" iconSize={14}
-      wrapperStyle={{ fontSize: 12, color: 'var(--a-text-2)' }} />
+    <Legend verticalAlign="top" align="left" height={30} iconType={kind === 'line' ? 'plainline' : 'square'} iconSize={kind === 'line' ? 14 : 9}
+      wrapperStyle={{ fontSize: 12, paddingLeft: 56 }}
+      formatter={(value: string) => <span style={{ color: 'var(--a-text-2)' }}>{value}</span>} />
   ) : null;
 
   return (
@@ -116,6 +122,8 @@ export function Chart({ kind, data, x, formatX, series, previous, unit, height =
             {series.map((s, i) => (
               <Bar key={s.key} dataKey={s.key} name={s.label} fill={s.color ?? PALETTE[i % PALETTE.length]}
                 stackId={kind === 'stacked' ? 'a' : undefined}
+                stroke={kind === 'stacked' ? 'var(--a-panel)' : undefined} strokeWidth={kind === 'stacked' ? 1 : 0}
+                maxBarSize={kind === 'stacked' ? 28 : 32}
                 radius={kind === 'stacked' ? (i === series.length - 1 ? [3, 3, 0, 0] : 0) : [3, 3, 0, 0]}
                 isAnimationActive={false} />
             ))}
