@@ -16,10 +16,10 @@ const TABLE: Array<[string, string]> = [
   ['/admin/ai', '/admin/pilot/ai'],
   ['/admin/customers', '/admin/clients'],
   ['/admin/links', '/admin/comms/links'],
-  ['/admin/venues', '/admin/pros/venues'],
-  ['/admin/venues/club-123', '/admin/pros/venues/club-123'],
-  ['/admin/organizers', '/admin/pros/organizers'],
-  ['/admin/agencies', '/admin/pros/agencies'],
+  ['/admin/venues', '/admin/pros?type=club'],
+  ['/admin/venues/club-123', '/admin/pros/venue:club-123'],
+  ['/admin/organizers', '/admin/pros?type=organizer'],
+  ['/admin/agencies', '/admin/pros?type=agency'],
   ['/admin/events', '/admin/clients/events'],
   ['/admin/people', '/admin/clients/people'],
   ['/admin/people/6f1c0e2a-0000-4000-8000-000000000001', '/admin/clients/people/6f1c0e2a-0000-4000-8000-000000000001'],
@@ -48,18 +48,23 @@ const TABLE: Array<[string, string]> = [
   ['/admin/segmentation', '/admin/clients'],
   ['/admin/directory', '/admin/clients/people'],
   ['/admin/directory/user/u1', '/admin/clients/people/u1'],
-  ['/admin/directory/venue/v1', '/admin/pros/venues/v1'],
-  ['/admin/affiliates', '/admin/pros/agencies'],
+  ['/admin/directory/venue/v1', '/admin/pros/venue:v1'],
+  ['/admin/affiliates', '/admin/pros?type=agency'],
   ['/admin/emails', '/admin/comms'],
   // Admin CRM
   ['/admin/crm', '/admin/pilot/crm'],
   ['/admin/crm/login', '/admin/login'],
-  ['/admin/crm/clients', '/admin/pros/crm'],
-  ['/admin/crm/clients/org:abc', '/admin/pros/crm/org:abc'],
-  ['/admin/crm/sales', '/admin/pros/sales'],
+  ['/admin/crm/clients', '/admin/pros?product=crm'],
+  ['/admin/crm/clients/org:abc', '/admin/pros/org:abc'],
+  ['/admin/pros/venues/club-1', '/admin/pros/venue:club-1'],
+  ['/admin/pros/crm/venue:v1', '/admin/pros/venue:v1'],
+  ['/admin/pros/sales', '/admin/pros/prospects?tab=pipeline'],
+  ['/admin/pros/crm-demo', '/admin/pros/demo?tab=crm'],
+  ['/admin/pros/crm-support', '/admin/pros/support'],
+  ['/admin/crm/sales', '/admin/pros/prospects?tab=pipeline'],
   ['/admin/crm/invite', '/admin/pros/invite'],
-  ['/admin/crm/demo', '/admin/pros/crm-demo'],
-  ['/admin/crm/support', '/admin/pros/crm-support'],
+  ['/admin/crm/demo', '/admin/pros/demo?tab=crm'],
+  ['/admin/crm/support', '/admin/pros/support'],
   ['/admin/crm/acquisition', '/admin/pilot/crm-acquisition'],
   ['/admin/crm/product', '/admin/pilot/crm-product'],
   ['/admin/crm/money', '/admin/money/crm'],
@@ -71,7 +76,7 @@ const TABLE: Array<[string, string]> = [
 ];
 
 /** Pages de détail montées par les rubriques (hors menu, sous une entrée). */
-const DETAIL = [/^\/admin\/pros\/venues\/[^/]+$/, /^\/admin\/clients\/people\/[^/]+$/, /^\/admin\/pros\/crm\/[^/]+$/, /^\/admin\/comms\/email\//, /^\/admin\/comms\/sms\/[^/]+$/, /^\/admin\/system\/crm\/plan\//, /^\/admin\/system\/drinks$/, /^\/admin\/login$/];
+const DETAIL = [/^\/admin\/pros\/(venue|org|agency):[^/]+$/, /^\/admin\/clients\/people\/[^/]+$/, /^\/admin\/comms\/email\//, /^\/admin\/comms\/sms\/[^/]+$/, /^\/admin\/system\/crm\/plan\//, /^\/admin\/system\/drinks$/, /^\/admin\/login$/];
 
 describe('legacyAdminTarget', () => {
   it.each(TABLE)('%s → %s', (from, to) => {
@@ -81,8 +86,9 @@ describe('legacyAdminTarget', () => {
 
   it('lands every old address on a page of the new menu', () => {
     for (const [, to] of TABLE) {
-      const { entry } = activeEntry(to);
-      const known = !!entry || DETAIL.some((re) => re.test(to)) || to === '/admin';
+      const path = to.split('?')[0];
+      const { entry } = activeEntry(path);
+      const known = !!entry || DETAIL.some((re) => re.test(path)) || path === '/admin';
       expect(known, to).toBe(true);
     }
   });
@@ -100,16 +106,16 @@ describe('legacyAdminTarget', () => {
 
   it('leaves new addresses alone', () => {
     for (const r of ADMIN_NAV) for (const e of r.entries) expect(legacyAdminTarget(e.path), e.path).toBeNull();
-    expect(legacyAdminTarget('/admin/pros/crm/org:abc')).toBeNull();
+    expect(legacyAdminTarget('/admin/pros/org:abc')).toBeNull();
     expect(legacyAdminTarget('/admin/system')).toBeNull();
   });
 });
 
 describe('currentAdminHref (liens des alertes déjà émises)', () => {
   it('rewrites a full old link and keeps anything else', () => {
-    expect(currentAdminHref('/admin/venues/v1')).toBe('/admin/pros/venues/v1');
+    expect(currentAdminHref('/admin/venues/v1')).toBe('/admin/pros/venue:v1');
     expect(currentAdminHref('/admin/alerts#coorg')).toBe('/admin/today/alerts#coorg');
-    expect(currentAdminHref('/admin/crm/clients?open=org%3Aabc')).toBe('/admin/pros/crm?open=org%3Aabc');
+    expect(currentAdminHref('/admin/crm/clients?open=org%3Aabc')).toBe('/admin/pros?product=crm&open=org%3Aabc');
     expect(currentAdminHref('/admin/crm/platform?tab=day')).toBe('/admin/system/crm?tab=day');
     expect(currentAdminHref('/admin/system')).toBe('/admin/system');
     expect(currentAdminHref('/owner/dashboard')).toBe('/owner/dashboard');
@@ -141,8 +147,9 @@ describe('nav entries', () => {
   });
 
   it('lights the most specific entry', () => {
-    expect(activeEntry('/admin/pros/crm-demo').entry?.key).toBe('crmDemo');
-    expect(activeEntry('/admin/pros/crm/org:1').entry?.key).toBe('crmAccounts');
+    expect(activeEntry('/admin/pros/demo').entry?.key).toBe('demo');
+    expect(activeEntry('/admin/pros/org:1').entry?.key).toBe('accounts');
+    expect(activeEntry('/admin/pros/prospects').entry?.key).toBe('prospects');
     expect(activeEntry('/admin/comms/email/abc/edit').entry?.key).toBe('marketing');
     expect(activeEntry('/admin').rubric.id).toBe('today');
     expect(activeEntry('/admin/today/alerts').entry?.key).toBe('alerts');
@@ -152,8 +159,10 @@ describe('nav entries', () => {
 describe('search result links', () => {
   const row = (kind: Parameters<typeof searchResultHref>[0]['kind'], id: string) => ({ kind, id, label: 'x', sub: null, ref: null, at: null });
   it('opens the matching page of the new admin', () => {
-    expect(searchResultHref(row('venue', 'club-1'))).toBe('/admin/pros/venues/club-1');
-    expect(searchResultHref(row('crm', 'org:abc'))).toBe('/admin/pros/crm/org%3Aabc');
+    expect(searchResultHref(row('venue', 'club-1'))).toBe('/admin/pros/venue:club-1');
+    expect(searchResultHref(row('organizer', 'u9'))).toBe('/admin/pros/org:u9');
+    expect(searchResultHref(row('agency', 'a1'))).toBe('/admin/pros/agency:a1');
+    expect(searchResultHref(row('crm', 'org:abc'))).toBe('/admin/pros/org:abc');
     expect(searchResultHref(row('person', 'u1'))).toBe('/admin/clients/people/u1');
     expect(searchResultHref(row('event', 'e1'))).toBe('/admin/clients/events?q=e1');
     expect(searchResultHref(row('ticket', 't1'))).toBe('/admin/money/orders');

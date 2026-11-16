@@ -70,16 +70,18 @@ export const ADMIN_NAV: AdminRubric[] = [
   {
     id: 'pros', base: '/admin/pros', icon: 'Building2',
     entries: [
-      { key: 'venues', path: '/admin/pros/venues' },
-      { key: 'organizers', path: '/admin/pros/organizers' },
-      { key: 'agencies', path: '/admin/pros/agencies' },
-      { key: 'crmAccounts', path: '/admin/pros/crm' },
-      { key: 'sales', path: '/admin/pros/sales' },
+      // Sans `end` : la fiche d'un compte (/admin/pros/venue:…) allume « Tous les comptes ».
+      { key: 'accounts', path: '/admin/pros' },
+      { key: 'prospects', path: '/admin/pros/prospects' },
       { key: 'invite', path: '/admin/pros/invite' },
       { key: 'demo', path: '/admin/pros/demo' },
-      { key: 'crmDemo', path: '/admin/pros/crm-demo' },
       { key: 'support', path: '/admin/pros/support' },
-      { key: 'crmSupport', path: '/admin/pros/crm-support' },
+      // Anciennes listes, hors menu : gestes pas encore repris par la fiche
+      // (purge d'un club, organisateur vitrine, invitations d'agence…).
+      { key: 'venues', path: '/admin/pros/venues', hidden: true },
+      { key: 'organizers', path: '/admin/pros/organizers', hidden: true },
+      { key: 'agencies', path: '/admin/pros/agencies', hidden: true },
+      { key: 'crmAccounts', path: '/admin/pros/crm', hidden: true },
     ],
   },
   {

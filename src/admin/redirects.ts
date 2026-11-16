@@ -14,12 +14,12 @@ type Rule = readonly [RegExp, string];
 const RULES: readonly Rule[] = [
   // ── Admin CRM ──
   [/^\/admin\/crm\/login$/, '/admin/login'],
-  [/^\/admin\/crm\/clients\/(.+)$/, '/admin/pros/crm/$1'],
-  [/^\/admin\/crm\/clients$/, '/admin/pros/crm'],
-  [/^\/admin\/crm\/sales$/, '/admin/pros/sales'],
+  [/^\/admin\/crm\/clients\/(.+)$/, '/admin/pros/$1'],
+  [/^\/admin\/crm\/clients$/, '/admin/pros?product=crm'],
+  [/^\/admin\/crm\/sales$/, '/admin/pros/prospects?tab=pipeline'],
   [/^\/admin\/crm\/invite$/, '/admin/pros/invite'],
-  [/^\/admin\/crm\/demo$/, '/admin/pros/crm-demo'],
-  [/^\/admin\/crm\/support$/, '/admin/pros/crm-support'],
+  [/^\/admin\/crm\/demo$/, '/admin/pros/demo?tab=crm'],
+  [/^\/admin\/crm\/support$/, '/admin/pros/support'],
   [/^\/admin\/crm\/acquisition$/, '/admin/pilot/crm-acquisition'],
   [/^\/admin\/crm\/product$/, '/admin/pilot/crm-product'],
   [/^\/admin\/crm\/money$/, '/admin/money/crm'],
@@ -45,11 +45,17 @@ const RULES: readonly Rule[] = [
   [/^\/admin\/events$/, '/admin/clients/events'],
   [/^\/admin\/(?:people|directory\/user)\/(.+)$/, '/admin/clients/people/$1'],
   [/^\/admin\/(people|directory)$/, '/admin/clients/people'],
-  // ── Pros ──
-  [/^\/admin\/(?:venues|directory\/venue)\/(.+)$/, '/admin/pros/venues/$1'],
-  [/^\/admin\/venues$/, '/admin/pros/venues'],
-  [/^\/admin\/organizers$/, '/admin/pros/organizers'],
-  [/^\/admin\/(agencies|affiliates)$/, '/admin/pros/agencies'],
+  // ── Pros (lot 2 : une liste, une fiche par compte) ──
+  [/^\/admin\/(?:venues|directory\/venue)\/(.+)$/, '/admin/pros/venue:$1'],
+  [/^\/admin\/venues$/, '/admin/pros?type=club'],
+  [/^\/admin\/organizers$/, '/admin/pros?type=organizer'],
+  [/^\/admin\/(agencies|affiliates)$/, '/admin/pros?type=agency'],
+  // Adresses du lot 0, remplacées par la fiche unique et les pages réunies.
+  [/^\/admin\/pros\/venues\/(.+)$/, '/admin/pros/venue:$1'],
+  [/^\/admin\/pros\/crm\/(.+)$/, '/admin/pros/$1'],
+  [/^\/admin\/pros\/sales$/, '/admin/pros/prospects?tab=pipeline'],
+  [/^\/admin\/pros\/crm-demo$/, '/admin/pros/demo?tab=crm'],
+  [/^\/admin\/pros\/crm-support$/, '/admin/pros/support'],
   [/^\/admin\/demo-access$/, '/admin/pros/demo'],
   [/^\/admin\/support$/, '/admin/pros/support'],
   // ── Communication ──

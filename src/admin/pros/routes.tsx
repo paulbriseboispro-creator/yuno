@@ -1,42 +1,52 @@
 /**
  * Rubrique « Pros » : qui sont mes comptes et où en sont-ils ? (`/admin/pros/*`)
- * Lot 0 : écrans existants remontés tels quels. Le lot 2 réunit la liste et
- * la fiche de tous les comptes. Chemins RELATIFS.
+ * Lot 2 : une liste et UNE fiche pour tous les comptes (clubs, organisateurs,
+ * associations, agences, comptes Yuno CRM), prospects réunis, une porte pour
+ * inviter, une page Démo, une page Accès assisté. Chemins RELATIFS.
+ *
+ * Les anciennes listes (Clubs, Organisateurs, Agences, Comptes CRM) restent
+ * joignables hors menu pour les gestes que la fiche ne reprend pas encore :
+ * purge d'un club de test, organisateur vitrine, invitations d'agence à
+ * relancer, tiroir CRM.
  */
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { CrmFrame, SuiteFrame } from '../shell/frames';
+import { legacyAdminTarget } from '../redirects';
 
+const AccountsPage = lazyWithRetry(() => import('./AccountsPage'));
+const AccountPage = lazyWithRetry(() => import('./AccountPage'));
+const ProspectsPage = lazyWithRetry(() => import('./ProspectsPage'));
+const InvitePage = lazyWithRetry(() => import('./InvitePage'));
+const DemoPage = lazyWithRetry(() => import('./DemoPage'));
+const SupportPage = lazyWithRetry(() => import('./SupportPage'));
 const AdminVenues = lazyWithRetry(() => import('@/pages/admin/AdminVenues'));
-const AdminVenueDetail = lazyWithRetry(() => import('@/pages/admin/AdminVenueDetail'));
 const AdminOrganizers = lazyWithRetry(() => import('@/pages/admin/AdminOrganizers'));
 const AdminAgencies = lazyWithRetry(() => import('@/pages/admin/AdminAgencies'));
-const AdminDemoAccess = lazyWithRetry(() => import('@/pages/admin/AdminDemoAccess'));
-const AdminSupportAccess = lazyWithRetry(() => import('@/pages/admin/AdminSupportAccess'));
 const CrmClients = lazyWithRetry(() => import('@/crm/admin/pages/ClientsPage'));
-const CrmAccount = lazyWithRetry(() => import('@/crm/admin/pages/AccountPage'));
-const CrmSales = lazyWithRetry(() => import('@/crm/admin/pages/SalesPage'));
-const CrmInvite = lazyWithRetry(() => import('@/crm/admin/pages/InvitePage'));
-const CrmDemo = lazyWithRetry(() => import('@/crm/admin/pages/DemoPage'));
-const CrmSupport = lazyWithRetry(() => import('@/crm/admin/pages/SupportPage'));
+
+/** Une adresse du lot 0 (`/admin/pros/venues/<id>`, `/admin/pros/crm/<clé>`…) : sa nouvelle place. */
+function ProsLegacy() {
+  const { pathname, search, hash } = useLocation();
+  return <Navigate to={legacyAdminTarget(pathname, search, hash) ?? '/admin/pros'} replace />;
+}
 
 export default function ProsRoutes() {
   return (
     <Routes>
-      <Route index element={<Navigate to="/admin/pros/venues" replace />} />
+      <Route index element={<AccountsPage />} />
+      <Route path="prospects" element={<ProspectsPage />} />
+      <Route path="invite" element={<InvitePage />} />
+      <Route path="demo" element={<DemoPage />} />
+      <Route path="support" element={<SupportPage />} />
+      {/* Hors menu (nav.ts : hidden). */}
       <Route path="venues" element={<SuiteFrame><AdminVenues /></SuiteFrame>} />
-      <Route path="venues/:venueId" element={<SuiteFrame><AdminVenueDetail /></SuiteFrame>} />
       <Route path="organizers" element={<SuiteFrame><AdminOrganizers /></SuiteFrame>} />
       <Route path="agencies" element={<SuiteFrame><AdminAgencies /></SuiteFrame>} />
-      <Route path="demo" element={<SuiteFrame><AdminDemoAccess /></SuiteFrame>} />
-      <Route path="support" element={<SuiteFrame><AdminSupportAccess /></SuiteFrame>} />
       <Route path="crm" element={<CrmFrame><CrmClients /></CrmFrame>} />
-      <Route path="crm/:id" element={<CrmFrame><CrmAccount /></CrmFrame>} />
-      <Route path="sales" element={<CrmFrame><CrmSales /></CrmFrame>} />
-      <Route path="invite" element={<CrmFrame><CrmInvite /></CrmFrame>} />
-      <Route path="crm-demo" element={<CrmFrame><CrmDemo /></CrmFrame>} />
-      <Route path="crm-support" element={<CrmFrame><CrmSupport /></CrmFrame>} />
-      <Route path="*" element={<Navigate to="/admin/pros/venues" replace />} />
+      {/* La fiche : `venue:<id>`, `org:<uuid>`, `agency:<uuid>`. Une clé illisible repart par ProsLegacy. */}
+      <Route path=":key" element={<AccountPage />} />
+      <Route path="*" element={<ProsLegacy />} />
     </Routes>
   );
 }
