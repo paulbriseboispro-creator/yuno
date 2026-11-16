@@ -5243,6 +5243,46 @@ tous `src/pages/OwnerHelpCenter.tsx` (coquille + URL) et `src/components/help/*`
   `venue_id` NULL) ; avant, le bouton « Contacter le support » de l'organisateur
   tombait sur une 404.
 
+## Super admin : UN admin à huit rubriques (refonte, lot 0 du 2026-11-16)
+
+Plan, rangement des écrans et conventions des lots : `docs/designs/ADMIN_REBUILD_PLAN.md`
+(sections 7 et 8). L'admin de la Suite et l'Admin CRM n'en font plus qu'un, sur
+yunoapp.eu. Règles :
+
+- **Un seul point de montage** : `<Route path="/admin/*" element={<AdminApp />} />`
+  (`src/admin/AdminApp.tsx`). Huit rubriques chargées à la demande, un dossier
+  chacune (`src/admin/{today,pilotage,pros,clients,money,comms,legal,system}/routes.tsx`,
+  chemins RELATIFS) : Aujourd'hui (`/admin`), Pilotage (`/admin/pilot`), Pros,
+  Clients, Argent (`/admin/money`), Communication (`/admin/comms`), Légal, Système.
+  Ne jamais remettre une route admin dans `App.tsx` ni recréer une seconde coquille.
+- **La carte du menu est `src/admin/nav.ts`** (pure, testée) : barre latérale,
+  fil d'Ariane et ⌘K la lisent. Une page = sa route + son entrée + son libellé
+  `adm.nav2.<rubrique>.<clé>` (module i18n `shell.ts`).
+- **Toute ancienne adresse passe par `src/admin/redirects.ts`** (`legacyAdminTarget`,
+  testé, requête et ancre gardées), y compris `/admin/crm/...` et les liens des
+  alertes (`adminNotifLink` → `currentAdminHref`). Déplacer une page = sa règle
+  de redirection + son cas de test, sinon les favoris et les alertes tombent.
+- **Garde** : `is_super_admin()` ET 2FA (`src/admin/shell/mfa.ts`, preuve
+  `mfaSession` partagée avec `RequireMFA`) ; super admin sans 2FA ni
+  `mfa_exempt` → `/mfa-setup`. Connexion unique `/admin/login`.
+- **`/admin/crm` n'est plus un chemin CRM** (`productHost.ts`) : sur
+  crm.yunoapp.eu il repart sur yunoapp.eu. La landing garde `/admin/crm` dans
+  sa liste de relais pour ces vieux liens.
+- **Kit `src/admin/ui/`** (Linear / Vercel : neutres + un accent indigo, clair et
+  sombre sous `[data-admin]`, Geist auto-hébergée, TanStack Table, Recharts sans
+  animation, axes et unité visibles, période précédente en gris). Thème calé sur
+  la préférence pro (`useProTheme`). Une page ne déclare aucune couleur ; une
+  action sensible passe par `ReasonDialog` (motif obligatoire).
+- **Période et démo : `useAdminFilters()`** (`?p=` 7d / 30d / 90d / 12m, comparée à
+  la même durée juste avant ; `includeDemo` de l'interrupteur unique).
+- **Recherche ⌘K = RPC `admin_search(p_q, p_include_demo)`** (migration
+  `20261218100000`), 6 résultats par famille, démo par CTE matérialisé.
+- Les écrans hérités sont remontés TELS QUELS dans `SuiteFrame` / `CrmFrame`
+  (`src/admin/shell/frames.tsx`) et remplacés lot par lot (1 à 6). Ce qui suit
+  (section du 2026-09-11) décrit leurs calculs, qui restent vrais ; son
+  arborescence en quatre groupes, `AdminLayout` et la bascule Suite / CRM
+  n'existent plus.
+
 ## Dashboard super admin — refonte complète (2026-09-11)
 
 `/admin` a été reconstruit de zéro. Quatre groupes dans la sidebar, 34 pages
