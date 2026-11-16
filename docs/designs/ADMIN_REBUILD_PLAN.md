@@ -478,7 +478,7 @@ travail de chacun (`nav.ts`, `redirects.ts` et son test, `searchHref.ts`,
 
 - **Menu final** = section 3, huit rubriques, aucune entrée en double. Pages hors
   menu mais joignables (`hidden`) : `/admin/pilot/signups`, `/admin/pros/venues`,
-  `organizers`, `agencies`, `crm`, `/admin/money/subscriptions`. Chaque adresse
+  `organizers`, `agencies`, `crm`. Chaque adresse
   littérale `/admin/...` du code a été passée dans `currentAdminHref` puis comparée
   aux routes réelles : toutes tombent sur une page qui existe.
 - **Liens croisés** : la file du jour (liens réécrits dans la migration
@@ -556,25 +556,24 @@ claire et sombre de chaque rubrique dans `docs/designs/admin-rebuild/`.
 | `AdminProSignups` | `/admin/pilot/signups` (caché) | Suite | 478 |
 | `InvitePage` (CRM) | Pros › Inviter (onglet CRM) | CRM | 398 |
 | `AdminMarketing` (éditeur, rapport, modèles, automatisations) | `/admin/comms/email/*`, `automations` | Suite | 391 |
-| `AdminSubscriptions` | `/admin/money/subscriptions` (caché) | Suite | 371 |
 | `AdminPushNotifications` | `/admin/comms/push` | Suite | 348 |
-| `AdminProduct` | Pilotage › Produit (onglet Signaux) | Suite | 256 |
 | `DemoPage` (CRM) | Pros › Démo (onglet CRM) | CRM | 252 |
 | `AdminOrganizers` | `/admin/pros/organizers` (caché) | Suite | 250 |
 | `ClientsPage` (CRM) | `/admin/pros/crm` (caché) | CRM | 245 |
 | `SalesPage` (CRM) | Pros › Prospects (onglet Pipeline) | CRM | 236 |
-| `AdminAi` | Pilotage › Produit (onglet IA) | Suite | 231 |
-| `SettingsPage` (CRM) | Système › Offre et tarifs (offre, historique) | CRM | 191 |
-| `CustomerBasisAdmin` (CRM) | Système › Offre et tarifs (« Vos clients ») | CRM | 176 |
 | `AdminAgencies` | `/admin/pros/agencies` (caché) | Suite | 166 |
-| `LifecycleTab` (CRM) | Système › Offre et tarifs (cycle de vie) | CRM | 127 |
-| `LandingTab` (CRM) | Pilotage › Acquisition (page publique CRM) | CRM | 110 |
-| `LearningTab` (CRM) | Système › Offre et tarifs (analyse client) | CRM | 101 |
-| `ProductPage` (CRM) | Pilotage › Produit (onglet CRM) | CRM | 75 |
 | `AdminMarketingSms` | `/admin/comms/sms` | Suite | 71 |
-| `PriceTierCard` (CRM) | Système › Offre et tarifs | CRM | 58 |
-| `NightPlanAdminPage` (CRM) | `/admin/system/connectors/plan/*` | CRM | 51 |
-| `AdminDrinkCatalog` | `/admin/system/drinks` (fermé, pilier en pause) | Suite | 380 |
+| `AdminDrinkCatalog` | `/admin/system/drinks` (fermé, pilier en pause, aucun menu n'y mène) | Suite | 380 |
+| `NightPlanReport` (rapport de la Console, dans la page `NightPlan` au kit) | `/admin/system/connectors/plan/*` | CRM | n/a |
+
+Réécrits au kit dans la passe Pilotage / Système / Argent (17/11) : Produit
+(Signaux, IA, CRM), page publique CRM d'Acquisition, Offre et tarifs (quatre
+onglets), plan de soirée (titre et états ; le rapport reste celui de la Console,
+dans son cadre CRM), Abonnements de la Suite (supprimé : fonction coupée, adresse
+redirigée vers Argent › CRM). `AdminProSignups` reste : Pros › Prospects ne montre
+ni les parcours d'une personne, ni les étapes fines du formulaire (rôle,
+structure, e-mail), ni l'outil utilisé, la taille et la fréquence déclarées, ni
+les alertes envoyées, ni les comptes invités ou supprimés.
 
 Ces écrans ont les couleurs, la police et le rouge du kit, mais gardent leur
 mise en page (cartes à grands rayons, boutons et tableaux à eux). L'ancien kit
