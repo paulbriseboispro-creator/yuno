@@ -43,8 +43,11 @@ const RULES: readonly Rule[] = [
   // ── Clients ──
   [/^\/admin\/(customers|segmentation)$/, '/admin/clients'],
   [/^\/admin\/events$/, '/admin/clients/events'],
-  [/^\/admin\/(?:people|directory\/user)\/(.+)$/, '/admin/clients/people/$1'],
-  [/^\/admin\/(people|directory)$/, '/admin/clients/people'],
+  // Une personne = UNE fiche, `/admin/clients/:id` (e-mail encodé ou id de compte).
+  [/^\/admin\/(?:people|directory\/user)\/(.+)$/, '/admin/clients/$1'],
+  [/^\/admin\/clients\/people\/(.+)$/, '/admin/clients/$1'],
+  [/^\/admin\/(people|directory)$/, '/admin/clients/directory'],
+  [/^\/admin\/clients\/people$/, '/admin/clients/directory'],
   // ── Pros ──
   [/^\/admin\/(?:venues|directory\/venue)\/(.+)$/, '/admin/pros/venues/$1'],
   [/^\/admin\/venues$/, '/admin/pros/venues'],
