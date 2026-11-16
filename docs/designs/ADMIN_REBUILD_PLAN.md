@@ -158,6 +158,65 @@ Rangement provisoire des écrans existants (remontés tels quels, rien réécrit
 | Légal | `/admin/legal`, `deadlines`, `audit` | Légal CRM, Alertes (échéances), Journal |
 | Système | `/admin/system`, `crm(/plan/...)`, `settings` | Santé, Plateforme CRM, Réglages CRM |
 
+### Lot 2 : la rubrique « Pros » (16/11)
+
+Branche `claude/admin-rebuild-lot2-d36b43`. Migration `20261218120000_admin_pros_accounts`
+(répétée sur la prod dans une transaction annulée, liste 283 ms, fiche 250 à 450 ms ;
+**pas appliquée**, à jouer seule à l'assemblage).
+
+- **Une liste** `/admin/pros` (`AccountsPage`, RPC `admin_accounts(p_include_demo, p_days)`) :
+  une ligne par compte, clé `venue:<id>` | `org:<uuid>` | `agency:<uuid>`, tous produits.
+  Cinq chiffres (comptes, qui vendent, nouveaux, à risque, payants CRM + MRR), filtres
+  type / produit / statut / ville dans l'adresse (`?type=&product=&status=&city=`).
+  CA club = formule de `admin_venue_overview` (fees.ts) ; l'état CRM (santé, MRR,
+  Yunits, synchro) est lu dans `_crm_admin_rows`, jamais recalculé ; le bar n'entre nulle part.
+- **Une fiche** `/admin/pros/<clé>` (`AccountPage`, RPC `admin_account(p_key)`), qui
+  assemble `admin_venue_overview` et `crm_admin_account` : Vue d'ensemble, Ventes
+  (12 mois par pilier), Soirées, CRM (si le compte l'a), Équipe (2FA), Support et légal
+  (accès assisté, retours, NPS, acceptations, identité légale, niveau d'envoi),
+  Journal et notes. Gestes rebranchés, chacun par `ReasonDialog` : produits
+  (`AccountProductsButton`), modifier / masquer / décommissionner / restaurer un club,
+  Association, activer une agence, Yunits offerts, essai prolongé, gel d'envoi, accès
+  SMS, demander l'accès assisté, « Voir sa Console ». Les gestes qui n'avaient ni
+  motif ni trace (visibilité d'un club, activité d'une agence) passent par
+  `admin_account_set_flag` ; ceux dont la RPC n'a pas de motif (décommission,
+  restauration, modification) écrivent le leur par `admin_account_log`.
+- **Notes et étiquettes, tous produits** : `admin_account_notes` (plusieurs notes,
+  épinglables) et `admin_account_tags`, RLS sans policy, RPC `admin_account_note_*`,
+  `admin_account_set_tags`. L'ancienne note CRM (`crm_admin_notes`) reste lue.
+- **Prospects** `/admin/pros/prospects` : leads Links + inscriptions (personnes,
+  `admin_pro_signups`) + pipeline CRM dans une liste (`admin_prospects`), UN geste
+  « Contacté » (`admin_prospect_contacted`, qui écrit dans la bonne table). Le kanban
+  du pipeline reste un onglet (cadre hérité).
+- **Inviter** `/admin/pros/invite` : type puis produit, puis le chemin existant
+  (création du club + `invite-owner` ou lien d'accès, `invite-platform-user`,
+  `invite-affiliate`, écran d'invitation CRM en cadre hérité) ; toutes les
+  invitations en cours dessous (`admin_pending_invitations`).
+- **Démo** `/admin/pros/demo` : un onglet par produit, écrans hérités en cadre.
+  **Accès assisté** `/admin/pros/support` : réécrit avec le kit (`admin_support_overview`) :
+  accordés, en attente, tous, journal, demande avec motif.
+- Anciennes adresses : `/admin/pros/venues/:id` et `/admin/pros/crm/:clé` mènent à la
+  fiche ; `/admin/venues|organizers|agencies` et `/admin/crm/clients` à la liste filtrée ;
+  `sales`, `crm-demo`, `crm-support` aux pages réunies (`redirects.ts`, testé).
+  ⌘K ouvre la fiche d'un club, d'un organisateur, d'une agence ou d'un compte CRM.
+- **Restent hors menu** (pages cachées, gestes pas encore repris) : `/admin/pros/venues`
+  (purge immédiate d'un club de test), `/organizers` (organisateur vitrine, renommer,
+  supprimer, relancer une invitation), `/agencies` (relancer / révoquer une invitation
+  d'agence), `/crm` (liste et tiroir de l'ex-Admin CRM).
+
+**Statuts de cycle de vie d'un compte** (définis une fois en SQL, dits dans une info-bulle,
+évalués dans cet ordre) :
+
+| Statut | Définition |
+|---|---|
+| Clos | Club décommissionné, agence désactivée ou titulaire suspendu. |
+| Vend | Une vente Yuno dans les 30 derniers jours, ou un abonnement Yuno CRM payant à 40/100 ou plus. |
+| À risque | A déjà vendu mais rien depuis 30 jours et aucune soirée à venir, ou Yuno CRM en retard de paiement, en essai qui finit sous 3 jours, ou sous 40/100. |
+| En pause | Compte Yuno CRM seul dont l'abonnement est en pause ou résilié. |
+| Configuré | Paiements Stripe prêts, connexion billetterie posée ou une soirée à venir, sans vente encore. |
+| Inscrit | Le titulaire s'est connecté, rien n'est configuré. |
+| Invité | Personne ne s'est encore connecté (invitation pas acceptée). |
+
 ## 8. Conventions pour les lots 1 à 6
 
 1. **Où poser une page** : dans le dossier de SA rubrique,
