@@ -80,12 +80,10 @@ const dict: AdminDict = {
 
   'adm.nav2.comms': ['Communication', 'Communication', 'Comunicación'],
   'adm.nav2.comms.q': ['What does Yuno say, and does it arrive?', 'Que dit Yuno, et est-ce que ça arrive ?', '¿Qué dice Yuno y llega?'],
-  'adm.nav2.comms.marketing': ['Campaigns', 'Campagnes', 'Campañas'],
-  'adm.nav2.comms.automations': ['Email automations', 'Automatisations e-mail', 'Automatizaciones de e-mail'],
-  'adm.nav2.comms.sms': ['SMS', 'SMS', 'SMS'],
-  'adm.nav2.comms.push': ['Push', 'Push', 'Push'],
-  'adm.nav2.comms.engine': ['Notification engine', 'Moteur de notifications', 'Motor de notificaciones'],
-  'adm.nav2.comms.links': ['Yuno Links', 'Yuno Links', 'Yuno Links'],
+  'adm.nav2.comms.campaigns': ['Campaigns', 'Campagnes', 'Campañas'],
+  'adm.nav2.comms.engine': ['Automatic notifications', 'Notifications automatiques', 'Notificaciones automáticas'],
+  'adm.nav2.comms.deliverability': ['Deliverability', 'Délivrabilité', 'Entregabilidad'],
+  'adm.nav2.comms.links': ['Bio page', 'Page bio', 'Página bio'],
 
   'adm.nav2.legal': ['Legal', 'Légal', 'Legal'],
   'adm.nav2.legal.q': ['Are we compliant?', 'Sommes-nous en règle ?', '¿Cumplimos la normativa?'],
@@ -96,8 +94,10 @@ const dict: AdminDict = {
   'adm.nav2.system': ['System', 'Système', 'Sistema'],
   'adm.nav2.system.q': ['Is the machine running?', 'Est-ce que la machine tourne ?', '¿Funciona la máquina?'],
   'adm.nav2.system.health': ['Technical health', 'Santé technique', 'Salud técnica'],
-  'adm.nav2.system.crmPlatform': ['CRM platform', 'Plateforme CRM', 'Plataforma CRM'],
-  'adm.nav2.system.settings': ['CRM settings', 'Réglages CRM', 'Ajustes CRM'],
+  'adm.nav2.system.switches': ['Switches', 'Interrupteurs', 'Interruptores'],
+  'adm.nav2.system.pricing': ['Plan and pricing', 'Offre et tarifs', 'Oferta y tarifas'],
+  'adm.nav2.system.connectors': ['Connectors', 'Connecteurs', 'Conectores'],
+  'adm.nav2.system.ai': ['AI', 'IA', 'IA'],
 
   // ── Kit ──
   'adm.ui.period': ['Period', 'Période', 'Periodo'],

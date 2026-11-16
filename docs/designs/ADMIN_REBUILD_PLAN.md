@@ -213,3 +213,26 @@ Rangement provisoire des écrans existants (remontés tels quels, rien réécrit
     lieu (lot 6). La recherche ⌘K ouvre la meilleure page actuelle d'un
     organisateur (sa fiche de compte) ou d'une commande (la liste) : les lots
     2 et 4 la brancheront sur les fiches.
+
+### Lot 6 : Communication et Système (16/11)
+
+Branche `claude/admin-rebuild-lot6-470c27`. Migration `20261218160000_admin_platform_switches.sql`
+(une seule RPC, `admin_set_platform_switch` : Maintenance et Paiements avec motif, au journal ; répétée,
+non appliquée). Le reste assemble des RPC déjà en base.
+
+- **Communication** (`src/admin/comms/`) : `Campaigns` (index : base marketing de Yuno, e-mail / SMS / push en
+  onglets, éditeurs hérités dans leur cadre), `Engine` (chiffres comparés à la période précédente par la même
+  RPC sur 2 × la durée, courbe à une échelle, onglets Règles et textes / Politique / Crédits), `Deliverability`
+  (UN endroit : pool, plaintes, rebonds, spam Gmail, comptes à l'écart, courbe des envois, comptes expéditeurs,
+  Gmail et Postmaster, sous-domaines d'envoi, suppressions ; chaque geste par `ReasonDialog`), `Links` (page bio :
+  leads et liste d'attente restent dans leurs onglets hérités tant que Pros › Prospects n'est pas fusionné).
+  Le pool e-mail du mois n'est affiché que dans Délivrabilité.
+- **Système** (`src/admin/system/`) : `Health` (cinq états + une section par état ; crons en UNE liste, sans e-mail),
+  `Switches` (Maintenance, Paiements, canaux CRM, registre hérité des notifications, journal des modifications),
+  `Pricing` (en-tête et onglets au kit ; contenu de l'ex-Admin CRM gardé dans `CrmFrame`), `Connectors`
+  (Shotgun et scénarios natifs ; `connectors/plan/:scope/:event` garde l'écran du plan), `Ai` (coût et erreurs).
+- **Adresses** : `/admin/system/crm(/plan/…)` et `/admin/system/settings` redirigent (`redirects.ts`, testé).
+- **Reste hérité** : formulaires de règles, textes et crédits des notifications (`AdminNotificationAutomations`,
+  exportés), registre `SystemTab`, éditeurs Email Studio / SMS / push, `AdminLinks`, contenu des onglets de
+  `Pricing` (grille de prix, cycle de vie, analyse, « Vos clients »), plan d'un prospect.
+- **Pas de comparaison** sur les chiffres de Délivrabilité (taux sur 30 jours glissants, aucune série précédente en base).

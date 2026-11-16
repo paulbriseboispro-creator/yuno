@@ -18,7 +18,7 @@ export const ADMIN_ROUTES = {
   account: (id: string) => `/admin/pros/crm/${encodeURIComponent(id)}`,
   product: '/admin/pilot/crm-product',
   money: '/admin/money/crm',
-  platform: '/admin/system/crm',
+  platform: '/admin/system/connectors',
   legal: '/admin/legal',
-  settings: '/admin/system/settings',
+  settings: '/admin/system/pricing',
 } as const;

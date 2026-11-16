@@ -48,7 +48,7 @@ function Num({ value, onChange, step = 1, min = 0, width = 96 }: { value: number
   );
 }
 
-function Editor({ cfg, mode }: { cfg: PricingCfg; mode: 'offer' | 'switches' }) {
+export function Editor({ cfg, mode }: { cfg: PricingCfg; mode: 'offer' | 'switches' }) {
   const { t, pct, n, locale } = useCrmT();
   const price4 = (v: number) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR', minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(v);
   const eur2 = (v: number) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
@@ -170,7 +170,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontSize: 14.5 }}><span>{label}</span>{children}</div>;
 }
 
-function AuditTab({ history }: { history: { at: string; reason: string; before: PricingCfg; after: PricingCfg }[] }) {
+export function AuditTab({ history }: { history: { at: string; reason: string; before: PricingCfg; after: PricingCfg }[] }) {
   const { t, dShort, time } = useCrmT();
   const ago = useAgo();
   const changed = (h: { before: PricingCfg; after: PricingCfg }) => (Object.keys(h.after) as (keyof PricingCfg)[]).filter((k) => JSON.stringify(h.before[k]) !== JSON.stringify(h.after[k]));

@@ -102,11 +102,9 @@ export const ADMIN_NAV: AdminRubric[] = [
   {
     id: 'comms', base: '/admin/comms', icon: 'Megaphone',
     entries: [
-      { key: 'marketing', path: '/admin/comms', end: true, prefixes: ['/admin/comms/email'] },
-      { key: 'automations', path: '/admin/comms/automations' },
-      { key: 'sms', path: '/admin/comms/sms' },
-      { key: 'push', path: '/admin/comms/push' },
+      { key: 'campaigns', path: '/admin/comms', end: true, prefixes: ['/admin/comms/email', '/admin/comms/sms', '/admin/comms/push', '/admin/comms/automations'] },
       { key: 'engine', path: '/admin/comms/engine' },
+      { key: 'deliverability', path: '/admin/comms/deliverability' },
       { key: 'links', path: '/admin/comms/links' },
     ],
   },
@@ -122,8 +120,10 @@ export const ADMIN_NAV: AdminRubric[] = [
     id: 'system', base: '/admin/system', icon: 'Server',
     entries: [
       { key: 'health', path: '/admin/system', end: true },
-      { key: 'crmPlatform', path: '/admin/system/crm' },
-      { key: 'settings', path: '/admin/system/settings' },
+      { key: 'switches', path: '/admin/system/switches' },
+      { key: 'pricing', path: '/admin/system/pricing' },
+      { key: 'connectors', path: '/admin/system/connectors' },
+      { key: 'ai', path: '/admin/system/ai' },
     ],
   },
 ];
