@@ -58,13 +58,12 @@ export const ADMIN_NAV: AdminRubric[] = [
     id: 'pilot', base: '/admin/pilot', icon: 'LineChart',
     entries: [
       { key: 'overview', path: '/admin/pilot', end: true },
-      { key: 'growth', path: '/admin/pilot/growth' },
-      { key: 'signups', path: '/admin/pilot/signups' },
-      { key: 'crmOverview', path: '/admin/pilot/crm' },
-      { key: 'crmAcquisition', path: '/admin/pilot/crm-acquisition' },
+      { key: 'acquisition', path: '/admin/pilot/acquisition' },
+      { key: 'retention', path: '/admin/pilot/retention' },
+      { key: 'audience', path: '/admin/pilot/audience' },
       { key: 'product', path: '/admin/pilot/product' },
-      { key: 'crmProduct', path: '/admin/pilot/crm-product' },
-      { key: 'ai', path: '/admin/pilot/ai' },
+      // Écran hérité des inscriptions, joignable par son adresse ; la liste à rappeler vit dans Pros › Prospects.
+      { key: 'signups', path: '/admin/pilot/signups', hidden: true },
     ],
   },
   {
@@ -93,9 +92,11 @@ export const ADMIN_NAV: AdminRubric[] = [
   {
     id: 'money', base: '/admin/money', icon: 'Coins',
     entries: [
-      { key: 'revenue', path: '/admin/money', end: true },
+      { key: 'sales', path: '/admin/money', end: true },
       { key: 'orders', path: '/admin/money/orders' },
+      { key: 'issues', path: '/admin/money/issues' },
       { key: 'crm', path: '/admin/money/crm' },
+      { key: 'costs', path: '/admin/money/costs' },
       { key: 'subscriptions', path: '/admin/money/subscriptions', hidden: true },
     ],
   },

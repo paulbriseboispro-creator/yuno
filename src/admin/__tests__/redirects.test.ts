@@ -9,11 +9,11 @@ import { searchResultHref } from '../shell/searchHref';
  */
 const TABLE: Array<[string, string]> = [
   // Suite : routes montées
-  ['/admin/growth', '/admin/pilot/growth'],
+  ['/admin/growth', '/admin/pilot/audience'],
   ['/admin/signups', '/admin/pilot/signups'],
   ['/admin/revenue', '/admin/money'],
   ['/admin/product', '/admin/pilot/product'],
-  ['/admin/ai', '/admin/pilot/ai'],
+  ['/admin/ai', '/admin/pilot/product?tab=ai'],
   ['/admin/customers', '/admin/clients'],
   ['/admin/links', '/admin/comms/links'],
   ['/admin/venues', '/admin/pros/venues'],
@@ -44,7 +44,7 @@ const TABLE: Array<[string, string]> = [
   // Suite : redirections déjà en place avant la refonte
   ['/admin/analytics', '/admin/money'],
   ['/admin/accounting', '/admin/money'],
-  ['/admin/traffic', '/admin/pilot/growth'],
+  ['/admin/traffic', '/admin/pilot/audience'],
   ['/admin/segmentation', '/admin/clients'],
   ['/admin/directory', '/admin/clients/people'],
   ['/admin/directory/user/u1', '/admin/clients/people/u1'],
@@ -52,7 +52,7 @@ const TABLE: Array<[string, string]> = [
   ['/admin/affiliates', '/admin/pros/agencies'],
   ['/admin/emails', '/admin/comms'],
   // Admin CRM
-  ['/admin/crm', '/admin/pilot/crm'],
+  ['/admin/crm', '/admin/pilot'],
   ['/admin/crm/login', '/admin/login'],
   ['/admin/crm/clients', '/admin/pros/crm'],
   ['/admin/crm/clients/org:abc', '/admin/pros/crm/org:abc'],
@@ -60,8 +60,8 @@ const TABLE: Array<[string, string]> = [
   ['/admin/crm/invite', '/admin/pros/invite'],
   ['/admin/crm/demo', '/admin/pros/crm-demo'],
   ['/admin/crm/support', '/admin/pros/crm-support'],
-  ['/admin/crm/acquisition', '/admin/pilot/crm-acquisition'],
-  ['/admin/crm/product', '/admin/pilot/crm-product'],
+  ['/admin/crm/acquisition', '/admin/pilot/acquisition'],
+  ['/admin/crm/product', '/admin/pilot/product?tab=crm'],
   ['/admin/crm/money', '/admin/money/crm'],
   ['/admin/crm/platform', '/admin/system/crm'],
   ['/admin/crm/platform/plan/venue:v1/e1', '/admin/system/crm/plan/venue:v1/e1'],
@@ -81,8 +81,8 @@ describe('legacyAdminTarget', () => {
 
   it('lands every old address on a page of the new menu', () => {
     for (const [, to] of TABLE) {
-      const { entry } = activeEntry(to);
-      const known = !!entry || DETAIL.some((re) => re.test(to)) || to === '/admin';
+      const { entry } = activeEntry(to.split('?')[0]);
+      const known = !!entry || DETAIL.some((re) => re.test(to)) || to.split('?')[0] === '/admin';
       expect(known, to).toBe(true);
     }
   });
@@ -93,7 +93,7 @@ describe('legacyAdminTarget', () => {
     expect(legacyAdminTarget('/admin/notifications', '?tab=credits&name=x')).toBe('/admin/comms/engine?tab=credits&name=x');
     expect(legacyAdminTarget('/admin/waitlist')).toBe('/admin/comms/links?tab=waitlist');
     expect(legacyAdminTarget('/admin/waitlist', '?tab=leads')).toBe('/admin/comms/links?tab=leads');
-    expect(legacyAdminTarget('/admin/crm', '?tab=activity')).toBe('/admin/pilot/crm?tab=activity');
+    expect(legacyAdminTarget('/admin/crm', '?tab=activity')).toBe('/admin/pilot?tab=activity');
     expect(legacyAdminTarget('/admin/crm/login', '?next=%2Fadmin%2Fcrm%2Fsupport&step=code'))
       .toBe('/admin/login?next=%2Fadmin%2Fcrm%2Fsupport&step=code');
   });
@@ -156,6 +156,7 @@ describe('search result links', () => {
     expect(searchResultHref(row('crm', 'org:abc'))).toBe('/admin/pros/crm/org%3Aabc');
     expect(searchResultHref(row('person', 'u1'))).toBe('/admin/clients/people/u1');
     expect(searchResultHref(row('event', 'e1'))).toBe('/admin/clients/events?q=e1');
-    expect(searchResultHref(row('ticket', 't1'))).toBe('/admin/money/orders');
+    expect(searchResultHref(row('ticket', 't1'))).toBe('/admin/money/orders?tab=tickets&open=ticket:t1');
+    expect(searchResultHref(row('table', 'r1'))).toBe('/admin/money/orders?tab=tables&open=table:r1');
   });
 });

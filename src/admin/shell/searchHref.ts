@@ -3,6 +3,8 @@
  * d'un type n'existe pas encore (organisateur, agence), le lien ouvre la
  * meilleure page actuelle ; les lots 2 et 3 le remplaceront par la fiche.
  */
+import { orderHref } from '../money/orderLink';
+
 export interface AdminSearchRow {
   kind: 'venue' | 'organizer' | 'agency' | 'crm' | 'person' | 'event' | 'ticket' | 'table';
   id: string;
@@ -22,8 +24,8 @@ export function searchResultHref(r: AdminSearchRow): string {
     case 'crm': return `/admin/pros/crm/${enc(r.id)}`;
     case 'person': return `/admin/clients/people/${enc(r.id)}`;
     case 'event': return `/admin/clients/events?q=${enc(r.id)}`;
-    case 'ticket':
-    case 'table': return '/admin/money/orders';
+    case 'ticket': return orderHref('ticket', r.id);
+    case 'table': return orderHref('table', r.id);
     default: return '/admin';
   }
 }

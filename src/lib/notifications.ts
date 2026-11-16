@@ -717,9 +717,10 @@ function adminNotifLinkLegacy(n: AppNotif): string | null {
     case 'admin_links_pro_lead':
       return '/admin/links';
 
+    // Virements à trancher : Argent › À régler (refonte de l'admin, lot 4).
     case 'admin_coorg_transfer_overdue':
     case 'admin_coorg_transfer_disputed':
-      return '/admin/alerts#coorg';
+      return '/admin/money/issues#transfers';
 
     // Exploitation Stripe des co-soirées : jambe qui ne part pas, vente payée
     // après le décompte. On ouvre la soirée dans l'admin.
@@ -729,14 +730,17 @@ function adminNotifLinkLegacy(n: AppNotif): string | null {
       return n.event_id ? `/admin/events?q=${n.event_id}` : '/admin/orders';
 
     // Une vente payée à traiter à la main : la liste des commandes.
-    case 'admin_paid_sale_unfulfilled':
     case 'admin_ticket_email_bounced':
     case 'admin_table_email_bounced':
     case 'admin_guest_list_email_bounced':
+      return '/admin/orders';
+
+    // Ce qui demande une action d'argent : Argent › À régler (lot 4).
+    case 'admin_paid_sale_unfulfilled':
     case 'admin_refund_failed':
     case 'admin_invoice_failed':
     case 'admin_payment_disputed':
-      return '/admin/orders';
+      return '/admin/money/issues#alerts';
 
     case 'admin_pro_signup':
     case 'admin_pro_signup_lead':
