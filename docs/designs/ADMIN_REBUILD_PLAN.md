@@ -158,6 +158,58 @@ Rangement provisoire des écrans existants (remontés tels quels, rien réécrit
 | Légal | `/admin/legal`, `deadlines`, `audit` | Légal CRM, Alertes (échéances), Journal |
 | Système | `/admin/system`, `crm(/plan/...)`, `settings` | Santé, Plateforme CRM, Réglages CRM |
 
+### Lot 1 : Aujourd'hui (16/11)
+
+Branche `claude/admin-rebuild-lot1-0bf651`. Migration `20261218110000_admin_today`
+(répétée en transaction annulée sur la prod : 291 ms avec les chiffres, 166 ms
+sans ; **non appliquée**, c'est l'assemblage qui l'applique).
+
+- **`admin_today(p_include_demo, p_with_kpis)`** rend UNE file : chaque ligne a
+  sa famille, une clé stable, le compte ou la personne (id + nom), un détail,
+  depuis quand / jusqu'à quand, une urgence (1 maintenant, 2 cette semaine,
+  3 quand possible) et l'adresse où agir. Familles assemblées depuis
+  l'existant, sans rien recalculer autrement : `signup` (personnes bloquées ou
+  en demande, joignables, jamais contactées, et comptes ouverts qui redonnent
+  leurs coordonnées, lus dans `admin_pro_signups(60)`), `lead` (Yuno Links non
+  contactés), `prospect` (prochaine action due), `trial` (essai CRM qui finit
+  sous 3 jours), `sync` (synchro billetterie en échec), `billing` (paiement CRM
+  en retard), `frozen`, `silent` (payant muet depuis 30 j), `yunits` (< 500),
+  `deletion` (ces sept-là lus dans `_crm_admin_rows`, l'ancien « à faire » CRM),
+  `moderation` (soirées À VENIR en attente), `feedback`, `transfer`
+  (`admin_coorg_transfer_issues`), `alert` (non lues, urgentes ou hautes, hors
+  types déjà couverts par une autre famille), `deadline` (échues, sous 30 j ou
+  sans date), `support` (accès assisté en attente), `claim` (vitrines),
+  `incident` (CNIL pas prévenue, 72 h). La clé porte la version de la cause
+  quand elle peut revenir (date de l'erreur, de fin d'essai…).
+- **« Traité » / « Plus tard »** : table `admin_today_marks` (RLS sans policy),
+  RPC `admin_today_mark(key, 'done' | 'snoozed' | 'open', jours, motif)`,
+  journal d'audit (`entity_type = 'admin_today'`), une alerte traitée est aussi
+  lue. Une ligne dont la cause a disparu sort seule ; marques purgées à 90 j.
+- **Six chiffres** (7 derniers jours contre les 7 d'avant) : Ventes (GMV de
+  `admin_cockpit.week`) ; Revenu Yuno (frais de service + assurance des billets,
+  service + gestion des tables, formule du cockpit) ; MRR Yuno CRM (somme des
+  `mrr` de `_crm_admin_rows` ; semaine d'avant = abonnements déjà souscrits il y
+  a 7 jours, faute d'historique des résiliations) ; Nouveaux pros (clubs,
+  organisations hors vitrines et agences créés) ; Pros actifs (clubs et
+  organisations avec une vente payée ou une inscription guest list sur une de
+  leurs soirées, ou une campagne e-mail envoyée) ; Acheteurs (adresses
+  distinctes qui ont payé un billet ou une table). Chaque définition est dans
+  l'info-bulle du chiffre.
+- **Écran** `src/admin/today/` : `TodayHome` (chiffres, file `TodayQueue`
+  groupée par urgence et filtrable par famille, feux `HealthLights` lus dans le
+  bloc `health` d'`admin_cockpit`, fil `ActivityFeed` qui réunit
+  `admin_activity_feed` paginé et `crm_admin_activity` par `mergeFeed`, sans les
+  commandes du bar). Règles pures `queue.ts` et `health.ts`, testées
+  (`src/admin/__tests__/today.test.ts`). Textes : module `today.ts`.
+- Badge de la rubrique = lignes urgentes non traitées (`todayUrgent`,
+  `admin_today(false, false)`). « Toutes les alertes » reste l'écran hérité ;
+  « Support et retours » est réécrit avec le kit (`FeedbackPage`, `?id=` ouvre
+  le tiroir ; la suppression d'un élément n'y est plus, « Fermé » la remplace).
+  L'ancien Cockpit reste sous Pilotage (lot 4) ; `src/pages/admin/AdminFeedback.tsx`
+  n'a plus de route (à supprimer au lot 7).
+- Hors file pour l'instant : délivrabilité par compte et prévisions de
+  `crm_admin_daily` (lot 6 et lot 4).
+
 ## 8. Conventions pour les lots 1 à 6
 
 1. **Où poser une page** : dans le dossier de SA rubrique,
