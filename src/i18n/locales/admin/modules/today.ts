@@ -198,6 +198,11 @@ const dict: AdminDict = {
   'adm.today.fb.form.title': ['Title', 'Titre', 'Título'],
   'adm.today.fb.form.venue': ['Club (optional)', 'Club (facultatif)', 'Club (opcional)'],
   'adm.today.fb.create': ['Create', 'Créer', 'Crear'],
+  'adm.today.al.title': ['What has the platform flagged?', 'Qu’est-ce que la plateforme a signalé ?', '¿Qué ha señalado la plataforma?'],
+  'adm.today.al.sub': ['Platform alerts from the last 30 days, live. A line opens the page that fixes its cause.', 'Les alertes plateforme des 30 derniers jours, en direct. Une ligne ouvre la page qui en règle la cause.', 'Las alertas de la plataforma de los últimos 30 días, en directo. Una línea abre la página que resuelve su causa.'],
+  'adm.today.al.transfers': ['Transfers to decide', 'Virements à trancher', 'Transferencias por decidir'],
+  'adm.today.al.high': ['High priority', 'Priorité haute', 'Prioridad alta'],
+  'adm.today.al.foot': ['Pro and client feedback has its own list:', 'Les retours des pros et des clients ont leur liste :', 'Los comentarios de pros y clientes tienen su lista:'],
 };
 
 export default dict;

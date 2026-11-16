@@ -7,17 +7,16 @@
  */
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
-import { SuiteFrame } from '../shell/frames';
 
 const TodayHome = lazyWithRetry(() => import('./TodayHome'));
 const FeedbackPage = lazyWithRetry(() => import('./FeedbackPage'));
-const AdminAlerts = lazyWithRetry(() => import('@/pages/admin/AdminAlerts'));
+const AlertsPage = lazyWithRetry(() => import('./AlertsPage'));
 
 export default function TodayRoutes() {
   return (
     <Routes>
       <Route index element={<TodayHome />} />
-      <Route path="alerts" element={<SuiteFrame><AdminAlerts /></SuiteFrame>} />
+      <Route path="alerts" element={<AlertsPage />} />
       <Route path="feedback" element={<FeedbackPage />} />
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>
