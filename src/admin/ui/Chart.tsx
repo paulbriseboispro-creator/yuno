@@ -70,6 +70,9 @@ export function Chart({ kind, data, x, formatX, series, previous, unit, height =
   if (loading) return <div className="a-skel w-full" style={{ height }} aria-busy />;
   if (!data || data.length === 0) return <div style={{ minHeight: height }} className="grid place-items-center"><EmptyState title={empty ?? t('adm.ui.chart.empty')} /></div>;
 
+  // Largeur de l'axe vertical calée sur l'étiquette la plus longue (« 0,750 $US » ne chevauche plus l'unité).
+  const maxVal = data.reduce((m, row) => Math.max(m, ...series.map((sr) => Math.abs(Number(row[sr.key]) || 0))), 0);
+  const yWidth = Math.min(96, Math.max(44, Math.max(fmt(maxVal).length, fmt(maxVal / 4).length) * 7 + 22));
   const axisTick = { fill: 'var(--a-axis)', fontSize: 12, fontFamily: 'var(--a-font-sans)', fontVariantNumeric: 'tabular-nums' };
   const common = {
     data,
@@ -80,7 +83,7 @@ export function Chart({ kind, data, x, formatX, series, previous, unit, height =
       tickFormatter={formatX} minTickGap={24} />
   );
   const yAxis = (
-    <YAxis tick={axisTick} tickLine={false} axisLine={false} width={60} tickMargin={6}
+    <YAxis tick={axisTick} tickLine={false} axisLine={false} width={yWidth} tickMargin={6}
       tickFormatter={(v: number) => fmt(v)} allowDecimals={unit !== 'count'}
       label={{ value: unitLabel, angle: -90, position: 'insideLeft', offset: 0, style: { ...axisTick, textAnchor: 'middle' } }} />
   );
@@ -97,7 +100,7 @@ export function Chart({ kind, data, x, formatX, series, previous, unit, height =
   );
   const legend = (series.length > 1 || previous) ? (
     <Legend verticalAlign="top" align="left" height={30} iconType={kind === 'line' ? 'plainline' : 'square'} iconSize={kind === 'line' ? 14 : 9}
-      wrapperStyle={{ fontSize: 12, paddingLeft: 56 }}
+      wrapperStyle={{ fontSize: 12, paddingLeft: yWidth }}
       formatter={(value: string) => <span style={{ color: 'var(--a-text-2)' }}>{value}</span>} />
   ) : null;
 

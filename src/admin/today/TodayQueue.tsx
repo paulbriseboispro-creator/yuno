@@ -149,8 +149,8 @@ function QueueRow({ item }: { item: TodayItem }) {
       </div>
       <div className="flex flex-none items-center gap-1.5">
         {external
-          ? <a className="a-btn a-btn--sm a-btn--primary" href={href} target="_blank" rel="noreferrer">{t(`adm.today.act.${item.family}`)}<ArrowUpRight className="h-3.5 w-3.5" /></a>
-          : <Link className="a-btn a-btn--sm a-btn--primary" to={href}>{t(`adm.today.act.${item.family}`)}</Link>}
+          ? <a className="a-btn a-btn--sm" href={href} target="_blank" rel="noreferrer">{t(`adm.today.act.${item.family}`)}<ArrowUpRight className="h-3.5 w-3.5" /></a>
+          : <Link className="a-btn a-btn--sm" to={href}>{t(`adm.today.act.${item.family}`)}</Link>}
         {item.mark ? (
           <button type="button" className="a-btn a-btn--sm" disabled={mark.isPending} onClick={() => run('open')}>
             <RotateCcw className="h-3.5 w-3.5" />{t('adm.today.reopen')}

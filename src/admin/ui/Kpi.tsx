@@ -3,7 +3,7 @@
  * mini-courbe, et le lien vers la liste qui le compose. Quatre à six par
  * page (KpiRow), jamais plus.
  */
-import { Children, type ReactNode } from 'react';
+import { Children, Fragment, isValidElement, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowDownRight, ArrowUpRight, ChevronRight, Minus } from 'lucide-react';
 import { Line, LineChart, ResponsiveContainer } from 'recharts';
@@ -92,7 +92,18 @@ export function Kpi({
  * Le nombre de colonnes suit le nombre de tuiles (6 → 3 puis 6, 5 → 5, 4 → 2 puis 4).
  */
 export function KpiRow({ children }: { children: ReactNode }) {
-  const n = Children.toArray(children).filter(Boolean).length;
+  const n = countTiles(children);
   const cols = n >= 6 ? 'sm:grid-cols-3 xl:grid-cols-6' : n === 5 ? 'sm:grid-cols-3 lg:grid-cols-5' : n === 4 ? 'sm:grid-cols-2 lg:grid-cols-4' : n === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2';
   return <div className={`grid grid-cols-2 gap-3 ${cols}`}>{children}</div>;
+}
+
+/** Nombre de tuiles réellement rendues, fragments compris (`{cond && <>…</>}`). */
+function countTiles(children: ReactNode): number {
+  let n = 0;
+  Children.forEach(children, (c) => {
+    if (!c && c !== 0) return;
+    if (isValidElement(c) && c.type === Fragment) n += countTiles((c.props as { children?: ReactNode }).children);
+    else n += 1;
+  });
+  return n;
 }

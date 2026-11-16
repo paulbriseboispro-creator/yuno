@@ -68,13 +68,13 @@ function MarginTab() {
         <span className="flex flex-wrap gap-1">
           {(m?.lines ?? []).map((l) => (
             <span key={l.id} className="inline-flex items-center gap-1">
-              <Badge>{t(`adm.mon.cost.item.${l.item}`)} {fmtEur(l.amount, lang)}</Badge>
+              <Badge>{costItemLabel(t, l.item)} {fmtEur(l.amount, lang)}</Badge>
               <button type="button" className="a-btn a-btn--ghost a-btn--icon" aria-label={t('adm.mon.cost.edit')}
                 onClick={(e) => { e.stopPropagation(); setEdit({ m: c.row.original.m, item: l.item, amount: String(l.amount), note: l.note ?? '' }); }}>
                 <Pencil className="h-3 w-3" />
               </button>
               <button type="button" className="a-btn a-btn--ghost a-btn--icon" aria-label={t('adm.mon.cost.delete')}
-                onClick={(e) => { e.stopPropagation(); setDel({ id: l.id, label: `${t(`adm.mon.cost.item.${l.item}`)} · ${fmtMonth(c.row.original.m, lang)}` }); }}>
+                onClick={(e) => { e.stopPropagation(); setDel({ id: l.id, label: `${costItemLabel(t, l.item)} · ${fmtMonth(c.row.original.m, lang)}` }); }}>
                 <Trash2 className="h-3 w-3" />
               </button>
             </span>
@@ -195,4 +195,11 @@ function InvoicesTab() {
       )}
     </>
   );
+}
+
+/** Libellé d'un poste de coût ; un poste inconnu (saisi avant une liste plus courte) garde son nom. */
+function costItemLabel(t: (k: string) => string, item: string): string {
+  const k = `adm.mon.cost.item.${item}`;
+  const v = t(k);
+  return v === k ? item : v;
 }
