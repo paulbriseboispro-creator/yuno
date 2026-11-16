@@ -53,6 +53,7 @@ export interface MarketingOverview {
   sms: { total: number; reachable: number; unsubscribed: number };
   imports: { id: string; list_name: string | null; filename: string | null; created_at: string; contacts: number }[];
   campaigns: { email_drafts: number; email_sent: number; sms_drafts: number; sms_sent: number };
+  quota?: { used: number; free: number; remaining: number; day_used: number; day_cap: number; pool_used: number; pool_cap: number };
 }
 export const useMarketingOverview = () => useQuery({ queryKey: [...COMMS_KEY, 'mkt'], staleTime: 30_000, queryFn: () => rpc<MarketingOverview>('get_platform_marketing_overview') });
 
@@ -115,5 +116,60 @@ export const useEngine = (days: number) => useQuery({
     const r = await rpc<EngineOverview | { ok: false }>('admin_push_engine_overview', { p_days: days });
     if (!r.ok) throw new Error('engine_unavailable');
     return r;
+  },
+});
+
+// ── Règles du moteur : textes par langue, variante et raison ──
+export interface RuleTemplate { rule_key: string; variant: string; reason: string; lang: string; title: string; body: string; default_title: string; default_body: string }
+export const useRuleTemplates = () => useQuery({
+  queryKey: [...COMMS_KEY, 'rule-templates'], staleTime: 30_000,
+  queryFn: async () => {
+    const { data, error } = await supabase.from('push_rule_templates' as never)
+      .select('rule_key, variant, reason, lang, title, body, default_title, default_body')
+      .order('rule_key').order('variant').order('reason').order('lang');
+    if (error) throw new Error((error as { message: string }).message);
+    return (data ?? []) as unknown as RuleTemplate[];
+  },
+});
+
+// ── Crédits de campagnes des pros ──
+export interface CreditAccount {
+  scope: string; kind: 'venue' | 'org' | 'agency'; name: string | null;
+  allowance: number; defaultAllowance: number; override: boolean; used: number; bonus: number; remaining: number; lastRequestAt: string | null;
+}
+export const useCreditAccounts = () => useQuery({
+  queryKey: [...COMMS_KEY, 'credit-accounts'], staleTime: 30_000,
+  queryFn: async () => {
+    const r = await rpc<{ ok: boolean; accounts?: CreditAccount[] }>('admin_push_credit_accounts', { p_q: null });
+    return r?.ok ? r.accounts ?? [] : [];
+  },
+});
+
+// ── Page bio (Yuno Links) ──
+export const useLinksAnalytics = (from: string, to: string) => useQuery({
+  queryKey: [...COMMS_KEY, 'links-analytics', from, to], staleTime: 30_000,
+  queryFn: () => rpc<import('@/lib/yunoLinks').LinksAnalytics>('get_links_analytics', { p_from: from, p_to: to }),
+});
+
+export interface WaitlistEntry { id: string; email: string; first_name: string | null; last_name: string | null; city: string | null; phone: string | null; source: string | null; lang: string | null; created_at: string; notified_at: string | null }
+export const useWaitlist = () => useQuery({
+  queryKey: [...COMMS_KEY, 'waitlist'], staleTime: 30_000,
+  queryFn: async () => {
+    const { data, error } = await supabase.from('launch_waitlist')
+      .select('id, email, first_name, last_name, city, phone, source, lang, created_at, notified_at')
+      .order('created_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data ?? []) as WaitlistEntry[];
+  },
+});
+
+// ── Push de Yuno : clics par campagne ──
+export const usePushClicks = (ids: string[]) => useQuery({
+  queryKey: [...COMMS_KEY, 'push-clicks', ids.join(',')], staleTime: 30_000, enabled: ids.length > 0,
+  queryFn: async () => {
+    const { data } = await supabase.from('push_campaign_events' as never).select('campaign_id').eq('event_type', 'clicked').in('campaign_id', ids);
+    const counts: Record<string, number> = {};
+    ((data as { campaign_id: string }[] | null) ?? []).forEach((e) => { counts[e.campaign_id] = (counts[e.campaign_id] || 0) + 1; });
+    return counts;
   },
 });
