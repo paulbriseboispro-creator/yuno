@@ -89,9 +89,16 @@ const dict: AdminDict = {
 
   'adm.nav2.legal': ['Legal', 'Légal', 'Legal'],
   'adm.nav2.legal.q': ['Are we compliant?', 'Sommes-nous en règle ?', '¿Cumplimos la normativa?'],
-  'adm.nav2.legal.crm': ['CRM compliance', 'Conformité CRM', 'Cumplimiento CRM'],
+  'adm.nav2.legal.overview': ['Overview', 'Vue d’ensemble', 'Resumen'],
+  'adm.nav2.legal.requests': ['GDPR requests', 'Demandes RGPD', 'Solicitudes RGPD'],
+  'adm.nav2.legal.consents': ['Consents', 'Consentements', 'Consentimientos'],
+  'adm.nav2.legal.terms': ['Terms', 'Conditions', 'Condiciones'],
+  'adm.nav2.legal.sellers': ['Sellers', 'Vendeurs', 'Vendedores'],
+  'adm.nav2.legal.incidents': ['Incidents', 'Incidents', 'Incidentes'],
+  'adm.nav2.legal.reports': ['Reports', 'Signalements', 'Denuncias'],
+  'adm.nav2.legal.documents': ['Documents', 'Documents', 'Documentos'],
   'adm.nav2.legal.deadlines': ['Deadlines', 'Échéances', 'Vencimientos'],
-  'adm.nav2.legal.audit': ['Audit log', 'Journal d’audit', 'Registro de auditoría'],
+  'adm.nav2.legal.audit': ['Audit log', 'Journal', 'Registro'],
 
   'adm.nav2.system': ['System', 'Système', 'Sistema'],
   'adm.nav2.system.q': ['Is the machine running?', 'Est-ce que la machine tourne ?', '¿Funciona la máquina?'],

@@ -113,7 +113,14 @@ export const ADMIN_NAV: AdminRubric[] = [
   {
     id: 'legal', base: '/admin/legal', icon: 'Scale',
     entries: [
-      { key: 'crm', path: '/admin/legal', end: true },
+      { key: 'overview', path: '/admin/legal', end: true },
+      { key: 'requests', path: '/admin/legal/requests' },
+      { key: 'consents', path: '/admin/legal/consents' },
+      { key: 'terms', path: '/admin/legal/terms' },
+      { key: 'sellers', path: '/admin/legal/sellers' },
+      { key: 'incidents', path: '/admin/legal/incidents' },
+      { key: 'reports', path: '/admin/legal/reports' },
+      { key: 'documents', path: '/admin/legal/documents' },
       { key: 'deadlines', path: '/admin/legal/deadlines' },
       { key: 'audit', path: '/admin/legal/audit' },
     ],
