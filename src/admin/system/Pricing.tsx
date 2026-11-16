@@ -1,18 +1,22 @@
 /**
  * Système › Offre et tarifs : « Combien coûte Yuno CRM, et que comprend
- * l'offre ? » En-tête et onglets au kit. Le contenu des onglets (grille des
- * prix, e-mails du cycle de vie, analyse client, « Vos clients », historique)
- * reste celui de l'ex-Admin CRM, dans son cadre : seuls les interrupteurs de
- * canaux ont déménagé dans Interrupteurs.
+ * l'offre ? » Quatre onglets (`?tab=`) : Offre et prix (grille, seuil des 50
+ * payants, historique des changements), E-mails du cycle de vie, Analyse
+ * client, « Vos clients ». Tout changement de prix ou d'interrupteur demande
+ * un motif (journal d'audit). Les interrupteurs de canaux vivent dans
+ * Interrupteurs.
  */
+import { Suspense } from 'react';
 import { Page, Tabs, useAdminT, useTab } from '@/admin/ui';
 import { useAdminPricing } from '@/crm/admin/data';
-import { Editor, AuditTab } from '@/crm/admin/pages/SettingsPage';
-import LifecycleTab from '@/crm/admin/pages/LifecycleTab';
-import { LearningTab } from '@/crm/admin/pages/LearningTab';
-import { CustomerBasisTab } from '@/crm/admin/pages/CustomerBasisAdmin';
-import PriceTierCard from '@/crm/admin/pages/PriceTierCard';
-import { CrmFrame } from '../shell/frames';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { PageBoundary } from '../shell/frames';
+import { PageLoading } from '../shell/AdminShell';
+
+const PricingOffer = lazyWithRetry(() => import('./PricingOffer'));
+const PricingLifecycle = lazyWithRetry(() => import('./PricingLifecycle'));
+const PricingAnalysis = lazyWithRetry(() => import('./PricingAnalysis'));
+const PricingCustomers = lazyWithRetry(() => import('./PricingCustomers'));
 
 export default function Pricing() {
   const { t } = useAdminT();
@@ -22,22 +26,19 @@ export default function Pricing() {
     { value: 'lifecycle', label: t('adm.sys.pr.tab.lifecycle') },
     { value: 'analysis', label: t('adm.sys.pr.tab.analysis') },
     { value: 'customers', label: t('adm.sys.pr.tab.customers') },
-    { value: 'history', label: t('adm.sys.pr.tab.history') },
   ];
   const [tab, setTab] = useTab(tabs);
   return (
     <Page title={t('adm.sys.pr.title')} subtitle={t('adm.sys.pr.sub')}>
       <Tabs items={tabs} value={tab} onChange={setTab} />
-      <CrmFrame>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {tab === 'lifecycle' ? <LifecycleTab />
-            : tab === 'analysis' ? <LearningTab />
-            : tab === 'customers' ? <CustomerBasisTab />
-            : !q.data ? <div className="a-skel h-64" />
-            : tab === 'history' ? <AuditTab history={q.data.history} />
-            : <><PriceTierCard /><Editor cfg={q.data.cfg} mode="offer" /></>}
-        </div>
-      </CrmFrame>
+      <PageBoundary resetKey={tab}>
+        <Suspense fallback={<PageLoading />}>
+          {tab === 'offer' && <PricingOffer pricing={q} onChanged={() => void q.refetch()} />}
+          {tab === 'lifecycle' && <PricingLifecycle />}
+          {tab === 'analysis' && <PricingAnalysis />}
+          {tab === 'customers' && <PricingCustomers />}
+        </Suspense>
+      </PageBoundary>
     </Page>
   );
 }
