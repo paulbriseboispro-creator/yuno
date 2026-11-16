@@ -100,7 +100,6 @@ export const ADMIN_NAV: AdminRubric[] = [
       { key: 'issues', path: '/admin/money/issues' },
       { key: 'crm', path: '/admin/money/crm' },
       { key: 'costs', path: '/admin/money/costs' },
-      { key: 'subscriptions', path: '/admin/money/subscriptions', hidden: true },
     ],
   },
   {

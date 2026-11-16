@@ -42,7 +42,8 @@ const TABLE: Array<[string, string]> = [
   ['/admin/alerts', '/admin/today/alerts'],
   ['/admin/audit', '/admin/legal/audit'],
   ['/admin/drinks', '/admin/system/drinks'],
-  ['/admin/subscriptions', '/admin/money/subscriptions'],
+  ['/admin/subscriptions', '/admin/money/crm'],
+  ['/admin/money/subscriptions', '/admin/money/crm'],
   // Suite : redirections déjà en place avant la refonte
   ['/admin/analytics', '/admin/money'],
   ['/admin/accounting', '/admin/money'],
