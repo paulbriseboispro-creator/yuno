@@ -1090,77 +1090,35 @@ La Console CRM est reconstruite écran par écran depuis le projet Claude Design
 - **Inscription** : vit dans le dépôt de la landing (`yuno-landing-crm`) : parcours
   tiré du design, Google et Apple, lien de confirmation e-mail à la place d'un code.
 
-**Admin CRM (`/admin/crm`, super admin)** : coquille propre (menu en quatre
-groupes, ⌘K, bascule Suite / CRM, interrupteur « démo incluse » partagé avec
-l'admin de la Suite) dans `src/crm/admin/` ; textes dans la section `admin`
-(`adm.crm.*`, modules `crmAdmin*.ts`, test des clés). Tout se LIT dans les
-tables réelles ; rien n'est inventé :
+**Le pilotage de Yuno CRM vit dans l'admin unique** (`/admin`, section « Super
+admin : UN admin à huit rubriques ») ; les anciennes adresses `/admin/crm/*`
+redirigent. Règles de fond qui restent :
 
-- `_crm_admin_rows` est la ligne de compte unique (statut, MRR Stripe seulement,
-  santé /100 et ses quatre parts, onboarding en 7 étapes, synchro, solde, achats) ;
-  Clients, Pilotage, Argent, Plateforme, Légal, Vente, Acquisition et Produit la
-  réutilisent. La santé se définit UNE fois, dans l'en-tête de la migration
-  `20261005240000`. Un compte offert (sans abonnement Stripe) n'entre jamais dans
-  le MRR. Une résiliation est datée par `crm_subscriptions.updated_at`
-  (approximation assumée, dite à l'écran).
-- **Gestes audités** (`admin_audit_log`, `entity_type = 'crm_account'`, motif
-  obligatoire) : Yunits offerts, essai prolongé (compte sans Stripe seulement),
-  gel d'envoi (`crm_settings.sending_frozen_at`, refusé par le trigger
-  `guard_crm_send_frozen` sur les campagnes e-mail et SMS ; une recette automatique
-  est mise EN PAUSE plutôt que de lever une exception qui ferait tomber la
-  collecte des autres comptes), notes. « Offrir Yuno CRM » (fenêtre Produits du
-  super admin de la Billetterie, `admin_grant_crm_plan`) écrit `crm_grant_plan` /
-  `crm_end_grant` ET une ligne `account_product_events` (`gifted` / `grant_ended`),
-  sans motif ; `admin_account_products().crm` rend l'état du don (par qui, depuis
-  quand, jusqu'à quand, Yunits), migration `20261018195500`. Prospects : `crm_prospects` (+ événements),
-  pipeline réel (Essai et Payant se lisent dans les comptes).
-- **Ce que la base ne sait pas n'est pas rendu** : tests A/B, exceptions edge,
-  ouvertures / clics des e-mails du cycle de vie. Les coûts réels d'envoi sont un
-  RÉGLAGE (`crm_pricing.config.costs`).
-- **Fin de build (05/10, migrations `20261005243000` → `256000`)** :
-  - Connexion `/admin/crm/login` (vraie auth, `is_super_admin`, 2FA EXISTANTE
-    par l'edge `mfa` verify-login, preuve `mfaSession` partagée avec RequireMFA).
-  - Pilotage › Activité en direct (`crm_admin_activity`, pastille =
-    `crm_admin_live_signups`) ; Plateforme : durée p50 / p95 des synchros, une
-    passe tuée est marquée `abandoned` sans fin inventée (cron horaire).
-  - Clients : tiroir latéral `?open=<compte>` ; « Voir sa Console » = accès
-    assisté CONSENTI (`admin_support_grants`), jamais de session sans accord.
-  - **Prolongations d'essai** : `crm_subscriptions.trial_extensions_used` ; le
-    pro prolonge seul de 7 j (`crm_request_trial_extension`, Facturation) dans
-    la limite de `trial_extensions` ; un geste admin passe au-delà mais compte.
-  - **Seuil des 50** : `crm_price_tier()` = public seulement si payants ≥
-    `price_switch_at` ET prix publics ACTIFS chez Stripe (`crm_price_state`,
-    écrit par l'action `crm_price_status` de club-subscription — LECTURE Stripe,
-    super admin — et par un checkout qui retombe) ; un abonné existant
-    (`founder`) garde le lancement ; `crm_checkout` essaie public puis lancement,
-    jamais un paiement qui échoue. Tarifs et Facturation affichent le prix du niveau.
-  - Réglages › **E-mails du cycle de vie** (`crm_lifecycle_emails`, 8 e-mails
-    FR/EN/ES, TOUS éteints ; registre anti-doublon `crm_lifecycle_sends` ; démo =
-    `demo_no_send` ; envoi par `process-scheduled-campaigns`, rendu
-    `_shared/crm-lifecycle-html.ts` partagé avec l'aperçu admin).
-  - Vente › **Comptes cibles** (`crm_admin_targets`, villes où Yuno CRM a un
-    compte, sans espace CRM, démo exclue ; seul `crm_prospects` reçoit un contact).
-  - Acquisition › **Page CRM** : mesure first-party de crm.yunoapp.eu
-    (`crm_landing_events`, sans cookie, empreinte salée du jour, DNT/GPC
-    respectés, purge 180 j ; écrite par `track_crm_landing_event` depuis
-    `src/lib/crm-measure.ts` du dépôt landing, branche `crm/landing-measure`).
-  - Produit : **NPS** (`crm_nps_responses`, après 30 j, une fois / 90 j, score
-    dès 10 réponses) et **demandes** (`crm_feature_requests`, statut avec motif).
-  - Légal : **registre d'incidents** (`crm_incidents`, échéance CNIL 72 h,
-    alerte `admin_crm_incident_deadline` à H-24 / H-6, liste des pros PRÉPARÉE,
-    jamais envoyée).
-  - Un compte Billetterie avec CRM ajouté (`extra_products`) entre dans
-    `_crm_admin_rows` et sort des comptes cibles.
-  - Clés : une clé n'est définie qu'UNE fois (test dans `keys.test.ts`) — la
-    connexion utilisait `adm.crm.lg.*` et écrasait le sous-titre de Légal.
+- `_crm_admin_rows` est la ligne de compte unique du CRM (statut, MRR Stripe
+  seulement, santé /100 définie UNE fois dans l'en-tête de `20261005240000`,
+  onboarding, synchro, solde) ; un compte offert n'entre jamais dans le MRR.
+- **Gestes audités** (`admin_audit_log`, motif obligatoire) : Yunits offerts,
+  essai prolongé (sans Stripe seulement), gel d'envoi (`crm_settings.sending_frozen_at`,
+  trigger `guard_crm_send_frozen` ; une recette est mise EN PAUSE, jamais une
+  exception), notes. « Offrir Yuno CRM » (`admin_grant_crm_plan`) écrit aussi
+  `account_product_events`.
+- **Prolongations d'essai** : le pro prolonge seul de 7 j dans la limite de
+  `trial_extensions` (`crm_request_trial_extension`).
+- **Seuil des 50** : `crm_price_tier()` = public seulement si payants ≥
+  `price_switch_at` ET prix publics ACTIFS chez Stripe (`crm_price_state`, lu par
+  l'action `crm_price_status`, carte de Système › Offre et tarifs) ; un abonné
+  existant garde le lancement.
+- E-mails du cycle de vie (`crm_lifecycle_emails`, TOUS éteints, registre
+  `crm_lifecycle_sends`) : Système › Offre et tarifs. Mesure de crm.yunoapp.eu
+  (`crm_landing_events`, sans cookie) : Pilotage › Acquisition. NPS et demandes :
+  Pilotage › Produit. Incidents (`crm_incidents`, colonne `product`, échéance
+  CNIL 72 h) : Légal › Incidents. Ce que la base ne sait pas n'est pas rendu.
 - **Compte démo CRM (`crm@womber.fr`) = `bash scripts/demo/refresh-crm-demo.sh`**
   (6 min, rejouable, cf. `scripts/demo/README.md`), ancré sur `now()` : à relancer avant
   chaque call de vente et au plus tard tous les 3-4 jours, sinon les courbes comparent
   du vieux et l'accueil perd ses tâches. Ne jamais semer d'adresse avec accent ; les
   Yunits de la démo ne comptent aucun SMS (la démo n'envoie jamais rien, SMS compris).
   Écriture lourde : la lancer SEUL (règle de santé de la prod ci-dessus).
-- Vérification visuelle sans session super admin : un banc de données d'exemple
-  (jamais commité, `.crm-tools/`), car aucun compte `@womber.fr` n'est admin.
 
 ## Yuno CRM — ce que Shotgun rapporte, et rien d'autre ; liens de partage (2026-10-05)
 
@@ -5243,102 +5201,86 @@ tous `src/pages/OwnerHelpCenter.tsx` (coquille + URL) et `src/components/help/*`
   `venue_id` NULL) ; avant, le bouton « Contacter le support » de l'organisateur
   tombait sur une 404.
 
-## Super admin : UN admin à huit rubriques (refonte, lot 0 du 2026-11-16)
+## Super admin : UN admin à huit rubriques (refonte du 2026-11-16)
 
-Plan, rangement des écrans et conventions des lots : `docs/designs/ADMIN_REBUILD_PLAN.md`
-(sections 7 et 8). L'admin de la Suite et l'Admin CRM n'en font plus qu'un, sur
-yunoapp.eu. Règles :
+Plan, état final et mise en ligne : `docs/designs/ADMIN_REBUILD_PLAN.md`
+(sections 7 à 9). L'admin de la Billetterie et l'ex-Admin CRM n'en font plus
+qu'un, sur **yunoapp.eu**. Règles :
 
 - **Un seul point de montage** : `<Route path="/admin/*" element={<AdminApp />} />`
-  (`src/admin/AdminApp.tsx`). Huit rubriques chargées à la demande, un dossier
-  chacune (`src/admin/{today,pilotage,pros,clients,money,comms,legal,system}/routes.tsx`,
-  chemins RELATIFS) : Aujourd'hui (`/admin`), Pilotage (`/admin/pilot`), Pros,
-  Clients, Argent (`/admin/money`), Communication (`/admin/comms`), Légal, Système.
-  Ne jamais remettre une route admin dans `App.tsx` ni recréer une seconde coquille.
+  (`src/admin/AdminApp.tsx`). Huit rubriques, un dossier chacune, routes
+  RELATIVES dans `src/admin/<rubrique>/routes.tsx` :
+  Aujourd'hui `/admin` (`today/` : file du jour, six chiffres, feux, fil
+  d'activité, Alertes, Support et retours) · Pilotage `/admin/pilot` (vue
+  d'ensemble du revenu, acquisition des pros, rétention, audience, produit et
+  usage) · Pros `/admin/pros` (tous les comptes, **fiche unique
+  `/admin/pros/<venue|org|agency>:<id>`**, Prospects, Inviter, Démo, Accès
+  assisté) · Clients `/admin/clients` (vue d'ensemble, liste, **fiche unique
+  `/admin/clients/<e-mail ou id>`**, soirées, annuaire) · Argent `/admin/money`
+  (ventes, commandes `?open=ticket:<id>`, À régler, Yuno CRM, coûts) ·
+  Communication `/admin/comms` (campagnes, moteur de notifications,
+  délivrabilité, page bio) · Légal `/admin/legal` (dix écrans : RGPD,
+  consentements, conditions, vendeurs, incidents, signalements, sous-traitants,
+  échéances, journal d'audit) · Système `/admin/system` (santé technique,
+  interrupteurs, offre et tarifs, connecteurs, IA). Ne jamais remettre une
+  route admin dans `App.tsx` ni recréer une seconde coquille.
 - **La carte du menu est `src/admin/nav.ts`** (pure, testée) : barre latérale,
   fil d'Ariane et ⌘K la lisent. Une page = sa route + son entrée + son libellé
-  `adm.nav2.<rubrique>.<clé>` (module i18n `shell.ts`).
-- **Toute ancienne adresse passe par `src/admin/redirects.ts`** (`legacyAdminTarget`,
-  testé, requête et ancre gardées), y compris `/admin/crm/...` et les liens des
-  alertes (`adminNotifLink` → `currentAdminHref`). Déplacer une page = sa règle
-  de redirection + son cas de test, sinon les favoris et les alertes tombent.
+  `adm.nav2.<rubrique>.<clé>` (module `shell.ts`). Ses textes vont dans le
+  module de sa rubrique (`src/i18n/locales/admin/modules/<rubrique>.ts`,
+  triplets [EN, FR, ES]).
+- **Toute ancienne adresse passe par `src/admin/redirects.ts`** (testé, requête
+  et ancre gardées), `/admin/crm/...` compris. Les alertes déjà émises passent
+  par `adminNotifLink` → `currentAdminHref` ; une alerte nouvelle pointe
+  directement sur la nouvelle page (fiche d'un pro, Prospects, À régler,
+  Délivrabilité, Demandes RGPD…).
+- **Une information = un endroit.** MRR et revenu : Argent (`money/terms.ts` est
+  LE vocabulaire d'argent, jamais « GMV », « CA total », « Revenus Yuno ») ;
+  pool e-mail et niveaux d'envoi : Communication › Délivrabilité ; leads de la
+  page bio, inscriptions et pipeline CRM : Pros › Prospects ; démo et accès
+  assisté : Pros ; journal d'audit et échéances : Légal ; tâches planifiées :
+  Système › Santé ; coût de l'IA : Système › IA (l'usage : Pilotage ›
+  Produit). Ailleurs, un chiffre repris porte un lien vers sa page.
 - **Garde** : `is_super_admin()` ET 2FA (`src/admin/shell/mfa.ts`, preuve
   `mfaSession` partagée avec `RequireMFA`) ; super admin sans 2FA ni
-  `mfa_exempt` → `/mfa-setup`. Connexion unique `/admin/login`.
-- **`/admin/crm` n'est plus un chemin CRM** (`productHost.ts`) : sur
-  crm.yunoapp.eu il repart sur yunoapp.eu. La landing garde `/admin/crm` dans
-  sa liste de relais pour ces vieux liens.
-- **Kit `src/admin/ui/`** (Linear / Vercel : neutres + un accent indigo, clair et
-  sombre sous `[data-admin]`, Geist auto-hébergée, TanStack Table, Recharts sans
-  animation, axes et unité visibles, période précédente en gris). Thème calé sur
-  la préférence pro (`useProTheme`). Une page ne déclare aucune couleur ; une
-  action sensible passe par `ReasonDialog` (motif obligatoire).
-- **Période et démo : `useAdminFilters()`** (`?p=` 7d / 30d / 90d / 12m, comparée à
-  la même durée juste avant ; `includeDemo` de l'interrupteur unique).
-- **Recherche ⌘K = RPC `admin_search(p_q, p_include_demo)`** (migration
-  `20261218100000`), 6 résultats par famille, démo par CTE matérialisé.
-- Les écrans hérités sont remontés TELS QUELS dans `SuiteFrame` / `CrmFrame`
-  (`src/admin/shell/frames.tsx`) et remplacés lot par lot (1 à 6). Ce qui suit
-  (section du 2026-09-11) décrit leurs calculs, qui restent vrais ; son
-  arborescence en quatre groupes, `AdminLayout` et la bascule Suite / CRM
-  n'existent plus.
-
-## Dashboard super admin — refonte complète (2026-09-11)
-
-`/admin` a été reconstruit de zéro. Quatre groupes dans la sidebar, 34 pages
-ramenées à une arborescence lisible. Les règles qui suivent ne sont pas des
-préférences : chacune répare un défaut constaté.
-
-- **Quatre groupes, pas une liste** : **Pilotage** (`/admin` cockpit,
-  `/admin/growth`, `/admin/revenue`, `/admin/product`, `/admin/customers`,
-  `/admin/ai`), **Acteurs** (`/admin/people`, `/admin/venues`,
-  `/admin/organizers`, `/admin/agencies`, `/admin/events`, `/admin/orders`),
-  **Communication** (`/admin/marketing`, `/admin/notifications`,
-  `/admin/links`, `/admin/feedback`, `/admin/alerts`), **Système**
-  (`/admin/system`, `/admin/audit`, `/admin/support-access`, `/admin/demo`).
-  Les anciennes adresses (`/admin/analytics`, `accounting`, `traffic`,
-  `segmentation`, `waitlist`, `directory`, `affiliates`, `emails`) sont des
-  `<Navigate>` — des liens vivent encore dans des alertes déjà émises.
-- **Un chiffre affiché vient d'une RPC, jamais d'un `select` agrégé côté
-  front.** Sept RPC portent le dashboard : `admin_cockpit`,
-  `admin_activity_feed`, `admin_product_insights`, `admin_release_health`,
-  `admin_directory_counts`, `admin_venue_overview` (migration
-  `20260910130000`) et `admin_ai_usage` (`20260910120000`). Toutes prennent
-  `p_include_demo` et **matérialisent la porte démo une seule fois** (CTE
-  `WITH d AS MATERIALIZED`) — cf. la section suivante.
-- **`AdminScope` est la porte démo côté front** (`src/components/admin/AdminScope.tsx`) :
-  un seul interrupteur, persisté en localStorage, passé en `p_include_demo` à
-  CHAQUE appel. Ne jamais filtrer la démo dans un composant.
-- **Tous les tokens et primitives vivent dans `src/components/admin/ui.tsx`**
-  (~30 composants : `AdminPage`, `Card`, `Stat`, `SectionHeading`, `Seg`,
-  `PeriodFilter`, `TabBar`, `RankRow`, `DistRow`, `Notice`, `EmptyState`…).
-  Aucune page admin ne redéclare une couleur, un fond de carte ou un rayon.
-  Tout le formatage (nombres, €, $, tokens, durées, dates, pluriels) passe par
-  `src/lib/adminFormat.ts`. Un `toFixed(2)` ou un `fr-FR` codé en dur dans une
-  page admin est un bug.
-- **Pluriels : `fmtPlural`, jamais `.replace('{n}', …)` sur un libellé au
-  pluriel.** Yuno a de très petits nombres ; « 1 invitations en attente » se
-  voit tout de suite. Chaque clé comptée a sa jumelle `…One`.
-- **Les séries recharts du super admin ont `isAnimationActive={false}`.** Sur un
-  dashboard dense l'animation retarde la lecture, et elle rend toute capture
-  headless vide.
-- **Deux ordres de grandeur ⇒ deux axes.** Les sessions écrasent les
-  inscriptions ; la série de contexte part sur un `<YAxis hide>` à droite
-  (cockpit et croissance). Une courbe collée à zéro n'informe personne.
-- **`cron.job_run_details` ne se lit qu'une fois, et jamais depuis le
-  cockpit.** La table fait des dizaines de Mo sans index, et `postgres` n'en
-  est pas propriétaire (donc `CREATE INDEX` échoue) : `admin_cockpit` la
-  scannait jusqu'à 74 fois (4,1 s). Elle est lue par `admin_release_health`
-  seule, en UN scan matérialisé de 7 jours, et le cron `cron-history-purge`
-  la taille à 30 jours.
-- **i18n : le super admin est une SECTION à part** (`useLocaleSection('admin')`),
-  jamais dans le dictionnaire principal — un client ne télécharge pas les
-  libellés d'un dashboard qu'il ne verra jamais. Les clés vivent dans
-  `src/i18n/locales/admin/modules/*.ts` sous forme de triplets
-  **`[EN, FR, ES]` côte à côte** : une traduction manquante devient
-  structurellement impossible. `src/i18n/locales/admin/{en,fr,es}.ts` ne font
-  que projeter (`pickLanguage(0|1|2)`). Gardé par
-  `src/i18n/__tests__/admin.test.ts`.
+  `mfa_exempt` → `/mfa-setup`. Connexion unique `/admin/login`. `/admin/crm`
+  n'est plus un chemin CRM (`productHost.ts`) ; la landing garde `/admin/crm`
+  dans sa liste de relais pour les vieux liens.
+- **Kit `src/admin/ui/`** (neutres + un accent, clair et sombre sous
+  `[data-admin]`, Geist auto-hébergée, TanStack Table, Recharts sans animation,
+  axes et unité visibles, une seule échelle, période précédente en gris). Une
+  page ne déclare aucune couleur ; une action sensible passe par
+  `ReasonDialog` (motif obligatoire, écrit au journal par la RPC). Formatage :
+  `src/lib/adminFormat.ts` (`fmtPlural`, jamais `.replace('{n}')`).
+- **Période et démo : `useAdminFilters()`** (`?p=` 7d / 30d / 90d / 12m,
+  comparée à la même durée juste avant ; `includeDemo` passé en
+  `p_include_demo` à CHAQUE RPC, la porte démo matérialisée UNE fois en SQL).
+  `DataTable` accepte `initialSearch` : une liste s'ouvre filtrée par `?q=`.
+- **RPC neuves** (une migration par lot, `20261218100000` → `160000`) :
+  `admin_search` · `admin_today` / `admin_today_mark` · `admin_accounts`,
+  `admin_account`, notes / étiquettes / gestes de compte, `admin_prospects`,
+  `admin_support_overview`, `admin_pending_invitations` · `admin_person`,
+  `admin_clients_period` · `admin_pilot_overview`, `admin_pro_acquisition`,
+  `admin_pro_retention`, `admin_buyers_stats`, `admin_money_issues`,
+  `admin_costs_list` / `admin_cost_set` (coûts saisis à la main),
+  `admin_invoices_list` · `admin_legal_*`, `admin_privacy_requests`,
+  `admin_content_reports` (tables `privacy_requests`, `content_reports`) ·
+  `admin_set_platform_switch`. Toute RPC admin : `is_super_admin()`,
+  `p_include_demo` par CTE matérialisé, REVOKE / GRANT explicites. Elles ne
+  font qu'ASSEMBLER : les calculs restent ceux des RPC existantes
+  (`admin_platform_analytics`, `_crm_admin_rows`, `admin_cockpit`,
+  `admin_release_health`, `admin_ai_usage`…).
+- **Écrans encore hérités** (dans `SuiteFrame` / `CrmFrame`,
+  `src/admin/shell/frames.tsx`) : liste dans le plan, section 7 « Assemblage ».
+  L'ancien kit `src/components/admin/ui.tsx` et `src/crm/admin/ui.tsx`
+  disparaîtront avec le dernier d'entre eux.
+- **i18n** : le super admin est une SECTION à part (`useLocaleSection('admin')`,
+  `src/i18n/locales/admin/modules/*.ts`), jamais dans le dictionnaire principal.
+- **Vérifier visuellement** : aucun compte démo n'est super admin, donc un banc
+  local (jamais commité) monte `AdminApp` dans un MemoryRouter avec un client
+  Supabase simulé ; captures de référence dans `docs/designs/admin-rebuild/`.
+- `cron.job_run_details` ne se lit qu'une fois (`admin_release_health`, un scan
+  matérialisé de 7 jours), jamais depuis une autre RPC.
 
 ## Consommation IA — l'observabilité des assistants (2026-09-11)
 

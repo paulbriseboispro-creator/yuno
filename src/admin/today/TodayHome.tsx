@@ -8,6 +8,7 @@
  *   4. un fil d'activité Billetterie + CRM.
  * L'ancien Cockpit vit sous Pilotage ; l'ancien « à faire » CRM est dans la file.
  */
+import { useMemo } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { fmtEur, fmtNum } from '@/lib/adminFormat';
@@ -16,6 +17,8 @@ import { TODAY_KEY, useCockpit, useToday } from './data';
 import { TodayQueue } from './TodayQueue';
 import { HealthLights } from './HealthLights';
 import { moneyHintKey, moneyLabelKey } from '../money/terms';
+import { usePlatformAnalytics } from '../money/data';
+import { periodRange } from '../context/period';
 import { ActivityFeed } from './ActivityFeed';
 
 export default function TodayHome() {
@@ -25,11 +28,17 @@ export default function TodayHome() {
   const today = useToday(includeDemo);
   const cockpit = useCockpit(includeDemo);
   const k = today.data?.kpis;
-  const gmv = cockpit.data;
+  // Ventes et frais de service de la semaine : la MÊME lecture que la rubrique Argent
+  // (admin_platform_analytics, démo toujours exclue), jamais une seconde formule.
+  const week = useMemo(() => periodRange('7d'), []);
+  const money = usePlatformAnalytics(week);
+  const cur = money.data?.cur.totals;
+  const prev = money.data?.prev.totals;
 
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: TODAY_KEY });
     void cockpit.refetch();
+    void money.refetch();
   };
 
   return (
@@ -41,10 +50,10 @@ export default function TodayHome() {
       )}>
       <Section title={t('adm.today.kpi.title')} description={t('adm.today.kpi.desc')}>
         <KpiRow>
-          <Kpi label={t(moneyLabelKey('sales'))} hint={t(moneyHintKey('sales'))} loading={!gmv}
-            value={fmtEur(gmv?.week.gmv, lang)} current={gmv?.week.gmv} previous={gmv?.prev_week.gmv} to="/admin/money" />
-          <Kpi label={t(moneyLabelKey('fees'))} hint={t(moneyHintKey('fees'))} loading={!k}
-            value={fmtEur(k?.revenue.cur, lang)} current={k?.revenue.cur} previous={k?.revenue.prev} to="/admin/money" />
+          <Kpi label={t(moneyLabelKey('sales'))} hint={t(moneyHintKey('sales'))} loading={!cur}
+            value={fmtEur(cur?.gmv, lang)} current={cur?.gmv} previous={prev?.gmv} to="/admin/money" />
+          <Kpi label={t(moneyLabelKey('fees'))} hint={t(moneyHintKey('fees'))} loading={!cur}
+            value={fmtEur(cur?.yuno_revenue, lang)} current={cur?.yuno_revenue} previous={prev?.yuno_revenue} to="/admin/money" />
           <Kpi label={t(moneyLabelKey('mrr'))} hint={t(moneyHintKey('mrr'))} loading={!k}
             value={fmtEur(k?.mrr.cur, lang)} current={k?.mrr.cur} previous={k?.mrr.prev} to="/admin/money/crm" />
           <Kpi label={t('adm.today.kpi.newPros')} hint={t('adm.today.kpi.newPros.hint')} loading={!k}
