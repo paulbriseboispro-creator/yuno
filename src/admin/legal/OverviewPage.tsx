@@ -38,12 +38,12 @@ export default function OverviewPage() {
     <Page title={t('adm.lg2.ov.title')} subtitle={late ? t('adm.lg2.ov.subLate', { n: late }) : todo ? t('adm.lg2.ov.subTodo', { n: todo }) : o ? t('adm.lg2.ov.subOk') : t('adm.lg2.ov.sub')}>
       {q.isError && !o ? <ErrorState onRetry={() => void q.refetch()} /> : (
         <KpiRow>
-          <Kpi label={t('adm.lg2.ob.requests')} loading={!o} value={fmtNum(o?.requests.open, lang)} to="/admin/legal/requests" hint={t('adm.lg2.ov.k.requests')} />
-          <Kpi label={t('adm.lg2.ob.incidents')} loading={!o} value={fmtNum(o?.incidents.open, lang)} to="/admin/legal/incidents" hint={t('adm.lg2.ov.k.incidents')} />
-          <Kpi label={t('adm.lg2.ob.terms')} loading={!o} value={fmtNum(o?.terms.missing, lang)} to="/admin/legal/terms" hint={t('adm.lg2.ov.k.terms', { n: o?.terms.pros ?? 0 })} />
-          <Kpi label={t('adm.lg2.ob.sellers')} loading={!o} value={fmtNum(o?.sellers.incomplete, lang)} to="/admin/legal/sellers" hint={t('adm.lg2.ov.k.sellers', { n: o?.sellers.with_stripe ?? 0 })} />
-          <Kpi label={t('adm.lg2.ob.deadlines')} loading={!o} value={fmtNum((o?.deadlines.overdue ?? 0) + (o?.deadlines.soon ?? 0), lang)} to="/admin/legal/deadlines" hint={t('adm.lg2.ov.k.deadlines')} />
-          <Kpi label={t('adm.lg2.ob.support')} loading={!o} value={fmtNum((o?.support.grants ?? 0) + (o?.support.sessions ?? 0), lang)} to="/admin/pros/support" hint={t('adm.lg2.ov.k.support')} />
+          <Kpi label={t('adm.lg2.ov.kl.requests')} loading={!o} value={fmtNum(o?.requests.open, lang)} to="/admin/legal/requests" hint={t('adm.lg2.ov.k.requests')} />
+          <Kpi label={t('adm.lg2.ov.kl.incidents')} loading={!o} value={fmtNum(o?.incidents.open, lang)} to="/admin/legal/incidents" hint={t('adm.lg2.ov.k.incidents')} />
+          <Kpi label={t('adm.lg2.ov.kl.terms')} loading={!o} value={fmtNum(o?.terms.missing, lang)} to="/admin/legal/terms" hint={t('adm.lg2.ov.k.terms', { n: o?.terms.pros ?? 0 })} />
+          <Kpi label={t('adm.lg2.ov.kl.sellers')} loading={!o} value={fmtNum(o?.sellers.incomplete, lang)} to="/admin/legal/sellers" hint={t('adm.lg2.ov.k.sellers', { n: o?.sellers.with_stripe ?? 0 })} />
+          <Kpi label={t('adm.lg2.ov.kl.deadlines')} loading={!o} value={fmtNum((o?.deadlines.overdue ?? 0) + (o?.deadlines.soon ?? 0) + (o?.deadlines.undated ?? 0), lang)} to="/admin/legal/deadlines" hint={t('adm.lg2.ov.k.deadlines')} />
+          <Kpi label={t('adm.lg2.ov.kl.support')} loading={!o} value={fmtNum((o?.support.grants ?? 0) + (o?.support.sessions ?? 0), lang)} to="/admin/pros/support" hint={t('adm.lg2.ov.k.support')} />
         </KpiRow>
       )}
       <Section title={t('adm.lg2.ov.list')} description={t('adm.lg2.ov.listSub')}>

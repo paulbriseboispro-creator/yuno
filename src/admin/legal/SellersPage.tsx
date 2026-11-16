@@ -39,21 +39,24 @@ export default function SellersPage() {
     { id: 'identity', accessorFn: (r) => r.legal_name ?? '', header: t('adm.lg2.sl.col.identity'),
       cell: (c) => { const r = c.row.original; return <div className="flex min-w-0 flex-col py-1.5"><span className={r.legal_name ? 'a-t1 truncate' : 'a-t3'}>{r.legal_name ?? t('adm.lg2.sl.noLegalName')}</span><span className="a-t3 a-mono truncate text-[12px]">{r.siret ? `SIRET ${r.siret}` : r.rna ? `RNA ${r.rna}` : t('adm.lg2.sl.noId')}</span></div>; } },
     { id: 'vat', accessorFn: (r) => r.vat_rate, header: t('adm.lg2.sl.col.vat'),
-      cell: (c) => { const r = c.row.original; return <span>{r.vat_rate} %<span className="a-t3"> · {r.vat_regime ? tOr(t, `adm.lg2.sl.regime.${r.vat_regime}`, r.vat_regime) : t('adm.lg2.sl.regime.unset')}</span></span>; } },
+      cell: (c) => { const r = c.row.original; return <div className="flex flex-col py-1.5"><span className="a-t1">{r.vat_rate} %</span><span className="a-t3 whitespace-nowrap text-[12px]">{r.vat_regime ? tOr(t, `adm.lg2.sl.regime.${r.vat_regime}`, r.vat_regime) : t('adm.lg2.sl.regime.unset')}</span></div>; } },
     { id: 'stripe', accessorFn: (r) => (r.charges ? 2 : 0) + (r.payouts ? 1 : 0), header: t('adm.lg2.sl.col.stripe'),
       cell: (c) => { const r = c.row.original;
         return !r.stripe_account ? <Status tone="neutral">{t('adm.lg2.sl.noStripe')}</Status>
-          : <Status tone={r.charges && r.payouts ? 'positive' : 'warning'}>{r.charges ? t('adm.lg2.sl.charges') : t('adm.lg2.sl.noCharges')}{' · '}{r.payouts ? t('adm.lg2.sl.payouts') : t('adm.lg2.sl.noPayouts')}</Status>; } },
+          : <div className="flex flex-col gap-0.5 py-1.5">
+            <Status tone={r.charges ? 'positive' : 'warning'}>{r.charges ? t('adm.lg2.sl.charges') : t('adm.lg2.sl.noCharges')}</Status>
+            <Status tone={r.payouts ? 'positive' : 'warning'}>{r.payouts ? t('adm.lg2.sl.payouts') : t('adm.lg2.sl.noPayouts')}</Status>
+          </div>; } },
     { accessorKey: 'sales', header: t('adm.lg2.sl.col.sales'), meta: { align: 'right' }, cell: (c) => fmtNum(c.getValue<number>(), lang) },
     { accessorKey: 'amount', header: t('adm.lg2.sl.col.amount'), meta: { align: 'right' }, cell: (c) => fmtEur(Number(c.getValue<number>()), lang) },
     { id: 'invoices', accessorFn: (r) => r.missing_invoices, header: t('adm.lg2.sl.col.invoices'), meta: { align: 'right' },
-      cell: (c) => { const r = c.row.original; return <span>{fmtNum(r.invoices_issued, lang)}{r.missing_invoices > 0 && <span style={{ color: 'var(--a-neg)' }}> · {t('adm.lg2.sl.missingInv', { n: r.missing_invoices })}</span>}</span>; } },
+      cell: (c) => { const r = c.row.original; return <span className="whitespace-nowrap">{fmtNum(r.invoices_issued, lang)}{r.missing_invoices > 0 && <span style={{ color: 'var(--a-neg)' }}> · {t('adm.lg2.sl.missingInv', { n: r.missing_invoices })}</span>}</span>; } },
     { id: 'dac7', accessorFn: (r) => (dac7Reached(r) ? 1 : 0), header: t('adm.lg2.sl.col.dac7'),
       cell: (c) => (dac7Reached(c.row.original) ? <Badge tone="warning">{t('adm.lg2.sl.reached')}</Badge> : <span className="a-t3">{t('adm.lg2.sl.under')}</span>) },
     { id: 'file', accessorFn: (r) => sellerGaps(r).length, header: t('adm.lg2.sl.col.file'),
       cell: (c) => { const g = sellerGaps(c.row.original);
         return g.length === 0 ? <Badge tone="positive">{t('adm.lg2.sl.complete')}</Badge>
-          : <span className="flex flex-wrap gap-1">{g.map((x) => <Badge key={x} tone="negative">{t(`adm.lg2.sl.gap.${x}`)}</Badge>)}</span>; } },
+          : <span title={g.map((x) => t(`adm.lg2.sl.gap.${x}`)).join(', ')}><Badge tone="negative">{g.length === 1 ? t(`adm.lg2.sl.gap.${g[0]}`) : t('adm.lg2.sl.gaps', { n: g.length })}</Badge></span>; } },
   ];
 
   return (

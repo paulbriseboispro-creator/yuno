@@ -64,7 +64,7 @@ export default function RequestsPage() {
         const r = c.row.original;
         if (r.auto || r.closed || !r.deadline) return <span className="a-t3">—</span>;
         const d = daysUntil(r.deadline);
-        return <span style={{ color: d != null && d < 0 ? 'var(--a-neg)' : d != null && d <= 7 ? 'var(--a-warn)' : undefined }}>
+        return <span className="whitespace-nowrap" style={{ color: d != null && d < 0 ? 'var(--a-neg)' : d != null && d <= 7 ? 'var(--a-warn)' : undefined }}>
           {fmtDate(r.deadline, lang, 'short')} · {d != null && d < 0 ? t('adm.lg2.late', { n: -d }) : t('adm.lg2.daysLeft', { n: d ?? 0 })}
         </span>;
       } },
