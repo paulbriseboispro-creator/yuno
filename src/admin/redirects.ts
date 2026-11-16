@@ -23,10 +23,10 @@ const RULES: readonly Rule[] = [
   [/^\/admin\/crm\/acquisition$/, '/admin/pilot/acquisition'],
   [/^\/admin\/crm\/product$/, '/admin/pilot/product?tab=crm'],
   [/^\/admin\/crm\/money$/, '/admin/money/crm'],
-  [/^\/admin\/crm\/platform\/plan\/(.+)$/, '/admin/system/crm/plan/$1'],
-  [/^\/admin\/crm\/platform$/, '/admin/system/crm'],
+  [/^\/admin\/crm\/platform\/plan\/(.+)$/, '/admin/system/connectors/plan/$1'],
+  [/^\/admin\/crm\/platform$/, '/admin/system/connectors'],
   [/^\/admin\/crm\/legal$/, '/admin/legal'],
-  [/^\/admin\/crm\/settings$/, '/admin/system/settings'],
+  [/^\/admin\/crm\/settings$/, '/admin/system/pricing'],
   [/^\/admin\/crm$/, '/admin/pilot'],
   // Écran « bientôt » de l'Admin CRM (toute autre adresse sous /admin/crm).
   [/^\/admin\/crm\/.+$/, '/admin'],
@@ -74,6 +74,9 @@ const RULES: readonly Rule[] = [
   // ── Légal ──
   [/^\/admin\/audit$/, '/admin/legal/audit'],
   // ── Système ──
+  [/^\/admin\/system\/crm\/plan\/(.+)$/, '/admin/system/connectors/plan/$1'],
+  [/^\/admin\/system\/crm$/, '/admin/system/connectors'],
+  [/^\/admin\/system\/settings$/, '/admin/system/pricing'],
   [/^\/admin\/drinks$/, '/admin/system/drinks'],
 ];
 

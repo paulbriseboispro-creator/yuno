@@ -55,7 +55,7 @@ interface CreditAccount {
 }
 interface KeyStats { notification_key: string; sent_total: number; failed_total: number; clicked_total: number; sent_30d: number; failed_30d: number; clicked_30d: number; last_sent_at: string | null }
 
-const POLICY_FIELDS = ['quiet_start', 'quiet_end', 'daily_cap', 'weekly_cap', 'weekly_cap_engaged', 'weekly_cap_fatigued', 'fatigue_sent', 'fatigue_days', 'urgent_daily_cap', 'per_event_max'] as const;
+export const POLICY_FIELDS = ['quiet_start', 'quiet_end', 'daily_cap', 'weekly_cap', 'weekly_cap_engaged', 'weekly_cap_fatigued', 'fatigue_sent', 'fatigue_days', 'urgent_daily_cap', 'per_event_max'] as const;
 const CREDIT_FIELDS = ['credits_venue', 'credits_org', 'credits_agency', 'event_info_per_event', 'manual_per_24h'] as const;
 
 // Notifications unitaires hors soirée (registre historique) — le moteur tient
@@ -240,13 +240,13 @@ function EngineTab({ data, language, onSaved }: { data: EngineOverview; language
   );
 }
 
-function holdLabel(t: (k: string) => string, key: string): string {
+export function holdLabel(t: (k: string) => string, key: string): string {
   const k = `adm.engine.hold.${key}`;
   const v = t(k);
   return v === k ? key : v;
 }
 
-function SettingsForm({ title, subtitle, icon, fields, settings, onSaved }: {
+export function SettingsForm({ title, subtitle, icon, fields, settings, onSaved }: {
   title: string; subtitle: string; icon: typeof Sliders;
   fields: readonly string[]; settings: Record<string, number>; onSaved: () => void;
 }) {
@@ -293,7 +293,7 @@ function SettingsForm({ title, subtitle, icon, fields, settings, onSaved }: {
 }
 
 // ─── Règles ──────────────────────────────────────────────────────────────────
-function RulesTab({ data, onSaved }: { data: EngineOverview; onSaved: () => void }) {
+export function RulesTab({ data, onSaved }: { data: EngineOverview; onSaved: () => void }) {
   const { t } = useLanguage();
   const [templates, setTemplates] = useState<TemplateRow[]>([]);
   const loadTemplates = useCallback(async () => {
@@ -461,7 +461,7 @@ function TemplateEditor({ row, onSaved }: { row: TemplateRow; onSaved: () => voi
 }
 
 // ─── Système ─────────────────────────────────────────────────────────────────
-function SystemTab() {
+export function SystemTab() {
   const { t, language } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
@@ -556,7 +556,7 @@ function SystemTab() {
 }
 
 // ─── Crédits ─────────────────────────────────────────────────────────────────
-function CreditsTab({ settings, onSaved }: { settings: Record<string, number>; onSaved: () => void }) {
+export function CreditsTab({ settings, onSaved }: { settings: Record<string, number>; onSaved: () => void }) {
   const { t, language } = useLanguage();
   const [searchParams] = useSearchParams();
   const [q, setQ] = useState(searchParams.get('q') ?? '');

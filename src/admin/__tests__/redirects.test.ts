@@ -70,15 +70,18 @@ const TABLE: Array<[string, string]> = [
   ['/admin/crm/acquisition', '/admin/pilot/acquisition'],
   ['/admin/crm/product', '/admin/pilot/product?tab=crm'],
   ['/admin/crm/money', '/admin/money/crm'],
-  ['/admin/crm/platform', '/admin/system/crm'],
-  ['/admin/crm/platform/plan/venue:v1/e1', '/admin/system/crm/plan/venue:v1/e1'],
+  ['/admin/crm/platform', '/admin/system/connectors'],
+  ['/admin/crm/platform/plan/venue:v1/e1', '/admin/system/connectors/plan/venue:v1/e1'],
+  ['/admin/system/crm', '/admin/system/connectors'],
+  ['/admin/system/crm/plan/venue:v1/e1', '/admin/system/connectors/plan/venue:v1/e1'],
+  ['/admin/system/settings', '/admin/system/pricing'],
   ['/admin/crm/legal', '/admin/legal'],
-  ['/admin/crm/settings', '/admin/system/settings'],
+  ['/admin/crm/settings', '/admin/system/pricing'],
   ['/admin/crm/whatever', '/admin'],
 ];
 
 /** Pages de détail montées par les rubriques (hors menu, sous une entrée). */
-const DETAIL = [/^\/admin\/pros\/(venue|org|agency):[^/]+$/, /^\/admin\/clients\/[^/]+$/, /^\/admin\/comms\/email\//, /^\/admin\/comms\/sms\/[^/]+$/, /^\/admin\/system\/crm\/plan\//, /^\/admin\/system\/drinks$/, /^\/admin\/login$/];
+const DETAIL = [/^\/admin\/pros\/(venue|org|agency):[^/]+$/, /^\/admin\/clients\/[^/]+$/, /^\/admin\/comms\/email\//, /^\/admin\/comms\/sms\/[^/]+$/, /^\/admin\/system\/connectors\/plan\//, /^\/admin\/system\/drinks$/, /^\/admin\/login$/];
 
 describe('legacyAdminTarget', () => {
   it.each(TABLE)('%s → %s', (from, to) => {
@@ -118,7 +121,7 @@ describe('currentAdminHref (liens des alertes déjà émises)', () => {
     expect(currentAdminHref('/admin/venues/v1')).toBe('/admin/pros/venue:v1');
     expect(currentAdminHref('/admin/alerts#coorg')).toBe('/admin/today/alerts#coorg');
     expect(currentAdminHref('/admin/crm/clients?open=org%3Aabc')).toBe('/admin/pros?product=crm&open=org%3Aabc');
-    expect(currentAdminHref('/admin/crm/platform?tab=day')).toBe('/admin/system/crm?tab=day');
+    expect(currentAdminHref('/admin/crm/platform?tab=day')).toBe('/admin/system/connectors?tab=day');
     expect(currentAdminHref('/admin/system')).toBe('/admin/system');
     expect(currentAdminHref('/owner/dashboard')).toBe('/owner/dashboard');
   });
@@ -152,7 +155,7 @@ describe('nav entries', () => {
     expect(activeEntry('/admin/pros/demo').entry?.key).toBe('demo');
     expect(activeEntry('/admin/pros/org:1').entry?.key).toBe('accounts');
     expect(activeEntry('/admin/pros/prospects').entry?.key).toBe('prospects');
-    expect(activeEntry('/admin/comms/email/abc/edit').entry?.key).toBe('marketing');
+    expect(activeEntry('/admin/comms/sms/s1').entry?.key).toBe('campaigns');
     expect(activeEntry('/admin').rubric.id).toBe('today');
     expect(activeEntry('/admin/today/alerts').entry?.key).toBe('alerts');
   });
