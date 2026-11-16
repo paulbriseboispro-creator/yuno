@@ -109,6 +109,9 @@ const money: AdminDict = {
   'adm.mon.ord.st.failed': ['Failed', 'Échoué', 'Fallido'],
   'adm.mon.ord.st.pending': ['Pending', 'En attente', 'Pendiente'],
   'adm.mon.ord.st.registered': ['Signed up', 'Inscrit', 'Inscrito'],
+  'adm.mon.ord.st.accepted': ['Accepted', 'Accepté', 'Aceptado'],
+  'adm.mon.ord.st.checked_in': ['Came in', 'Entré', 'Entró'],
+  'adm.mon.ord.st.rejected': ['Declined', 'Refusé', 'Rechazado'],
 
   // À régler
   'adm.mon.iss.title': ['What is left to settle?', 'Que reste-t-il à régler ?', '¿Qué queda por resolver?'],

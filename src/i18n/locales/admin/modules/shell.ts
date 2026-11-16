@@ -122,6 +122,7 @@ const dict: AdminDict = {
   'adm.ui.table.clear': ['Clear the search', 'Effacer la recherche', 'Borrar la búsqueda'],
   'adm.ui.table.range': ['{from} to {to} of {total}', '{from} à {to} sur {total}', '{from} a {to} de {total}'],
   'adm.ui.table.count': ['{n} lines', '{n} lignes', '{n} líneas'],
+  'adm.ui.table.countOne': ['{n} line', '{n} ligne', '{n} línea'],
   'adm.ui.table.prev': ['Previous', 'Précédent', 'Anterior'],
   'adm.ui.table.next': ['Next', 'Suivant', 'Siguiente'],
   'adm.ui.error.title': ['These figures could not be loaded.', 'Ces chiffres n’ont pas pu être chargés.', 'No se pudieron cargar estas cifras.'],

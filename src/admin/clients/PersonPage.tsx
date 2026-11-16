@@ -131,6 +131,14 @@ function ClubSplit({ purchases }: { purchases: Purchase[] }) {
   );
 }
 
+/** Libellé d'un statut de vente : les mêmes mots qu'Argent › Commandes (`adm.mon.ord.st.*`). */
+function orderStatusLabel(t: (k: string) => string, s: string | null): string {
+  if (!s) return '—';
+  const k = `adm.mon.ord.st.${s}`;
+  const v = t(k);
+  return v === k ? s : v;
+}
+
 function statusTone(s: string | null): Tone {
   if (!s) return 'neutral';
   if (['paid', 'used', 'confirmed', 'reserved', 'checked_in', 'entered'].includes(s)) return 'positive';
@@ -148,7 +156,7 @@ function Purchases({ rows }: { rows: Purchase[] }) {
       return <div className="min-w-0"><div className="a-t1 truncate">{r.event_title ?? '—'}</div><div className="a-t3 truncate text-[12px]">{[r.venue_name ?? r.organizer_name, r.event_at ? fmtDate(r.event_at, lang) : null].filter(Boolean).join(' · ')}</div></div>;
     } },
     { accessorKey: 'amount', header: t('adm.cl.p.col.amount'), meta: { align: 'right' }, cell: (c) => (c.row.original.kind === 'guestlist' ? '—' : fmtEur(c.getValue<number>(), lang)) },
-    { accessorKey: 'status', header: t('adm.cl.p.col.status'), cell: (c) => <Status tone={statusTone(c.row.original.status)}>{c.row.original.status ?? '—'}</Status> },
+    { accessorKey: 'status', header: t('adm.cl.p.col.status'), cell: (c) => <Status tone={statusTone(c.row.original.status)}>{orderStatusLabel(t, c.row.original.status)}</Status> },
   ];
   return (
     <DataTable data={rows} columns={cols} searchable pageSize={15} initialSort={[{ id: 'at', desc: true }]}

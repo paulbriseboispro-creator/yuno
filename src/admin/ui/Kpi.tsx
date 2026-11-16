@@ -66,9 +66,10 @@ export function Kpi({
   const { t } = useAdminT();
   const body = (
     <div className="a-card flex h-full flex-col gap-2 p-4 transition-colors" style={to ? { cursor: 'pointer' } : undefined}>
-      <div className="flex items-center gap-1">
-        <span className="a-t2 min-w-0 flex-1 truncate text-[12.5px] font-medium" title={hint}>{label}</span>
-        {to && <ChevronRight className="a-t3 h-3.5 w-3.5 flex-none" />}
+      {/* Libellé sur deux lignes au plus, jamais coupé en « Ventes de la platef… ». */}
+      <div className="flex min-h-[2.4em] items-start gap-1 text-[12.5px] leading-[1.2]">
+        <span className="a-t2 line-clamp-2 min-w-0 flex-1 break-words font-medium" title={hint}>{label}</span>
+        {to && <ChevronRight className="a-t3 mt-px h-3.5 w-3.5 flex-none" />}
       </div>
       {loading ? (
         <div className="a-skel h-7 w-24" />

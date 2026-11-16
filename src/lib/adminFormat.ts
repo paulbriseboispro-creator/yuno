@@ -44,9 +44,16 @@ export function fmtUsd(n: number | null | undefined, lang: Language = 'en'): str
   return usd(v, v !== 0 && Math.abs(v) < 1 ? 3 : 2);
 }
 
-export function fmtPct(n: number | null | undefined, digits = 0): string {
+/**
+ * Pourcentage déjà multiplié par 100. Sans `lang`, la langue de la page
+ * (`<html lang>`, posée par LanguageProvider) : « 6,0 % » en français, jamais « 6.0 % ».
+ */
+export function fmtPct(n: number | null | undefined, digits = 0, lang?: Language): string {
   if (n === null || n === undefined || Number.isNaN(Number(n))) return '—';
-  return `${Number(n).toFixed(digits)} %`;
+  const page = typeof document !== 'undefined' ? document.documentElement.lang : '';
+  const l: Language = lang ?? (page === 'fr' || page === 'es' ? page : 'en');
+  const v = Number(n).toLocaleString(localeOf(l), { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  return `${v} %`;
 }
 
 export function fmtTokens(n: number | null | undefined, lang: Language = 'en'): string {

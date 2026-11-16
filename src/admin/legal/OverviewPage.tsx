@@ -35,7 +35,7 @@ export default function OverviewPage() {
   ];
 
   return (
-    <Page title={t('adm.lg2.ov.title')} subtitle={late ? t('adm.lg2.ov.subLate', { n: late }) : todo ? t('adm.lg2.ov.subTodo', { n: todo }) : o ? t('adm.lg2.ov.subOk') : t('adm.lg2.ov.sub')}>
+    <Page title={t('adm.lg2.ov.title')} subtitle={late ? t(late === 1 ? 'adm.lg2.ov.subLateOne' : 'adm.lg2.ov.subLate', { n: late }) : todo ? t(todo === 1 ? 'adm.lg2.ov.subTodoOne' : 'adm.lg2.ov.subTodo', { n: todo }) : o ? t('adm.lg2.ov.subOk') : t('adm.lg2.ov.sub')}>
       {q.isError && !o ? <ErrorState onRetry={() => void q.refetch()} /> : (
         <KpiRow>
           <Kpi label={t('adm.lg2.ov.kl.requests')} loading={!o} value={fmtNum(o?.requests.open, lang)} to="/admin/legal/requests" hint={t('adm.lg2.ov.k.requests')} />

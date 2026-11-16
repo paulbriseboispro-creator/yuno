@@ -169,7 +169,7 @@ export function DataTable<T>({
           <span className="a-num flex-1">
             {pageCount > 1
               ? t('adm.ui.table.range', { from: fmtNum(pageIndex * size + 1, language), to: fmtNum(Math.min(filtered, (pageIndex + 1) * size), language), total: fmtNum(filtered, language) })
-              : t('adm.ui.table.count', { n: fmtNum(filtered, language) })}
+              : t(filtered === 1 ? 'adm.ui.table.countOne' : 'adm.ui.table.count', { n: fmtNum(filtered, language) })}
           </span>
           {pageCount > 1 && (
             <>
