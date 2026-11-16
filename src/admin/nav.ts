@@ -134,6 +134,8 @@ export const ADMIN_NAV: AdminRubric[] = [
       { key: 'pricing', path: '/admin/system/pricing' },
       { key: 'connectors', path: '/admin/system/connectors' },
       { key: 'ai', path: '/admin/system/ai' },
+      // Référence du kit (toutes les primitives, clair et sombre) : hors menu.
+      { key: 'ui', path: '/admin/system/ui', hidden: true },
     ],
   },
 ];

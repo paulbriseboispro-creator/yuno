@@ -15,6 +15,7 @@ const Switches = lazyWithRetry(() => import('./Switches'));
 const Pricing = lazyWithRetry(() => import('./Pricing'));
 const Connectors = lazyWithRetry(() => import('./Connectors'));
 const Ai = lazyWithRetry(() => import('./Ai'));
+const UiReference = lazyWithRetry(() => import('./UiReference'));
 const AdminDrinkCatalog = lazyWithRetry(() => import('@/pages/admin/AdminDrinkCatalog'));
 const CrmNightPlan = lazyWithRetry(() => import('@/crm/admin/pages/NightPlanAdminPage'));
 
@@ -33,6 +34,7 @@ export default function SystemRoutes() {
       <Route path="connectors" element={<Connectors />} />
       <Route path="connectors/plan/:scope/:event" element={<CrmFrame><CrmNightPlan /></CrmFrame>} />
       <Route path="ai" element={<Ai />} />
+      <Route path="ui" element={<UiReference />} />
       <Route path="crm/*" element={<LegacyHere />} />
       <Route path="settings" element={<LegacyHere />} />
       {/* Pilier boissons en pause (src/lib/drinksPillar.ts) : jamais au menu, l'adresse renvoie à Système. */}
