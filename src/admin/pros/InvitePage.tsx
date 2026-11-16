@@ -5,24 +5,24 @@
  *   club · Yuno Tickets         → création du club + invite-owner (ou lien d'accès)
  *   organisateur / association  → invite-platform-user
  *   agence                      → invite-affiliate
- *   Yuno CRM / offre fondateurs → l'écran d'invitation de l'ex-Admin CRM (crm_admin_invite_create)
- * Toutes les invitations en cours, toutes portes, sont listées dessous
- * (admin_pending_invitations).
+ *   Yuno CRM / offre fondateurs → crm_admin_invite_create (pré-profil, places
+ *                                 de l'offre fondateurs, accès assisté proposé)
+ * Toutes les invitations, toutes portes, sont listées dessous
+ * (admin_pending_invitations) ; une ligne ouvre son tiroir (`?open=<source>:<id>`)
+ * avec les gestes de sa porte (envoyer, relancer, prolonger, révoquer).
  */
-import { Suspense, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Copy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { Badge, Card, DataTable, Page, Section, Status, useAdminT, type ColumnDef } from '@/admin/ui';
 import { fmtDate, fmtRelative } from '@/lib/adminFormat';
-import { CrmFrame } from '../shell/frames';
 import { Field } from './gestures';
 import { accountHref, venueIdFromName, type AccountType } from './accounts';
 import { useInvitations, useProsRefresh, type PendingInvite } from './data';
-
-const CrmInvite = lazyWithRetry(() => import('@/crm/admin/pages/InvitePage'));
+import { CrmInviteForm } from './invite/CrmInviteForm';
+import { INVITE_TONE, InviteDrawer } from './invite/InviteDrawer';
 
 type Product = 'tickets' | 'crm' | 'founder';
 const TYPES: AccountType[] = ['club', 'organizer', 'association', 'agency'];
@@ -40,8 +40,14 @@ async function invoke(fn: string, body: Record<string, unknown>) {
 
 export default function InvitePage() {
   const { t } = useAdminT();
-  const [type, setType] = useState<AccountType | null>(null);
-  const [product, setProduct] = useState<Product | null>(null);
+  const [sp, setSp] = useSearchParams();
+  // `?type=club&product=crm` ouvre directement un formulaire ; `?f=founder` est l'ancien lien de l'offre fondateurs.
+  const founderLink = sp.get('f') === 'founder';
+  const initType = TYPES.find((v) => v === sp.get('type')) ?? (founderLink ? 'club' : null);
+  const initProduct = (['tickets', 'crm', 'founder'] as const).find((v) => v === sp.get('product')) ?? (founderLink ? 'founder' : null);
+  const [type, setType] = useState<AccountType | null>(initType);
+  const [product, setProduct] = useState<Product | null>(initType === 'agency' ? 'tickets' : initType ? initProduct : null);
+  const openInvite = (key: string) => setSp((prev) => { const n = new URLSearchParams(prev); n.set('open', key); return n; }, { replace: true });
   const products: Product[] = type === 'agency' ? ['tickets'] : ['tickets', 'crm', 'founder'];
 
   return (
@@ -60,12 +66,10 @@ export default function InvitePage() {
       {type && product === 'tickets' && (type === 'organizer' || type === 'association') && <OrganizerForm association={type === 'association'} />}
       {type === 'agency' && product === 'tickets' && <AgencyForm />}
       {type && type !== 'agency' && (product === 'crm' || product === 'founder') && (
-        <Section title={t(product === 'founder' ? 'adm.pros.inv.founderTitle' : 'adm.pros.inv.crmTitle')} description={t('adm.pros.inv.crmSub')}>
-          <div className="a-card overflow-hidden"><CrmFrame><Suspense fallback={<div className="a-skel m-6 h-40" />}><CrmInvite /></Suspense></CrmFrame></div>
-        </Section>
+        <CrmInviteForm key={`${type}:${product}`} kind={type === 'club' ? 'club' : 'organizer'} founder={product === 'founder'} onCreated={(id) => openInvite(`crm:${id}`)} />
       )}
 
-      <InvitationsList />
+      <InvitationsList onOpen={(r) => openInvite(`${r.source}:${r.id}`)} />
     </Page>
   );
 }
@@ -211,18 +215,22 @@ function CopyLink({ url }: { url: string }) {
   );
 }
 
-function InvitationsList() {
+function InvitationsList({ onOpen }: { onOpen: (r: PendingInvite) => void }) {
   const { t, lang } = useAdminT();
   const q = useInvitations();
+  const [sp, setSp] = useSearchParams();
   const [all, setAll] = useState(false);
   const rows = useMemo(() => (q.data ?? []).filter((r) => all || r.state === 'pending'), [q.data, all]);
-  const tone = (s: PendingInvite['state']) => (s === 'pending' ? 'warning' : s === 'accepted' ? 'positive' : 'neutral') as 'warning' | 'positive' | 'neutral';
+  const tone = (s: PendingInvite['state']) => INVITE_TONE[s];
+  const openKey = sp.get('open');
+  const opened = openKey ? (q.data ?? []).find((r) => `${r.source}:${r.id}` === openKey) ?? null : null;
+  const close = () => setSp((prev) => { const n = new URLSearchParams(prev); n.delete('open'); return n; }, { replace: true });
   const columns: ColumnDef<PendingInvite, unknown>[] = [
     {
       id: 'who', header: t('adm.pros.pr.col.who'), accessorFn: (r) => `${r.name ?? ''} ${r.email ?? ''}`,
       cell: ({ row: { original: r } }) => (
         <div className="min-w-0">
-          <div className="a-t1 truncate font-medium">{r.account_key ? <Link className="hover:underline" to={accountHref(r.account_key)}>{r.name ?? r.email}</Link> : (r.name ?? r.email ?? '—')}</div>
+          <div className="a-t1 truncate font-medium">{r.account_key ? <Link className="hover:underline" to={accountHref(r.account_key)} onClick={(e) => e.stopPropagation()}>{r.name ?? r.email}</Link> : (r.name ?? r.email ?? '—')}</div>
           {r.name && <div className="a-t3 truncate text-[12px]">{r.email}</div>}
         </div>
       ),
@@ -237,7 +245,9 @@ function InvitationsList() {
     <Section title={t('adm.pros.inv.listTitle')} description={t('adm.pros.inv.listSub')}
       actions={<label className="a-t2 inline-flex items-center gap-1.5 text-[12.5px]"><input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} />{t('adm.pros.inv.showAll')}</label>}>
       <DataTable data={rows} columns={columns} loading={q.isLoading} error={q.error} onRetry={() => void q.refetch()} searchable
-        getRowId={(r) => `${r.source}:${r.id}`} initialSort={[{ id: 'at', desc: true }]} empty={{ title: t('adm.pros.inv.empty') }} />
+        getRowId={(r) => `${r.source}:${r.id}`} initialSort={[{ id: 'at', desc: true }]} empty={{ title: t('adm.pros.inv.empty') }}
+        onRowClick={onOpen} />
+      {opened && <InviteDrawer key={openKey ?? ''} row={opened} onClose={close} />}
     </Section>
   );
 }
