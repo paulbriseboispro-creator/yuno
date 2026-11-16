@@ -17,7 +17,7 @@ export const RUBRIC_IDS = ['today', 'pilot', 'pros', 'clients', 'money', 'comms'
 export type RubricId = (typeof RUBRIC_IDS)[number];
 
 /** Identifiant d'un compteur de la barre latérale, servi par `useNavBadges`. */
-export type NavBadgeKey = 'alertsUnread';
+export type NavBadgeKey = 'alertsUnread' | 'todayUrgent';
 
 export interface AdminNavEntry {
   /** Clé du libellé : `adm.nav2.<rubrique>.<key>`. */
@@ -49,8 +49,8 @@ export const ADMIN_NAV: AdminRubric[] = [
   {
     id: 'today', base: '/admin', icon: 'Inbox',
     entries: [
-      { key: 'home', path: '/admin', end: true },
-      { key: 'alerts', path: '/admin/today/alerts', badge: 'alertsUnread' },
+      { key: 'home', path: '/admin', end: true, badge: 'todayUrgent' },
+      { key: 'alerts', path: '/admin/today/alerts' },
       { key: 'feedback', path: '/admin/today/feedback' },
     ],
   },

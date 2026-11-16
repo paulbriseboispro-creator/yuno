@@ -38,8 +38,8 @@ const dict: AdminDict = {
   'adm.nav2.today': ['Today', 'Aujourd’hui', 'Hoy'],
   'adm.nav2.today.q': ['What needs a decision?', 'Qu’est-ce qui demande une décision ?', '¿Qué necesita una decisión?'],
   'adm.nav2.today.home': ['To do', 'À traiter', 'Por hacer'],
-  'adm.nav2.today.alerts': ['Alerts', 'Alertes', 'Alertas'],
-  'adm.nav2.today.feedback': ['Feedback', 'Retours', 'Comentarios'],
+  'adm.nav2.today.alerts': ['All alerts', 'Toutes les alertes', 'Todas las alertas'],
+  'adm.nav2.today.feedback': ['Support and feedback', 'Support et retours', 'Soporte y comentarios'],
 
   'adm.nav2.pilot': ['Insights', 'Pilotage', 'Pilotaje'],
   'adm.nav2.pilot.q': ['How is the business doing?', 'Comment va l’entreprise ?', '¿Cómo va la empresa?'],
