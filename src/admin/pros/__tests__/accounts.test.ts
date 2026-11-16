@@ -1,7 +1,11 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import pros from '@/i18n/locales/admin/modules/pros';
+import prosBase from '@/i18n/locales/admin/modules/pros';
+import prosRewrite from '@/i18n/locales/admin/modules/prosRewrite';
+
+/** Les textes de la rubrique : le module du lot 2 et celui de la réécriture au kit (17/11). */
+const pros = { ...prosBase, ...prosRewrite };
 import {
   LIFECYCLE, accountHref, accountKpis, citiesOf, consoleLanding, matchesFilters, parseAccountKey, venueIdFromName,
   DEFAULT_FILTERS, type AccountRow,
@@ -104,6 +108,15 @@ describe('texts', () => {
       ...['added', 'invited', 'gifted', 'grant_ended'].map((x) => `adm.pros.pa.${x}`),
       ...['pending_signatures', 'active', 'locked'].map((x) => `adm.pros.collab.${x}`),
       ...['pending', 'active'].map((x) => `adm.pros.support.${x}`),
+      // Réécriture au kit (17/11) : Démo, Inviter, Pipeline, vues CRM.
+      ...['ready', 'opened', 'created', 'expired', 'cut'].map((x) => `adm.pros.dl.st.${x}`),
+      ...['ready', 'opened', 'started', 'created'].map((x) => `adm.pros.dl.su.${x}`),
+      ...['fr', 'en', 'es'].map((x) => `adm.pros.dl.lang.${x}`),
+      ...['ready', 'sent', 'opened', 'started', 'claimed', 'expired', 'revoked'].map((x) => `adm.pros.iv.st.${x}`),
+      ...['offered', 'pending', 'active'].map((x) => `adm.pros.iv.support.${x}`),
+      ...['prospect', 'contacted', 'demo', 'trial', 'paid', 'lost'].map((x) => `adm.pros.pl.s.${x}`),
+      ...['board', 'targets', 'forecast', 'lost'].map((x) => `adm.pros.pl.v.${x}`),
+      ...['all', 'risk', 'onboarding'].map((x) => `adm.pros.cv.v.${x}`),
     ];
     for (const k of dyn) expect(pros[k], k).toBeDefined();
   });
