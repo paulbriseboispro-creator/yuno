@@ -2,20 +2,15 @@ import type { AdminDict, Triple } from './types';
 import common from './common';
 import layout from './layout';
 import cockpit from './cockpit';
-import growth from './growth';
-import revenue from './revenue';
 import product from './product';
 import ai from './ai';
-import customers from './customers';
 import links from './links';
 import venues from './venues';
 import organizers from './organizers';
 import agencies from './agencies';
 import events from './events';
 import people from './people';
-import orders from './orders';
 import demo from './demo';
-import support from './support';
 import alerts from './alerts';
 import audit from './audit';
 import feedback from './feedback';
@@ -45,8 +40,8 @@ import comms from './comms';
 
 /** Toutes les clés du super admin, un module par page. */
 export const ADMIN_DICT: AdminDict = {
-  ...common, ...layout, ...cockpit, ...growth, ...revenue, ...product, ...ai, ...customers, ...links,
-  ...venues, ...organizers, ...agencies, ...events, ...people, ...orders, ...demo, ...support, ...alerts,
+  ...common, ...layout, ...cockpit, ...product, ...ai, ...links,
+  ...venues, ...organizers, ...agencies, ...events, ...people, ...demo, ...alerts,
   ...audit, ...feedback, ...push, ...automations, ...system, ...marketing, ...drinks, ...signups, ...crmAdmin, ...crmAdmin2, ...crmAdmin3, ...crmAdmin4, ...crmAdminAnalysis, ...crmAdminFounder, ...crmAdminInvite, ...crmAdminSms, ...crmAdminCustomerBasis, ...shell, ...today, ...pros, ...clients, ...pilotage, ...money, ...legal, ...comms,
 };
 

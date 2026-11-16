@@ -11,6 +11,7 @@ import { Editor, AuditTab } from '@/crm/admin/pages/SettingsPage';
 import LifecycleTab from '@/crm/admin/pages/LifecycleTab';
 import { LearningTab } from '@/crm/admin/pages/LearningTab';
 import { CustomerBasisTab } from '@/crm/admin/pages/CustomerBasisAdmin';
+import PriceTierCard from '@/crm/admin/pages/PriceTierCard';
 import { CrmFrame } from '../shell/frames';
 
 export default function Pricing() {
@@ -34,7 +35,7 @@ export default function Pricing() {
             : tab === 'customers' ? <CustomerBasisTab />
             : !q.data ? <div className="a-skel h-64" />
             : tab === 'history' ? <AuditTab history={q.data.history} />
-            : <Editor cfg={q.data.cfg} mode="offer" />}
+            : <><PriceTierCard /><Editor cfg={q.data.cfg} mode="offer" /></>}
         </div>
       </CrmFrame>
     </Page>

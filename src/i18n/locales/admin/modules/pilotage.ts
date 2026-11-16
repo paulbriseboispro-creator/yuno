@@ -62,6 +62,8 @@ const pilotage: AdminDict = {
   'adm.pil.acq.started': ['Started', 'Démarrés', 'Iniciados'],
   'adm.pil.acq.sources': ['Sources', 'Provenances', 'Procedencias'],
   'adm.pil.acq.sourcesSub': ['How each person first arrived.', 'Comment chaque personne est arrivée la première fois.', 'Cómo llegó cada persona la primera vez.'],
+  'adm.pil.acq.landing': ['The Yuno CRM landing page', 'La page publique de Yuno CRM', 'La página pública de Yuno CRM'],
+  'adm.pil.acq.landingSub': ['Visits to crm.yunoapp.eu, measured without cookies.', 'Les visites de crm.yunoapp.eu, mesurées sans cookie.', 'Las visitas a crm.yunoapp.eu, medidas sin cookies.'],
   'adm.pil.acq.source': ['Source', 'Provenance', 'Procedencia'],
   'adm.pil.acq.noSources': ['No sign-up during this period.', 'Aucune inscription sur cette période.', 'Ninguna alta en este periodo.'],
 
