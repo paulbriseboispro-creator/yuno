@@ -78,7 +78,7 @@ export default function FeedbackPage() {
   }, { replace: true });
 
   const update = useMutation({
-    mutationFn: async (v: { id: string; patch: Record<string, string | null> }) => {
+    mutationFn: async (v: { id: string; patch: { status?: string; priority?: string; resolved_at?: string | null } }) => {
       const { error } = await supabase.from('feedback_issues').update(v.patch).eq('id', v.id);
       if (error) throw error;
     },
