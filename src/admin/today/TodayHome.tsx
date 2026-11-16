@@ -1,37 +1,65 @@
 /**
- * « Aujourd'hui », PROVISOIRE (lot 0) : le « À faire aujourd'hui » de
- * l'ex-Admin CRM, puis le Cockpit de la Suite, tels quels. Le lot 1 le
- * remplace par la file unique `admin_today` (une ligne par chose à faire,
- * chacune avec son action), six chiffres, les feux et le fil d'activité.
+ * Accueil de l'admin, rubrique « Aujourd'hui » (lot 1) : qu'est-ce qui
+ * demande une décision aujourd'hui ?
+ *   1. la semaine en six chiffres, comparée à la précédente ;
+ *   2. la file unique `admin_today` (une ligne par chose à faire, son action,
+ *      « Traité », « Plus tard ») ;
+ *   3. quatre feux de santé (bloc `health` d'admin_cockpit) ;
+ *   4. un fil d'activité Billetterie + CRM.
+ * L'ancien Cockpit vit sous Pilotage ; l'ancien « à faire » CRM est dans la file.
  */
-import { lazy, Suspense, useMemo } from 'react';
-import { buildTodo } from '@/crm/lib/admin';
-import { TodoCard } from '@/crm/admin/pages/CockpitPage';
-import { useAdminAccounts } from '@/crm/admin/data';
-import { CrmFrame, PageBoundary, SuiteFrame } from '../shell/frames';
-import { PageLoading } from '../shell/AdminShell';
-
-const AdminCockpit = lazy(() => import('@/pages/admin/AdminCockpit'));
-
-function CrmTodo() {
-  const q = useAdminAccounts();
-  const todo = useMemo(() => (q.data ? buildTodo(q.data.accounts) : []), [q.data]);
-  if (!q.data) return null;
-  return (
-    <div style={{ maxWidth: 1360, margin: '0 auto', padding: '24px clamp(16px,3vw,40px) 8px' }}>
-      <TodoCard todo={todo} />
-    </div>
-  );
-}
+import { RefreshCw } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { fmtEur, fmtNum } from '@/lib/adminFormat';
+import { Kpi, KpiRow, Page, Section, useAdminFilters, useAdminT } from '@/admin/ui';
+import { TODAY_KEY, useCockpit, useToday } from './data';
+import { TodayQueue } from './TodayQueue';
+import { HealthLights } from './HealthLights';
+import { ActivityFeed } from './ActivityFeed';
 
 export default function TodayHome() {
+  const { t, lang } = useAdminT();
+  const { includeDemo } = useAdminFilters();
+  const qc = useQueryClient();
+  const today = useToday(includeDemo);
+  const cockpit = useCockpit(includeDemo);
+  const k = today.data?.kpis;
+  const gmv = cockpit.data;
+
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: TODAY_KEY });
+    void cockpit.refetch();
+  };
+
   return (
-    <>
-      {/* Deux blocs, deux pare-feu : l'un qui casse laisse l'autre lisible. */}
-      <PageBoundary resetKey="crm-todo"><CrmFrame><CrmTodo /></CrmFrame></PageBoundary>
-      <PageBoundary resetKey="cockpit">
-        <SuiteFrame><Suspense fallback={<PageLoading />}><AdminCockpit /></Suspense></SuiteFrame>
-      </PageBoundary>
-    </>
+    <Page title={t('adm.today.title')} subtitle={t('adm.today.subtitle')}
+      actions={(
+        <button type="button" className="a-btn a-btn--sm" onClick={refresh} disabled={today.isFetching}>
+          <RefreshCw className="h-3.5 w-3.5" />{t('adm.today.refresh')}
+        </button>
+      )}>
+      <Section title={t('adm.today.kpi.title')} description={t('adm.today.kpi.desc')}>
+        <KpiRow>
+          <Kpi label={t('adm.today.kpi.gmv')} hint={t('adm.today.kpi.gmv.hint')} loading={!gmv}
+            value={fmtEur(gmv?.week.gmv, lang)} current={gmv?.week.gmv} previous={gmv?.prev_week.gmv} to="/admin/money/orders" />
+          <Kpi label={t('adm.today.kpi.revenue')} hint={t('adm.today.kpi.revenue.hint')} loading={!k}
+            value={fmtEur(k?.revenue.cur, lang)} current={k?.revenue.cur} previous={k?.revenue.prev} to="/admin/money" />
+          <Kpi label={t('adm.today.kpi.mrr')} hint={t('adm.today.kpi.mrr.hint')} loading={!k}
+            value={fmtEur(k?.mrr.cur, lang)} current={k?.mrr.cur} previous={k?.mrr.prev} to="/admin/money/crm" />
+          <Kpi label={t('adm.today.kpi.newPros')} hint={t('adm.today.kpi.newPros.hint')} loading={!k}
+            value={fmtNum(k?.new_pros.cur, lang)} current={k?.new_pros.cur} previous={k?.new_pros.prev} to="/admin/pilot/signups" />
+          <Kpi label={t('adm.today.kpi.activePros')} hint={t('adm.today.kpi.activePros.hint')} loading={!k}
+            value={fmtNum(k?.active.cur, lang)} current={k?.active.cur} previous={k?.active.prev} to="/admin/pros/venues" />
+          <Kpi label={t('adm.today.kpi.buyers')} hint={t('adm.today.kpi.buyers.hint')} loading={!k}
+            value={fmtNum(k?.buyers.cur, lang)} current={k?.buyers.cur} previous={k?.buyers.prev} to="/admin/clients" />
+        </KpiRow>
+      </Section>
+
+      <TodayQueue items={today.data?.items} loading={today.isLoading} error={today.error} onRetry={() => void today.refetch()} />
+
+      <HealthLights health={cockpit.data?.health} loading={cockpit.isLoading} error={cockpit.error} onRetry={() => void cockpit.refetch()} />
+
+      <ActivityFeed includeDemo={includeDemo} />
+    </Page>
   );
 }

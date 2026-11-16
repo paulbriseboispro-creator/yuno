@@ -6,6 +6,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { NavBadgeKey } from '../nav';
+import { useTodayUrgentCount } from '../today/data';
 
 export function useNavBadges(): Partial<Record<NavBadgeKey, number>> {
   const alerts = useQuery({
@@ -21,5 +22,7 @@ export function useNavBadges(): Partial<Record<NavBadgeKey, number>> {
     staleTime: 60_000,
     refetchInterval: 120_000,
   });
-  return { alertsUnread: alerts.data ?? 0 };
+  // Rubrique « Aujourd'hui » : lignes urgentes de la file, pas encore traitées.
+  const todayUrgent = useTodayUrgentCount();
+  return { alertsUnread: alerts.data ?? 0, todayUrgent };
 }
