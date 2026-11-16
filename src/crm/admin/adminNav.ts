@@ -10,7 +10,7 @@ export const ADMIN_ROUTES = {
   acquisition: '/admin/pilot/acquisition',
   sales: '/admin/pros/prospects?tab=pipeline',
   invite: '/admin/pros/invite',
-  demo: '/admin/pros/demo?tab=crm',
+  demo: '/admin/pros/demo?product=crm',
   support: '/admin/pros/support',
   clients: '/admin/pros?product=crm',
   clientsRisks: '/admin/pros/crm?tab=risks',
