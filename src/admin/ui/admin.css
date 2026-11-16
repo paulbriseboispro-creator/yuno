@@ -331,3 +331,75 @@
   [data-admin] .a-skel { animation: none; }
   [data-admin] * { transition-duration: 0ms !important; }
 }
+
+/* ── Écrans hérités : ils prennent les couleurs et la police du kit ──
+ * SuiteFrame (`.a-legacy`) : les pages de l'ancien admin lisent les variables du
+ * thème pro (`--ink` en triplet RGB, `--sf-…` pour les surfaces, `--acc-…`) ; on les
+ * redéfinit ici pour qu'elles tombent sur les tokens `--a-*`, sans toucher aux pages.
+ * CrmFrame (`.a-crm-legacy`) : mêmes principes avec les variables de crm.css. */
+[data-admin] .a-legacy {
+  --ink: 33 32 28;
+  --sheen: 0 0 0;
+  --pro-shadow-a: 0;
+  --sf-000000: var(--a-bg);
+  --sf-050506: var(--a-bg);
+  --sf-08080a: var(--a-panel);
+  --sf-0a0a0c: var(--a-panel);
+  --sf-0d0d10: var(--a-panel);
+  --sf-0f0f12: var(--a-subtle);
+  --sf-141416: var(--a-subtle);
+  --acc-34d399: var(--a-pos);
+  --acc-ff5c63: var(--a-neg);
+  --acc-fcd34d: var(--a-warn);
+  font-family: var(--a-font-sans);
+  background: var(--a-bg);
+  color: var(--a-text);
+}
+[data-admin][data-admin-theme='dark'] .a-legacy { --ink: 238 238 236; }
+[data-admin] .a-legacy :is(h1, h2, h3, h4) { font-family: var(--a-font-sans) !important; letter-spacing: -0.015em; }
+
+[data-admin] .yc.a-crm-legacy {
+  --white: var(--a-panel);
+  --paper: var(--a-bg);
+  --sand-50: var(--a-subtle);
+  --sand-100: var(--a-hover);
+  --sand-200: var(--a-border);
+  --sand-300: var(--a-border-strong);
+  --sand-400: var(--a-text-3);
+  --sand-500: var(--a-text-3);
+  --sand-600: var(--a-text-2);
+  --sand-700: var(--a-text);
+  --ink: var(--a-text);
+  --red-50: var(--a-red-2);
+  --red-100: var(--a-red-3);
+  --red-200: var(--a-red-5);
+  --red-500: var(--a-accent);
+  --red-600: var(--a-accent-text);
+  --bg-base: var(--a-panel);
+  --bg-subtle: var(--a-subtle);
+  --surface-card: var(--a-panel);
+  --surface-muted: var(--a-subtle);
+  --text-primary: var(--a-text);
+  --text-secondary: var(--a-text-2);
+  --text-tertiary: var(--a-text-3);
+  --border-default: var(--a-border);
+  --border-strong: var(--a-border-strong);
+  --accent-start: var(--a-accent);
+  --accent-end: var(--a-accent);
+  --gradient-brand: var(--a-accent);
+  --focus-ring: 0 0 0 3px var(--a-ring);
+  --font-display: var(--a-font-sans);
+  --font-body: var(--a-font-sans);
+  --font-mono: var(--a-font-mono);
+  --radius-card: 12px;
+  --radius-card-sm: 12px;
+  --radius-frame: 12px;
+  --shadow-xs: var(--a-shadow);
+  --shadow-sm: var(--a-shadow);
+  --shadow-md: var(--a-shadow);
+  --shadow-cta: none;
+  --noise: none;
+  background: var(--a-bg);
+  color: var(--a-text);
+  font-family: var(--a-font-sans);
+}

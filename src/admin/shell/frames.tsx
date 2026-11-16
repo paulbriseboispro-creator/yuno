@@ -18,7 +18,8 @@ import { useAdminT } from '../ui/i18n';
 import { ErrorState } from '../ui/EmptyState';
 
 export function SuiteFrame({ children }: { children: ReactNode }) {
-  return <div className="min-h-full" style={{ background: 'var(--sf-000000)', color: 'rgb(var(--ink))' }}>{children}</div>;
+  // `.a-legacy` redéfinit les variables du thème pro sur les tokens du kit (admin.css).
+  return <div className="a-legacy min-h-full">{children}</div>;
 }
 
 const CRM_FONTS = 'https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=swap';
@@ -34,11 +35,12 @@ export function CrmFrame({ children }: { children: ReactNode }) {
   }, []);
   if (!ready) return <div className="a-skel m-8 h-40" />;
   return (
-    <div className="yc yc-page-bg min-h-full" style={{ colorScheme: 'light' }}>
+    // `.a-crm-legacy` redéfinit les variables de crm.css sur les tokens du kit (clair et sombre).
+    <div className="yc yc-page-bg a-crm-legacy min-h-full">
       <CrmToastProvider>
         <CrmErrorBoundary resetKey={pathname}>{children}</CrmErrorBoundary>
       </CrmToastProvider>
-      <div id="yc-portal" className="yc" />
+      <div id="yc-portal" className="yc a-crm-legacy" />
     </div>
   );
 }
