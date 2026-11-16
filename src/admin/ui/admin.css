@@ -1,0 +1,314 @@
+/*
+ * Kit de l'admin Yuno (lot 0 de la refonte, docs/designs/ADMIN_REBUILD_PLAN.md).
+ *
+ * Outil interne sobre : neutres + UNE couleur d'accent, clair et sombre, Geist
+ * Sans + Geist Mono auto-hébergées. Tout est posé sous `[data-admin]` (la racine
+ * de la coquille) : rien ne fuit vers le reste de l'app. Le thème suit
+ * `data-admin-theme` (clair / sombre), lui-même calé sur la préférence des
+ * dashboards pro (useProTheme), pour que les écrans hérités et la coquille
+ * changent ensemble.
+ *
+ * Règle : une page de l'admin ne déclare JAMAIS une couleur ; elle lit ces
+ * variables, directement ou par les primitives de src/admin/ui.
+ */
+
+[data-admin] {
+  --a-font-sans: 'Geist Variable', 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --a-font-mono: 'Geist Mono Variable', 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --a-radius-sm: 6px;
+  --a-radius: 8px;
+  --a-radius-lg: 12px;
+
+  /* Clair (défaut) */
+  --a-bg: #fafafa;
+  --a-panel: #ffffff;
+  --a-subtle: #f4f4f5;
+  --a-hover: #efeff1;
+  --a-active: #e8e8eb;
+  --a-border: #e6e6e9;
+  --a-border-strong: #d4d4d8;
+  --a-text: #18181b;
+  --a-text-2: #52525b;
+  --a-text-3: #8a8a93;
+  --a-accent: #3e63dd;
+  --a-accent-hover: #3358d4;
+  --a-accent-fg: #ffffff;
+  --a-accent-soft: #edf2fe;
+  --a-accent-text: #3a5bc7;
+  --a-ring: rgba(62, 99, 221, 0.35);
+  --a-pos: #15803d;
+  --a-pos-soft: #ecfdf3;
+  --a-neg: #c62828;
+  --a-neg-soft: #fef2f2;
+  --a-warn: #b45309;
+  --a-warn-soft: #fffbeb;
+  --a-prev: #b4b4bb;
+  --a-grid: #ececef;
+  --a-chart-1: #3e63dd;
+  --a-chart-2: #0d9488;
+  --a-chart-3: #d97706;
+  --a-chart-4: #9333ea;
+  --a-chart-5: #db2777;
+  --a-shadow: 0 1px 2px rgba(16, 16, 20, 0.04), 0 1px 1px rgba(16, 16, 20, 0.02);
+  --a-shadow-pop: 0 12px 40px -8px rgba(16, 16, 20, 0.22), 0 0 0 1px rgba(16, 16, 20, 0.06);
+  --a-overlay: rgba(10, 10, 12, 0.32);
+
+  color-scheme: light;
+  font-family: var(--a-font-sans);
+  color: var(--a-text);
+  background: var(--a-bg);
+  font-feature-settings: 'cv11', 'ss01';
+  -webkit-font-smoothing: antialiased;
+}
+
+[data-admin][data-admin-theme='dark'] {
+  --a-bg: #0a0a0b;
+  --a-panel: #111113;
+  --a-subtle: #17171a;
+  --a-hover: #1d1d21;
+  --a-active: #232328;
+  --a-border: #232327;
+  --a-border-strong: #313137;
+  --a-text: #ededef;
+  --a-text-2: #a3a3ab;
+  --a-text-3: #6f6f78;
+  --a-accent: #5b7ff0;
+  --a-accent-hover: #7090f3;
+  --a-accent-fg: #ffffff;
+  --a-accent-soft: #182449;
+  --a-accent-text: #9db1ff;
+  --a-ring: rgba(91, 127, 240, 0.45);
+  --a-pos: #3fbf72;
+  --a-pos-soft: #0f2a1b;
+  --a-neg: #f0625d;
+  --a-neg-soft: #33130f;
+  --a-warn: #f0a33a;
+  --a-warn-soft: #2e2010;
+  --a-prev: #4b4b53;
+  --a-grid: #1f1f23;
+  --a-chart-1: #5b7ff0;
+  --a-chart-2: #2dd4bf;
+  --a-chart-3: #f0a33a;
+  --a-chart-4: #b67cf5;
+  --a-chart-5: #f472b6;
+  --a-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --a-shadow-pop: 0 16px 48px -8px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --a-overlay: rgba(0, 0, 0, 0.55);
+  color-scheme: dark;
+}
+
+/* Portails (Radix, cmdk) : ils sortent de la coquille, ils reprennent la marque. */
+[data-admin] *,
+[data-admin]::before,
+[data-admin]::after {
+  border-color: var(--a-border);
+}
+
+[data-admin] .a-mono {
+  font-family: var(--a-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+[data-admin] .a-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Surfaces ── */
+[data-admin] .a-card {
+  background: var(--a-panel);
+  border: 1px solid var(--a-border);
+  border-radius: var(--a-radius-lg);
+  box-shadow: var(--a-shadow);
+}
+[data-admin] .a-subtle {
+  background: var(--a-subtle);
+}
+
+/* ── Texte ── */
+[data-admin] .a-t1 { color: var(--a-text); }
+[data-admin] .a-t2 { color: var(--a-text-2); }
+[data-admin] .a-t3 { color: var(--a-text-3); }
+[data-admin] .a-label {
+  color: var(--a-text-3);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* ── Boutons ──
+ * `.a-btn` porte son `display` : une classe d'affichage Tailwind (`hidden`,
+ * `md:inline-flex`) posée sur le bouton lui-même perd ; la poser sur un conteneur. */
+[data-admin] .a-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--a-radius);
+  border: 1px solid var(--a-border);
+  background: var(--a-panel);
+  color: var(--a-text);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms, color 120ms;
+}
+[data-admin] .a-btn:hover { background: var(--a-hover); }
+[data-admin] .a-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+[data-admin] .a-btn:focus-visible,
+[data-admin] .a-focus:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--a-ring);
+}
+[data-admin] .a-btn--primary {
+  background: var(--a-accent);
+  border-color: var(--a-accent);
+  color: var(--a-accent-fg);
+}
+[data-admin] .a-btn--primary:hover { background: var(--a-accent-hover); }
+[data-admin] .a-btn--danger {
+  background: var(--a-neg);
+  border-color: var(--a-neg);
+  color: #fff;
+}
+[data-admin] .a-btn--danger:hover { filter: brightness(1.06); background: var(--a-neg); }
+[data-admin] .a-btn--ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--a-text-2);
+}
+[data-admin] .a-btn--ghost:hover { background: var(--a-hover); color: var(--a-text); }
+[data-admin] .a-btn--sm { height: 28px; padding: 0 10px; font-size: 12.5px; }
+[data-admin] .a-btn--icon { width: 32px; padding: 0; }
+
+/* ── Champs ── */
+[data-admin] .a-input {
+  height: 32px;
+  width: 100%;
+  padding: 0 10px;
+  border-radius: var(--a-radius);
+  border: 1px solid var(--a-border);
+  background: var(--a-panel);
+  color: var(--a-text);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+[data-admin] .a-input::placeholder { color: var(--a-text-3); }
+[data-admin] .a-input:focus { border-color: var(--a-accent); box-shadow: 0 0 0 3px var(--a-ring); }
+[data-admin] textarea.a-input { height: auto; padding: 8px 10px; line-height: 1.5; resize: vertical; }
+
+/* ── Kbd ── */
+[data-admin] .a-kbd {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 5px;
+  border: 1px solid var(--a-border);
+  background: var(--a-subtle);
+  color: var(--a-text-3);
+  font-family: var(--a-font-mono);
+  font-size: 11px;
+}
+
+/* ── Segment (choix de période, onglets « pilules ») ── */
+[data-admin] .a-seg {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  border-radius: var(--a-radius);
+  background: var(--a-subtle);
+  border: 1px solid var(--a-border);
+}
+[data-admin] .a-seg > button {
+  height: 26px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--a-text-2);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+[data-admin] .a-seg > button[aria-pressed='true'] {
+  background: var(--a-panel);
+  color: var(--a-text);
+  box-shadow: var(--a-shadow);
+}
+
+/* ── Tableau ── */
+[data-admin] .a-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+[data-admin] .a-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--a-subtle);
+  color: var(--a-text-2);
+  font-weight: 500;
+  font-size: 12px;
+  text-align: left;
+  padding: 0 12px;
+  height: 34px;
+  border-bottom: 1px solid var(--a-border);
+  white-space: nowrap;
+}
+[data-admin] .a-table td {
+  padding: 0 12px;
+  height: 42px;
+  border-bottom: 1px solid var(--a-border);
+  color: var(--a-text);
+}
+[data-admin] .a-table tbody tr:last-child td { border-bottom: 0; }
+[data-admin] .a-table tbody tr[data-clickable='true'] { cursor: pointer; }
+[data-admin] .a-table tbody tr:hover td { background: var(--a-subtle); }
+
+/* ── Squelette ── */
+@keyframes a-pulse { 50% { opacity: 0.5; } }
+[data-admin] .a-skel {
+  background: var(--a-subtle);
+  border-radius: var(--a-radius-sm);
+  animation: a-pulse 1.6s ease-in-out infinite;
+}
+
+/* ── Palette ⌘K (cmdk) ── */
+[data-admin] [cmdk-input] {
+  width: 100%;
+  height: 48px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--a-text);
+  font: inherit;
+  font-size: 15px;
+}
+[data-admin] [cmdk-input]::placeholder { color: var(--a-text-3); }
+[data-admin] [cmdk-group-heading] {
+  padding: 8px 10px 4px;
+  color: var(--a-text-3);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+[data-admin] [cmdk-item] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 10px;
+  border-radius: var(--a-radius);
+  color: var(--a-text);
+  font-size: 13.5px;
+  cursor: pointer;
+  user-select: none;
+}
+[data-admin] [cmdk-item][data-selected='true'] { background: var(--a-hover); }
+[data-admin] [cmdk-empty] { padding: 24px 12px; color: var(--a-text-3); font-size: 13.5px; text-align: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-admin] .a-skel { animation: none; }
+}
