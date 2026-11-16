@@ -1,6 +1,6 @@
 # Refonte de l'admin Yuno — un seul admin, organisé par question
 
-Date : 2026-11-16. Statut : architecture validée par Paul ; lot 0 (fondations) construit le 16/11, voir la section 7.
+Date : 2026-11-16. Statut : architecture validée par Paul ; lots 0 à 7 construits et assemblés le 16/11 sur la branche `claude/admin-rebuild-integration-024194` (section 7), PAS en ligne : migrations à appliquer puis front à déployer (section 9).
 Sources : audit de l'existant (36 entrées de menu, 2 admins, 121 RPC) et étude
 des back-offices de marketplace / SaaS (a16z, Stripe Connect, Stephen Few,
 guides d'accès assisté, RGPD / DSA / DAC7).
@@ -104,7 +104,9 @@ disjoints), puis lot 7. Une migration par lot, jouée une à la fois sur la prod
 - Coûts réels (Resend, Octopush, Supabase) : pas d'API branchée aujourd'hui ;
   ils seront saisis à la main dans un réglage, comme la marge CRM.
 
-## 7. Ce qui est construit (lot 0, 16/11)
+## 7. Ce qui est construit (lots 0 à 7, 16/11)
+
+### Lot 0 : fondations
 
 Branche `claude/admin-rebuild-lot0-74a2d1`. Un seul admin, monté à `/admin/*`
 (`src/App.tsx` ne contient plus qu'une ligne : `<Route path="/admin/*" element={<AdminApp />} />`).
@@ -444,6 +446,91 @@ le dépôt (`docs/legal/*`, `src/data/legalContent.ts`, `LEGAL_VERSIONS`) ou se 
   accès assistés vivent dans Pros › Accès assisté (lot 2) ; `src/crm/admin/pages/LegalPage.tsx`
   et `IncidentsSection.tsx` n'ont plus de route (lot 7 : à supprimer).
 
+### Lot 6 : Communication et Système (16/11)
+
+Branche `claude/admin-rebuild-lot6-470c27`. Migration `20261218160000_admin_platform_switches.sql`
+(une seule RPC, `admin_set_platform_switch` : Maintenance et Paiements avec motif, au journal ; répétée,
+non appliquée). Le reste assemble des RPC déjà en base.
+
+- **Communication** (`src/admin/comms/`) : `Campaigns` (index : base marketing de Yuno, e-mail / SMS / push en
+  onglets, éditeurs hérités dans leur cadre), `Engine` (chiffres comparés à la période précédente par la même
+  RPC sur 2 × la durée, courbe à une échelle, onglets Règles et textes / Politique / Crédits), `Deliverability`
+  (UN endroit : pool, plaintes, rebonds, spam Gmail, comptes à l'écart, courbe des envois, comptes expéditeurs,
+  Gmail et Postmaster, sous-domaines d'envoi, suppressions ; chaque geste par `ReasonDialog`), `Links` (page bio :
+  leads et liste d'attente restent dans leurs onglets hérités tant que Pros › Prospects n'est pas fusionné).
+  Le pool e-mail du mois n'est affiché que dans Délivrabilité.
+- **Système** (`src/admin/system/`) : `Health` (cinq états + une section par état ; crons en UNE liste, sans e-mail),
+  `Switches` (Maintenance, Paiements, canaux CRM, registre hérité des notifications, journal des modifications),
+  `Pricing` (en-tête et onglets au kit ; contenu de l'ex-Admin CRM gardé dans `CrmFrame`), `Connectors`
+  (Shotgun et scénarios natifs ; `connectors/plan/:scope/:event` garde l'écran du plan), `Ai` (coût et erreurs).
+- **Adresses** : `/admin/system/crm(/plan/…)` et `/admin/system/settings` redirigent (`redirects.ts`, testé).
+- **Reste hérité** : formulaires de règles, textes et crédits des notifications (`AdminNotificationAutomations`,
+  exportés), registre `SystemTab`, éditeurs Email Studio / SMS / push, `AdminLinks`, contenu des onglets de
+  `Pricing` (grille de prix, cycle de vie, analyse, « Vos clients »), plan d'un prospect.
+- **Pas de comparaison** sur les chiffres de Délivrabilité (taux sur 30 jours glissants, aucune série précédente en base).
+
+### Lot 7 : assemblage (16/11)
+
+Branche `claude/admin-rebuild-integration-024194` (partie du lot 0) : les lots 1 à 6
+fusionnés dans l'ordre, un commit de fusion par lot, conflits réglés en gardant le
+travail de chacun (`nav.ts`, `redirects.ts` et son test, `searchHref.ts`,
+`modules/index.ts`, ce plan). Rien n'est poussé ni déployé.
+
+- **Menu final** = section 3, huit rubriques, aucune entrée en double. Pages hors
+  menu mais joignables (`hidden`) : `/admin/pilot/signups`, `/admin/pros/venues`,
+  `organizers`, `agencies`, `crm`, `/admin/money/subscriptions`. Chaque adresse
+  littérale `/admin/...` du code a été passée dans `currentAdminHref` puis comparée
+  aux routes réelles : toutes tombent sur une page qui existe.
+- **Liens croisés** : la file du jour (liens réécrits dans la migration
+  `20261218110000`, non appliquée), le fil d'activité et `adminNotifLink` ouvrent la
+  fiche d'un pro (`/admin/pros/<venue|org|agency>:<id>`), la fiche d'une personne,
+  Prospects, À régler, Demandes RGPD, Incidents, Délivrabilité, Interrupteurs,
+  Échéances. La fiche d'un pro porte « Ailleurs dans l'admin » : ses commandes, son
+  identité légale, sa délivrabilité (listes pré-filtrées : `DataTable.initialSearch`
+  lu dans `?q=`). Un achat de la fiche d'une personne ouvre la commande
+  (`orderHref`). `src/crm/admin/adminNav.ts` pointe sur les adresses finales.
+- **Une information, un endroit** : Aujourd'hui lit ventes et frais de service de
+  la semaine par `admin_platform_analytics` (comme Argent), avec les libellés de
+  `money/terms.ts` (« Frais de service », plus « Revenu Yuno ») ; MRR → Argent ›
+  Yuno CRM ; pool e-mail → Délivrabilité seulement (Santé technique n'en montre
+  rien) ; leads de la page bio → Pros › Prospects (l'onglet leads de la page bio est
+  retiré, le lien de la carte y mène) ; coût de l'IA → Système › IA, son usage →
+  Pilotage › Produit ; journal et échéances → Légal.
+- **Retiré** (plus rien ne l'importait) : `AdminCockpit`, `AdminGrowth`,
+  `AdminRevenue`, `AdminOrders`, `AdminAuditLog`, `AdminSupportAccess`,
+  `AdminSystem`, `AdminFeedback`, `AdminVenueDetail`, sept cartes de
+  `src/components/admin/`, les pages CRM Cockpit, Acquisition, Activité, Argent,
+  Plateforme, Légal, Incidents, Support, trois hooks, `salesSeries`, cinq modules
+  de textes. Raccrochés au lieu d'être perdus : l'état des prix Stripe (seuil des
+  50, `PriceTierCard`) dans Système › Offre et tarifs, la mesure de crm.yunoapp.eu
+  (`LandingTab`) dans Pilotage › Acquisition.
+- **Passe visuelle** (banc local, données d'exemple, clair et sombre, captures
+  claires dans `docs/designs/admin-rebuild/`) : libellé d'un chiffre sur deux
+  lignes au lieu d'être coupé, pourcentages au format de la langue (`fmtPct` lit
+  `<html lang>`), « 1 ligne » au singulier, statuts d'achat traduits, « 1
+  obligation » sans « (s) ».
+- **Encore dans un cadre hérité** (`SuiteFrame` / `CrmFrame`, à réécrire avec le
+  kit) : Aujourd'hui › Toutes les alertes ; Pilotage › Inscriptions (caché) et le
+  détail des trois onglets de Produit (`AdminProduct`, `AdminAi`, Produit CRM) ;
+  Pros › anciennes listes (cachées : purge d'un club, organisateur vitrine,
+  invitations d'agence, comptes CRM avec leurs onglets risques et onboarding),
+  onglets hérités de Démo et d'Inviter ; Argent › Abonnements (caché) ;
+  Communication › éditeurs de campagnes e-mail, SMS, push, automatisations, page
+  bio (`AdminLinks`), règles et crédits du moteur ; Système › contenu d'Offre et
+  tarifs, plan de soirée CRM, catalogue boissons (fermé, pilier en pause).
+- **Écarts connus, non corrigés** : `get_platform_traffic.sales` (Pilotage ›
+  Audience) ne dit pas la même chose qu'`admin_platform_analytics` (point 4 du lot
+  4) ; `admin_crm_revenue` garde l'ancienne grille et n'est plus lu (à supprimer) ;
+  les tailles en Mo de Santé technique gardent le point décimal. Fichiers orphelins
+  ANTÉRIEURS à la refonte, laissés tels quels (hors admin) : `email-editor/*`,
+  `StaffPinDialog`, `scopeFilter`, `RichTextField` des campagnes, onboarding
+  widgets…
+- **À confirmer par un juriste** : la liste du lot 5 (DAC7, DSA, notification CNIL,
+  réponses RGPD, dossier vendeur complet, documents requis, preuve des accords
+  venus de Shotgun). **Coûts** (Resend, Octopush, Supabase, Cloudflare, Stripe)
+  saisis à la main dans Argent › Coûts et marge (`admin_costs`) ; l'IA est lue
+  automatiquement si rien n'est saisi.
+
 ## 8. Conventions pour les lots 1 à 6
 
 1. **Où poser une page** : dans le dossier de SA rubrique,
@@ -500,25 +587,36 @@ le dépôt (`docs/legal/*`, `src/data/legalContent.ts`, `LEGAL_VERSIONS`) ou se 
     organisateur (sa fiche de compte) ou d'une commande (la liste) : les lots
     2 et 4 la brancheront sur les fiches.
 
-### Lot 6 : Communication et Système (16/11)
+## 9. Mise en ligne
 
-Branche `claude/admin-rebuild-lot6-470c27`. Migration `20261218160000_admin_platform_switches.sql`
-(une seule RPC, `admin_set_platform_switch` : Maintenance et Paiements avec motif, au journal ; répétée,
-non appliquée). Le reste assemble des RPC déjà en base.
+**Les six migrations des lots 1 à 6 sont additives** (lu dans le dépôt le 16/11 ;
+le catalogue de la prod n'a pas été relu par l'assemblage) : aucune ne réécrit une
+fonction existante, aucune ne change une signature qu'appelle le site en ligne,
+aucune ne dépend d'une autre. Le bundle actuellement en ligne ne voit aucune
+différence.
 
-- **Communication** (`src/admin/comms/`) : `Campaigns` (index : base marketing de Yuno, e-mail / SMS / push en
-  onglets, éditeurs hérités dans leur cadre), `Engine` (chiffres comparés à la période précédente par la même
-  RPC sur 2 × la durée, courbe à une échelle, onglets Règles et textes / Politique / Crédits), `Deliverability`
-  (UN endroit : pool, plaintes, rebonds, spam Gmail, comptes à l'écart, courbe des envois, comptes expéditeurs,
-  Gmail et Postmaster, sous-domaines d'envoi, suppressions ; chaque geste par `ReasonDialog`), `Links` (page bio :
-  leads et liste d'attente restent dans leurs onglets hérités tant que Pros › Prospects n'est pas fusionné).
-  Le pool e-mail du mois n'est affiché que dans Délivrabilité.
-- **Système** (`src/admin/system/`) : `Health` (cinq états + une section par état ; crons en UNE liste, sans e-mail),
-  `Switches` (Maintenance, Paiements, canaux CRM, registre hérité des notifications, journal des modifications),
-  `Pricing` (en-tête et onglets au kit ; contenu de l'ex-Admin CRM gardé dans `CrmFrame`), `Connectors`
-  (Shotgun et scénarios natifs ; `connectors/plan/:scope/:event` garde l'écran du plan), `Ai` (coût et erreurs).
-- **Adresses** : `/admin/system/crm(/plan/…)` et `/admin/system/settings` redirigent (`redirects.ts`, testé).
-- **Reste hérité** : formulaires de règles, textes et crédits des notifications (`AdminNotificationAutomations`,
-  exportés), registre `SystemTab`, éditeurs Email Studio / SMS / push, `AdminLinks`, contenu des onglets de
-  `Pricing` (grille de prix, cycle de vie, analyse, « Vos clients »), plan d'un prospect.
-- **Pas de comparaison** sur les chiffres de Délivrabilité (taux sur 30 jours glissants, aucune série précédente en base).
+| Migration | Contenu | Effet sur l'existant |
+|---|---|---|
+| `20261218110000_admin_today` | table `admin_today_marks`, `admin_today`, `admin_today_mark` | aucun |
+| `20261218120000_admin_pros_accounts` | tables `admin_account_notes`, `admin_account_tags`, RPC des comptes, prospects, accès assisté, invitations | aucun (les gestes écrivent `venues.is_hidden`, `agencies.is_active`, `links_pro_leads`, `pro_signups` seulement quand on les appelle) |
+| `20261218130000_admin_clients` | `admin_clients_period`, `admin_person` | aucun |
+| `20261218140000_admin_pilot_money` | table `admin_costs`, RPC Pilotage et Argent, helpers `_admin_*` | aucun |
+| `20261218150000_admin_legal` | tables `privacy_requests`, `content_reports`, RPC `admin_legal_*` | ajoute `crm_incidents.product` (défaut `'crm'`, CHECK) : sans effet sur `crm_admin_incident_save` / `crm_admin_incidents` (vérifié par le lot 5) |
+| `20261218160000_admin_platform_switches` | `admin_set_platform_switch` | aucun |
+
+Marche à suivre, dans l'ordre :
+
+1. Relire la branche `claude/admin-rebuild-integration-024194` (captures dans
+   `docs/designs/admin-rebuild/`).
+2. Appliquer les six migrations UNE PAR UNE, dans l'ordre des dates, chacune
+   d'abord répétée dans une transaction annulée (les smokes des lots 2, 4 et 5 sont
+   dans le dossier de notes partagé), en vérifiant `pg_stat_activity` avant, sans
+   autre écriture lourde en même temps ; `NOTIFY pgrst, 'reload schema'` une seule
+   fois à la fin.
+3. Vérifier qu'un compte super admin a la 2FA activée (sinon `/mfa-setup`).
+4. Fusionner la branche dans `main` et déployer le front (Cloudflare) APRÈS les
+   migrations : les nouveaux écrans appellent les nouvelles RPC.
+5. Ouvrir chaque rubrique en vrai, clair et sombre, et quelques anciennes adresses
+   (`/admin/crm/clients`, `/admin/venues/<id>`, `/admin/marketing`).
+6. Ensuite : supprimer `admin_crm_revenue`, réécrire les écrans encore hérités,
+   puis retirer `src/components/admin/ui.tsx` et `src/crm/admin/ui.tsx`.
