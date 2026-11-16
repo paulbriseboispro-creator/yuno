@@ -158,6 +158,80 @@ Rangement provisoire des écrans existants (remontés tels quels, rien réécrit
 | Légal | `/admin/legal`, `deadlines`, `audit` | Légal CRM, Alertes (échéances), Journal |
 | Système | `/admin/system`, `crm(/plan/...)`, `settings` | Santé, Plateforme CRM, Réglages CRM |
 
+### Lot 5 : Légal (`src/admin/legal/`, branche `claude/admin-rebuild-lot5-f8dea6`)
+
+Question : « Sommes-nous en règle ? ». Dix écrans au kit, des REGISTRES et des
+tableaux de suivi, jamais un avis juridique : chaque obligation cite sa source dans
+le dépôt (`docs/legal/*`, `src/data/legalContent.ts`, `LEGAL_VERSIONS`) ou se dit
+« à confirmer par un juriste » (encadré `SourceNote`).
+
+- **Vue d'ensemble** (`/admin/legal`) : une ligne par obligation (demandes RGPD,
+  incidents, conditions, dossiers vendeurs, échéances, accès assistés, signalements),
+  état en règle / à traiter / en retard décidé par `obligations()` (`rules.ts`, testé),
+  compteurs par `admin_legal_overview`. Chaque ligne mène à sa page.
+- **Demandes RGPD** (`/requests`) : table `privacy_requests` (RLS sans policy),
+  saisie à la main, échéance = réception + 1 mois + prolongation 0 à 2 mois avec motif
+  (CHECK SQL ⇄ `requestDeadline`). Dans la même liste, marqué « automatique », ce qui
+  est LU sans être recopié : `security_logs.account_deleted`, `meta_data_requests`,
+  `ticketing_erasures`, effacements CRM (marque `external_tickets.erased_at`, groupée
+  par connexion et par minute). Une demande d'effacement mène à la fiche de la
+  personne (lot 3) ; elle n'efface rien.
+- **Consentements** (`/consents`) : registre par produit (Tickets `product IS NULL`,
+  CRM, portée Yuno), part avec preuve (même règle que `crm_admin_legal`), accords
+  donnés / retirés sur la période, repoussoir, imports des trois tables (attestation,
+  `attested_via_support` signalé, fusionnés) ; recherche d'une adresse = sa preuve
+  (texte exact, source, compte, CGV, documents acceptés).
+- **Conditions** (`/terms`) : `legal_acceptances` par document et version ; comptes
+  pros ouverts sans la version en vigueur (`REQUIRED_DOCS` : Billetterie
+  `terms_pro` + `confidentiality`, CRM `terms_crm` + `dpa` ; versions envoyées par le
+  front depuis `LEGAL_VERSIONS`, seule source) ; preuves CGV acheteurs
+  (`terms_acceptances`) en compteur.
+- **Vendeurs** (`/sellers`) : identité légale, régime de TVA (`organizer_vat_rate`,
+  club à 20 %), Stripe, factures émises (`invoice_numbers`) et ventes payées sans
+  facture depuis plus d'une heure, ventes de l'année ENCAISSÉES par le compte Stripe
+  du pro (CA club de `fees.ts`, remboursements déduits), repères DAC7 (30 ventes OU
+  2 000 €), colonne « dossier complet » = champs présents (`sellerGaps`), export CSV.
+- **Incidents** (`/incidents`) : `crm_incidents` + colonne `product`
+  (`tickets` | `crm` | `both`, défaut `crm`) ; `admin_legal_incident_save` appelle
+  `crm_admin_incident_save` (journal compris) puis pose le produit, donc l'écran CRM
+  hérité marche toujours. Échéances affichées : CNIL 72 h (RGPD art. 33), pros 48 h
+  pour le CRM (DPA 12.8), « dans les meilleurs délais » pour la Billetterie (DPA art. 7).
+  `admin_legal_incident_pros` prépare la liste (clubs ET organisateurs), n'envoie rien.
+- **Signalements** (`/reports`) : table `content_reports` (DSA), saisie à la main.
+- **Documents** (`/documents`) : textes et versions (`LEGAL_VERSIONS`), sous-traitants
+  tels que le DPA les nomme (art. 5, 6, 12.7), pages publiques, documents internes.
+- **Échéances** (`/deadlines`) : `admin_credential_deadlines` réécrit au kit avec les
+  RPC existantes (inchangées). **Journal** (`/audit`) : `admin_legal_audit` =
+  `admin_audit_log` (Suite + ex-Admin CRM) ∪ `admin_support_audit` (accès assisté,
+  agent compris), filtres période / source / compte (`?account=venue:…`) / texte.
+- Toute écriture (demande, signalement, incident) passe par `ReasonDialog` et la RPC
+  écrit `admin_audit_log` (`privacy_request_*`, `content_report_*`, `crm_incident_*`).
+- **Migration `20261218150000_admin_legal.sql`** : répétée sur la prod dans une
+  transaction annulée (vue d'ensemble 15 ms, conditions 11 ms, vendeurs 17 ms,
+  consentements 132 ms, journal 7 ms ; refus d'un non-admin, helpers sans GRANT,
+  motif de prolongation exigé), NON appliquée.
+- Liens : fiche d'un pro `/admin/pros/<clé>` (lot 2), fiche d'une personne
+  `/admin/clients/<e-mail>` (lot 3) ; ils ne s'ouvrent qu'une fois ces lots fusionnés.
+- Fichiers touchés hors `src/admin/legal/` : `src/admin/nav.ts` (rubrique légal
+  seulement), `src/i18n/locales/admin/modules/shell.ts` (libellés `adm.nav2.legal.*`,
+  l'entrée `crm` devient `overview`), `modules/index.ts` (+ `legal`), nouveau module
+  `modules/legal.ts`, la migration. Aucune redirection nouvelle (les anciennes
+  adresses `/admin/crm/legal`, `/admin/audit` tombaient déjà sur la rubrique).
+- **À confirmer par un juriste** : (1) statut de Yuno au regard de DAC7 (opérateur de
+  plateforme ou non), seuils, ce qui compte comme une vente et le montant à retenir
+  (brut, net, frais) ; (2) applicabilité du DSA et du « notice and action » à Yuno,
+  contenu attendu de l'exposé des motifs ; (3) qui notifie la CNIL selon que Yuno est
+  responsable ou sous-traitant des données touchées ; délai de prévenance des pros
+  Billetterie (DPA art. 7 ne chiffre pas) ; (4) vérification d'identité et forme des
+  réponses aux demandes RGPD, motifs de prolongation acceptables ; (5) liste des champs
+  qui font un dossier vendeur « complet » ; (6) documents qu'un pro doit avoir acceptés
+  (`REQUIRED_DOCS`) ; (7) constat de la répétition : 790 abonnés du CRM n'ont aucun
+  événement de preuve dans `marketing_consent_events` (accords venus du connecteur) ;
+  la preuve tient-elle par la source `connector:shotgun` ?
+- Restent dans l'ancien écran : la purge des espaces CRM (90 jours) et la liste des
+  accès assistés vivent dans Pros › Accès assisté (lot 2) ; `src/crm/admin/pages/LegalPage.tsx`
+  et `IncidentsSection.tsx` n'ont plus de route (lot 7 : à supprimer).
+
 ## 8. Conventions pour les lots 1 à 6
 
 1. **Où poser une page** : dans le dossier de SA rubrique,
