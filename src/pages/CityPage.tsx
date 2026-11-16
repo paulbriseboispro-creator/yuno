@@ -74,7 +74,7 @@ function useCityData(cityName: string) {
         const venueIds = cityVenues.map((v) => v.id);
         let eventsQuery = supabase
           .from('events')
-          .select('id, title, poster_url, start_at, venue_id, location_city')
+          .select('id, title, poster_url, start_at, venue_id, location_city, ticketing_enabled')
           .eq('is_active', true)
           .eq('visibility', 'public')
           .eq('is_discoverable', true)
@@ -124,7 +124,7 @@ function useCityData(cityName: string) {
             imageUrl: r.poster_url,
             dateIso: r.start_at,
             venueName: r.venue_id ? (venueById.get(r.venue_id)?.name ?? null) : null,
-            minPrice: minPrice.get(r.id) ?? null,
+            minPrice: r.ticketing_enabled ? (minPrice.get(r.id) ?? null) : null,
             isFree: false,
           })),
           ...affRows.map((r) => ({

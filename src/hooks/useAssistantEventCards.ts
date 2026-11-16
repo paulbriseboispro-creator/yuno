@@ -110,7 +110,7 @@ async function fetchAssistantEvents(ids: string[]): Promise<AssistantEventCardDa
       venueName: venue?.name || e.location_name || org?.display_name || '',
       venueSlug: displayVenueId || '',
       venueCity: venue?.city || e.location_city || '',
-      minPrice: minPrice[e.id] ?? null,
+      minPrice: e.ticketing_enabled ? (minPrice[e.id] ?? null) : null,
       tablesOnly: !!e.tables_enabled && e.ticketing_enabled === false,
       tableMinPrice: tableMin[e.id] ?? null,
       freeBefore: freeBefore[e.id] ?? null,

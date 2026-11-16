@@ -45,6 +45,7 @@ type EventRow = {
   music_genres: string[] | null;
   organizer_user_id: string | null;
   event_type: string | null;
+  ticketing_enabled: boolean | null;
   tables_enabled: boolean | null;
   venues: { name: string; city: string | null } | { name: string; city: string | null }[] | null;
 };
@@ -97,7 +98,7 @@ export default function ForYouSelection() {
       const [evRes, affRes, roundsRes, orgRes] = await Promise.all([
         eventIds.length
           ? supabase.from('events')
-              .select('id, title, slug, poster_url, start_at, end_at, venue_id, location_city, location_name, music_genres, organizer_user_id, event_type, tables_enabled, venues!events_venue_id_fkey(name, city)')
+              .select('id, title, slug, poster_url, start_at, end_at, venue_id, location_city, location_name, music_genres, organizer_user_id, event_type, ticketing_enabled, tables_enabled, venues!events_venue_id_fkey(name, city)')
               .in('id', eventIds)
           : Promise.resolve({ data: [] as EventRow[] }),
         affIds.length
@@ -140,8 +141,8 @@ export default function ForYouSelection() {
           venueName,
           venueSlug: e.venue_id || '',
           venueCity: venue?.city || e.location_city || '',
-          minPrice: minPrice.get(e.id) ?? null,
-          tablesOnly: !!e.tables_enabled && !minPrice.has(e.id),
+          minPrice: e.ticketing_enabled ? (minPrice.get(e.id) ?? null) : null,
+          tablesOnly: !!e.tables_enabled && !(e.ticketing_enabled && minPrice.has(e.id)),
           genres: e.music_genres || [],
           interestedCount: 0,
           percentSold: 0,

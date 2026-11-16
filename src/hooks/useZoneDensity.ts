@@ -213,7 +213,7 @@ async function fetchZoneDensitySource(qc: QueryClient): Promise<DensitySource> {
       venueName,
       venueSlug: venue?.id || '',
       venueCity: venue?.city || e.location_city || '',
-      minPrice: minPriceMap[e.id] ?? null,
+      minPrice: hasTickets ? minPriceMap[e.id] : null,
       genres,
       interestedCount: 0,
       percentSold,

@@ -1,4 +1,4 @@
-import { Heart, Flame, Zap } from 'lucide-react';
+import { Heart, Flame } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -97,15 +97,7 @@ function CarouselCard({ event }: { event: EventCardData }) {
           </button>
         </div>
 
-        {/* Bottom of image: sold % indicator */}
-        {event.percentSold > 20 && event.percentSold < 100 && (
-          <div className="absolute bottom-3 left-3 flex items-center gap-1">
-            <Zap style={{ width: 11, height: 11, color: '#FBBF24' }} />
-            <span className="font-mono font-bold" style={{ fontSize: '10px', color: '#FBBF24', letterSpacing: '0.04em' }}>
-              {Math.round(event.percentSold)}% {t('explore.complete')}
-            </span>
-          </div>
-        )}
+        {/* Jamais de pourcentage vendu sur une carte publique : seul « Sold out » se dit. */}
         {event.percentSold >= 100 && (
           <div className="absolute bottom-3 left-3">
             <span className="font-mono font-bold" style={{ fontSize: '9px', letterSpacing: '0.14em', color: '#fff', background: '#E8192C', borderRadius: '3px', padding: '2px 7px' }}>

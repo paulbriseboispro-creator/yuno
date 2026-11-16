@@ -3,7 +3,7 @@ import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
-import { Armchair, ArrowRight, Bell, Building2, Check, ChevronRight, Heart, Martini, Ticket, Users, Zap } from 'lucide-react';
+import { Armchair, ArrowRight, Bell, Building2, Check, ChevronRight, Heart, Martini, Ticket, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -435,24 +435,15 @@ function FeaturedNightCard({ event, variant }: { event: DensityEvent; variant: '
         {badge}
       </div>
 
-      {/* Rareté (3c) ou favori (3a) en haut à droite */}
-      {variant === 'low' && event.percentSold > 20 && event.percentSold < 100 ? (
-        <div className="absolute flex items-center gap-1" style={{ top: 13, right: 13 }}>
-          <Zap className="h-3 w-3 text-amber-400" />
-          <span className="font-mono font-bold text-amber-400" style={{ fontSize: '9.5px', letterSpacing: '0.08em' }}>
-            {Math.round(event.percentSold)}%
-          </span>
-        </div>
-      ) : (
-        <button
-          onClick={e => { e.stopPropagation(); toggleFavorite(favType, event.id); }}
-          className="absolute flex items-center justify-center rounded-full"
-          style={{ top: 11, right: 11, width: 32, height: 32, background: 'rgba(10,10,12,0.55)', border: '1px solid rgba(255,255,255,0.14)', backdropFilter: 'blur(8px)' }}
-          aria-label={liked ? t('explore.removeFav') : t('explore.addFav')}
-        >
-          <Heart className={cn('h-[15px] w-[15px] transition-all', liked ? 'fill-primary text-primary' : 'text-white/70')} />
-        </button>
-      )}
+      {/* Favori en haut à droite. Jamais de pourcentage vendu sur une carte publique. */}
+      <button
+        onClick={e => { e.stopPropagation(); toggleFavorite(favType, event.id); }}
+        className="absolute flex items-center justify-center rounded-full"
+        style={{ top: 11, right: 11, width: 32, height: 32, background: 'rgba(10,10,12,0.55)', border: '1px solid rgba(255,255,255,0.14)', backdropFilter: 'blur(8px)' }}
+        aria-label={liked ? t('explore.removeFav') : t('explore.addFav')}
+      >
+        <Heart className={cn('h-[15px] w-[15px] transition-all', liked ? 'fill-primary text-primary' : 'text-white/70')} />
+      </button>
 
       <div className="absolute" style={{ left: 18, right: 18, bottom: 18 }}>
         {variant === 'single' ? (

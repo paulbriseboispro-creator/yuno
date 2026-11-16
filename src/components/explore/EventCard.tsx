@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Heart, Zap, Users } from 'lucide-react';
+import { Heart, Users } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -135,19 +135,6 @@ export function EventCard({ event }: { event: EventCardData }) {
             <span key={g} className="genre-tag">{g}</span>
           ))}
         </div>
-
-        {/* Scarcity */}
-        {event.percentSold > 20 && event.percentSold < 100 && (
-          <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1">
-            <Zap className="h-3 w-3 text-amber-400" />
-            <span
-              className="font-mono font-bold text-amber-400"
-              style={{ fontSize: '10px', letterSpacing: '0.06em' }}
-            >
-              {Math.round(event.percentSold)}%
-            </span>
-          </div>
-        )}
 
         {/* Fav button */}
         <button

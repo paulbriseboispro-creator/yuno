@@ -43,7 +43,7 @@ async function fetchMomentEvents(moment: FeaturedMoment): Promise<MomentEventsDa
   const [eventsRes, venuesRes, affiliateRes] = await Promise.all([
     supabase
       .from('events')
-      .select('id, slug, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, is_active, music_genre, music_genres, event_type, location_city')
+      .select('id, slug, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, is_active, ticketing_enabled, music_genre, music_genres, event_type, location_city')
       .eq('is_active', true)
       .eq('visibility', 'public')
       .eq('is_discoverable', true)
@@ -111,7 +111,7 @@ async function fetchMomentEvents(moment: FeaturedMoment): Promise<MomentEventsDa
       venueName: venue?.name || '',
       venueSlug: displayVenueId || '',
       venueCity,
-      minPrice: minPriceMap[e.id] ?? null,
+      minPrice: e.ticketing_enabled ? (minPriceMap[e.id] ?? null) : null,
       genres,
       interestedCount: 0,
       percentSold: 0,

@@ -157,6 +157,7 @@ type EventRow = {
   venue_id: string | null;
   partner_venue_id: string | null;
   organizer_user_id: string | null;
+  ticketing_enabled: boolean | null;
   tables_enabled: boolean | null;
   music_genre: string | null;
   music_genres: string[] | null;
@@ -305,6 +306,9 @@ export async function fetchExploreCatalog(
     const venue = displayVenueId ? venueMap.get(displayVenueId) : undefined;
     const organizerInfo = isOrganizerLed && e.organizer_user_id ? organizerMap.get(e.organizer_user_id) : undefined;
 
+    // Billetterie éteinte : aucun billet ne s'achète sur la page, la carte
+    // n'annonce donc aucun prix d'entrée (même si un tarif est resté actif).
+    const entryPrice = e.ticketing_enabled ? priceMap[e.id] : undefined;
     const sm = soldMap[e.id];
     const percentSold = sm && sm.max > 0 ? (sm.sold / sm.max) * 100 : 0;
     const interestedCount = favCounts[e.id] || 0;
@@ -337,11 +341,11 @@ export async function fetchExploreCatalog(
       venueSlug: venue?.id || '',
       // Soirée org-led sans club : la ville vit sur l'event lui-même.
       venueCity: venue?.city || e.location_city || '',
-      minPrice: priceMap[e.id]?.min ?? null,
-      priceMin: priceMap[e.id]?.min ?? null,
-      priceMax: priceMap[e.id]?.max ?? null,
+      minPrice: entryPrice?.min ?? null,
+      priceMin: entryPrice?.min ?? null,
+      priceMax: entryPrice?.max ?? null,
       // Tables sans billet : le libellé de prix parle de la table, pas de l'entrée.
-      tablesOnly: !!e.tables_enabled && !priceMap[e.id],
+      tablesOnly: !!e.tables_enabled && !entryPrice,
       tableMinPrice: e.tables_enabled
         ? (tablePriceByEvent[e.id] ?? (displayVenueId ? tablePriceByVenue[displayVenueId] : undefined) ?? null)
         : null,
