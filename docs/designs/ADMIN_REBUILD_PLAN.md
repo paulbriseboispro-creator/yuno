@@ -252,10 +252,24 @@ Branche `claude/admin-rebuild-lot2-d36b43`. Migration `20261218120000_admin_pros
   fiche ; `/admin/venues|organizers|agencies` et `/admin/crm/clients` à la liste filtrée ;
   `sales`, `crm-demo`, `crm-support` aux pages réunies (`redirects.ts`, testé).
   ⌘K ouvre la fiche d'un club, d'un organisateur, d'une agence ou d'un compte CRM.
-- **Restent hors menu** (pages cachées, gestes pas encore repris) : `/admin/pros/venues`
-  (purge immédiate d'un club de test), `/organizers` (organisateur vitrine, renommer,
-  supprimer, relancer une invitation), `/agencies` (relancer / révoquer une invitation
-  d'agence), `/crm` (liste et tiroir de l'ex-Admin CRM).
+- **Réécrit au kit le 17/11** (plus aucun cadre hérité dans `src/admin/pros/`) :
+  Démo = UNE liste de tous les liens d'aperçu, Billetterie et CRM réunis (`demo/`),
+  un tiroir par lien (copier, envoyer par e-mail ou WhatsApp, accès, compte à créer,
+  couper, supprimer), un dialogue « Nouveau lien de démo » qui demande d'abord le
+  produit, et l'onglet Vitrines (demandes d'activation, comptes fantômes, nouvel
+  organisateur vitrine) ; Inviter = le formulaire Yuno CRM au kit (offre fondateurs
+  et ses places, pré-profil, accès assisté proposé) et UNE liste des invitations dont
+  la ligne ouvre un tiroir avec les gestes de sa porte (envoyer, relancer, prolonger,
+  révoquer avec motif, copier, supprimer) ; Prospects › Pipeline (`prospects/`) =
+  kanban (le glisser-déposer devient un menu « Étape » par carte), comptes cibles,
+  prévision, raisons de perte, fiche d'un prospect en tiroir. Les anciennes listes
+  cachées (Clubs, Organisateurs, Agences, Comptes CRM) sont supprimées : inviter un
+  propriétaire, compte vitrine, supprimer maintenant (club), renommer et retirer
+  (organisateur) sont dans le menu de la fiche (`gesturesMore.tsx`, motif au
+  journal) ; les invitations d'organisateur et d'agence se relancent depuis Inviter ;
+  « Santé et risques » et « Onboarding » des comptes CRM sont des vues de Tous les
+  comptes (`?view=risk|onboarding`, `CrmViews.tsx`). Leurs adresses redirigent vers
+  la liste filtrée.
 
 **Statuts de cycle de vie d'un compte** (définis une fois en SQL, dits dans une info-bulle,
 évalués dans cet ordre) :
@@ -477,8 +491,8 @@ travail de chacun (`nav.ts`, `redirects.ts` et son test, `searchHref.ts`,
 `modules/index.ts`, ce plan). Rien n'est poussé ni déployé.
 
 - **Menu final** = section 3, huit rubriques, aucune entrée en double. Pages hors
-  menu mais joignables (`hidden`) : `/admin/pilot/signups`, `/admin/pros/venues`,
-  `organizers`, `agencies`, `crm`, `/admin/money/subscriptions`. Chaque adresse
+  menu mais joignables (`hidden`) : `/admin/pilot/signups`, `/admin/money/subscriptions`
+  (les anciennes listes cachées de Pros sont supprimées le 17/11). Chaque adresse
   littérale `/admin/...` du code a été passée dans `currentAdminHref` puis comparée
   aux routes réelles : toutes tombent sur une page qui existe.
 - **Liens croisés** : la file du jour (liens réécrits dans la migration
@@ -512,9 +526,7 @@ travail de chacun (`nav.ts`, `redirects.ts` et son test, `searchHref.ts`,
 - **Encore dans un cadre hérité** (`SuiteFrame` / `CrmFrame`, à réécrire avec le
   kit) : Aujourd'hui › Toutes les alertes ; Pilotage › Inscriptions (caché) et le
   détail des trois onglets de Produit (`AdminProduct`, `AdminAi`, Produit CRM) ;
-  Pros › anciennes listes (cachées : purge d'un club, organisateur vitrine,
-  invitations d'agence, comptes CRM avec leurs onglets risques et onboarding),
-  onglets hérités de Démo et d'Inviter ; Argent › Abonnements (caché) ;
+  Argent › Abonnements (caché) ;
   Communication › éditeurs de campagnes e-mail, SMS, push, automatisations, page
   bio (`AdminLinks`), règles et crédits du moteur ; Système › contenu d'Offre et
   tarifs, plan de soirée CRM, catalogue boissons (fermé, pilier en pause).
@@ -549,24 +561,16 @@ claire et sombre de chaque rubrique dans `docs/designs/admin-rebuild/`.
 
 | Écran | Adresse | Cadre | Lignes |
 |---|---|---|---|
-| `AdminDemoAccess` | Pros › Démo (onglet Billetterie) | Suite | 988 |
-| `AdminVenues` | `/admin/pros/venues` (caché : purge, gestes de club) | Suite | 705 |
 | `AdminNotificationAutomations` | Communication › Notifications (règles, textes, crédits) | Suite | 673 |
 | `AdminLinks` | Communication › Page bio | Suite | 618 |
 | `AdminProSignups` | `/admin/pilot/signups` (caché) | Suite | 478 |
-| `InvitePage` (CRM) | Pros › Inviter (onglet CRM) | CRM | 398 |
 | `AdminMarketing` (éditeur, rapport, modèles, automatisations) | `/admin/comms/email/*`, `automations` | Suite | 391 |
 | `AdminSubscriptions` | `/admin/money/subscriptions` (caché) | Suite | 371 |
 | `AdminPushNotifications` | `/admin/comms/push` | Suite | 348 |
 | `AdminProduct` | Pilotage › Produit (onglet Signaux) | Suite | 256 |
-| `DemoPage` (CRM) | Pros › Démo (onglet CRM) | CRM | 252 |
-| `AdminOrganizers` | `/admin/pros/organizers` (caché) | Suite | 250 |
-| `ClientsPage` (CRM) | `/admin/pros/crm` (caché) | CRM | 245 |
-| `SalesPage` (CRM) | Pros › Prospects (onglet Pipeline) | CRM | 236 |
 | `AdminAi` | Pilotage › Produit (onglet IA) | Suite | 231 |
 | `SettingsPage` (CRM) | Système › Offre et tarifs (offre, historique) | CRM | 191 |
 | `CustomerBasisAdmin` (CRM) | Système › Offre et tarifs (« Vos clients ») | CRM | 176 |
-| `AdminAgencies` | `/admin/pros/agencies` (caché) | Suite | 166 |
 | `LifecycleTab` (CRM) | Système › Offre et tarifs (cycle de vie) | CRM | 127 |
 | `LandingTab` (CRM) | Pilotage › Acquisition (page publique CRM) | CRM | 110 |
 | `LearningTab` (CRM) | Système › Offre et tarifs (analyse client) | CRM | 101 |
