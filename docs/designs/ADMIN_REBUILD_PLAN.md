@@ -158,6 +158,74 @@ Rangement provisoire des écrans existants (remontés tels quels, rien réécrit
 | Légal | `/admin/legal`, `deadlines`, `audit` | Légal CRM, Alertes (échéances), Journal |
 | Système | `/admin/system`, `crm(/plan/...)`, `settings` | Santé, Plateforme CRM, Réglages CRM |
 
+### Lot 4 : Pilotage et Argent (16/11)
+
+Branche `claude/admin-rebuild-lot4-44036a`. Migration `20261218140000_admin_pilot_money`
+(répétée sur la prod dans une transaction annulée : vue d'ensemble 1 s, acquisition
+180 ms, rétention 360 ms, refus d'un non-admin ; **pas appliquée**, à jouer seule à
+l'assemblage ; smoke : `lot4-smoke.sql` du dossier de notes).
+
+**Le vocabulaire d'argent, unique dans tout l'admin** (`src/admin/money/terms.ts`, testé ;
+libellés et définitions `adm.money.term.*`). « GMV », « CA total », « Volume de ventes »,
+« Revenus Yuno » ne s'écrivent plus.
+
+| Terme | Définition | Source |
+|---|---|---|
+| Ventes de la plateforme | Ce que les acheteurs ont payé (billets et tables payés, remboursés compris). Démo jamais comprise. | `admin_platform_analytics.totals.gmv` |
+| Frais de service | Service + assurance des billets, service + gestion des tables. | `admin_platform_analytics.totals.yuno_revenue` |
+| Abonnements CRM | Abonnements Stripe de Yuno CRM au prix de la grille (formule de `crm_admin_money`), au prorata des jours actifs. **Estimation** : Yuno ne garde pas les factures Stripe. | `admin_pilot_overview` (`_admin_crm_subs`) |
+| Recharges de Yunits | Yunits achetés, montant HT (formule de `crm_admin_money`). | `admin_pilot_overview` (`_admin_crm_recharges`) |
+| Revenu de Yuno | Frais de service + abonnements CRM + recharges. | `admin_pilot_overview` (somme au front, `yunoRevenue`) |
+| MRR | Somme des `mrr` de `_crm_admin_rows` (abonnement Stripe payé ou en retard ; un compte offert n'y entre jamais). À une date passée : formule des mois de `crm_admin_money`. | `admin_pilot_overview.kpis.mrr` |
+| Remboursements | Montants rendus sur les ventes de la période. | `admin_platform_analytics.totals.refunds_total` |
+| Coûts | Saisis par mois et par poste (`admin_costs`) ; l'IA est lue dans `ai_usage_events` (USD au taux indicatif 0,92) tant qu'aucune ligne ne la remplace. | `admin_costs_list` |
+| Marge | Revenu de Yuno − coûts. | `CostsPage` (`margin`) |
+
+- **Pilotage** (`src/admin/pilotage/`) : Vue d'ensemble `/admin/pilot` (`admin_pilot_overview` :
+  six chiffres comparés, revenu de Yuno par jour avec la période précédente, par source,
+  12 derniers mois, concentration des 5 premiers pros) ; Acquisition (`admin_pro_acquisition` :
+  UN entonnoir Billetterie + CRM lu dans `admin_pro_signups` et `crm_landing_events`, chaque
+  étape dit sa source, par produit, délai médian jusqu'à la première vente ; la liste à rappeler
+  est un lien vers Pros › Prospects) ; Rétention (`admin_pro_retention` : cohortes par mois de
+  première vente, M0 à M+6, comptes ou ventes, aucun % sous 10 comptes ; départs CRM) ; Audience
+  (`get_platform_traffic` sur la période et la précédente, `admin_buyers_stats` : acheteurs actifs
+  et récurrents) ; Produit (onglets Signaux, IA et MCP, Yuno CRM : chiffres clés au kit, **détail
+  encore hérité** en cadre : `AdminProduct`, `AdminAi`, `crm/admin/pages/ProductPage`). Les
+  Cockpits Suite et CRM disparaissent (`/admin/crm` et `/admin/pilot/crm` mènent à la vue
+  d'ensemble) ; `/admin/pilot/signups` reste joignable caché (écran hérité).
+- **Argent** (`src/admin/money/`) : Ventes `/admin/money` (`admin_platform_analytics`, export CSV
+  par jour) ; Commandes (`admin_orders_list` paginée serveur, démo globale, `?open=ticket:<id>` |
+  `table:<id>` ouvre le tiroir, remboursement par `ReasonDialog` + `owner-refund` ; ⌘K y mène,
+  `orderLink.ts`) ; À régler (`admin_money_issues` : alertes d'argent non lues, « Traité » =
+  `admin_money_issue_done` avec motif au journal ; virements de co-organisation et de collab via
+  `admin_coorg_transfer_issues`, tranchés par `admin_resolve_coorg_transfer` ; règlements
+  promoteurs contestés ou non confirmés, en lecture) ; Abonnements et Yunits (`crm_admin_money`
+  réécrit, MRR en tête = celui de la vue d'ensemble, seuil des 50 payants) ; Coûts et marge
+  (`admin_costs`, `admin_cost_set` / `admin_cost_delete` avec motif et journal, onglet Factures
+  `admin_invoices_list`, échecs en tête).
+- Les alertes d'argent (litige, vente payée sans billet, remboursement ou facture en échec,
+  virements entre parties) ouvrent désormais « À régler » (`src/lib/notifications.ts`).
+- **Écarts constatés, non corrigés (les calculs ne changent pas)** :
+  1. `admin_crm_revenue` porte encore l'ancienne grille (35/49/89/129/175/249 € par
+     `essential/pro/business`) alors que toutes les lignes sont `base` : il rendrait 0 € de MRR
+     pour tout abonné. N'est plus lu par le lot 4 ; à supprimer ou réaligner.
+  2. `crm_admin_money.kpi.mrr` compte un abonnement Stripe en essai (`trialing`, carte
+     enregistrée) ; `_crm_admin_rows` non. Au 16/11 les deux disent 0 €. L'admin affiche
+     `_crm_admin_rows`.
+  3. `crm_admin_money` (et donc l'historique) valorise un non-fondateur à `price_month_next`
+     (34 €) même avant le 50ᵉ payant, où il paie 24 €.
+  4. `get_platform_traffic.sales` (30 j : 659 billets, 11 663 €) ne dit pas la même chose
+     qu'`admin_platform_analytics` (365 j : 493 ventes, 7 330 €) : périmètre démo ou statuts
+     différents, à trancher au lot 7. L'Audience n'affiche pas ces montants.
+  5. Les ventes (`admin_platform_analytics`) excluent toujours la démo ; comptes, acheteurs et
+     abonnements suivent l'interrupteur. L'écran le dit.
+  6. La palette sombre du kit (`--a-chart-2` et `-3`) sort légèrement de la bande de luminosité
+     du validateur dataviz (0,785 / 0,774 > 0,77) ; le clair passe tout.
+  7. **À l'assemblage** : le chiffre « Revenu Yuno » du lot 1 (`admin_today`) ne compte que les
+     frais de service ; il doit prendre le libellé « Frais de service » ou passer au revenu de
+     Yuno ci-dessus. Ses « Ventes » lisent `admin_cockpit` (statuts `paid/used`), pas
+     `admin_platform_analytics` (`paid_at` posé) : deux formules pour un même mot.
+
 ## 8. Conventions pour les lots 1 à 6
 
 1. **Où poser une page** : dans le dossier de SA rubrique,
