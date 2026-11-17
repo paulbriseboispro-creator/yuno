@@ -9,8 +9,10 @@ export function toLocalInput(iso: string | null | undefined): string {
 }
 export function fromLocalInput(v: string): string { return v ? new Date(v).toISOString() : ''; }
 
-/** Libellé traduit, ou la valeur brute quand la base porte une valeur que le dictionnaire ne connaît pas. */
-export function tOr(t: (k: string) => string, key: string, raw: string): string {
-  const v = t(key);
-  return v === key ? raw : v;
+/**
+ * Libellé traduit. Une valeur que le dictionnaire ne connaît pas ne s'affiche
+ * plus brute : le traducteur de l'admin rend « Autre : <valeur en mots> ».
+ */
+export function tOr(t: (k: string) => string, key: string, _raw: string): string {
+  return t(key);
 }

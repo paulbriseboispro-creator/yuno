@@ -21,7 +21,7 @@ import { proHref } from './format';
 const secs = (n: number | null): string => (n == null ? '—' : n >= 60 ? `${Math.round(n / 60)} min` : `${Math.round(n)} s`);
 
 export default function ProductSignals() {
-  const { t, lang } = useAdminT();
+  const { t, lang, label } = useAdminT();
   const { range, includeDemo, period } = useAdminFilters();
   const q = useProductInsights(range, includeDemo);
   const d = q.data;
@@ -147,7 +147,7 @@ export default function ProductSignals() {
               <li key={f.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b py-2">
                 <Link to="/admin/today/feedback" className="a-t1 min-w-0 flex-1 truncate text-[13px] no-underline hover:underline">{f.title}</Link>
                 <span className="a-t3 text-[12px]">{[f.venue, f.reporter, f.category].filter(Boolean).join(' · ')}</span>
-                <Status tone={f.status === 'open' ? (f.priority === 'critical' || f.priority === 'high' ? 'negative' : 'warning') : f.status === 'resolved' || f.status === 'closed' ? 'positive' : 'neutral'}>{f.status}</Status>
+                <Status tone={f.status === 'open' ? (f.priority === 'critical' || f.priority === 'high' ? 'negative' : 'warning') : f.status === 'resolved' || f.status === 'closed' ? 'positive' : 'neutral'}>{label(f.status)}</Status>
                 <span className="a-mono a-t3 w-24 text-right text-[11px]">{fmtRelative(f.at, lang)}</span>
               </li>
             ))}

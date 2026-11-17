@@ -51,7 +51,7 @@ export function TeamTab({ card }: { card: AccountCard }) {
 }
 
 export function SupportLegalTab({ card }: { card: AccountCard }) {
-  const { t, lang } = useAdminT();
+  const { t, lang, label } = useAdminT();
   const legal = card.legal;
   const sending = card.sending;
   return (
@@ -83,7 +83,7 @@ export function SupportLegalTab({ card }: { card: AccountCard }) {
                 {card.feedback.map((f) => (
                   <li key={f.id} className="flex items-center gap-2">
                     <span className="a-t1 min-w-0 flex-1 truncate">{f.title}</span>
-                    {f.status && <Badge tone={f.status === 'resolved' || f.status === 'closed' ? 'positive' : 'warning'}>{f.status}</Badge>}
+                    {f.status && <Badge tone={f.status === 'resolved' || f.status === 'closed' ? 'positive' : 'warning'}>{label(f.status)}</Badge>}
                     <span className="a-t3 a-num text-[12px]">{fmtDate(f.at, lang)}</span>
                   </li>
                 ))}

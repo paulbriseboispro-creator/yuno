@@ -16,7 +16,7 @@ const H_KEYS = ['onboarding', 'activity', 'presence', 'sync'] as const;
 const H_MAX = [40, 30, 15, 15];
 
 export function CrmTab({ card }: { card: AccountCard }) {
-  const { t, lang } = useAdminT();
+  const { t, lang, label } = useAdminT();
   const crm = card.crm;
   if (!crm || crm.error || !crm.account) {
     return <div>{crm?.error ? <ErrorState /> : <EmptyState title={t('adm.pros.crm.none')} />}</div>;
@@ -82,7 +82,7 @@ export function CrmTab({ card }: { card: AccountCard }) {
               {crm.runs.slice(0, 8).map((r, i) => (
                 <div key={i} className="a-t2 flex gap-3 text-[12px]">
                   <span className="a-num w-28">{fmtDate(r.at, lang, 'datetime')}</span>
-                  <Status tone={r.status === 'ok' || r.status === 'done' ? 'positive' : r.status === 'error' ? 'negative' : 'neutral'}>{r.status}</Status>
+                  <Status tone={r.status === 'ok' || r.status === 'done' ? 'positive' : r.status === 'error' ? 'negative' : 'neutral'}>{label(r.status)}</Status>
                   <span className="a-num">{fmtNum(r.tickets, lang)} {t('adm.pros.crm.tickets')}</span>
                 </div>
               ))}
@@ -97,7 +97,7 @@ export function CrmTab({ card }: { card: AccountCard }) {
           {crm.sends.length === 0 ? <EmptyState title={t('adm.pros.crm.noSends')} /> : crm.sends.map((s, i) => (
             <div key={i} className="flex items-center gap-3 px-4 py-2.5 text-[13px]">
               <span className="a-t1 min-w-0 flex-1 truncate">{s.name}</span>
-              <Badge>{s.status}</Badge>
+              <Badge>{label(s.status)}</Badge>
               <span className="a-num a-t2 w-20 text-right">{fmtNum(s.recipients ?? 0, lang)}</span>
               <span className="a-num a-t3 w-28 text-right">{fmtDate(s.at, lang)}</span>
             </div>

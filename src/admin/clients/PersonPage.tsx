@@ -18,7 +18,7 @@ import PersonAccount from './PersonAccount';
 const PAID_STATUS = new Set(['paid', 'used', 'confirmed']);
 
 export default function PersonPage() {
-  const { t, lang } = useAdminT();
+  const { t, lang, label } = useAdminT();
   const { id } = useParams();
   const key = parsePersonKey(id);
   const qc = useQueryClient();
@@ -112,7 +112,7 @@ export default function PersonPage() {
             <section className="flex flex-col gap-1 border-l-2 pl-3" style={{ borderColor: 'var(--a-warn)' }}>
               <h3 className="a-kicker">{t('adm.cl.v3.p.door')}</h3>
               {d?.banned_venues.map((b, i) => <p key={`b${i}`} className="a-t1 text-[12.5px]">{t('adm.cl.v3.p.banned', { v: b.venue_name })}{b.reason ? ` · ${b.reason}` : ''}</p>)}
-              {d?.incidents.map((x, i) => <p key={`i${i}`} className="a-t2 text-[12.5px]">{x.venue_name} · {x.type} · {fmtDate(x.created_at, lang)}</p>)}
+              {d?.incidents.map((x, i) => <p key={`i${i}`} className="a-t2 text-[12.5px]">{x.venue_name} · {label(x.type)} · {fmtDate(x.created_at, lang)}</p>)}
             </section>
           ) : null}
           <button type="button" className="a-btn self-start" onClick={() => setTab('account')}>{t('adm.cl.v3.p.gestures')}</button>
@@ -153,7 +153,7 @@ const SPINE_COLOR: Record<string, string> = { ticket: 'var(--a-text)', table: 'v
 
 /** Achats, messages, accords, notes : la vie de la personne sur Yuno. */
 function PersonSpine({ p }: { p: Person }) {
-  const { t, lang } = useAdminT();
+  const { t, lang, label } = useAdminT();
   const [more, setMore] = useState(false);
   const items = useMemo<SpineItem[]>(() => {
     const out: SpineItem[] = [];
@@ -164,12 +164,12 @@ function PersonSpine({ p }: { p: Person }) {
       value: r.kind === 'guestlist' ? undefined : fmtEur(r.amount, lang) }));
     p.messages.emails.forEach((m, i) => out.push({ id: `e${i}`, at: m.at, family: 'email', title: m.subject, body: m.sender ?? t('adm.cl.p.sender.yuno') }));
     p.messages.push.forEach((m, i) => out.push({ id: `p${i}`, at: m.at, family: 'push', title: m.title, body: m.sender ?? t('adm.cl.p.sender.yuno') }));
-    p.consents.subscriptions.forEach((c, i) => out.push({ id: `c${i}`, at: c.recorded_at, family: c.opted_in ? 'consent' : 'optout', title: c.scope_name ?? t('adm.cl.p.scope.platform'), body: c.consent_source ?? c.source ?? undefined }));
+    p.consents.subscriptions.forEach((c, i) => out.push({ id: `c${i}`, at: c.recorded_at, family: c.opted_in ? 'consent' : 'optout', title: c.scope_name ?? t('adm.cl.p.scope.platform'), body: c.consent_source || c.source ? label(c.consent_source ?? c.source) : undefined }));
     p.consents.suppressions.forEach((x, i) => out.push({ id: `x${i}`, at: x.at, family: 'incident', title: t('adm.cl.v3.sp.suppressed'), body: x.reason }));
-    p.detail?.incidents.forEach((x, i) => out.push({ id: `in${i}`, at: x.created_at, family: 'incident', title: `${x.venue_name} · ${x.type}`, body: x.reason }));
+    p.detail?.incidents.forEach((x, i) => out.push({ id: `in${i}`, at: x.created_at, family: 'incident', title: `${x.venue_name} · ${label(x.type)}`, body: x.reason }));
     p.detail?.notes.forEach((n) => out.push({ id: `n${n.id}`, at: n.created_at, family: 'note', title: <span className="whitespace-pre-wrap">{n.body}</span> }));
     return out;
-  }, [p, t, lang]);
+  }, [p, t, lang, label]);
   return <Spine items={items} limit={more ? undefined : 40} onMore={() => setMore(true)} familyLabel={(f) => t(f === 'account' ? 'adm.cl.v3.sp.accountFam' : `adm.cl.v3.sp.${f}`)}
     familyColor={(f) => SPINE_COLOR[f] ?? 'var(--a-text-3)'} empty={t('adm.cl.p.noActivity')} />;
 }

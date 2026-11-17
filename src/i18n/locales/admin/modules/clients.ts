@@ -333,8 +333,8 @@ const dict: AdminDict = {
   // ── v3 : fiche ──
   'adm.cl.v3.p.tab.timeline': ['Timeline', 'Frise', 'Cronología'],
   'adm.cl.v3.p.tab.account': ['Account and actions', 'Compte et gestes', 'Cuenta y acciones'],
-  'adm.cl.v3.p.came': ['Came {n} nights to {c} clubs or organizers', 'Venu·e {n} soirées chez {c} clubs ou organisateurs', 'Vino {n} noches a {c} clubs u organizadores'],
-  'adm.cl.v3.p.cameOne': ['Came once, to {c} club or organizer', 'Venu·e une fois, chez {c} club ou organisateur', 'Vino una vez, a {c} club u organizador'],
+  'adm.cl.v3.p.came': ['Came {n} nights, to {c} {c|club or organiser|clubs or organisers}', '{n} soirées, chez {c} {c|club ou organisateur|clubs ou organisateurs}', 'Vino {n} noches, a {c} {c|club u organizador|clubs u organizadores}'],
+  'adm.cl.v3.p.cameOne': ['Came once, to {c} club or organiser', 'Une soirée, chez {c} club ou organisateur', 'Vino una vez, a {c} club u organizador'],
   'adm.cl.v3.p.spent': ['spent', 'dépensés', 'gastados'],
   'adm.cl.v3.p.rev90': ['({v} over 90 days)', '({v} sur 90 jours)', '({v} en 90 días)'],
   'adm.cl.v3.p.since': ['First visit {first}, last {last}', 'Première venue le {first}, dernière {last}', 'Primera visita el {first}, última {last}'],

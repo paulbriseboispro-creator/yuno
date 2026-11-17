@@ -200,7 +200,7 @@ const dict: AdminDict = {
   'adm.engine.kind.venue': ['Club', 'Club', 'Club'],
   'adm.engine.kind.org': ['Organizer', 'Organisateur', 'Organizador'],
   'adm.engine.kind.agency': ['Agency', 'Agence', 'Agencia'],
-  'adm.engine.granted': ['{n} credit(s) granted', '{n} crédit(s) offert(s)', '{n} crédito(s) regalado(s)'],
+  'adm.engine.granted': ['{n} {n|credit|credits} granted', '{n} {n|crédit offert|crédits offerts}', '{n} {n|crédito regalado|créditos regalados}'],
   'adm.engine.clearBonus': ['Clear bonus', 'Retirer le bonus', 'Quitar el extra'],
 
   'adm.auto.k.cart_abandonment_drinks.name': ['Drinks basket left open', 'Panier boissons abandonné', 'Carrito de bebidas abandonado'],

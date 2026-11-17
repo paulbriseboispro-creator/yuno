@@ -54,7 +54,7 @@ const SYSTEM_CATALOG: { key: string; category: SysCategory; dormant?: boolean }[
 interface Row { key: string; dormant: boolean; on: boolean; s: KeyStats | undefined }
 
 export function NotificationRegistry() {
-  const { t, lang } = useAdminT();
+  const { t, lang, has, label: rawLabel } = useAdminT();
   const [loaded, setLoaded] = useState(false);
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
   const [legacy, setLegacy] = useState<string[]>([]);
@@ -92,11 +92,10 @@ export function NotificationRegistry() {
   }, [enabled, t]);
 
   const label = useCallback((key: string, base: 'name' | 'desc') => {
-    const own = t(`adm.auto.k.${key}.${base}`);
-    if (!own.startsWith('adm.auto.k.')) return own;
+    if (has(`adm.auto.k.${key}.${base}`)) return t(`adm.auto.k.${key}.${base}`);
     const old = t(`adminAutoPush.k.${key}.${base}`);
-    return old.startsWith('adminAutoPush.k.') ? (base === 'name' ? key : '') : old;
-  }, [t]);
+    return old.startsWith('adminAutoPush.k.') ? (base === 'name' ? rawLabel(key) : '') : old;
+  }, [t, has, rawLabel]);
 
   const maxSent = Math.max(0, ...Object.values(stats).map((x) => x.sent_30d));
   const maxCtr = Math.max(0, ...Object.values(stats).map((x) => (x.sent_30d > 0 ? (x.clicked_30d / x.sent_30d) * 100 : 0)));

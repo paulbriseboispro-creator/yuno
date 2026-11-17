@@ -223,7 +223,7 @@ function SendersBlock({ rows, loading, ask }: { rows: Sender[]; loading: boolean
 
 /** La surveillance en cours : comptes sous garde et vagues d'envoi, du plus récent au plus ancien. */
 function WatchBlock() {
-  const { t, lang } = useAdminT();
+  const { t, lang, label } = useAdminT();
   const w = useWatch();
   const live = (w.data?.senders ?? []).filter((x) => new Date(x.until).getTime() > Date.now());
   const waves = (w.data?.waves ?? []).slice(0, 6);
@@ -234,7 +234,7 @@ function WatchBlock() {
           {live.map((x) => (
             <LedgerRow key={x.scope_key} className="grid-cols-[110px_minmax(0,1fr)_auto]">
               <Status strong tone="negative">{t('adm.comms.dl3.guarded')}</Status>
-              <span className="a-t1 truncate text-[13px]">{x.name} <span className="a-t3">· {x.reason}</span></span>
+              <span className="a-t1 truncate text-[13px]">{x.name} <span className="a-t3">· {label(x.reason)}</span></span>
               <span className="a-mono a-t3 text-[11px]">{t('adm.comms.dl.g.until', { d: fmtDate(x.until, lang) })}</span>
             </LedgerRow>
           ))}

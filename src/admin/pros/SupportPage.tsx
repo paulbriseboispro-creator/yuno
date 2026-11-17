@@ -19,7 +19,7 @@ import { useProsRefresh, useSupportOverview, type SupportGrant } from './data';
 const isOpen = (g: SupportGrant) => !g.revoked_at && (!g.expires_at || new Date(g.expires_at) > new Date());
 
 export default function SupportPage() {
-  const { t, lang } = useAdminT();
+  const { t, lang, label } = useAdminT();
   const q = useSupportOverview();
   const refresh = useProsRefresh();
   const grants = q.data?.grants ?? [];
@@ -72,7 +72,7 @@ export default function SupportPage() {
 
   const logItems: SpineItem[] = (q.data?.log ?? []).map((l, i) => ({
     id: String(i), at: l.at, family: l.by_admin ? 'admin' : 'pro', strong: l.by_admin,
-    title: <><Link className="hover:underline" to={accountHref(l.key)}>{l.name}</Link> <span className="a-mono a-t3 text-[11.5px]">{l.action}{l.table ? ` · ${l.table}` : ''}</span></>,
+    title: <><Link className="hover:underline" to={accountHref(l.key)}>{l.name}</Link> <span className="a-mono a-t3 text-[11.5px]">{label(l.action)}</span></>,
   }));
   const sentence = q.isLoading ? null : (
     <>

@@ -567,6 +567,7 @@ const dict: AdminDict = {
   'adm.pros.v3.sup.granted': ['accesses granted', 'accès accordés', 'accesos concedidos'],
   'adm.pros.v3.sup.waiting': ['waiting for the pro', 'en attente du pro', 'esperando al pro'],
   'adm.pros.v3.sup.until': ['open until {when}', "ouverte jusqu'à {when}", 'abierta hasta las {when}'],
+  'adm.pros.v3.f.legalAccepted': ['{doc} accepted (version of {d})', '{doc} acceptées (version du {d})', '{doc} aceptadas (versión del {d})'],
 };
 
 export default dict;

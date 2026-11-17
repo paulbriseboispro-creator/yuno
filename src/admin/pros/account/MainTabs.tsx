@@ -40,7 +40,7 @@ function weekdayInitials(lang: string): string[] {
 
 /** Les morceaux de la frise, du plus récent au plus ancien. */
 function useSpineItems(card: AccountCard): SpineItem[] {
-  const { t, lang } = useAdminT();
+  const { t, lang, label } = useAdminT();
   return useMemo(() => {
     const out: SpineItem[] = [];
     const id = card.identity;
@@ -62,15 +62,15 @@ function useSpineItems(card: AccountCard): SpineItem[] {
     card.support.grants.forEach((g) => out.push({ id: `g${g.id}`, at: g.created_at, family: 'support',
       title: t(`adm.pros.v3.f.grant.${g.revoked_at ? 'revoked' : g.status === 'active' ? 'active' : 'pending'}`), body: g.reason ?? undefined }));
     card.support.sessions.forEach((s) => out.push({ id: `ss${s.id}`, at: s.created_at, family: 'support', title: t('adm.pros.v3.f.session', { who: s.admin ?? 'Yuno' }) }));
-    card.audit.forEach((a, i) => out.push({ id: `a${i}`, at: a.at, family: 'admin', title: <span className="a-mono text-[12px]">{a.action}</span>, body: a.admin ?? undefined }));
+    card.audit.forEach((a, i) => out.push({ id: `a${i}`, at: a.at, family: 'admin', title: label(a.action), body: a.admin ?? undefined }));
     card.notes.forEach((n) => out.push({ id: `n${n.id}`, at: n.at, family: 'note', title: <span className="whitespace-pre-wrap">{n.body}</span>, body: n.author ?? undefined }));
     card.feedback.forEach((f) => out.push({ id: `fb${f.id}`, at: f.at, family: 'feedback', title: f.title }));
     card.requests.forEach((r) => out.push({ id: `rq${r.id}`, at: r.at, family: 'request', title: <span className="line-clamp-2">{r.body}</span> }));
     card.nps.forEach((n, i) => out.push({ id: `nps${i}`, at: n.at, family: 'nps', title: t('adm.pros.v3.f.nps', { n: n.score }), body: n.comment ?? undefined }));
-    card.legal_acceptances.forEach((a, i) => out.push({ id: `l${i}`, at: a.at, family: 'legal', title: `${a.doc} · ${a.version}` }));
-    (card.sending?.incidents ?? []).forEach((x, i) => out.push({ id: `x${i}`, at: x.at, family: 'incident', title: x.kind }));
+    card.legal_acceptances.forEach((a, i) => out.push({ id: `l${i}`, at: a.at, family: 'legal', title: t('adm.pros.v3.f.legalAccepted', { doc: label(a.doc), d: /^\d{4}-\d{2}-\d{2}$/.test(String(a.version)) ? fmtDate(String(a.version), lang) : String(a.version) }) }));
+    (card.sending?.incidents ?? []).forEach((x, i) => out.push({ id: `x${i}`, at: x.at, family: 'incident', title: label(x.kind) }));
     return out;
-  }, [card, t, lang]);
+  }, [card, t, lang, label]);
 }
 
 export function OverviewTab({ card, onTab }: { card: AccountCard; onTab: (v: string) => void }) {

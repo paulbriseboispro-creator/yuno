@@ -18,7 +18,7 @@ const ERROR_REF = 2; // %
 const LATENCY_REF = 8000; // ms
 
 export default function ProductAi() {
-  const { t, lang } = useAdminT();
+  const { t, lang, errorText } = useAdminT();
   const { range, includeDemo, period } = useAdminFilters();
   const q = useAiUsage(range, includeDemo);
   const mcp = useMcpUsage(range, includeDemo);
@@ -117,7 +117,7 @@ export default function ProductAi() {
                 <li key={e.id} className="flex flex-wrap items-baseline gap-x-3 border-b py-1.5 text-[13px]">
                   <Status tone="negative">{label('adm.ai.status', e.status)}</Status>
                   <span className="a-t2">{label('adm.ai.a', e.assistant)}</span>
-                  <span className="a-t3 min-w-0 flex-1 truncate">{e.error ?? '—'}</span>
+                  <span className="a-t3 min-w-0 flex-1 truncate">{errorText(e.error)}</span>
                   <span className="a-mono a-t3 text-[11px]">{fmtDate(e.at, lang, 'datetime')}</span>
                 </li>
               ))}
@@ -132,7 +132,7 @@ export default function ProductAi() {
 }
 
 function RecentTable({ rows, loading, label }: { rows: Recent[] | undefined; loading: boolean; label: (p: string, r: string) => string }) {
-  const { t, lang } = useAdminT();
+  const { t, lang, errorText } = useAdminT();
   const cols: ColumnDef<Recent, unknown>[] = [
     { id: 'prompt', accessorFn: (r) => `${r.prompt ?? ''} ${r.email ?? ''} ${r.assistant}`, header: t('adm.pl.ai.question'), enableSorting: false, cell: ({ row }) => (
       <span className="flex flex-col gap-0.5">
@@ -141,7 +141,7 @@ function RecentTable({ rows, loading, label }: { rows: Recent[] | undefined; loa
           {label('adm.ai.a', row.original.assistant)} · {row.original.email ?? t('adm.pl.ai.unknown')}
           {row.original.turns ? ` · ${t('adm.ai.turnsN', { n: row.original.turns })}` : ''}
           {(row.original.tools ?? []).length > 0 ? ` · ${(row.original.tools ?? []).join(', ')}` : ''}
-          {row.original.error ? ` · ${row.original.error}` : ''}
+          {row.original.error ? ` · ${errorText(row.original.error)}` : ''}
         </span>
       </span>
     ) },

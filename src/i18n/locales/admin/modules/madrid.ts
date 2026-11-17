@@ -142,7 +142,7 @@ const dict: AdminDict = {
   'adm.mad.c.bringsDeclared': ['Of which paid: {paid}.', 'Dont réglées : {paid}.', 'De las cuales pagadas: {paid}.'],
   'adm.mad.c.costs': ['Costs filled in', 'Coûts renseignés', 'Costes rellenados'],
   'adm.mad.c.costsNone': ['Fill in the cost and the hours of each month to get a cost per exit.', 'Saisis le coût et les heures de chaque mois pour obtenir un coût par sortie.', 'Rellena el coste y las horas de cada mes para obtener un coste por salida.'],
-  'adm.mad.c.costsFilled': ['Over {months} filled month(s), {hours} hours.', 'Sur {months} mois renseigné(s), {hours} heures.', 'En {months} mes(es) rellenado(s), {hours} horas.'],
+  'adm.mad.c.costsFilled': ['Over {months} filled {months|month|months}, {hours} hours.', 'Sur {months} mois {months|renseigné|renseignés}, {hours} heures.', 'En {months} {months|mes rellenado|meses rellenados}, {hours} horas.'],
   'adm.mad.c.perExit': ['Cost per exit', 'Coût par sortie', 'Coste por salida'],
   'adm.mad.c.perAccount': ['Cost per account that came through Madrid: {v}.', 'Coût par compte venu par Madrid : {v}.', 'Coste por cuenta llegada por Madrid: {v}.'],
   'adm.mad.c.perAccountNone': ['No cost per account: no account on the filled months.', 'Pas de coût par compte : aucun compte sur les mois renseignés.', 'Sin coste por cuenta: ninguna cuenta en los meses rellenados.'],

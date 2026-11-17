@@ -17,7 +17,7 @@ import { usePlatformSync, useReleaseHealth, type Health, type HealthCron } from 
 
 const BAD_ACTIONS = new Set(['app_crash', 'update_fail', 'webview_javascript_error']);
 const DAY = 86_400_000;
-/** Quota du disque de la base : offre gratuite de Supabase (décision du 08/11). Aucune RPC ne le rend : constante assumée. */
+/** Repère de taille : le plafond de l’offre gratuite de Supabase (500 Mo), visée par la décision du 08/11 ; l’offre Pro inclut 8 Go. L’offre en cours ne se lit nulle part : le texte le dit. */
 const DB_QUOTA_MB = 500;
 const HISTORY_DAYS = 14;
 
@@ -180,7 +180,7 @@ export default function SystemHealth() {
 
 /** Les tâches planifiées : une ligne par tâche, sa dernière exécution, sa durée, ses échecs récents jour par jour. */
 function CronsBlock({ health, loading }: { health: Health | undefined; loading: boolean }) {
-  const { t, lang } = useAdminT();
+  const { t, lang, errorText, label } = useAdminT();
   const [all, setAll] = useState(false);
   const [filter, setFilter] = useState('');
   const now = Date.now();
@@ -207,7 +207,7 @@ function CronsBlock({ health, loading }: { health: Health | undefined; loading: 
       {failures.length > 0 && (
         <ul className="flex flex-col gap-1.5 text-[13px]">
           {failures.map((f, i) => (
-            <li key={i} className="flex items-baseline gap-3"><Status strong tone="negative">{f.status}</Status><b className="a-t1 font-medium">{f.name}</b><code className="a-t3 min-w-0 flex-1 truncate text-[12px]">{f.message ?? ''}</code><span className="a-mono a-t3 text-[11px]">{fmtRelative(f.at, lang)}</span></li>
+            <li key={i} className="flex items-baseline gap-3"><Status strong tone="negative">{label(f.status)}</Status><b className="a-t1 font-medium">{f.name}</b><span className="a-t3 min-w-0 flex-1 truncate text-[12px]">{errorText(f.message)}</span><span className="a-mono a-t3 text-[11px]">{fmtRelative(f.at, lang)}</span></li>
           ))}
         </ul>
       )}
