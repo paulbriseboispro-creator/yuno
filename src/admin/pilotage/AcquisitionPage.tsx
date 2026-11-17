@@ -1,110 +1,157 @@
 /**
- * Pilotage › Acquisition des pros : « D'où viennent nos pros, et jusqu'où
- * vont-ils ? ». UN entonnoir Billetterie + CRM (admin_pro_acquisition, qui lit
- * admin_pro_signups : personnes, sans robots, règles inchangées), ses sources et
- * le délai jusqu'à la première vente. La liste des personnes à rappeler vit
- * dans Pros › Prospects (lien).
+ * Pilotage › Acquisition des pros (v3) : « D'où viennent nos pros, et jusqu'où
+ * vont-ils ? »
+ *   1. Héros : les comptes pros créés sur la période, la phrase qui dit jusqu'où
+ *      ils sont allés, la courbe des comptes créés par jour contre les parcours
+ *      commencés (repère gris) ;
+ *   2. l'entonnoir horizontal en pièce maîtresse : chaque étape, la perte ÉCRITE
+ *      entre deux étapes, la plus grosse marquée, la provenance de chaque chiffre ;
+ *      le délai médian jusqu'à la première vente en bullet ; les deux produits ;
+ *   3. les provenances en barres triées (parcours, puis comptes créés) ;
+ *   4. la page publique de Yuno CRM, repliée.
+ * Source : admin_pro_acquisition (personnes, sans robots, règles inchangées).
+ * La RPC ne rend pas la période précédente : le héros n'a pas d'écart, il le dit.
  */
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { ArrowUpRight } from 'lucide-react';
 import {
-  Card, Chart, DataTable, ErrorState, Funnel, Grid, Kpi, KpiRow, Page, Section, useAdminFilters, useAdminT,
-  type ColumnDef, type FunnelStep,
+  Block, BulletBar, ErrorState, Hero, HeroChart, HoverSync, Page, RankBars, cellTint, useAdminFilters, useAdminT,
 } from '@/admin/ui';
-import { fmtAxisDay, fmtNum } from '@/lib/adminFormat';
+import { fmtAxisDay, fmtNum, fmtPct } from '@/lib/adminFormat';
 import { sourceRows } from '@/lib/proSignupPeople';
 import { useAcquisition, type ProductSteps } from './data';
 import AcquisitionLanding from './AcquisitionLanding';
-
+import { FlowFunnel, Folded } from './v3';
+import { shareOrNull } from './rules';
 
 const STEPS = ['visits', 'opened', 'created', 'configured', 'first', 'paying'] as const;
+const PRODUCT_STEPS: (keyof ProductSteps)[] = ['created', 'configured', 'first', 'paying'];
 
 export default function AcquisitionPage() {
   const { t, lang } = useAdminT();
-  const { range, includeDemo } = useAdminFilters();
+  const { range, includeDemo, period } = useAdminFilters();
   const q = useAcquisition(range, includeDemo);
   const d = q.data;
+  const n = (v: number | null | undefined) => fmtNum(v ?? 0, lang);
+  const per = t(`adm.pil.v3.per.${period}`);
 
-  const steps = useMemo<FunnelStep[] | null>(() => d ? STEPS.map((s) => ({
-    key: s,
-    label: (
-      <span className="flex flex-col">
-        <span>{t(`adm.pil.acq.step.${s}`)}</span>
-        <span className="a-t3 text-[11.5px]">{t(`adm.pil.acq.src.${s}`)}</span>
-      </span>
-    ),
-    value: d[s],
-  })) : null, [d, t]);
+  const points = useMemo(() => (d?.by_day ?? []).map((x) => ({ x: x.d, v: x.created, prev: x.started })), [d]);
+  const started = useMemo(() => (d?.by_day ?? []).reduce((s, x) => s + x.started, 0), [d]);
+  const sources = useMemo(() => (d ? sourceRows(d.sources, t) : []), [d, t]);
 
-  const sources = useMemo(() => (d ? sourceRows(d.sources, t) : null), [d, t]);
-  const sourceCols = useMemo<ColumnDef<{ label: string; started: number; created: number }, unknown>[]>(() => [
-    { accessorKey: 'label', header: t('adm.pil.acq.source') },
-    { accessorKey: 'started', header: t('adm.pil.acq.started'), meta: { align: 'right' }, cell: (c) => fmtNum(c.getValue<number>(), lang) },
-    { accessorKey: 'created', header: t('adm.pil.acq.step.created'), meta: { align: 'right' }, cell: (c) => fmtNum(c.getValue<number>(), lang) },
-  ], [t, lang]);
+  const steps = d ? STEPS.map((s) => ({ key: s, label: t(`adm.pil.acq.step.${s}`), value: d[s] ?? 0, display: n(d[s]), source: t(`adm.pil.acq.src.${s}`) })) : [];
 
-  const products = useMemo(() => (d ? (['tickets', 'crm'] as const).map((p) => ({ p, s: d.by_product[p] ?? { created: 0, configured: 0, first: 0, paying: 0 } })) : []), [d]);
+  const sentence = !d ? null : d.created === 0 ? (
+    <>{t('adm.pil.v3a.none', { period: per })}{started > 0 ? <> {t('adm.pil.v3a.noneStarted', { n: n(started) })}</> : null}</>
+  ) : (
+    <>
+      {t('adm.pil.v3a.created', { period: per })} <b>{n(d.opened)}</b> {t('adm.pil.v3a.opened')}
+      {d.first > 0 ? <>{' '}{t('adm.pil.v3a.first')} <b>{n(d.first)}</b></> : <> {t('adm.pil.v3a.noFirst')}</>}
+      {d.median_days_to_first_sale != null ? <>{t('adm.pil.v3a.median')} <b>{t('adm.pil.acq.days', { n: fmtNum(d.median_days_to_first_sale, lang, 1) })}</b></> : null}.
+    </>
+  );
 
-  if (q.error && !d) return <Page title={t('adm.pil.acq.title')}><ErrorState onRetry={() => void q.refetch()} /></Page>;
+  if (q.error && !d) return <Page title={t('adm.pil.acq.title')} period><ErrorState onRetry={() => void q.refetch()} /></Page>;
+
+  const medianMax = Math.max(30, (d?.median_days_to_first_sale ?? 0) * 1.5);
+  const conv = d ? shareOrNull(d.created, d.opened) : null;
 
   return (
-    <Page title={t('adm.pil.acq.title')} subtitle={t('adm.pil.acq.sub')} period
-      actions={<Link to="/admin/pros/prospects" className="a-btn a-btn--sm">{t('adm.pil.acq.toProspects')}</Link>}>
-      <KpiRow>
-        <Kpi label={t('adm.pil.acq.step.opened')} loading={!d} value={fmtNum(d?.opened, lang)} to="/admin/pros/prospects" />
-        <Kpi label={t('adm.pil.acq.step.created')} loading={!d} value={fmtNum(d?.created, lang)} to="/admin/pros" />
-        <Kpi label={t('adm.pil.acq.step.first')} loading={!d} value={fmtNum(d?.first, lang)} to="/admin/pros?status=selling" />
-        <Kpi label={t('adm.pil.acq.median')} hint={t('adm.pil.acq.median.hint')} loading={!d}
-          value={d?.median_days_to_first_sale == null ? '—' : t('adm.pil.acq.days', { n: fmtNum(d.median_days_to_first_sale, lang, 1) })} />
-        <Kpi label={t('adm.pil.acq.toContact')} loading={!d} value={fmtNum(d?.to_contact, lang)} to="/admin/pros/prospects" />
-      </KpiRow>
-      <p className="a-t3 -mt-3 text-[12px]">{t('adm.pil.acq.kpiNote')}</p>
+    <Page title={t('adm.pil.acq.title')} period
+      actions={d && d.to_contact > 0 ? (
+        <Link to="/admin/pros/prospects" className="a-btn a-btn--sm">{t('adm.pil.v3a.toCall', { n: n(d.to_contact) })}<ArrowUpRight className="h-3.5 w-3.5" /></Link>
+      ) : <Link to="/admin/pros/prospects" className="a-btn a-btn--sm a-btn--ghost">{t('adm.pil.acq.toProspects')}</Link>}>
+      <HoverSync>
+        <Hero
+          kicker={t('adm.pil.v3a.kicker', { period: per })}
+          loading={!d}
+          value={n(d?.created)}
+          sentence={sentence}
+          chart={!d ? <div className="a-skel h-[200px] w-full" /> : points.length === 0 ? null : (
+            <HeroChart data={points} height={200} formatX={(x) => fmtAxisDay(x, lang)} formatV={(v) => n(v)} formatTick={(v) => n(v)}
+              labels={{ cur: t('adm.pil.acq.step.created'), prev: t('adm.pil.v3a.startedLine'), peak: t('adm.pil.v3.peak') }} />
+          )}
+          note={t('adm.pil.v3a.heroNote')}
+        />
+      </HoverSync>
 
-      <Grid cols={2}>
-        <Card title={t('adm.pil.acq.funnel')} footer={d ? t('adm.pil.acq.robots', { n: fmtNum(d.robots, lang) }) : undefined}>
-          <Funnel steps={steps} loading={!d} />
-          <p className="a-t3 mt-3 text-[12px]">{t('adm.pil.acq.funnelNote')}</p>
-        </Card>
-        <Card title={t('adm.pil.acq.byProduct')} padded={false}>
-          <table className="a-table">
-            <thead>
-              <tr>
-                <th>{t('adm.pil.acq.product')}</th>
-                {(['created', 'configured', 'first', 'paying'] as (keyof ProductSteps)[]).map((s) => <th key={s} style={{ textAlign: 'right' }}>{t(`adm.pil.acq.step.${s}`)}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {products.map(({ p, s }) => (
-                <tr key={p}>
-                  <td>{t(`adm.pil.acq.product.${p}`)}</td>
-                  <td className="a-num" style={{ textAlign: 'right' }}>{fmtNum(s.created, lang)}</td>
-                  <td className="a-num" style={{ textAlign: 'right' }}>{fmtNum(s.configured, lang)}</td>
-                  <td className="a-num" style={{ textAlign: 'right' }}>{fmtNum(s.first, lang)}</td>
-                  <td className="a-num" style={{ textAlign: 'right' }}>{p === 'crm' ? fmtNum(s.paying, lang) : '—'}</td>
+      <Block title={t('adm.pil.v3a.funnelTitle')} meta={d ? t('adm.pil.acq.robots', { n: n(d.robots) }) : undefined}>
+        {!d ? <div className="a-skel h-48 w-full" /> : (
+          <>
+            <FlowFunnel steps={steps} worstLabel={t('adm.pil.v3a.worst')} offScaleLabel={t('adm.pil.v3a.offScale')}
+              lostText={(i, lost) => t(`adm.pil.v3a.lost.${STEPS[i]}${lost === 1 ? 'One' : ''}`, { n: n(lost) })} />
+            <p className="a-t3 text-[12px]">{t('adm.pil.acq.funnelNote')}</p>
+          </>
+        )}
+      </Block>
+
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
+        <Block title={t('adm.pil.v3a.speedTitle')}>
+          {!d ? <div className="a-skel h-16 w-full" /> : d.median_days_to_first_sale == null ? (
+            <p className="a-t2 text-[13px]">{t('adm.pil.v3a.noMedian')}</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <BulletBar value={d.median_days_to_first_sale} max={medianMax} target={7} targetLabel={t('adm.pil.v3a.week')}
+                label={t('adm.pil.acq.median')} display={t('adm.pil.acq.days', { n: fmtNum(d.median_days_to_first_sale, lang, 1) })} />
+              <p className="a-t3 text-[12px]">{t('adm.pil.v3a.medianOn', { n: n(d.median_n) })}</p>
+            </div>
+          )}
+          {d && (
+            <p className="a-t2 text-[13px]">
+              {conv == null
+                ? t('adm.pil.v3a.convRaw', { a: n(d.created), b: n(d.opened) })
+                : t('adm.pil.v3a.convPct', { pct: fmtPct(conv * 100, 0, lang) })}
+            </p>
+          )}
+        </Block>
+        <Block title={t('adm.pil.acq.byProduct')} meta={t('adm.pil.acq.productNote')}>
+          {!d ? <div className="a-skel h-16 w-full" /> : (
+            <table className="w-full border-collapse text-[13px]">
+              <thead>
+                <tr>
+                  <th className="a-kicker pb-2 text-left font-normal" />
+                  {PRODUCT_STEPS.map((s) => <th key={s} className="a-kicker pb-2 text-right font-normal">{t(`adm.pil.acq.step.${s}`)}</th>)}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="a-t3 px-4 py-3 text-[12px]">{t('adm.pil.acq.productNote')}</p>
-        </Card>
-      </Grid>
+              </thead>
+              <tbody>
+                {(['tickets', 'crm'] as const).map((p) => {
+                  const s = d.by_product[p] ?? { created: 0, configured: 0, first: 0, paying: 0 };
+                  const top = Math.max(1, s.created);
+                  return (
+                    <tr key={p} className="border-t">
+                      <td className="a-t1 py-2 pr-3">{t(`adm.pil.acq.product.${p}`)}</td>
+                      {PRODUCT_STEPS.map((k) => (
+                        <td key={k} className="a-num py-2 pr-2 text-right" style={{ background: p === 'tickets' && k === 'paying' ? undefined : cellTint(s[k], top) }}>
+                          {p === 'tickets' && k === 'paying' ? <span className="a-t3">—</span> : n(s[k])}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </Block>
+      </div>
 
-      <Card title={t('adm.pil.acq.perDay')}>
-        <Chart kind="bar" data={d?.by_day} x="d" unit="count" loading={!d} formatX={(v) => fmtAxisDay(v, lang)}
-          series={[
-            { key: 'started', label: t('adm.pil.acq.started') },
-            { key: 'created', label: t('adm.pil.acq.step.created') },
-          ]} />
-      </Card>
+      <Block title={t('adm.pil.acq.sources')} meta={t('adm.pil.v3a.sourcesMeta')}>
+        {!d ? <div className="a-skel h-32 w-full" /> : (
+          <div className="flex flex-col gap-3">
+            <RankBars emptyText={t('adm.pil.acq.noSources')}
+              items={sources.slice(0, 10).map((s) => ({
+                key: s.label, label: s.label, value: s.started,
+                display: t('adm.pil.v3a.srcStarted', { n: n(s.started) }),
+                sub: s.created > 0 ? t(s.created === 1 ? 'adm.pil.v3a.srcCreatedOne' : 'adm.pil.v3a.srcCreated', { n: n(s.created) }) : t('adm.pil.v3a.srcNone'),
+              }))} />
+            <p className="a-t3 text-[12px]">{t('adm.pil.v3a.sourcesNote')}</p>
+          </div>
+        )}
+      </Block>
 
-      <Section title={t('adm.pil.acq.sources')} description={t('adm.pil.acq.sourcesSub')}>
-        <DataTable data={sources} columns={sourceCols} loading={!d} error={q.error} onRetry={() => void q.refetch()}
-          initialSort={[{ id: 'started', desc: true }]} empty={{ title: t('adm.pil.acq.noSources') }} />
-      </Section>
-
-      <Section title={t('adm.pil.acq.landing')} description={t('adm.pil.acq.landingSub')}>
+      <Folded title={t('adm.pil.acq.landing')} hint={t('adm.pil.acq.landingSub')}>
         <AcquisitionLanding days={range.days} />
-      </Section>
+      </Folded>
     </Page>
   );
 }
