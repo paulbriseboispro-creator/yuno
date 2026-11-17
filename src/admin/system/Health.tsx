@@ -1,25 +1,37 @@
 /**
- * Système › Santé technique : « La machine tourne-t-elle ? » Une rangée de cinq
- * états (apps et mises à jour, tâches planifiées, base de données, paiements,
- * connecteurs billetterie), puis une section par état. Aucun chiffre d'e-mail
- * ici : le pool et la délivrabilité sont dans Communication › Délivrabilité.
+ * Système › Santé technique (v3) : « La machine tourne-t-elle ? »
+ * Une page de statut. Le verdict en phrase ; puis UNE ligne par service
+ * (paiements, apps et mises à jour, tâches planifiées, base de données,
+ * connecteurs) avec son état du moment et, là où l'historique existe vraiment,
+ * des barres de disponibilité sur 14 jours. Là où il n'existe pas (paiements,
+ * base, connecteurs : la RPC ne rend que l'instant), la ligne dit l'état et le
+ * dernier changement, sans dessiner d'historique inventé. Dessous, le détail :
+ * tâches (échecs récents en mini-barres), base (taille contre quota), apps.
+ * Aucun chiffre d'e-mail ici : voir Communication › Délivrabilité.
  */
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Badge, Card, Chart, DataTable, EmptyState, ErrorState, Grid, KeyValue, Page, Section, Status, useAdminFilters, useAdminT, type ColumnDef, type Tone } from '@/admin/ui';
-import { fmtDate, fmtMs, fmtNum, fmtPct, fmtPlural, fmtRelative } from '@/lib/adminFormat';
+import { Block, BulletBar, DataTable, ErrorState, Page, RankBars, UptimeBars, useAdminFilters, useAdminT, type ColumnDef, type Uptime } from '@/admin/ui';
+import { fmtDate, fmtMs, fmtNum, fmtPct, fmtRelative } from '@/lib/adminFormat';
+import { Cutoff, Disclosure, Ledger, LedgerRow, StateMark, TinyBars, Verdict, type Tone3 } from '../legal/parts';
 import { usePlatformSync, useReleaseHealth, type Health, type HealthCron } from './data';
 
 const BAD_ACTIONS = new Set(['app_crash', 'update_fail', 'webview_javascript_error']);
+const DAY = 86_400_000;
+/** Quota du disque de la base : offre gratuite de Supabase (décision du 08/11). Aucune RPC ne le rend : constante assumée. */
+const DB_QUOTA_MB = 500;
+const HISTORY_DAYS = 14;
 
-function StateCard({ href, label, tone, value, sub }: { href: string; label: string; tone: Tone; value: string; sub: string }) {
-  const dot = tone === 'negative' ? 'var(--a-neg)' : tone === 'warning' ? 'var(--a-warn)' : tone === 'positive' ? 'var(--a-pos)' : 'var(--a-text-3)';
-  return (
-    <a href={href} className="a-card a-focus flex flex-col gap-1.5 p-4 transition-colors hover:[border-color:var(--a-border-strong)]">
-      <span className="a-t2 flex items-center gap-2 text-[12.5px] font-medium"><span aria-hidden className="h-2 w-2 rounded-full" style={{ background: dot }} />{label}</span>
-      <span className="a-t1 a-num text-[18px] font-semibold tracking-[-0.01em]">{value}</span>
-      <span className="a-t3 text-[12px]">{sub}</span>
-    </a>
-  );
+const dayKey = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+/** Les N derniers jours, un état par jour : `bad` = jour avec au moins un échec. Aucune donnée de ces jours-là n'est inventée : un jour sans ligne dans le journal est « sans incident remonté ». */
+function history(events: Array<{ at: string }>, hard: (e: { at: string }) => boolean, now: number): Array<{ d: string; state: Uptime; note?: string }> {
+  const by = new Map<string, { n: number; hard: boolean }>();
+  for (const e of events) { const k = e.at.slice(0, 10); const cur = by.get(k) ?? { n: 0, hard: false }; cur.n += 1; cur.hard = cur.hard || hard(e); by.set(k, cur); }
+  return Array.from({ length: HISTORY_DAYS }, (_, i) => {
+    const d = dayKey(now - (HISTORY_DAYS - 1 - i) * DAY);
+    const x = by.get(d);
+    return { d, state: !x ? 'ok' : x.hard ? 'down' : 'warn', note: x ? String(x.n) : undefined };
+  });
 }
 
 export default function SystemHealth() {
@@ -28,153 +40,198 @@ export default function SystemHealth() {
   const q = useReleaseHealth();
   const sync = usePlatformSync(includeDemo);
   const h = q.data;
+  const now = useMemo(() => Date.now(), [h]); // eslint-disable-line react-hooks/exhaustive-deps -- recalculé à chaque lecture
 
-  if (q.isError && !h) return <Page title={t('adm.sys.h.title')}><Card><ErrorState onRetry={() => void q.refetch()} /></Card></Page>;
+  if (q.isError && !h) return <Page title={t('adm.sys.h.title')}><ErrorState onRetry={() => void q.refetch()} /></Page>;
 
   const crashes = h?.apps.reduce((a, x) => a + x.crashes_7d, 0) ?? 0;
   const dlFail = h?.apps.reduce((a, x) => a + x.download_fail_7d, 0) ?? 0;
   const failingCrons = h?.crons.filter((c) => c.fails_7d > 0).length ?? 0;
   const s = sync.data?.shotgun;
-  const badConns = s?.errors24 ?? 0;
+  const syncErr = s?.errors24 ?? 0;
   const payOff = h?.settings.payments_disabled ?? false;
   const maint = h?.settings.maintenance_mode ?? false;
+
+  // Le verdict : le plus grave d'abord (paiements coupés, maintenance, tâches en échec, apps qui plantent, synchros).
+  const verdict = ((): { tone: Tone3; key: string } => {
+    if (payOff) return { tone: 'late', key: 'pay' };
+    if (maint) return { tone: 'late', key: 'maint' };
+    if (failingCrons > 0) return { tone: 'todo', key: 'crons' };
+    if (crashes > 0) return { tone: 'todo', key: 'apps' };
+    if (syncErr > 0) return { tone: 'todo', key: 'sync' };
+    return { tone: 'ok', key: 'ok' };
+  })();
+
+  const appsHistory = h ? history(h.crash_log, (e) => BAD_ACTIONS.has((e as Health['crash_log'][number]).action), now) : [];
+  const cronHistory = h ? history(h.cron_failures, () => true, now) : [];
+
+  type Service = { id: string; label: string; tone: Tone3; word: string; line: string; hist?: ReturnType<typeof history>; histLabel?: string; to?: string };
+  const services: Service[] = !h ? [] : [
+    { id: 'pay', label: t('adm.sys3.h.svc.pay'), tone: payOff || maint ? 'late' : 'ok', word: payOff ? t('adm.sys.h.payOff') : maint ? t('adm.sys.h.maint') : t('adm.sys.h.payOn'),
+      line: h.settings.settings_updated_at ? t('adm.sys3.h.payLine', { t: fmtRelative(h.settings.settings_updated_at, lang) }) : t('adm.sys3.h.payNoChange'), to: '/admin/system/switches' },
+    { id: 'apps', label: t('adm.sys.h.st.apps'), tone: crashes > 0 ? 'late' : dlFail > 10 ? 'todo' : 'ok',
+      word: crashes > 0 ? t('adm.sys3.h.crashes', { n: crashes }) : t('adm.sys3.h.noCrash'), line: t('adm.sys.h.st.appsSub', { n: fmtNum(dlFail, lang) }), hist: appsHistory, histLabel: t('adm.sys3.h.histApps') },
+    { id: 'crons', label: t('adm.sys.h.st.crons'), tone: failingCrons > 0 ? 'todo' : 'ok',
+      word: failingCrons > 0 ? t('adm.sys3.h.failing', { n: failingCrons }) : t('adm.sys3.h.allRun'), line: t('adm.sys.h.st.cronsSub', { n: fmtNum(h.crons.length, lang) }), hist: cronHistory, histLabel: t('adm.sys3.h.histCrons') },
+    { id: 'db', label: t('adm.sys.h.st.db'), tone: h.database.size_mb >= DB_QUOTA_MB * 0.9 ? 'late' : h.database.size_mb >= DB_QUOTA_MB * 0.7 ? 'todo' : 'ok',
+      word: `${fmtNum(h.database.size_mb, lang)} / ${fmtNum(DB_QUOTA_MB, lang)} MB`, line: t('adm.sys.h.st.dbSub', { n: fmtNum(h.database.migrations, lang) }) },
+    { id: 'sync', label: t('adm.sys.h.st.sync'), tone: !s ? 'none' : syncErr > 0 ? 'todo' : 'ok',
+      word: !s ? '…' : s.runs24 ? fmtPct(((s.runs24 - syncErr) / s.runs24) * 100, 1, lang) : t('adm.sys3.h.noRun'), line: s ? t('adm.sys.h.st.syncSub', { n: fmtNum(syncErr, lang), r: fmtNum(s.runs24, lang) }) : '', to: '/admin/system/connectors' },
+  ];
 
   return (
     <Page title={t('adm.sys.h.title')} subtitle={h ? t('adm.sys.h.sub', { t: fmtRelative(h.generated_at, lang) }) : t('adm.sys.h.subLoading')}
       actions={<button type="button" className="a-btn" onClick={() => void q.refetch()} disabled={q.isFetching}>{q.isFetching ? t('adm.ui.working') : t('adm.sys.refresh')}</button>}>
-      <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))' }}>
-        <StateCard href="#sys-apps" label={t('adm.sys.h.st.apps')} tone={crashes > 0 ? 'negative' : dlFail > 10 ? 'warning' : 'positive'}
-          value={h ? fmtPlural(crashes, lang, t('adm.sys.h.crashOne'), t('adm.sys.h.crashN')) : '…'} sub={t('adm.sys.h.st.appsSub', { n: fmtNum(dlFail, lang) })} />
-        <StateCard href="#sys-crons" label={t('adm.sys.h.st.crons')} tone={failingCrons > 0 ? 'negative' : 'positive'}
-          value={h ? fmtPlural(failingCrons, lang, t('adm.sys.h.failOne'), t('adm.sys.h.failN')) : '…'} sub={t('adm.sys.h.st.cronsSub', { n: fmtNum(h?.crons.length ?? 0, lang) })} />
-        <StateCard href="#sys-db" label={t('adm.sys.h.st.db')} tone="neutral" value={h ? `${fmtNum(h.database.size_mb, lang)} MB` : '…'} sub={t('adm.sys.h.st.dbSub', { n: fmtNum(h?.database.migrations ?? 0, lang) })} />
-        <StateCard href="#sys-pay" label={t('adm.sys.h.st.pay')} tone={payOff || maint ? 'negative' : 'positive'}
-          value={payOff ? t('adm.sys.h.payOff') : maint ? t('adm.sys.h.maint') : t('adm.sys.h.payOn')} sub={t('adm.sys.h.st.paySub')} />
-        <StateCard href="#sys-sync" label={t('adm.sys.h.st.sync')} tone={badConns > 0 ? 'warning' : 'positive'}
-          value={s ? (s.runs24 ? fmtPct(((s.runs24 - s.errors24) / s.runs24) * 100, 1) : '—') : '…'} sub={t('adm.sys.h.st.syncSub', { n: fmtNum(s?.errors24 ?? 0, lang), r: fmtNum(s?.runs24 ?? 0, lang) })} />
+      {!h ? (
+        <div className="flex flex-col gap-3"><div className="a-skel h-10 w-[22rem] max-w-full" /><div className="a-skel h-4 w-80 max-w-full" /></div>
+      ) : (
+        <Verdict tone={verdict.tone} kicker={t('adm.sys3.h.kicker')} headline={t(`adm.sys3.h.head.${verdict.key}`, { n: failingCrons, c: crashes })} sub={t('adm.sys3.h.sub')} />
+      )}
+
+      <Block title={t('adm.sys3.h.services')} meta={t('adm.sys3.h.servicesMeta', { d: HISTORY_DAYS })}>
+        {!h ? <div className="flex flex-col gap-3">{Array.from({ length: 5 }, (_, i) => <div key={i} className="a-skel h-12 w-full" />)}</div> : (
+          <Ledger>
+            {services.map((sv) => (
+              <LedgerRow key={sv.id} to={sv.to} className="grid-cols-1 lg:grid-cols-[190px_minmax(0,0.9fr)_minmax(0,1.3fr)] py-3.5">
+                <div className="flex flex-col"><span className="a-t1 text-[14px] font-medium">{sv.label}</span><StateMark tone={sv.tone}>{sv.word}</StateMark></div>
+                <span className="a-t2 text-[12.5px] leading-snug">{sv.line}</span>
+                {sv.hist ? <UptimeBars days={sv.hist} label={<span className="a-t3 text-[11.5px]">{sv.histLabel}</span>} /> : <span className="a-t3 text-[12px]">{t('adm.sys3.h.noHistory')}</span>}
+              </LedgerRow>
+            ))}
+          </Ledger>
+        )}
+      </Block>
+
+      <CronsBlock health={h} loading={q.isLoading} />
+
+      <div id="sys-db" className="grid grid-cols-1 gap-x-12 gap-y-10 xl:grid-cols-2">
+        <Block title={t('adm.sys.h.db.title')} meta={t('adm.sys3.h.dbMeta')}>
+          {!h ? <div className="a-skel h-24 w-full" /> : (
+            <div className="flex flex-col gap-5">
+              <BulletBar value={h.database.size_mb} max={DB_QUOTA_MB} zones={[DB_QUOTA_MB * 0.7, DB_QUOTA_MB * 0.9]} label={t('adm.sys.h.db.size')} display={`${fmtNum(h.database.size_mb, lang)} / ${fmtNum(DB_QUOTA_MB, lang)} MB`} />
+              <p className="a-t3 text-[12px]">{t('adm.sys3.h.quotaNote')}</p>
+              <ul className="flex flex-col divide-y border-y text-[13px]">
+                {[
+                  [t('adm.sys.h.db.migrations'), `${fmtNum(h.database.migrations, lang)} · ${h.database.latest_migration ?? ''}`],
+                  [t('adm.sys.h.db.tables'), fmtNum(h.database.tables, lang)],
+                  [t('adm.sys.h.db.dead'), h.database.dead_tuples_top.map((d) => `${d.table} ${fmtNum(d.dead, lang)}`).join(' · ') || '—'],
+                  [t('adm.sys.h.db.authFail'), fmtNum(h.security.failures_24h, lang)],
+                  [t('adm.sys.h.db.support'), fmtNum(h.security.active_support_sessions, lang)],
+                ].map(([k, v]) => <li key={k} className="flex items-baseline gap-3 py-1.5"><span className="a-t2 w-[9rem] flex-none text-[12.5px]">{k}</span><span className="a-t1 min-w-0 break-words">{v}</span></li>)}
+              </ul>
+            </div>
+          )}
+        </Block>
+        <Block title={t('adm.sys.h.db.largest')} meta="MB">
+          <RankBars emptyText={t('adm.sys3.h.noTables')} items={(h?.database.largest ?? []).slice(0, 8).map((x) => ({ key: x.table, label: <span className="a-mono text-[12px]">{x.table}</span>, value: x.mb, display: `${fmtNum(x.mb, lang)} MB`, sub: t('adm.sys3.h.rows', { n: fmtNum(x.rows, lang) }) }))} />
+        </Block>
       </div>
 
-      <Section title={t('adm.sys.h.apps.title')} description={t('adm.sys.h.apps.sub')}>
+      <Block title={t('adm.sys.h.apps.title')} meta={t('adm.sys.h.apps.sub')}>
         <span id="sys-apps" />
-        <Grid cols={2}>
-          {(h?.apps ?? []).map((app) => (
-            <Card key={app.app_id} title={app.name} actions={<div className="flex gap-1.5">{app.channels.map((c) => <Badge key={c.channel} tone={c.channel === 'production' ? 'accent' : 'neutral'}>{c.channel} {c.version}</Badge>)}</div>}>
-              <KeyValue items={[
-                { label: t('adm.sys.h.apps.devices'), value: `${fmtNum(app.devices, lang)} · ${t('adm.sys.h.apps.active7', { n: fmtNum(app.active_7d, lang) })}` },
-                { label: t('adm.sys.h.apps.new7'), value: fmtNum(app.new_7d, lang) },
-                { label: t('adm.sys.h.apps.crashes'), value: <span style={app.crashes_7d > 0 ? { color: 'var(--a-neg)' } : undefined}>{fmtNum(app.crashes_7d, lang)}</span> },
-                { label: t('adm.sys.h.apps.dlFail'), value: fmtNum(app.download_fail_7d, lang) },
-                { label: t('adm.sys.h.apps.versions'), value: app.by_version.slice(0, 4).map((v) => `${v.version} (${fmtNum(v.n, lang)})`).join(' · ') || '—' },
-              ]} />
-            </Card>
-          ))}
-        </Grid>
-        <Grid cols={2}>
-          <Card title={t('adm.sys.h.apps.crashLog')} padded={false}>
-            <DataTable data={h?.crash_log} loading={q.isLoading} pageSize={8} getRowId={(_, i) => String(i)} empty={{ title: t('adm.sys.h.apps.crashNone') }}
-              columns={[
-                { accessorKey: 'at', header: t('adm.sys.col.date'), cell: (c) => fmtDate(c.getValue<string>(), lang, 'datetime') },
-                { accessorKey: 'action', header: t('adm.sys.col.action'), cell: (c) => <Badge tone={BAD_ACTIONS.has(c.getValue<string>()) ? 'negative' : 'warning'}>{c.getValue<string>()}</Badge> },
-                { accessorKey: 'version', header: t('adm.sys.col.version'), cell: (c) => c.getValue<string | null>() ?? '—' },
-              ] as ColumnDef<Health['crash_log'][number], unknown>[]} />
-          </Card>
-          <Card title={t('adm.sys.h.apps.bundles')} padded={false}>
-            <DataTable data={h?.recent_bundles} loading={q.isLoading} pageSize={8} getRowId={(_, i) => String(i)} empty={{ title: t('adm.sys.h.apps.bundleNone') }}
-              columns={[
-                { accessorKey: 'at', header: t('adm.sys.col.date'), cell: (c) => fmtDate(c.getValue<string>(), lang, 'datetime') },
-                { accessorKey: 'channel', header: t('adm.sys.col.channel') },
-                { accessorKey: 'version', header: t('adm.sys.col.version'), cell: ({ row }) => <span>{row.original.version}{!row.original.active && <Badge className="ml-1.5">{t('adm.sys.inactive')}</Badge>}</span> },
-                { accessorKey: 'size_mb', header: t('adm.sys.col.size'), meta: { align: 'right' }, cell: (c) => (c.getValue<number | null>() ? `${c.getValue<number>()} MB` : '—') },
-              ] as ColumnDef<Health['recent_bundles'][number], unknown>[]} />
-          </Card>
-        </Grid>
-      </Section>
-
-      <Section title={t('adm.sys.h.crons.title')} description={t('adm.sys.h.crons.sub')}>
-        <span id="sys-crons" />
-        {(h?.cron_failures.length ?? 0) > 0 && (
-          <Card title={t('adm.sys.h.crons.failures')}>
-            <ul className="flex flex-col gap-2 text-[13px]">
-              {h!.cron_failures.slice(0, 6).map((f, i) => (
-                <li key={i} className="flex items-start justify-between gap-3">
-                  <span><b className="a-t1">{f.name}</b> <span style={{ color: 'var(--a-neg)' }}>{f.status}</span><br /><code className="a-t3 text-[12px]">{f.message ?? ''}</code></span>
-                  <span className="a-t3 whitespace-nowrap text-[12px]">{fmtRelative(f.at, lang)}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
+        {!h ? <div className="a-skel h-24 w-full" /> : h.apps.length === 0 ? <Cutoff>{t('adm.sys3.h.noApps')}</Cutoff> : (
+          <Ledger>
+            {h.apps.map((app) => (
+              <div key={app.app_id} className="grid grid-cols-1 items-start gap-x-6 gap-y-1 px-1 py-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1.2fr)]">
+                <div className="flex min-w-0 flex-col"><span className="a-t1 text-[14px] font-medium">{app.name}</span>
+                  <span className="a-mono a-t3 text-[11.5px]">{app.channels.map((c) => `${c.channel} ${c.version}`).join(' · ')}</span></div>
+                <span className="a-t2 text-[12.5px]">{t('adm.sys.h.apps.devices')} <b className="a-t1 font-medium">{fmtNum(app.devices, lang)}</b> · {t('adm.sys.h.apps.active7', { n: fmtNum(app.active_7d, lang) })} · {t('adm.sys.h.apps.new7')} {fmtNum(app.new_7d, lang)}</span>
+                <span className="a-t2 text-[12.5px]">
+                  <span style={app.crashes_7d > 0 ? { color: 'var(--a-neg)', fontWeight: 600 } : undefined}>{t('adm.sys.h.apps.crashes')} {fmtNum(app.crashes_7d, lang)}</span> · {t('adm.sys.h.apps.dlFail')} {fmtNum(app.download_fail_7d, lang)}
+                  <br /><span className="a-t3">{app.by_version.slice(0, 4).map((v) => `${v.version} (${fmtNum(v.n, lang)})`).join(' · ') || '—'}</span>
+                </span>
+              </div>
+            ))}
+          </Ledger>
         )}
-        <Card padded={false}>
-          <DataTable data={h?.crons} loading={q.isLoading} searchable pageSize={25} getRowId={(c) => c.name}
-            initialSort={[{ id: 'fails_7d', desc: true }]} empty={{ title: t('adm.sys.h.crons.none') }}
-            columns={[
-              { accessorKey: 'name', header: t('adm.sys.col.job'), cell: ({ row }) => <span className="a-t1 font-medium" style={{ opacity: row.original.active ? 1 : 0.5 }}>{row.original.name}</span> },
-              { accessorKey: 'schedule', header: t('adm.sys.col.schedule'), cell: (c) => <code className="text-[12px]">{c.getValue<string>()}</code> },
-              { accessorKey: 'kind', header: t('adm.sys.col.target'), cell: ({ row }) => <span><Badge>{row.original.kind}</Badge> <code className="a-t3 text-[12px]">{row.original.target ?? ''}</code></span> },
-              { id: 'last', header: t('adm.sys.col.lastRun'), accessorFn: (c) => c.last_start ?? '', cell: ({ row }) => row.original.last_status
-                ? <Status tone={row.original.last_status === 'succeeded' ? 'positive' : 'negative'}>{row.original.last_start ? fmtRelative(row.original.last_start, lang) : row.original.last_status}</Status>
-                : <span className="a-t3">{t('adm.sys.h.crons.never')}</span> },
-              { accessorKey: 'last_ms', header: t('adm.sys.col.duration'), meta: { align: 'right' }, cell: (c) => fmtMs(c.getValue<number | null>(), lang) },
-              { accessorKey: 'runs_24h', header: t('adm.sys.col.runs24'), meta: { align: 'right' }, cell: (c) => fmtNum(c.getValue<number>(), lang) },
-              { accessorKey: 'fails_7d', header: t('adm.sys.col.fails7'), meta: { align: 'right' }, cell: (c) => <span style={c.getValue<number>() > 0 ? { color: 'var(--a-neg)', fontWeight: 600 } : undefined}>{fmtNum(c.getValue<number>(), lang)}</span> },
-            ] as ColumnDef<HealthCron, unknown>[]} />
-        </Card>
-      </Section>
+      </Block>
+      <Disclosure title={t('adm.sys.h.apps.crashLog')} hint={h ? fmtNum(h.crash_log.length, lang) : undefined}>
+        <DataTable data={h?.crash_log} loading={q.isLoading} pageSize={8} getRowId={(_, i) => String(i)} empty={{ title: t('adm.sys.h.apps.crashNone') }}
+          columns={[
+            { accessorKey: 'at', header: t('adm.sys.col.date'), cell: (c) => fmtDate(c.getValue<string>(), lang, 'datetime') },
+            { accessorKey: 'action', header: t('adm.sys.col.action'), cell: (c) => <StateMark tone={BAD_ACTIONS.has(c.getValue<string>()) ? 'late' : 'todo'}>{c.getValue<string>()}</StateMark> },
+            { accessorKey: 'version', header: t('adm.sys.col.version'), cell: (c) => c.getValue<string | null>() ?? '—' },
+          ] as ColumnDef<Health['crash_log'][number], unknown>[]} />
+      </Disclosure>
+      <Disclosure title={t('adm.sys.h.apps.bundles')} hint={h ? fmtNum(h.recent_bundles.length, lang) : undefined}>
+        <DataTable data={h?.recent_bundles} loading={q.isLoading} pageSize={8} getRowId={(_, i) => String(i)} empty={{ title: t('adm.sys.h.apps.bundleNone') }}
+          columns={[
+            { accessorKey: 'at', header: t('adm.sys.col.date'), cell: (c) => fmtDate(c.getValue<string>(), lang, 'datetime') },
+            { accessorKey: 'channel', header: t('adm.sys.col.channel') },
+            { accessorKey: 'version', header: t('adm.sys.col.version'), cell: ({ row }) => <span>{row.original.version}{!row.original.active && <span className="a-t3"> · {t('adm.sys.inactive')}</span>}</span> },
+            { accessorKey: 'size_mb', header: t('adm.sys.col.size'), meta: { align: 'right' }, cell: (c) => (c.getValue<number | null>() ? `${c.getValue<number>()} MB` : '—') },
+          ] as ColumnDef<Health['recent_bundles'][number], unknown>[]} />
+      </Disclosure>
 
-      <Section title={t('adm.sys.h.db.title')} description={t('adm.sys.h.db.sub')}>
-        <span id="sys-db" />
-        <Grid cols={2}>
-          <Card title={t('adm.sys.h.db.largest')}>
-            <Chart kind="bar" data={h?.database.largest.map((x) => ({ table: x.table, mb: x.mb })) ?? null} x="table" height={200}
-              unit={{ label: 'MB', format: (v) => `${fmtNum(v, lang)} MB` }} series={[{ key: 'mb', label: 'MB' }]} loading={q.isLoading} />
-          </Card>
-          <Card title={t('adm.sys.h.db.state')}>
-            <KeyValue items={[
-              { label: t('adm.sys.h.db.size'), value: `${fmtNum(h?.database.size_mb ?? 0, lang)} MB` },
-              { label: t('adm.sys.h.db.migrations'), value: `${fmtNum(h?.database.migrations ?? 0, lang)} · ${h?.database.latest_migration ?? ''}` },
-              { label: t('adm.sys.h.db.tables'), value: fmtNum(h?.database.tables ?? 0, lang) },
-              { label: t('adm.sys.h.db.dead'), value: (h?.database.dead_tuples_top ?? []).map((d) => `${d.table} ${fmtNum(d.dead, lang)}`).join(' · ') || '—' },
-              { label: t('adm.sys.h.db.authFail'), value: fmtNum(h?.security.failures_24h ?? 0, lang) },
-              { label: t('adm.sys.h.db.support'), value: fmtNum(h?.security.active_support_sessions ?? 0, lang) },
-            ]} />
-          </Card>
-        </Grid>
-      </Section>
-
-      <Section title={t('adm.sys.h.pay.title')} description={t('adm.sys.h.pay.sub')}>
-        <span id="sys-pay" />
-        <Card>
-          <KeyValue items={[
-            { label: t('adm.sys.h.pay.payments'), value: <Status tone={payOff ? 'negative' : 'positive'}>{payOff ? t('adm.sys.h.payOff') : t('adm.sys.h.payOn')}</Status> },
-            { label: t('adm.sys.h.pay.maintenance'), value: <Status tone={maint ? 'negative' : 'positive'}>{maint ? t('adm.sys.h.maint') : t('adm.sys.h.maintOff')}</Status> },
-            { label: t('adm.sys.h.pay.changed'), value: h?.settings.settings_updated_at ? fmtRelative(h.settings.settings_updated_at, lang) : '—' },
-          ]} />
-          <p className="a-t3 mt-3 text-[12.5px]">{t('adm.sys.h.pay.note')}</p>
-          <div className="mt-3 flex gap-2">
-            <Link to="/admin/system/switches" className="a-btn a-btn--sm">{t('adm.sys.h.pay.go')}</Link>
-            <Link to="/admin" className="a-btn a-btn--sm">{t('adm.sys.h.pay.goToday')}</Link>
-          </div>
-        </Card>
-      </Section>
-
-      <Section title={t('adm.sys.h.sync.title')} description={t('adm.sys.h.sync.sub')}>
+      <Block title={t('adm.sys.h.sync.title')} meta={t('adm.sys.h.sync.sub')}>
         <span id="sys-sync" />
-        <Card>
-          {sync.isLoading ? <div className="a-skel h-20" /> : s ? (
-            <KeyValue items={[
-              { label: t('adm.sys.h.sync.conns'), value: fmtNum(s.conns, lang) },
-              { label: t('adm.sys.h.sync.runs'), value: t('adm.sys.h.sync.runsV', { r: fmtNum(s.runs24, lang), e: fmtNum(s.errors24, lang) }) },
-              { label: t('adm.sys.h.sync.p50'), value: s.duration.p50 == null ? '—' : fmtMs(s.duration.p50 * 1000, lang) },
-            ]} />
-          ) : <EmptyState title={t('adm.sys.h.sync.none')} />}
-          <div className="mt-3"><Link to="/admin/system/connectors" className="a-btn a-btn--sm">{t('adm.sys.h.sync.go')}</Link></div>
-        </Card>
-      </Section>
+        {sync.isLoading ? <div className="a-skel h-12 w-full" /> : s ? (
+          <p className="a-hero-sentence max-w-[68ch]">{t('adm.sys3.h.syncSentence', { c: fmtNum(s.conns, lang), r: fmtNum(s.runs24, lang), e: fmtNum(s.errors24, lang), p: s.duration.p50 == null ? '—' : fmtMs(s.duration.p50 * 1000, lang) })}</p>
+        ) : <Cutoff>{t('adm.sys.h.sync.none')}</Cutoff>}
+        <div><Link to="/admin/system/connectors" className="a-btn a-btn--sm">{t('adm.sys.h.sync.go')}</Link></div>
+      </Block>
 
       <p className="a-t3 text-[12.5px]">
         {t('adm.sys.h.elsewhere')}{' '}
         <Link to="/admin/comms/deliverability" className="underline">{t('adm.sys.h.elEmail')}</Link> · <Link to="/admin/comms/engine" className="underline">{t('adm.sys.h.elPush')}</Link> · <Link to="/admin/system/ai" className="underline">{t('adm.sys.h.elAi')}</Link>
       </p>
     </Page>
+  );
+}
+
+/** Les tâches planifiées : une ligne par tâche, sa dernière exécution, sa durée, ses échecs récents jour par jour. */
+function CronsBlock({ health, loading }: { health: Health | undefined; loading: boolean }) {
+  const { t, lang } = useAdminT();
+  const [all, setAll] = useState(false);
+  const [filter, setFilter] = useState('');
+  const now = Date.now();
+  const failuresBy = useMemo(() => {
+    const m = new Map<string, number[]>();
+    for (const f of health?.cron_failures ?? []) {
+      const age = Math.floor((now - new Date(f.at).getTime()) / DAY);
+      if (age < 0 || age > 6) continue;
+      const arr = m.get(f.name) ?? new Array<number>(7).fill(0);
+      arr[6 - age] += 1; m.set(f.name, arr);
+    }
+    return m;
+  }, [health?.cron_failures, now]);
+  const rows = useMemo(() => [...(health?.crons ?? [])]
+    .filter((c) => !filter || c.name.toLowerCase().includes(filter.toLowerCase()))
+    .sort((a, b) => b.fails_7d - a.fails_7d || a.name.localeCompare(b.name)), [health?.crons, filter]);
+  const shown = all || filter ? rows : rows.slice(0, 12);
+  const maxMs = Math.max(0, ...rows.map((c) => c.last_ms ?? 0));
+  const failures = (health?.cron_failures ?? []).slice(0, 4);
+  return (
+    <Block title={t('adm.sys.h.crons.title')} meta={t('adm.sys3.h.cronsMeta')}>
+      <span id="sys-crons" />
+      <Cutoff>{t('adm.sys.h.crons.sub')}</Cutoff>
+      {failures.length > 0 && (
+        <ul className="flex flex-col gap-1.5 text-[13px]">
+          {failures.map((f, i) => (
+            <li key={i} className="flex items-baseline gap-3"><StateMark tone="late">{f.status}</StateMark><b className="a-t1 font-medium">{f.name}</b><code className="a-t3 min-w-0 flex-1 truncate text-[12px]">{f.message ?? ''}</code><span className="a-mono a-t3 text-[11px]">{fmtRelative(f.at, lang)}</span></li>
+          ))}
+        </ul>
+      )}
+      {(health?.crons.length ?? 0) > 12 && <input className="a-input max-w-[260px]" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('adm.sys3.h.filterCrons')} aria-label={t('adm.sys3.h.filterCrons')} />}
+      {loading ? <div className="a-skel h-24 w-full" /> : rows.length === 0 ? <Cutoff>{t('adm.sys.h.crons.none')}</Cutoff> : (
+        <Ledger>
+          {shown.map((c: HealthCron) => (
+            <LedgerRow key={c.name} className="grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_110px_110px_90px]">
+              <div className="flex min-w-0 flex-col" style={{ opacity: c.active ? 1 : 0.5 }}>
+                <span className="a-t1 truncate text-[13px] font-medium">{c.name}</span>
+                <span className="a-mono a-t3 truncate text-[11px]">{c.schedule}</span>
+              </div>
+              {c.last_status
+                ? <StateMark tone={c.last_status === 'succeeded' ? 'ok' : 'late'}>{c.last_start ? fmtRelative(c.last_start, lang) : c.last_status}</StateMark>
+                : <span className="a-t3 text-[12px]">{t('adm.sys.h.crons.never')}</span>}
+              <span className="a-mono a-t2 text-[11.5px]">{fmtMs(c.last_ms, lang)}{maxMs > 0 && c.last_ms != null && c.last_ms >= maxMs * 0.8 && c.last_ms > 1000 ? ' ↑' : ''}</span>
+              <TinyBars data={failuresBy.get(c.name) ?? new Array<number>(7).fill(0)} max={Math.max(1, ...(failuresBy.get(c.name) ?? [0]))} tone="late" label={t('adm.sys3.h.failBars')} />
+              <span className="a-num text-right text-[12.5px]" style={c.fails_7d > 0 ? { color: 'var(--a-neg)', fontWeight: 600 } : undefined}>{c.fails_7d > 0 ? t('adm.sys3.h.fails7', { n: fmtNum(c.fails_7d, lang) }) : <span className="a-t3">0</span>}</span>
+            </LedgerRow>
+          ))}
+        </Ledger>
+      )}
+      {!filter && rows.length > 12 && <button type="button" className="a-btn a-btn--sm self-start" onClick={() => setAll((v) => !v)}>{all ? t('adm.comms.cp3.less') : t('adm.comms.cp3.more', { n: rows.length - 12 })}</button>}
+    </Block>
   );
 }

@@ -11,7 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { Badge, Card, DataTable, ErrorState, Grid, KeyValue, ReasonDialog, Section, Status, useAdminT, type ColumnDef } from '@/admin/ui';
+import { Badge, Block, DataTable, ErrorState, KeyValue, ReasonDialog, Section, Status, useAdminT, type ColumnDef } from '@/admin/ui';
 import { fmtDate, fmtEur, fmtNum, fmtPct, fmtRelative } from '@/lib/adminFormat';
 import type { AdminPricing, PricingCfg } from '@/crm/admin/data';
 import { rpc } from './data';
@@ -98,8 +98,8 @@ function Editor({ cfg, onSaved }: { cfg: PricingCfg; onSaved: () => void }) {
 
   return (
     <>
-      <Grid cols={3}>
-        <Card title={t('adm.crm.se.price')}>
+      <div className="grid grid-cols-1 gap-x-10 gap-y-8 lg:grid-cols-3">
+        <Block title={t('adm.crm.se.price')}>
           <div className="flex flex-col gap-3">
             <Field label={t('adm.crm.se.priceMonth')}><NumberInput label={t('adm.crm.se.priceMonth')} value={draft.price_month} onChange={(v) => set('price_month', v)} /></Field>
             <Field label={t('adm.crm.se.priceYear')}><NumberInput label={t('adm.crm.se.priceYear')} value={draft.price_year} onChange={(v) => set('price_year', v)} /></Field>
@@ -107,22 +107,22 @@ function Editor({ cfg, onSaved }: { cfg: PricingCfg; onSaved: () => void }) {
             <Field label={t('adm.crm.se.switchAt')}><NumberInput label={t('adm.crm.se.switchAt')} value={draft.price_switch_at} onChange={(v) => set('price_switch_at', v)} /></Field>
             <p className="a-t3 text-[12.5px] leading-relaxed">{t('adm.crm.se.priceHelp', { month: draft.monthly_yunits, year: draft.annual_bonus_yunits })}</p>
           </div>
-        </Card>
-        <Card title={t('adm.crm.se.trial')}>
+        </Block>
+        <Block title={t('adm.crm.se.trial')}>
           <div className="flex flex-col gap-3">
             <Field label={t('adm.crm.se.trialDays')}><NumberInput label={t('adm.crm.se.trialDays')} value={draft.trial_days} onChange={(v) => set('trial_days', v)} /></Field>
             <Field label={t('adm.crm.se.trialYunits')}><NumberInput label={t('adm.crm.se.trialYunits')} value={draft.trial_yunits} step={500} onChange={(v) => set('trial_yunits', v)} /></Field>
             <Field label={t('adm.crm.se.monthlyYunits')}><NumberInput label={t('adm.crm.se.monthlyYunits')} value={draft.monthly_yunits} step={500} onChange={(v) => set('monthly_yunits', v)} /></Field>
             <Field label={t('adm.crm.se.annualBonus')}><NumberInput label={t('adm.crm.se.annualBonus')} value={draft.annual_bonus_yunits} step={500} onChange={(v) => set('annual_bonus_yunits', v)} /></Field>
           </div>
-        </Card>
-        <Card title={t('adm.crm.se.recharge')} footer={t('adm.crm.se.rechargeNote', { months: 12 })}>
+        </Block>
+        <Block title={t('adm.crm.se.recharge')} meta={t('adm.crm.se.rechargeNote', { months: 12 })}>
           <KeyValue items={[
             { label: t('adm.crm.se.base'), value: t('adm.crm.se.perK', { eur: fmtEur(perThousand, lang) }) },
             ...[...draft.bonus_tiers].sort((a, b) => a.min - b.min).map((tier) => ({ label: t('adm.crm.se.from', { n: fmtNum(tier.min, lang) }), value: t('adm.crm.se.bonus', { pct: tier.pct }) })),
           ]} />
-        </Card>
-      </Grid>
+        </Block>
+      </div>
 
       <Section title={t('adm.crm.se.channels')} description={t('adm.crm.se.channelsSub')}>
         <DataTable data={rows} columns={columns} getRowId={(r) => r.key} pageSize={10} />
@@ -187,7 +187,7 @@ function TierCard() {
   ];
 
   return (
-    <Card title={t('adm.crm.pt.title')} actions={<button type="button" className="a-btn a-btn--sm" disabled={busy} onClick={() => void check()}>{busy ? t('adm.crm.pt.checking') : t('adm.crm.pt.check')}</button>}>
+    <Block title={t('adm.crm.pt.title')} meta={<button type="button" className="a-btn a-btn--sm" disabled={busy} onClick={() => void check()}>{busy ? t('adm.crm.pt.checking') : t('adm.crm.pt.check')}</button>}>
       <div className="flex flex-col gap-3">
         <p className="a-t2 text-[13px]">{t('adm.crm.pt.sub')}</p>
         <div className="flex flex-wrap items-center gap-2">
@@ -198,6 +198,6 @@ function TierCard() {
         {!st && d?.checked_at && <p className="a-t3 text-[12px]">{t('adm.crm.pt.lastCheck', { date: fmtDate(d.checked_at, lang, 'datetime') })}</p>}
         <p className="a-subtle rounded-lg p-3 text-[13px] leading-relaxed">{t('adm.crm.pt.howto')}</p>
       </div>
-    </Card>
+    </Block>
   );
 }

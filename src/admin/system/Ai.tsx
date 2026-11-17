@@ -5,9 +5,10 @@
  */
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Badge, Card, Chart, DataTable, Grid, Kpi, KpiRow, Page, useAdminFilters, useAdminT, type ColumnDef } from '@/admin/ui';
+import { Block, BulletBar, DataTable, ErrorState, Hero, HeroChart, Page, RankBars, StatStrip, useAdminFilters, useAdminT, type ColumnDef, type Rank, type Stat } from '@/admin/ui';
 import { fmtAxisDay, fmtDate, fmtMs, fmtNum, fmtPct, fmtTokens, fmtUsd } from '@/lib/adminFormat';
 import { rpc } from './data';
+import { Cutoff, Disclosure, StateMark } from '../legal/parts';
 
 interface AiUsage {
   totals: { events: number; errors: number; error_rate: number; cost_usd: number; tokens: number; p95_latency_ms: number; prev_events: number; prev_cost_usd: number; prev_tokens: number };
@@ -27,51 +28,57 @@ export default function Ai() {
   const d = q.data;
   const tt = d?.totals;
   const errRate = tt && tt.events ? (tt.errors / tt.events) * 100 : null;
-  const days = (d?.by_day ?? []).map((x) => ({ day: x.d.slice(0, 10), cost: x.cost_usd, errors: x.errors }));
+  // Le coût du mois en héros : une barre par jour, une seule échelle ; la période d'avant n'a pas de série journalière, elle reste en écart.
+  const points = (d?.by_day ?? []).map((x) => ({ x: x.d.slice(0, 10), v: x.cost_usd }));
+  const stats: Stat[] = tt ? [
+    { key: 'calls', label: t('adm.sys.ai.k.calls'), value: fmtNum(tt.events, lang), current: tt.events, previous: tt.prev_events },
+    { key: 'tokens', label: t('adm.sys.ai.k.tokens'), value: fmtTokens(tt.tokens, lang), current: tt.tokens, previous: tt.prev_tokens, invert: true },
+    { key: 'p95', label: t('adm.sys.ai.k.p95'), value: fmtMs(tt.p95_latency_ms ?? null, lang) },
+  ] : [];
+  const maxErr = 5;
+  const assistants = [...(d?.by_assistant ?? [])].sort((a, b) => b.cost_usd - a.cost_usd);
+  const models = [...(d?.by_model ?? [])].sort((a, b) => b.cost_usd - a.cost_usd);
 
   return (
     <Page title={t('adm.sys.ai.title')} subtitle={t('adm.sys.ai.sub')} period actions={<Link to="/admin/pilot/product?tab=ai" className="a-btn">{t('adm.sys.ai.usage')}</Link>}>
-      <KpiRow>
-        <Kpi label={t('adm.sys.ai.k.cost')} value={fmtUsd(tt?.cost_usd ?? 0, lang)} current={tt?.cost_usd} previous={tt?.prev_cost_usd} invert loading={q.isLoading} />
-        <Kpi label={t('adm.sys.ai.k.calls')} value={fmtNum(tt?.events ?? 0, lang)} current={tt?.events} previous={tt?.prev_events} loading={q.isLoading} />
-        <Kpi label={t('adm.sys.ai.k.tokens')} value={fmtTokens(tt?.tokens ?? 0, lang)} current={tt?.tokens} previous={tt?.prev_tokens} invert loading={q.isLoading} />
-        <Kpi label={t('adm.sys.ai.k.errors')} value={errRate == null ? '—' : fmtPct(errRate, 1)} hint={t('adm.sys.ai.k.errorsHint', { n: fmtNum(tt?.errors ?? 0, lang) })} loading={q.isLoading} />
-        <Kpi label={t('adm.sys.ai.k.p95')} value={fmtMs(tt?.p95_latency_ms ?? null, lang)} loading={q.isLoading} />
-      </KpiRow>
-      <Card title={t('adm.sys.ai.chart')}>
-        <Chart kind="bar" data={days} x="day" formatX={(v) => fmtAxisDay(v, lang)} height={200}
-          unit={{ label: 'USD', format: (v) => fmtUsd(v, lang) }} series={[{ key: 'cost', label: t('adm.sys.ai.k.cost') }]}
-          loading={q.isLoading} error={q.error} onRetry={() => void q.refetch()} empty={t('adm.sys.ai.noCalls')} />
-      </Card>
-      <Grid cols={2}>
-        <Card title={t('adm.sys.ai.byAssistant')} padded={false}>
-          <DataTable data={d?.by_assistant} loading={q.isLoading} getRowId={(r) => r.assistant} initialSort={[{ id: 'cost_usd', desc: true }]} empty={{ title: t('adm.sys.ai.noCalls') }}
-            columns={[
-              { accessorKey: 'assistant', header: t('adm.sys.ai.assistant') },
-              { accessorKey: 'n', header: t('adm.sys.ai.k.calls'), meta: { align: 'right' }, cell: (c) => fmtNum(c.getValue<number>(), lang) },
-              { accessorKey: 'cost_usd', header: t('adm.sys.ai.k.cost'), meta: { align: 'right' }, cell: (c) => fmtUsd(c.getValue<number>(), lang) },
-              { accessorKey: 'errors', header: t('adm.sys.ai.errCount'), meta: { align: 'right' }, cell: (c) => <span style={c.getValue<number>() > 0 ? { color: 'var(--a-neg)' } : undefined}>{fmtNum(c.getValue<number>(), lang)}</span> },
-              { accessorKey: 'avg_latency_ms', header: t('adm.sys.ai.latency'), meta: { align: 'right' }, cell: (c) => fmtMs(c.getValue<number>(), lang) },
-            ] as ColumnDef<AiUsage['by_assistant'][number], unknown>[]} />
-        </Card>
-        <Card title={t('adm.sys.ai.byModel')} padded={false}>
-          <DataTable data={d?.by_model} loading={q.isLoading} getRowId={(r) => r.model} initialSort={[{ id: 'cost_usd', desc: true }]} empty={{ title: t('adm.sys.ai.noCalls') }}
-            columns={[
-              { accessorKey: 'model', header: t('adm.sys.ai.model'), cell: (c) => <code className="text-[12px]">{c.getValue<string>()}</code> },
-              { accessorKey: 'n', header: t('adm.sys.ai.k.calls'), meta: { align: 'right' }, cell: (c) => fmtNum(c.getValue<number>(), lang) },
-              { accessorKey: 'cost_usd', header: t('adm.sys.ai.k.cost'), meta: { align: 'right' }, cell: (c) => fmtUsd(c.getValue<number>(), lang) },
-            ] as ColumnDef<AiUsage['by_model'][number], unknown>[]} />
-        </Card>
-      </Grid>
-      <Card title={t('adm.sys.ai.recentErrors')} padded={false}>
+      {q.isError && !d ? <ErrorState onRetry={() => void q.refetch()} /> : (
+        <Hero kicker={t('adm.sys3.ai.kicker', { n: range.days })} loading={!d} value={fmtUsd(tt?.cost_usd ?? 0, lang)} current={tt?.cost_usd} previous={tt?.prev_cost_usd} invert
+          sentence={tt ? (tt.events === 0 ? t('adm.sys3.ai.none', { n: range.days }) : t('adm.sys3.ai.sentence', { calls: fmtNum(tt.events, lang), tokens: fmtTokens(tt.tokens, lang), top: assistants[0]?.assistant ?? '—' })) : null}
+          chart={!d ? <div className="a-skel h-[200px] w-full" /> : tt && tt.events === 0 ? null : (
+            <HeroChart data={points} height={200} formatX={(x) => fmtAxisDay(x, lang)} formatV={(v) => fmtUsd(v, lang)} formatTick={(v) => fmtUsd(v, lang)}
+              labels={{ cur: t('adm.sys.ai.k.cost'), peak: t('adm.comms.cp3.peak') }} />
+          )} />
+      )}
+      {tt && <StatStrip items={stats} />}
+
+      <div className="grid grid-cols-1 gap-x-12 gap-y-10 lg:grid-cols-2">
+        <Block title={t('adm.sys.ai.k.errors')} meta={t('adm.sys3.ai.errMeta')}>
+          {!tt ? <div className="a-skel h-12 w-full" /> : errRate == null ? <Cutoff>{t('adm.sys.ai.noCalls')}</Cutoff> : (
+            <>
+              <BulletBar value={errRate} max={maxErr} zones={[1, 3]} target={3} targetLabel={t('adm.sys3.ai.alertAt', { v: '3 %' })}
+                label={t('adm.sys.ai.k.errors')} display={fmtPct(errRate, 1, lang)} />
+              <p className="a-t3 text-[12.5px]">{t('adm.sys.ai.k.errorsHint', { n: fmtNum(tt.errors, lang) })} {t('adm.sys3.ai.errNote')}</p>
+            </>
+          )}
+        </Block>
+        <Block title={t('adm.sys.ai.byAssistant')} meta={t('adm.sys3.ai.byCost')}>
+          <RankBars emptyText={t('adm.sys.ai.noCalls')} items={assistants.slice(0, 8).map((r): Rank => ({ key: r.assistant, label: r.assistant, value: r.cost_usd, display: fmtUsd(r.cost_usd, lang),
+            sub: `${fmtNum(r.n, lang)} · ${fmtMs(r.avg_latency_ms, lang)}${r.errors > 0 ? ` · ${fmtNum(r.errors, lang)} ${t('adm.sys.ai.errCount').toLowerCase()}` : ''}` }))} />
+        </Block>
+      </div>
+      <Block title={t('adm.sys.ai.byModel')} meta={t('adm.sys3.ai.byCost')}>
+        <RankBars emptyText={t('adm.sys.ai.noCalls')} items={models.slice(0, 8).map((r): Rank => ({ key: r.model, label: <code className="text-[12px]">{r.model}</code>, value: r.cost_usd, display: fmtUsd(r.cost_usd, lang), sub: fmtNum(r.n, lang) }))} />
+      </Block>
+
+      <Disclosure title={t('adm.sys.ai.recentErrors')} hint={d ? fmtNum(d.recent_errors.length, lang) : undefined}>
         <DataTable data={d?.recent_errors} loading={q.isLoading} pageSize={10} getRowId={(r) => String(r.id)} empty={{ title: t('adm.sys.ai.noErrors') }}
           columns={[
             { accessorKey: 'at', header: t('adm.sys.col.date'), cell: (c) => fmtDate(c.getValue<string>(), lang, 'datetime') },
             { accessorKey: 'assistant', header: t('adm.sys.ai.assistant') },
-            { accessorKey: 'status', header: t('adm.sys.col.action'), cell: (c) => <Badge tone="negative">{c.getValue<string>()}</Badge> },
+            { accessorKey: 'status', header: t('adm.sys.col.action'), cell: (c) => <StateMark tone="late">{c.getValue<string>()}</StateMark> },
             { accessorKey: 'error', header: t('adm.sys.col.detail'), cell: (c) => <code className="a-t3 text-[12px]">{c.getValue<string | null>() ?? '—'}</code> },
           ] as ColumnDef<AiUsage['recent_errors'][number], unknown>[]} />
-      </Card>
+      </Disclosure>
     </Page>
   );
 }

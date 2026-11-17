@@ -5,10 +5,11 @@
  * de soirée, la politique et les crédits vivent dans Communication ›
  * Notifications automatiques.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { Badge, Card, DataTable, Switch, useAdminT, type ColumnDef } from '@/admin/ui';
+import { Block, Switch, useAdminT } from '@/admin/ui';
+import { Cutoff, Ledger, MiniBar } from '../legal/parts';
 import { fmtDate, fmtNum, fmtPct } from '@/lib/adminFormat';
 
 interface KeyStats { notification_key: string; sent_total: number; failed_total: number; clicked_total: number; sent_30d: number; failed_30d: number; clicked_30d: number; last_sent_at: string | null }
@@ -98,55 +99,44 @@ export function NotificationRegistry() {
     return old.startsWith('adminAutoPush.k.') ? (base === 'name' ? key : '') : old;
   }, [t]);
 
-  const columns = useMemo<ColumnDef<Row, unknown>[]>(() => [
-    {
-      id: 'name', header: t('adm.sys.sw.reg.col.name'), accessorFn: (r) => label(r.key, 'name'),
-      cell: ({ row: { original: r } }) => (
-        <div className={`min-w-0 py-1 ${r.on ? '' : 'opacity-60'}`}>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="a-t1 font-medium">{label(r.key, 'name')}</span>
-            {r.dormant && <Badge>{t('adm.auto.dormant')}</Badge>}
-          </div>
-          <div className="a-t3 mt-0.5 max-w-[60ch] text-[12px] leading-snug">{label(r.key, 'desc')}</div>
-        </div>
-      ),
-    },
-    { id: 'sent', header: t('adminAutoPush.sent30d'), meta: { align: 'right' }, accessorFn: (r) => r.s?.sent_30d ?? 0, cell: (c) => <span className="a-num">{fmtNum(c.getValue<number>(), lang)}</span> },
-    {
-      id: 'ctr', header: t('adminAutoPush.ctr'), meta: { align: 'right' },
-      accessorFn: (r) => (r.s && r.s.sent_30d > 0 ? (r.s.clicked_30d / r.s.sent_30d) * 100 : -1),
-      cell: (c) => <span className="a-num">{c.getValue<number>() < 0 ? '—' : fmtPct(c.getValue<number>(), 0, lang)}</span>,
-    },
-    {
-      id: 'failed', header: t('adminAutoPush.failed30d'), meta: { align: 'right' }, accessorFn: (r) => r.s?.failed_30d ?? 0,
-      cell: (c) => (c.getValue<number>() > 0 ? <Badge tone="negative">{fmtNum(c.getValue<number>(), lang)}</Badge> : <span className="a-t3">0</span>),
-    },
-    {
-      id: 'last', header: t('adminAutoPush.lastSent'), accessorFn: (r) => r.s?.last_sent_at ?? '',
-      cell: ({ row: { original: r } }) => <span className="a-t2 whitespace-nowrap text-[12.5px]">{r.s?.last_sent_at ? fmtDate(r.s.last_sent_at, lang, 'datetime') : t('adminAutoPush.neverSent')}</span>,
-    },
-    {
-      id: 'on', header: '', enableSorting: false, meta: { align: 'right' },
-      cell: ({ row: { original: r } }) => <Switch checked={r.on} label={label(r.key, 'name')} onChange={(v) => void toggle(r.key, v)} />,
-    },
-  ], [label, lang, t, toggle]);
+  const maxSent = Math.max(0, ...Object.values(stats).map((x) => x.sent_30d));
+  const maxCtr = Math.max(0, ...Object.values(stats).map((x) => (x.sent_30d > 0 ? (x.clicked_30d / x.sent_30d) * 100 : 0)));
 
   return (
-    <div className="flex flex-col gap-4">
-      <p className="a-t2 max-w-[80ch] text-[13px]">{t('adm.engine.systemIntro')}</p>
+    <div className="flex flex-col gap-8">
+      <Cutoff>{t('adm.engine.systemIntro')}</Cutoff>
       {(['transactional', 'reminder', 'engagement', 'marketing'] as SysCategory[]).map((cat) => {
         const rows: Row[] = SYSTEM_CATALOG.filter((c) => c.category === cat)
           .map(({ key, dormant }) => ({ key, dormant: !!dormant, on: enabled[key] !== false, s: stats[key] }));
         return (
-          <Card key={cat} title={t(`adminAutoPush.cat.${cat}`)} padded={false} footer={t(`adminAutoPush.catHint.${cat}`)}>
-            <DataTable data={loaded ? rows : null} columns={columns} loading={!loaded} getRowId={(r) => r.key} pageSize={50} />
-          </Card>
+          <Block key={cat} title={t(`adminAutoPush.cat.${cat}`)} meta={t(`adminAutoPush.catHint.${cat}`)}>
+            {!loaded ? <div className="a-skel h-24 w-full" /> : (
+              <Ledger>
+                {rows.map((r) => {
+                  const ctr = r.s && r.s.sent_30d > 0 ? (r.s.clicked_30d / r.s.sent_30d) * 100 : null;
+                  return (
+                    <div key={r.key} className={`grid grid-cols-1 items-center gap-x-4 gap-y-1 px-1 py-2.5 lg:grid-cols-[minmax(0,1.6fr)_140px_130px_70px_110px_auto] ${r.on ? '' : 'opacity-60'}`}>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2"><span className="a-t1 text-[13.5px] font-medium">{label(r.key, 'name')}</span>{r.dormant && <span className="a-mono a-t3 text-[10.5px] uppercase">{t('adm.auto.dormant')}</span>}</div>
+                        <div className="a-t3 max-w-[60ch] text-[12px] leading-snug">{label(r.key, 'desc')}</div>
+                      </div>
+                      <MiniBar value={r.s?.sent_30d ?? 0} max={maxSent} display={fmtNum(r.s?.sent_30d ?? 0, lang)} width={64} />
+                      <MiniBar value={ctr} max={maxCtr} display={ctr == null ? '—' : fmtPct(ctr, 0, lang)} width={56} />
+                      <span className="a-num text-[12.5px]" style={(r.s?.failed_30d ?? 0) > 0 ? { color: 'var(--a-neg)', fontWeight: 600 } : undefined}>{fmtNum(r.s?.failed_30d ?? 0, lang)}</span>
+                      <span className="a-mono a-t3 text-[11px]">{r.s?.last_sent_at ? fmtDate(r.s.last_sent_at, lang, 'short') : t('adminAutoPush.neverSent')}</span>
+                      <Switch checked={r.on} label={label(r.key, 'name')} onChange={(v) => void toggle(r.key, v)} />
+                    </div>
+                  );
+                })}
+              </Ledger>
+            )}
+          </Block>
         );
       })}
       {legacy.length > 0 && (
-        <Card title={t('adm.engine.legacyTitle')} footer={t('adm.engine.legacyHint')}>
-          <div className="flex flex-wrap gap-1.5">{legacy.map((k) => <Badge key={k}>{k}</Badge>)}</div>
-        </Card>
+        <Block title={t('adm.engine.legacyTitle')} meta={t('adm.engine.legacyHint')}>
+          <div className="flex flex-wrap gap-x-4 gap-y-1">{legacy.map((k) => <span key={k} className="a-mono a-t3 text-[11.5px]">{k}</span>)}</div>
+        </Block>
       )}
     </div>
   );

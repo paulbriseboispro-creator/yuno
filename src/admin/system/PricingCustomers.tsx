@@ -9,7 +9,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { Badge, Card, DataTable, ErrorState, ReasonDialog, Section, useAdminT, type ColumnDef } from '@/admin/ui';
+import { Badge, Block, DataTable, ErrorState, ReasonDialog, Section, useAdminT, type ColumnDef } from '@/admin/ui';
 import { fmtDate, fmtNum } from '@/lib/adminFormat';
 import { statusLine, useBasisOverview, type BasisAccount, type BasisSettings } from '@/crm/admin/pages/CustomerBasisAdmin';
 import { rpc } from './data';
@@ -54,7 +54,7 @@ export default function PricingCustomers() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Card title={t('adm.crm.cb.gT')}>
+      <Block title={t('adm.crm.cb.gT')}>
         <div className="flex max-w-[720px] flex-col gap-4">
           <p className="a-t2 text-[13px] leading-relaxed">{t('adm.crm.cb.gS')}</p>
           {sw('enabled')}
@@ -75,7 +75,7 @@ export default function PricingCustomers() {
             {dirty && <button type="button" className="a-btn" onClick={() => setDraft(q.data?.settings ?? null)}>{t('adm.crm.se.reset')}</button>}
           </div>
         </div>
-      </Card>
+      </Block>
 
       <Section title={t('adm.crm.cb.accT')} description={t('adm.crm.cb.accS')}>
         <DataTable data={q.data.accounts} columns={cols} getRowId={(a) => a.scope_key} pageSize={10} searchable empty={{ title: t('adm.crm.cb.none') }} />
