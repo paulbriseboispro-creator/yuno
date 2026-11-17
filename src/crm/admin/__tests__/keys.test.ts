@@ -3,7 +3,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { ADMIN_DICT } from '@/i18n/locales/admin/modules';
 
-/** Chaque clé `adm.crm.*` écrite en toutes lettres dans l'Admin CRM existe en trois langues. */
+/** Chaque clé `adm.crm.*` écrite en toutes lettres dans l'admin (écrans CRM réécrits dans src/admin compris) existe en trois langues. */
 function files(dir: string): string[] {
   return readdirSync(dir).flatMap((f) => {
     const p = join(dir, f);
@@ -13,12 +13,14 @@ function files(dir: string): string[] {
 
 describe('Admin CRM : dictionnaire', () => {
   const used = new Set<string>();
-  for (const f of files(join(process.cwd(), 'src/crm/admin'))) {
+  for (const f of [...files(join(process.cwd(), 'src/crm/admin')), ...files(join(process.cwd(), 'src/admin'))]) {
     for (const m of readFileSync(f, 'utf8').matchAll(/['"`](adm\.crm\.[A-Za-z0-9_.]+)['"`]/g)) used.add(m[1]);
   }
   it('trouve des clés à vérifier', () => { expect(used.size).toBeGreaterThan(40); });
   it('toutes les clés écrites en dur existent', () => {
-    const missing = [...used].filter((k) => !(k in ADMIN_DICT));
+    // Une famille passée en préfixe (`tr('adm.crm.pr.kind', valeur)`) n'est pas une clé.
+    const isFamily = (k: string) => Object.keys(ADMIN_DICT).some((d) => d.startsWith(`${k}.`));
+    const missing = [...used].filter((k) => !(k in ADMIN_DICT) && !isFamily(k));
     expect(missing).toEqual([]);
   });
   it('chaque entrée a ses trois langues renseignées', () => {
