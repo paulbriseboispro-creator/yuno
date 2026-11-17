@@ -18,7 +18,7 @@ import { Eye, EyeOff, LogIn, MoreHorizontal, Pencil, Power, RotateCcw, ShieldQue
 import { supabase } from '@/integrations/supabase/client';
 import { rpc } from '@/crm/lib/rpc';
 import { setSupportSession } from '@/lib/supportSession';
-import { AccountProductsButton, normalizeProducts } from '@/components/admin/AccountProducts';
+import { AccountProductsButton, normalizeProducts } from './AccountProducts';
 import { Dialog, Field, ReasonDialog, useAdminT } from '@/admin/ui';
 import { consoleLanding } from './accounts';
 import { useProsRefresh, type AccountCard } from './data';

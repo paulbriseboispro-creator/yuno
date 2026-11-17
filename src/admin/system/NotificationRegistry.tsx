@@ -1,24 +1,18 @@
 /**
- * Registre des notifications UNITAIRES hors soirée (achat, remboursement,
- * pro, découverte…) : un interrupteur par notification, ses chiffres sur
- * 30 jours. Monté par Système › Interrupteurs. Les règles du moteur de
- * soirée, la politique et les crédits vivent dans Communication ›
- * Notifications automatiques (src/admin/comms).
+ * Système › Interrupteurs › Registre des notifications UNITAIRES hors soirée
+ * (achat, remboursement, pro, découverte…) : un interrupteur par notification
+ * et ses chiffres sur 30 jours, un tableau par catégorie. Les règles du moteur
+ * de soirée, la politique et les crédits vivent dans Communication ›
+ * Notifications automatiques.
  */
-import { useCallback, useEffect, useState } from 'react';
-import { BellRing } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { useLanguage } from '@/contexts/LanguageContext';
-import {
-  Card, Toggle, Pill, PageSkeleton, Inner, Notice, T1, T3,
-} from '@/components/admin/ui';
-import { fmtNum, fmtDate } from '@/lib/adminFormat';
+import { Badge, Card, DataTable, Switch, useAdminT, type ColumnDef } from '@/admin/ui';
+import { fmtDate, fmtNum, fmtPct } from '@/lib/adminFormat';
 
 interface KeyStats { notification_key: string; sent_total: number; failed_total: number; clicked_total: number; sent_30d: number; failed_30d: number; clicked_30d: number; last_sent_at: string | null }
 
-// Notifications unitaires hors soirée (registre historique) — le moteur tient
-// les règles de soirée, celles-ci restent des interrupteurs simples.
 type SysCategory = 'transactional' | 'reminder' | 'engagement' | 'marketing';
 const SYSTEM_CATALOG: { key: string; category: SysCategory; dormant?: boolean }[] = [
   { key: 'purchase_ticket', category: 'transactional' },
@@ -57,10 +51,11 @@ const SYSTEM_CATALOG: { key: string; category: SysCategory; dormant?: boolean }[
   { key: 'discovery_weekend', category: 'marketing', dormant: true },
 ];
 
-// ─── Système ─────────────────────────────────────────────────────────────────
-export function SystemTab() {
-  const { t, language } = useLanguage();
-  const [loading, setLoading] = useState(true);
+interface Row { key: string; dormant: boolean; on: boolean; s: KeyStats | undefined }
+
+export function NotificationRegistry() {
+  const { t, lang } = useAdminT();
+  const [loaded, setLoaded] = useState(false);
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
   const [legacy, setLegacy] = useState<string[]>([]);
   const [stats, setStats] = useState<Record<string, KeyStats>>({});
@@ -81,11 +76,11 @@ export function SystemTab() {
     const s: Record<string, KeyStats> = {};
     for (const row of ((statsRes.data as unknown) as KeyStats[]) ?? []) s[row.notification_key] = row;
     setStats(s);
-    setLoading(false);
+    setLoaded(true);
   }, []);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
-  const toggle = async (key: string, next: boolean) => {
+  const toggle = useCallback(async (key: string, next: boolean) => {
     const prev = enabled[key];
     setEnabled((m) => ({ ...m, [key]: next }));
     const { data: { user } } = await supabase.auth.getUser();
@@ -94,61 +89,65 @@ export function SystemTab() {
       .upsert({ notification_key: key, enabled: next, updated_at: new Date().toISOString(), updated_by: user?.id ?? null } as never, { onConflict: 'notification_key' });
     if (error) { setEnabled((m) => ({ ...m, [key]: prev })); toast.error(t('adminAutoPush.toggleError')); }
     else toast.success(next ? t('adminAutoPush.toggledOn') : t('adminAutoPush.toggledOff'));
-  };
+  }, [enabled, t]);
 
-  const label = (key: string, base: 'name' | 'desc') => {
+  const label = useCallback((key: string, base: 'name' | 'desc') => {
     const own = t(`adm.auto.k.${key}.${base}`);
     if (!own.startsWith('adm.auto.k.')) return own;
     const old = t(`adminAutoPush.k.${key}.${base}`);
     return old.startsWith('adminAutoPush.k.') ? (base === 'name' ? key : '') : old;
-  };
+  }, [t]);
 
-  if (loading) return <PageSkeleton tiles={0} blocks={3} />;
+  const columns = useMemo<ColumnDef<Row, unknown>[]>(() => [
+    {
+      id: 'name', header: t('adm.sys.sw.reg.col.name'), accessorFn: (r) => label(r.key, 'name'),
+      cell: ({ row: { original: r } }) => (
+        <div className={`min-w-0 py-1 ${r.on ? '' : 'opacity-60'}`}>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="a-t1 font-medium">{label(r.key, 'name')}</span>
+            {r.dormant && <Badge>{t('adm.auto.dormant')}</Badge>}
+          </div>
+          <div className="a-t3 mt-0.5 max-w-[60ch] text-[12px] leading-snug">{label(r.key, 'desc')}</div>
+        </div>
+      ),
+    },
+    { id: 'sent', header: t('adminAutoPush.sent30d'), meta: { align: 'right' }, accessorFn: (r) => r.s?.sent_30d ?? 0, cell: (c) => <span className="a-num">{fmtNum(c.getValue<number>(), lang)}</span> },
+    {
+      id: 'ctr', header: t('adminAutoPush.ctr'), meta: { align: 'right' },
+      accessorFn: (r) => (r.s && r.s.sent_30d > 0 ? (r.s.clicked_30d / r.s.sent_30d) * 100 : -1),
+      cell: (c) => <span className="a-num">{c.getValue<number>() < 0 ? '—' : fmtPct(c.getValue<number>(), 0, lang)}</span>,
+    },
+    {
+      id: 'failed', header: t('adminAutoPush.failed30d'), meta: { align: 'right' }, accessorFn: (r) => r.s?.failed_30d ?? 0,
+      cell: (c) => (c.getValue<number>() > 0 ? <Badge tone="negative">{fmtNum(c.getValue<number>(), lang)}</Badge> : <span className="a-t3">0</span>),
+    },
+    {
+      id: 'last', header: t('adminAutoPush.lastSent'), accessorFn: (r) => r.s?.last_sent_at ?? '',
+      cell: ({ row: { original: r } }) => <span className="a-t2 whitespace-nowrap text-[12.5px]">{r.s?.last_sent_at ? fmtDate(r.s.last_sent_at, lang, 'datetime') : t('adminAutoPush.neverSent')}</span>,
+    },
+    {
+      id: 'on', header: '', enableSorting: false, meta: { align: 'right' },
+      cell: ({ row: { original: r } }) => <Switch checked={r.on} label={label(r.key, 'name')} onChange={(v) => void toggle(r.key, v)} />,
+    },
+  ], [label, lang, t, toggle]);
 
   return (
-    <div className="space-y-4">
-      <Notice icon={BellRing}>{t('adm.engine.systemIntro')}</Notice>
-      {(['transactional', 'reminder', 'engagement', 'marketing'] as SysCategory[]).map((cat) => (
-        <Card key={cat} title={t(`adminAutoPush.cat.${cat}`)} subtitle={t(`adminAutoPush.catHint.${cat}`)}>
-          <div className="space-y-2">
-            {SYSTEM_CATALOG.filter((c) => c.category === cat).map(({ key, dormant }) => {
-              const s = stats[key];
-              const on = enabled[key] !== false;
-              const ctr = s && s.sent_30d > 0 ? Math.round((s.clicked_30d / s.sent_30d) * 100) : null;
-              return (
-                <Inner key={key} pad="12px 14px" style={{ opacity: on ? 1 : 0.55 }}>
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{label(key, 'name')}</p>
-                        {dormant && <Pill size="xs" tone="muted" title={t('adm.auto.dormantHint')}>{t('adm.auto.dormant')}</Pill>}
-                      </div>
-                      <p style={{ color: T3, fontSize: 11.5, marginTop: 2, lineHeight: 1.45 }}>{label(key, 'desc')}</p>
-                      <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                        <Pill size="xs" tone={(s?.sent_30d ?? 0) > 0 ? 'pos' : 'muted'}>{t('adminAutoPush.sent30d')} {fmtNum(s?.sent_30d ?? 0, language)}</Pill>
-                        <Pill size="xs" tone="muted">{t('adminAutoPush.ctr')} {ctr == null ? '—' : `${ctr} %`}</Pill>
-                        {(s?.failed_30d ?? 0) > 0 && <Pill size="xs" tone="neg">{t('adminAutoPush.failed30d')} {fmtNum(s?.failed_30d ?? 0, language)}</Pill>}
-                        <span style={{ color: T3, fontSize: 10.5 }}>
-                          {s?.last_sent_at ? `${t('adminAutoPush.lastSent')} ${fmtDate(s.last_sent_at, language, 'datetime')}` : t('adminAutoPush.neverSent')}
-                        </span>
-                      </div>
-                    </div>
-                    <Toggle checked={on} onChange={(v) => toggle(key, v)} />
-                  </div>
-                </Inner>
-              );
-            })}
-          </div>
-        </Card>
-      ))}
+    <div className="flex flex-col gap-4">
+      <p className="a-t2 max-w-[80ch] text-[13px]">{t('adm.engine.systemIntro')}</p>
+      {(['transactional', 'reminder', 'engagement', 'marketing'] as SysCategory[]).map((cat) => {
+        const rows: Row[] = SYSTEM_CATALOG.filter((c) => c.category === cat)
+          .map(({ key, dormant }) => ({ key, dormant: !!dormant, on: enabled[key] !== false, s: stats[key] }));
+        return (
+          <Card key={cat} title={t(`adminAutoPush.cat.${cat}`)} padded={false} footer={t(`adminAutoPush.catHint.${cat}`)}>
+            <DataTable data={loaded ? rows : null} columns={columns} loading={!loaded} getRowId={(r) => r.key} pageSize={50} />
+          </Card>
+        );
+      })}
       {legacy.length > 0 && (
-        <Card title={t('adm.engine.legacyTitle')} subtitle={t('adm.engine.legacyHint')}>
-          <div className="flex flex-wrap gap-1.5">
-            {legacy.map((k) => <Pill key={k} size="xs" tone="muted">{k}</Pill>)}
-          </div>
+        <Card title={t('adm.engine.legacyTitle')} footer={t('adm.engine.legacyHint')}>
+          <div className="flex flex-wrap gap-1.5">{legacy.map((k) => <Badge key={k}>{k}</Badge>)}</div>
         </Card>
       )}
     </div>
   );
 }
-

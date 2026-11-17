@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Gift, Layers, Mail, Plus } from 'lucide-react';
+import { Gift, Layers, Loader2, Mail, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { Btn, Modal, Pill, Spinner, T1, T2, T3, F_BORDER } from '@/components/admin/ui';
+import { Badge, Drawer, useAdminT } from '@/admin/ui';
 import { fmtDate, fmtNum } from '@/lib/adminFormat';
 
 /**
  * Les produits d'un compte (Billetterie, CRM) et l'ouverture de l'autre
- * (migration 20261006100000) : pastilles dans les listes du super admin, et une
- * fenêtre pour inviter le titulaire par email (style Yuno CRM, edge
+ * (migration 20261006100000) : pastilles et un tiroir de la fiche d'un pro
+ * (Pros), avec de quoi pour inviter le titulaire par email (style Yuno CRM, edge
  * admin-account-recovery → invite-product), ouvrir directement, ou OFFRIR
  * Yuno CRM : socle accordé sans abonnement ni date de fin
  * (`admin_grant_crm_plan(scope, 'base', null)`), Yunits du mois compris —
@@ -53,36 +52,25 @@ interface ProductsData { events: ProductEvent[]; open_invites: OpenInvite[]; crm
 /** Un don en cours : offert, pas échu. */
 export const isCrmGifted = (s: CrmState | null | undefined): boolean => !!s?.granted && !s.expired;
 
-/** L'état CRM de plusieurs portées (pastille « offert » des listes). Une panne rend un objet vide. */
-export async function fetchCrmStates(scopeKeys: string[]): Promise<Record<string, CrmState>> {
-  if (scopeKeys.length === 0) return {};
-  const { data, error } = await supabase.rpc('admin_account_products' as never, { p_scope_keys: scopeKeys } as never);
-  if (error) return {};
-  return (data as unknown as ProductsData | null)?.crm ?? {};
-}
-
 export function normalizeProducts(product: unknown, extra: unknown): { product: Product; extra: Product[] } {
   const p: Product = product === 'crm' ? 'crm' : 'suite';
   const e = Array.isArray(extra) ? extra.filter((x): x is Product => (x === 'crm' || x === 'suite') && x !== p) : [];
   return { product: p, extra: e };
 }
 
-export function ProductPills({ product, extra, crmGifted = false }: { product: Product; extra: Product[]; crmGifted?: boolean }) {
-  const { t } = useLanguage();
+function ProductPills({ product, extra }: { product: Product; extra: Product[] }) {
+  const { t } = useAdminT();
   const label = (p: Product) => t(p === 'crm' ? 'adm.prod.crm' : 'adm.prod.suite');
-  const gift = <Pill size="xs" tone="muted" icon={Gift} title={t('adm.prod.giftedPillTitle')}>{t('adm.prod.giftedPill')}</Pill>;
   return (
     <span className="inline-flex flex-wrap gap-1">
-      <Pill size="xs" tone={product === 'crm' ? 'accent' : 'default'}>{label(product)}</Pill>
-      {crmGifted && product === 'crm' && gift}
-      {extra.map((p) => <Pill key={p} size="xs" tone="pos" title={t('adm.prod.addedTitle')}>+ {label(p)}</Pill>)}
-      {crmGifted && product !== 'crm' && extra.includes('crm') && gift}
+      <Badge tone={product === 'crm' ? 'accent' : 'neutral'}>{label(product)}</Badge>
+      {extra.map((p) => <Badge key={p} tone="positive">+ {label(p)}</Badge>)}
     </span>
   );
 }
 
 export function AccountProductsButton({ account, onChanged }: { account: AccountRef; onChanged?: () => void }) {
-  const { t, language } = useLanguage();
+  const { t, lang: language } = useAdminT();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -160,9 +148,11 @@ export function AccountProductsButton({ account, onChanged }: { account: Account
     void loadHistory();
   };
 
+  const spin = <Loader2 className="h-3.5 w-3.5 animate-spin" />;
   const giftButton = confirmGift
-    ? <Btn variant="danger" size="sm" icon={Gift} loading={busy === 'gift'} onClick={() => void gift()}>{t('adm.prod.confirmGift')}</Btn>
-    : <Btn size="sm" icon={Gift} onClick={() => setConfirmGift(true)}>{t('adm.prod.gift')}</Btn>;
+    ? <button type="button" className="a-btn a-btn--danger a-btn--sm" disabled={busy === 'gift'} onClick={() => void gift()}>{busy === 'gift' ? spin : <Gift className="h-3.5 w-3.5" />}{t('adm.prod.confirmGift')}</button>
+    : <button type="button" className="a-btn a-btn--sm" onClick={() => setConfirmGift(true)}><Gift className="h-3.5 w-3.5" />{t('adm.prod.gift')}</button>;
+  const loading = <div className="mt-2 flex flex-col gap-2"><div className="a-skel h-4 w-2/3" /><div className="a-skel h-4 w-1/2" /></div>;
 
   const crm = history?.crm?.[scopeKey] ?? null;
   const gifted = isCrmGifted(crm);
@@ -177,71 +167,74 @@ export function AccountProductsButton({ account, onChanged }: { account: Account
 
   return (
     <>
-      <Btn size="sm" variant="subtle" icon={Layers} onClick={() => setOpen(true)} title={t('adm.prod.manage')} />
-      <Modal open={open} onClose={() => setOpen(false)} title={t('adm.prod.title').replace('{name}', account.name)} subtitle={t('adm.prod.subtitle')}
-        footer={<Btn onClick={() => setOpen(false)}>{t('adm.common.close')}</Btn>}>
-        <div className="flex items-center justify-between gap-3 py-2">
-          <span style={{ color: T2, fontSize: 13 }}>{t('adm.prod.current')}</span>
-          <ProductPills product={account.product} extra={account.extra} />
-        </div>
+      <button type="button" className="a-btn" onClick={() => setOpen(true)} title={t('adm.prod.manage')}><Layers className="h-4 w-4" />{t('adm.prod.manage')}</button>
+      <Drawer open={open} onOpenChange={setOpen} title={t('adm.prod.title').replace('{name}', account.name)} description={t('adm.prod.subtitle')}>
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between gap-3">
+            <span className="a-t2 text-[13px]">{t('adm.prod.current')}</span>
+            <ProductPills product={account.product} extra={account.extra} />
+          </div>
 
-        {missing ? (
-          <div className="rounded-xl p-3.5 mt-2" style={{ border: `1px solid ${F_BORDER}` }}>
-            <div style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t('adm.prod.openOther').replace('{product}', productLabel(missing))}</div>
-            <div style={{ color: T3, fontSize: 12, lineHeight: 1.5, marginTop: 4 }}>{t(missing === 'crm' ? 'adm.prod.crmHint' : 'adm.prod.suiteHint')}</div>
-            <div className="flex flex-wrap gap-2 mt-3">
-              <Btn variant="primary" size="sm" icon={Mail} loading={busy === 'invite'} onClick={() => void invite()}>{t('adm.prod.invite')}</Btn>
-              {confirmOpen
-                ? <Btn variant="danger" size="sm" icon={Plus} loading={busy === 'add'} onClick={() => void addNow()}>{t('adm.prod.confirmAdd')}</Btn>
-                : <Btn size="sm" icon={Plus} onClick={() => setConfirmOpen(true)}>{t('adm.prod.addNow')}</Btn>}
-              {missing === 'crm' && giftButton}
+          {missing ? (
+            <div className="a-card p-4">
+              <div className="a-t1 text-[14px] font-semibold">{t('adm.prod.openOther').replace('{product}', productLabel(missing))}</div>
+              <p className="a-t3 mt-1 text-[12.5px] leading-relaxed">{t(missing === 'crm' ? 'adm.prod.crmHint' : 'adm.prod.suiteHint')}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" className="a-btn a-btn--primary a-btn--sm" disabled={busy === 'invite'} onClick={() => void invite()}>{busy === 'invite' ? spin : <Mail className="h-3.5 w-3.5" />}{t('adm.prod.invite')}</button>
+                {confirmOpen
+                  ? <button type="button" className="a-btn a-btn--danger a-btn--sm" disabled={busy === 'add'} onClick={() => void addNow()}>{busy === 'add' ? spin : <Plus className="h-3.5 w-3.5" />}{t('adm.prod.confirmAdd')}</button>
+                  : <button type="button" className="a-btn a-btn--sm" onClick={() => setConfirmOpen(true)}><Plus className="h-3.5 w-3.5" />{t('adm.prod.addNow')}</button>}
+                {missing === 'crm' && giftButton}
+              </div>
+              {missing === 'crm' && <p className="a-t3 mt-2 text-[12px] leading-relaxed">{t('adm.prod.giftHint')}</p>}
             </div>
-            {missing === 'crm' && <div style={{ color: T3, fontSize: 12, lineHeight: 1.5, marginTop: 8 }}>{t('adm.prod.giftHint')}</div>}
-          </div>
-        ) : (
-          <p style={{ color: T2, fontSize: 13, marginTop: 8 }}>{t('adm.prod.both')}</p>
-        )}
+          ) : (
+            <p className="a-t2 text-[13px]">{t('adm.prod.both')}</p>
+          )}
 
-        {hasCrm && (
-          <div className="rounded-xl p-3.5 mt-2" style={{ border: `1px solid ${F_BORDER}` }}>
-            <div style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t('adm.prod.giftTitle')}</div>
-            {!history ? <Spinner /> : gifted && crm ? (
-              <>
-                <div style={{ color: T2, fontSize: 12.5, lineHeight: 1.5, marginTop: 4 }}>{giftedLine(crm)}</div>
-                <div style={{ color: T3, fontSize: 12, marginTop: 2 }}>{t('adm.prod.yunits').replace('{n}', fmtNum(crm.yunits, language))}</div>
-                <div className="flex flex-wrap gap-2 mt-3"><Btn size="sm" icon={Gift} disabled>{t('adm.prod.alreadyGifted')}</Btn></div>
-              </>
-            ) : paysStripe ? (
-              <div style={{ color: T3, fontSize: 12, lineHeight: 1.5, marginTop: 4 }}>{t('adm.prod.giftHasStripe')}</div>
+          {hasCrm && (
+            <div className="a-card p-4">
+              <div className="a-t1 text-[14px] font-semibold">{t('adm.prod.giftTitle')}</div>
+              {!history ? loading : gifted && crm ? (
+                <>
+                  <p className="a-t2 mt-1 text-[12.5px] leading-relaxed">{giftedLine(crm)}</p>
+                  <p className="a-t3 mt-0.5 text-[12px]">{t('adm.prod.yunits').replace('{n}', fmtNum(crm.yunits, language))}</p>
+                  <div className="mt-3"><Badge tone="positive"><Gift className="h-3.5 w-3.5" />{t('adm.prod.alreadyGifted')}</Badge></div>
+                </>
+              ) : paysStripe ? (
+                <p className="a-t3 mt-1 text-[12px] leading-relaxed">{t('adm.prod.giftHasStripe')}</p>
+              ) : (
+                <>
+                  {crm?.expired && <p className="a-t2 mt-1 text-[12.5px] leading-relaxed">{t('adm.prod.giftExpired').replace('{d}', fmtDate(crm.until, language))}</p>}
+                  <p className="a-t3 mt-1 text-[12px] leading-relaxed">{t('adm.prod.giftHint')}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">{giftButton}</div>
+                </>
+              )}
+            </div>
+          )}
+
+          <section className="flex flex-col gap-1">
+            <h3 className="a-t1 text-[14px] font-semibold">{t('adm.prod.history')}</h3>
+            {!history ? loading : (history.events.length === 0 && history.open_invites.length === 0) ? (
+              <p className="a-t3 text-[12.5px]">{t('adm.prod.noHistory')}</p>
             ) : (
-              <>
-                {crm?.expired && <div style={{ color: T2, fontSize: 12.5, lineHeight: 1.5, marginTop: 4 }}>{t('adm.prod.giftExpired').replace('{d}', fmtDate(crm.until, language))}</div>}
-                <div style={{ color: T3, fontSize: 12, lineHeight: 1.5, marginTop: 4 }}>{t('adm.prod.giftHint')}</div>
-                <div className="flex flex-wrap gap-2 mt-3">{giftButton}</div>
-              </>
+              <ul>
+                {history.open_invites.map((i) => (
+                  <li key={`inv-${i.created_at}`} className="a-t2 border-b py-2 text-[12.5px]">
+                    {t('adm.prod.openInvite').replace('{product}', productLabel(i.product)).replace('{email}', i.email).replace('{d}', fmtDate(i.expires_at, language))}
+                  </li>
+                ))}
+                {history.events.map((e) => (
+                  <li key={`${e.action}-${e.created_at}`} className="a-t2 flex justify-between gap-3 border-b py-2 text-[12.5px] last:border-b-0">
+                    <span>{t(`adm.prod.ev.${e.action}.${e.via}`).replace('{product}', productLabel(e.product))}</span>
+                    <span className="a-t3 whitespace-nowrap">{fmtDate(e.created_at, language)}</span>
+                  </li>
+                ))}
+              </ul>
             )}
-          </div>
-        )}
-
-        <div style={{ color: T2, fontSize: 12, fontWeight: 600, marginTop: 18 }}>{t('adm.prod.history')}</div>
-        {!history ? <Spinner /> : (history.events.length === 0 && history.open_invites.length === 0) ? (
-          <p style={{ color: T3, fontSize: 12, marginTop: 6 }}>{t('adm.prod.noHistory')}</p>
-        ) : (
-          <div className="mt-1">
-            {history.open_invites.map((i) => (
-              <div key={`inv-${i.created_at}`} className="py-2" style={{ borderBottom: `1px solid ${F_BORDER}`, color: T2, fontSize: 12.5 }}>
-                {t('adm.prod.openInvite').replace('{product}', productLabel(i.product)).replace('{email}', i.email).replace('{d}', fmtDate(i.expires_at, language))}
-              </div>
-            ))}
-            {history.events.map((e) => (
-              <div key={`${e.action}-${e.created_at}`} className="py-2 flex justify-between gap-3" style={{ borderBottom: `1px solid ${F_BORDER}`, color: T2, fontSize: 12.5 }}>
-                <span>{t(`adm.prod.ev.${e.action}.${e.via}`).replace('{product}', productLabel(e.product))}</span>
-                <span style={{ color: T3 }}>{fmtDate(e.created_at, language)}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </Modal>
+          </section>
+        </div>
+      </Drawer>
     </>
   );
 }

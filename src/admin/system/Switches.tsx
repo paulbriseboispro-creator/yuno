@@ -10,8 +10,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Badge, Card, Dialog, Page, Section, Status, useAdminT } from '@/admin/ui';
 import { fmtRelative } from '@/lib/adminFormat';
 import { useAdminPricing } from '@/crm/admin/data';
-import { SystemTab } from '@/pages/admin/AdminNotificationAutomations';
-import { SuiteFrame } from '../shell/frames';
+import { NotificationRegistry } from './NotificationRegistry';
 import { useReasonAction } from '../comms/reason';
 import { rpc, useAppSettings, useSwitchLog } from './data';
 
@@ -117,7 +116,7 @@ export default function Switches() {
       </Section>
 
       <Section title={t('adm.sys.sw.registry')} description={t('adm.sys.sw.registrySub')}>
-        <SuiteFrame><SystemTab /></SuiteFrame>
+        <NotificationRegistry />
       </Section>
 
       <Section title={t('adm.sys.sw.log')}>
