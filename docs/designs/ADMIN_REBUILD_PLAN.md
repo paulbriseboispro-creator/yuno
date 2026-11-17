@@ -491,8 +491,8 @@ travail de chacun (`nav.ts`, `redirects.ts` et son test, `searchHref.ts`,
 `modules/index.ts`, ce plan). Rien n'est poussé ni déployé.
 
 - **Menu final** = section 3, huit rubriques, aucune entrée en double. Pages hors
-  menu mais joignables (`hidden`) : `/admin/pilot/signups`, `/admin/money/subscriptions`
-  (les anciennes listes cachées de Pros sont supprimées le 17/11). Chaque adresse
+  menu mais joignables (`hidden`) : `/admin/pilot/signups` (les anciennes listes
+  cachées de Pros et les Abonnements de la Suite sont supprimés le 17/11). Chaque adresse
   littérale `/admin/...` du code a été passée dans `currentAdminHref` puis comparée
   aux routes réelles : toutes tombent sur une page qui existe.
 - **Liens croisés** : la file du jour (liens réécrits dans la migration
@@ -564,19 +564,15 @@ claire et sombre de chaque rubrique dans `docs/designs/admin-rebuild/`.
 | `AdminNotificationAutomations` (registre des notifications unitaires, `SystemTab` seul) | Système › Interrupteurs | Suite | 154 |
 | `AdminProSignups` | `/admin/pilot/signups` (caché) | Suite | 478 |
 | `AdminMarketing` (Email Studio, rapport, modèles, recettes : partagés avec la Console des pros) | `/admin/comms/email/*`, `automations` | Suite (barre de retour au kit) | 43 |
-| `AdminSubscriptions` | `/admin/money/subscriptions` (caché) | Suite | 371 |
-| `AdminProduct` | Pilotage › Produit (onglet Signaux) | Suite | 256 |
-| `AdminAi` | Pilotage › Produit (onglet IA) | Suite | 231 |
-| `SettingsPage` (CRM) | Système › Offre et tarifs (offre, historique) | CRM | 191 |
-| `CustomerBasisAdmin` (CRM) | Système › Offre et tarifs (« Vos clients ») | CRM | 176 |
-| `LifecycleTab` (CRM) | Système › Offre et tarifs (cycle de vie) | CRM | 127 |
-| `LandingTab` (CRM) | Pilotage › Acquisition (page publique CRM) | CRM | 110 |
-| `LearningTab` (CRM) | Système › Offre et tarifs (analyse client) | CRM | 101 |
-| `ProductPage` (CRM) | Pilotage › Produit (onglet CRM) | CRM | 75 |
 | `SmsCampaignsPanel` (éditeur SMS, partagé avec la Console des pros) | `/admin/comms/sms` | Suite (entrée au kit) | partagé |
-| `PriceTierCard` (CRM) | Système › Offre et tarifs | CRM | 58 |
-| `NightPlanAdminPage` (CRM) | `/admin/system/connectors/plan/*` | CRM | 51 |
-| `AdminDrinkCatalog` | `/admin/system/drinks` (fermé, pilier en pause) | Suite | 380 |
+| `NightPlanReport` (rapport de la Console, dans la page `NightPlan` au kit) | `/admin/system/connectors/plan/*` | CRM | n/a |
+| `AdminDrinkCatalog` | `/admin/system/drinks` (fermé, pilier en pause, aucun menu n'y mène) | Suite | 380 |
+
+Réécrits au kit dans la passe Pilotage / Système / Argent (17/11) : Produit
+(Signaux, IA, CRM), page publique CRM d'Acquisition, Offre et tarifs (quatre
+onglets), plan de soirée (titre et états ; le rapport reste celui de la Console,
+dans son cadre CRM), Abonnements de la Suite (supprimé : fonction coupée, adresse
+redirigée vers Argent › CRM).
 
 **Communication réécrite au kit (17/11)** : Notifications automatiques (règles en tableau + tiroir,
 politique en formulaires, crédits en tableau avec « offrir » par `ReasonDialog` et allocation par dialogue),

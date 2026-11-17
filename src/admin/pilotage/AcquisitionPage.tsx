@@ -5,9 +5,7 @@
  * le délai jusqu'à la première vente. La liste des personnes à rappeler vit
  * dans Pros › Prospects (lien).
  */
-import { Suspense, useMemo } from 'react';
-import { lazyWithRetry } from '@/lib/lazyWithRetry';
-import { CrmFrame } from '../shell/frames';
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Card, Chart, DataTable, ErrorState, Funnel, Grid, Kpi, KpiRow, Page, Section, useAdminFilters, useAdminT,
@@ -16,9 +14,8 @@ import {
 import { fmtAxisDay, fmtNum } from '@/lib/adminFormat';
 import { sourceRows } from '@/lib/proSignupPeople';
 import { useAcquisition, type ProductSteps } from './data';
+import AcquisitionLanding from './AcquisitionLanding';
 
-// Détail de la page publique de Yuno CRM (mesure sans cookie), écran hérité de l'ex-Admin CRM.
-const LandingTab = lazyWithRetry(() => import('@/crm/admin/pages/LandingTab'));
 
 const STEPS = ['visits', 'opened', 'created', 'configured', 'first', 'paying'] as const;
 
@@ -106,11 +103,7 @@ export default function AcquisitionPage() {
       </Section>
 
       <Section title={t('adm.pil.acq.landing')} description={t('adm.pil.acq.landingSub')}>
-        <CrmFrame>
-          <Suspense fallback={<div className="a-skel h-64" />}>
-            <LandingTab days={range.days} />
-          </Suspense>
-        </CrmFrame>
+        <AcquisitionLanding days={range.days} />
       </Section>
     </Page>
   );

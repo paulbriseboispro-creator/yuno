@@ -39,7 +39,8 @@ const RULES: readonly Rule[] = [
   // ── Argent ──
   [/^\/admin\/(revenue|analytics|accounting)$/, '/admin/money'],
   [/^\/admin\/orders$/, '/admin/money/orders'],
-  [/^\/admin\/subscriptions$/, '/admin/money/subscriptions'],
+  // Abonnements de la Suite : fonction coupée, écran retiré. Les abonnements de Yuno CRM : Argent › CRM.
+  [/^\/admin\/(?:money\/)?subscriptions$/, '/admin/money/crm'],
   // ── Clients ──
   [/^\/admin\/(customers|segmentation)$/, '/admin/clients'],
   [/^\/admin\/events$/, '/admin/clients/events'],
