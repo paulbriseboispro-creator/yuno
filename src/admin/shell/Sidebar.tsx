@@ -1,17 +1,17 @@
 /**
- * Barre latérale : huit rubriques, chacune ouvre ses entrées quand on y est.
+ * Barre latérale : neuf rubriques, chacune ouvre ses entrées quand on y est.
  * Lit src/admin/nav.ts et rien d'autre.
  */
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Building2, ChevronRight, Coins, Inbox, LineChart, Megaphone, Scale, Server, Users, type LucideIcon } from 'lucide-react';
+import { Building2, ChevronRight, Coins, Inbox, LineChart, MapPin, Megaphone, Scale, Server, Users, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ADMIN_NAV, activeEntry, entryLabelKey, rubricLabelKey, type AdminRubric } from '../nav';
 import { useAdminT } from '../ui/i18n';
 import { useNavBadges } from './badges';
 
 const RUBRIC_ICON: Record<AdminRubric['icon'], LucideIcon> = {
-  Inbox, LineChart, Building2, Users, Coins, Megaphone, Scale, Server,
+  Inbox, LineChart, MapPin, Building2, Users, Coins, Megaphone, Scale, Server,
 };
 
 export function Sidebar({ onNavigate, rail }: { onNavigate?: () => void; rail?: boolean }) {

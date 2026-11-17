@@ -3,6 +3,7 @@
 export const GO_KEYS: Array<{ key: string; to: string; rubric: string }> = [
   { key: 't', to: '/admin', rubric: 'today' },
   { key: 'p', to: '/admin/pilot', rubric: 'pilot' },
+  { key: 'd', to: '/admin/madrid', rubric: 'madrid' },
   { key: 'r', to: '/admin/pros', rubric: 'pros' },
   { key: 'c', to: '/admin/clients', rubric: 'clients' },
   { key: 'a', to: '/admin/money', rubric: 'money' },

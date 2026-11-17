@@ -1,5 +1,5 @@
 /**
- * LA carte de l'admin : huit rubriques, leurs entrées, leurs adresses.
+ * LA carte de l'admin : neuf rubriques, leurs entrées, leurs adresses.
  * Barre latérale, fil d'Ariane et palette ⌘K la lisent ; rien d'autre ne
  * décrit le menu.
  *
@@ -38,7 +38,7 @@ export interface AdminRubric {
   /** Préfixe d'adresse de la rubrique (« Aujourd'hui » vit à `/admin`). */
   base: string;
   /** Nom d'une icône lucide-react (résolu par la coquille). */
-  icon: 'Inbox' | 'LineChart' | 'Building2' | 'Users' | 'Coins' | 'Megaphone' | 'Scale' | 'Server';
+  icon: 'Inbox' | 'LineChart' | 'MapPin' | 'Building2' | 'Users' | 'Coins' | 'Megaphone' | 'Scale' | 'Server';
   entries: AdminNavEntry[];
 }
 
@@ -67,7 +67,7 @@ export const ADMIN_NAV: AdminRubric[] = [
   {
     // Marketplace externe de Madrid (nom provisoire) : aucune vente faite dans Yuno n'y est comptée.
     // Icône : celle de Pilotage en attendant `MapPin` dans la coquille (Sidebar, hors de ce lot).
-    id: 'madrid', base: '/admin/madrid', icon: 'LineChart',
+    id: 'madrid', base: '/admin/madrid', icon: 'MapPin',
     entries: [
       { key: 'verdict', path: '/admin/madrid', end: true },
       { key: 'clubs', path: '/admin/madrid/clubs' },

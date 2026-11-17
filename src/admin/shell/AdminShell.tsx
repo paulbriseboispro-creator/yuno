@@ -1,5 +1,5 @@
 /**
- * La coquille unique de l'admin : barre latérale (huit rubriques), en-tête
+ * La coquille unique de l'admin : barre latérale (neuf rubriques), en-tête
  * (fil d'Ariane, ⌘K, cloche, démo, thème), et la zone de page. Elle porte
  * `[data-admin]` (les variables du kit) et le conteneur des portails.
  */
