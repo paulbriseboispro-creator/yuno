@@ -13,7 +13,7 @@
  * Module pur (testé) : aucune dépendance React, les icônes sont des noms.
  */
 
-export const RUBRIC_IDS = ['today', 'pilot', 'pros', 'clients', 'money', 'comms', 'legal', 'system'] as const;
+export const RUBRIC_IDS = ['today', 'pilot', 'madrid', 'pros', 'clients', 'money', 'comms', 'legal', 'system'] as const;
 export type RubricId = (typeof RUBRIC_IDS)[number];
 
 /** Identifiant d'un compteur de la barre latérale, servi par `useNavBadges`. */
@@ -62,6 +62,18 @@ export const ADMIN_NAV: AdminRubric[] = [
       { key: 'retention', path: '/admin/pilot/retention' },
       { key: 'audience', path: '/admin/pilot/audience' },
       { key: 'product', path: '/admin/pilot/product' },
+    ],
+  },
+  {
+    // Marketplace externe de Madrid (nom provisoire) : aucune vente faite dans Yuno n'y est comptée.
+    // Icône : celle de Pilotage en attendant `MapPin` dans la coquille (Sidebar, hors de ce lot).
+    id: 'madrid', base: '/admin/madrid', icon: 'LineChart',
+    entries: [
+      { key: 'verdict', path: '/admin/madrid', end: true },
+      { key: 'clubs', path: '/admin/madrid/clubs' },
+      { key: 'audience', path: '/admin/madrid/audience' },
+      { key: 'yuno', path: '/admin/madrid/yuno' },
+      { key: 'supply', path: '/admin/madrid/supply' },
     ],
   },
   {

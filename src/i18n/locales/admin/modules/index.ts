@@ -39,12 +39,13 @@ import money from './money';
 import legal from './legal';
 import comms from './comms';
 import pilotSystem from './pilotSystem';
+import madrid from './madrid';
 
 /** Toutes les clés du super admin, un module par page. */
 export const ADMIN_DICT: AdminDict = {
   ...common, ...layout, ...cockpit, ...product, ...ai, ...links,
   ...venues, ...organizers, ...agencies, ...events, ...people, ...demo, ...alerts,
-  ...audit, ...feedback, ...push, ...automations, ...system, ...marketing, ...drinks, ...signups, ...crmAdmin, ...crmAdmin2, ...crmAdmin3, ...crmAdmin4, ...crmAdminAnalysis, ...crmAdminFounder, ...crmAdminInvite, ...crmAdminSms, ...crmAdminCustomerBasis, ...shell, ...today, ...pros, ...prosRewrite, ...clients, ...pilotage, ...money, ...legal, ...comms, ...pilotSystem,
+  ...audit, ...feedback, ...push, ...automations, ...system, ...marketing, ...drinks, ...signups, ...crmAdmin, ...crmAdmin2, ...crmAdmin3, ...crmAdmin4, ...crmAdminAnalysis, ...crmAdminFounder, ...crmAdminInvite, ...crmAdminSms, ...crmAdminCustomerBasis, ...shell, ...today, ...pros, ...prosRewrite, ...clients, ...pilotage, ...money, ...legal, ...comms, ...pilotSystem, ...madrid,
 };
 
 export function pickLanguage(index: 0 | 1 | 2): Record<string, string> {
