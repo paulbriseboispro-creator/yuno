@@ -54,8 +54,8 @@ export function ActivityFeed({ includeDemo }: { includeDemo: boolean }) {
 function FeedLine({ row }: { row: FeedRow }) {
   const { t, lang } = useAdminT();
   const body = (
-    <div className="grid grid-cols-[4.5rem_minmax(0,9rem)_minmax(0,1fr)_auto] items-center gap-3 px-1 py-1.5 text-[13px]">
-      <time className="a-mono a-t3 text-[11px]" dateTime={row.at} title={fmtDate(row.at, lang, 'datetime')}>{fmtRelative(row.at, lang)}</time>
+    <div className="grid grid-cols-[7rem_minmax(0,9rem)_minmax(0,1fr)_auto] items-center gap-3 px-1 py-1.5 text-[13px]">
+      <time className="a-mono a-t3 truncate whitespace-nowrap text-[11px]" dateTime={row.at} title={fmtDate(row.at, lang, 'datetime')}>{fmtRelative(row.at, lang)}</time>
       <span className="a-t2 flex min-w-0 items-center gap-2 truncate text-[12.5px]">
         <span aria-hidden className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: toneColor(row.tone) }} />
         <span className="truncate">{t(`adm.today.feed.k.${row.kind}`)}</span>

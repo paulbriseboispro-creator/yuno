@@ -9,7 +9,8 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { DeltaBadge } from '../Kpi';
-import { intensity, linePath, nearestIndex, useHoverIndex } from './core';
+import { linePath, nearestIndex } from './core';
+import { useHoverIndex } from './Sync';
 
 export function Spark({ data, kind = 'line', height = 32, highlight, color = 'var(--a-chart-1)', baseline = true }: {
   data: number[];
@@ -33,7 +34,7 @@ export function Spark({ data, kind = 'line', height = 32, highlight, color = 'va
         const cx = n === 1 ? W / 2 : ((i + 0.5) / n) * W;
         const h = max <= 0 ? 0 : Math.max(v > 0 ? 1.5 : 0, (v / max) * (height - 3));
         return <rect key={i} x={cx - bw / 2} y={height - h} width={bw} height={h} rx={0.6}
-          fill={highlight === i ? color : `color-mix(in srgb, ${color} ${highlight == null ? 70 : 38}%, transparent)`} />;
+          fill={highlight === i ? 'var(--a-chart-1)' : `color-mix(in srgb, ${color} ${highlight == null ? 55 : 30}%, transparent)`} />;
       }) : (
         <>
           <path d={linePath(data.map((v, i) => [x(i), y(v)]))} fill="none" stroke={color} strokeWidth={1.5} vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
@@ -137,7 +138,7 @@ export function SmallMultiples({ items, xLabels, columns = 3, height = 44 }: { i
                 onPointerLeave={() => setIndex(null)}>
                 {empty && m.emptyText
                   ? <div className="a-t3 flex h-full items-end text-[12px]">{m.emptyText}</div>
-                  : <Spark data={m.series} kind={m.kind} height={height} highlight={index} />}
+                  : <Spark data={m.series} kind={m.kind} height={height} highlight={index} color="var(--a-text-2)" />}
               </div>
             </div>
           );
@@ -150,10 +151,4 @@ export function SmallMultiples({ items, xLabels, columns = 3, height = 44 }: { i
       </div>
     </div>
   );
-}
-
-/** Teinte d'une cellule de tableau selon sa valeur (0..max). */
-export function cellTint(v: number | null | undefined, max: number): string | undefined {
-  const k = intensity(v, max);
-  return k > 0 ? `color-mix(in srgb, var(--a-accent) ${Math.round(4 + k * 22)}%, transparent)` : undefined;
 }

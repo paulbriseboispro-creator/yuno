@@ -30,7 +30,7 @@ const GLUED = new Set(['adm.today.b.u0', 'adm.today.b.u1', 'adm.today.b.uN', 'ad
 
 /** Met les nombres d'une phrase en encre forte. */
 function emphasize(text: string) {
-  return text.split(/(\d[\d   ,.]*(?:\s?€)?)/).map((p, i) => (i % 2 ? <b key={i}>{p}</b> : p));
+  return text.split(/(\d[\d\u202f\u00a0 ,.]*(?:\s?€)?)/).map((p, i) => (i % 2 ? <b key={i}>{p}</b> : p));
 }
 
 export default function TodayHome() {

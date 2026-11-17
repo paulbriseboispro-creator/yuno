@@ -18,7 +18,7 @@ import { toneColor } from '../ui/tone';
 import { useAdminT } from '../ui/i18n';
 
 /** Les ventes du jour (Paris) dans la série par jour, 0 si le jour n'y est pas. */
-export function todaySales(byDay: Array<{ d: string; tickets: number; tables: number }> | undefined, now = new Date()): number | null {
+function todaySales(byDay: Array<{ d: string; tickets: number; tables: number }> | undefined, now = new Date()): number | null {
   if (!byDay) return null;
   const key = now.toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' });
   const row = byDay.find((r) => r.d.slice(0, 10) === key);

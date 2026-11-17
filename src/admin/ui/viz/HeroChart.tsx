@@ -5,7 +5,8 @@
  */
 import { useMemo, useRef, useState } from 'react';
 import { HoverTip } from './Tip';
-import { linear, linePath, nearestIndex, niceTicks, useHoverIndex, useWidth } from './core';
+import { linear, linePath, nearestIndex, niceTicks, useWidth } from './core';
+import { useHoverIndex } from './Sync';
 
 export interface HeroPoint { x: string; v: number | null; prev?: number | null }
 
@@ -122,7 +123,7 @@ export function HeroChart({
           {/* Étiquettes directes au bout des lignes (pas de légende). */}
           {hasPrev && hi == null && (() => {
             const last = [...data].reverse().findIndex((d) => d.prev != null);
-            if (last < 0 || !labels.prev) return null;
+            if (last < 0 || !labels.prev || !data.some((d) => (d.prev ?? 0) > 0)) return null;
             const i = n - 1 - last;
             return <text x={x1} y={sy(data[i].prev ?? 0) + 14} textAnchor="end" className="a-viz-tick">{labels.prev}</text>;
           })()}

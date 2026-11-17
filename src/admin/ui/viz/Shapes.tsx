@@ -68,17 +68,19 @@ export function Waterfall({ steps }: { steps: Step[] }) {
       {bars.map(({ s, from, to }) => {
         const a = Math.min(from, to) / max * 100, b = Math.abs(to - from) / max * 100;
         return (
-          <li key={s.key} className="grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)_auto] items-center gap-3 text-[13px]">
+          <li key={s.key} className="grid grid-cols-[minmax(0,11rem)_minmax(0,1fr)_auto] items-center gap-3 text-[13px]">
             <span className={`truncate ${s.total ? 'a-t1 font-medium' : 'a-t2'}`}>{s.label}</span>
-            <div className="relative h-4">
-              {s.unknown ? (
-                <span className="a-t3 absolute inset-y-0 flex items-center text-[11.5px]" style={{ left: `${Math.min(80, a)}%` }}>{s.unknown}</span>
-              ) : (
-                <div className="absolute inset-y-0 rounded-[2px]" title={`${s.label} · ${s.display}`}
-                  style={{ left: `${a}%`, width: `max(2px, ${b}%)`, background: s.total ? 'var(--a-chart-1)' : s.value < 0 ? 'var(--a-prev)' : 'color-mix(in srgb, var(--a-chart-1) 45%, transparent)' }} />
-              )}
-            </div>
-            <span className={`a-num text-right ${s.total ? 'a-t1 font-semibold' : 'a-t2'}`}>{s.display}</span>
+            {s.unknown ? (
+              <span className="a-t3 col-span-2 text-right text-[11.5px]">{s.unknown}</span>
+            ) : (
+              <>
+                <div className="relative h-4">
+                  <div className="absolute inset-y-0 rounded-[2px]" title={`${s.label} · ${s.display}`}
+                    style={{ left: `${a}%`, width: `max(2px, ${b}%)`, background: s.total ? 'var(--a-chart-1)' : s.value < 0 ? 'var(--a-prev)' : 'color-mix(in srgb, var(--a-chart-1) 45%, transparent)' }} />
+                </div>
+                <span className={`a-num text-right ${s.total ? 'a-t1 font-semibold' : 'a-t2'}`}>{s.display}</span>
+              </>
+            )}
           </li>
         );
       })}

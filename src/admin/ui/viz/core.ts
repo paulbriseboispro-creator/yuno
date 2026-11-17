@@ -4,7 +4,7 @@
  * Pur SVG, aucune bibliothèque : les formes suivent la question
  * (docs/designs/ADMIN_DESIGN_SYSTEM.md).
  */
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 /** Largeur d'un conteneur, suivie au redimensionnement. */
 export function useWidth<T extends HTMLElement>(): [React.RefObject<T>, number] {
@@ -65,29 +65,9 @@ export function intensity(v: number | null | undefined, max: number): number {
   return Math.max(0, Math.min(1, v / max));
 }
 
-/** Teinte d'accent pour une intensité : de transparent à 30 % (jamais un aplat plein). */
+/** Teinte d'une intensité, en encre neutre (le rouge reste réservé à l'attention) : 4 à 26 %. */
 export function tintOf(k: number): string {
-  return k <= 0 ? 'transparent' : `color-mix(in srgb, var(--a-accent) ${Math.round(4 + k * 26)}%, transparent)`;
-}
-
-// ── Survol synchronisé (small multiples, héros + bande) ─────────────────────
-
-interface Sync { index: number | null; setIndex: (i: number | null) => void }
-const SyncContext = createContext<Sync | null>(null);
-
-/** Les graphiques posés dedans partagent l'index survolé (même axe du temps). */
-export function HoverSync({ children }: { children: ReactNode }) {
-  const [index, setIndexState] = useState<number | null>(null);
-  const setIndex = useCallback((i: number | null) => setIndexState(i), []);
-  const v = useMemo(() => ({ index, setIndex }), [index, setIndex]);
-  return <SyncContext.Provider value={v}>{children}</SyncContext.Provider>;
-}
-
-/** L'index survolé : partagé dans un HoverSync, local sinon. */
-export function useHoverIndex(): Sync {
-  const shared = useContext(SyncContext);
-  const [local, setLocal] = useState<number | null>(null);
-  return shared ?? { index: local, setIndex: setLocal };
+  return k <= 0 ? 'transparent' : `color-mix(in srgb, var(--a-text) ${Math.round(4 + k * 22)}%, transparent)`;
 }
 
 /** Vrai quand l'utilisateur demande moins d'animation. */
@@ -102,4 +82,10 @@ export function useReducedMotion(): boolean {
     return () => m.removeEventListener?.('change', on);
   }, []);
   return r;
+}
+
+/** Teinte d'une cellule de tableau selon sa valeur (0..max), en encre neutre. */
+export function cellTint(v: number | null | undefined, max: number): string | undefined {
+  const k = intensity(v, max);
+  return k > 0 ? `color-mix(in srgb, var(--a-text) ${Math.round(3 + k * 13)}%, transparent)` : undefined;
 }

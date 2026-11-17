@@ -17,7 +17,7 @@ import { daysUntil, groupByUrgency, type TodayItem, type Urgency } from './queue
 import { useMarkItem } from './data';
 import { subjectAccountKey } from './brief';
 import { useAccount } from '../pros/data';
-import { isTyping } from '../shell/Shortcuts';
+import { isTyping } from '../shell/keys';
 
 const ADMIN_FEED: FeedConfig = {
   table: 'admin_notifications', filterColumn: 'scope', filterValue: 'platform', basePath: '/admin',
@@ -26,7 +26,7 @@ const ADMIN_FEED: FeedConfig = {
 
 const URGENCY_TONE: Record<Urgency, Tone> = { 1: 'negative', 2: 'warning', 3: 'neutral' };
 
-export function hrefOf(item: TodayItem): string {
+function hrefOf(item: TodayItem): string {
   if (item.family !== 'alert' || !item.params) return item.href;
   const p = item.params as Record<string, unknown>;
   const n: AppNotif = {
@@ -93,7 +93,7 @@ export function QueueList({ items, selected, onSelect }: { items: TodayItem[]; s
                       {it.detail && <span className="a-t3 block truncate text-[12px]">{it.detail}</span>}
                     </span>
                     <span className="a-mono a-t3 hidden flex-none text-[11px] sm:inline">{t(`adm.today.fam.${it.family}`)}</span>
-                    <span className="a-mono a-t3 w-20 flex-none text-right text-[11px]">{when}</span>
+                    <span className="a-mono a-t3 w-28 flex-none truncate whitespace-nowrap text-right text-[11px]">{when}</span>
                   </button>
                 </li>
               );

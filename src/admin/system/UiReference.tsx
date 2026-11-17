@@ -7,10 +7,11 @@
 import { useState } from 'react';
 import { AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 import {
-  Badge, Card, Chart, DataTable, Dialog, EmptyState, ErrorState, Funnel, Grid, KeyValue, Kpi, KpiRow,
-  Page, Section, Status, Tabs, Timeline, useAdminT, type ColumnDef,
+  Badge, Block, BulletBar, CalendarHeat, Card, Chart, CohortGrid, DataTable, Dialog, EmptyState, ErrorState, Funnel, FunnelSteps, Grid, Hero, HeroChart,
+  HoverSync, KeyValue, Kpi, KpiRow, Page, RankBars, Section, SmallMultiples, StackedShare, StatStrip, Status, Tabs, Timeline, UptimeBars, Waterfall,
+  useAdminT, type ColumnDef,
 } from '@/admin/ui';
-import { fmtAxisDay, fmtEur, fmtNum } from '@/lib/adminFormat';
+import { fmtAxisDay, fmtEur, fmtNum, fmtPct } from '@/lib/adminFormat';
 
 const DAY = 86_400_000;
 const days = Array.from({ length: 30 }, (_, i) => {
@@ -46,6 +47,75 @@ export default function UiReference() {
   return (
     <Page title={t('adm.sys.ui.title')} subtitle={t('adm.sys.ui.sub')} period
       actions={<button type="button" className="a-btn a-btn--primary" onClick={() => setDialog(true)}>{t('adm.sys.ui.primary')}</button>}>
+      {/* ── v3 : la composition d'une page, puis chaque forme ── */}
+      <HoverSync>
+        <Hero kicker={t('adm.sys.ui.v3.kicker')} value={fmtEur(18420, lang, { cents: false })} current={18420} previous={16010}
+          sentence={<>{t('adm.sys.ui.v3.sentence')}</>}
+          chart={<HeroChart data={days.map((x) => ({ x: x.d, v: x.cur, prev: x.prev }))} formatX={(v) => fmtAxisDay(v, lang)} formatV={(v) => fmtEur(v, lang, { cents: false })}
+            labels={{ cur: t('adm.sys.ui.s.cur'), prev: t('adm.sys.ui.s.prev'), peak: t('adm.sys.ui.v3.peak') }} onSelect={() => undefined} />}
+          aside={(
+            <>
+              <Block title={t('adm.sys.ui.v3.share')}>
+                <StackedShare emptyText="—" fmtShare={(r) => fmtPct(r * 100, 0, lang)} parts={[
+                  { key: 'a', label: t('adm.sys.ui.s.a'), value: 1104, display: fmtEur(1104, lang, { cents: false }) },
+                  { key: 'b', label: t('adm.sys.ui.s.b'), value: 192, display: fmtEur(192, lang, { cents: false }) },
+                  { key: 'c', label: t('adm.sys.ui.s.c'), value: 40, display: fmtEur(40, lang, { cents: false }) }]} />
+              </Block>
+              <Block title={t('adm.sys.ui.v3.waterfall')}>
+                <Waterfall steps={[
+                  { key: 's', label: t('adm.sys.ui.k.sales'), value: 18420, display: fmtEur(18420, lang, { cents: false }), total: true },
+                  { key: 'p', label: t('adm.sys.ui.v3.out'), value: -17316, display: `− ${fmtEur(17316, lang, { cents: false })}` },
+                  { key: 'b', label: t('adm.sys.ui.s.b'), value: 232, display: `+ ${fmtEur(232, lang, { cents: false })}` },
+                  { key: 'r', label: t('adm.sys.ui.k.fees'), value: 1336, display: fmtEur(1336, lang, { cents: false }), total: true }]} />
+              </Block>
+            </>
+          )} />
+        <StatStrip items={[
+          { key: 'a', label: t('adm.sys.ui.k.sales'), value: fmtEur(18420, lang, { cents: false }), current: 18420, previous: 16010, spark: days.map((x) => x.cur) },
+          { key: 'b', label: t('adm.sys.ui.k.fees'), value: fmtEur(1104, lang, { cents: false }), current: 1104, previous: 960 },
+          { key: 'c', label: t('adm.sys.ui.k.refunds'), value: fmtEur(342, lang), current: 342, previous: 290, invert: true },
+          { key: 'd', label: t('adm.sys.ui.k.buyers'), value: fmtNum(812, lang), current: 812, previous: 705, spark: days.map((x) => x.a), sparkKind: 'bar' },
+        ]} />
+        <SmallMultiples xLabels={days.map((x) => fmtAxisDay(x.d, lang))} items={[
+          { key: 'a', label: t('adm.sys.ui.s.a'), total: fmtNum(1104, lang), series: days.map((x) => x.a), format: (v) => fmtNum(v, lang) },
+          { key: 'b', label: t('adm.sys.ui.s.b'), total: fmtNum(412, lang), series: days.map((x) => x.b), format: (v) => fmtNum(v, lang), kind: 'bar' },
+          { key: 'c', label: t('adm.sys.ui.s.c'), total: '0', series: days.map(() => 0), format: (v) => fmtNum(v, lang), emptyText: t('adm.sys.ui.empty') },
+        ]} />
+      </HoverSync>
+      <Grid cols={3}>
+        <Block title={t('adm.sys.ui.v3.rank')}>
+          <RankBars emptyText="—" items={ROWS.map((r) => ({ key: r.name, label: r.name, sub: r.city, value: r.revenue, display: fmtEur(r.revenue, lang, { cents: false }) }))} />
+        </Block>
+        <Block title={t('adm.sys.ui.v3.bullet')}>
+          <div className="flex flex-col gap-4">
+            <BulletBar label={t('adm.sys.ui.v3.complaints')} display="0,06 %" value={0.06} target={0.1} zones={[0.1, 0.3]} max={0.4} targetLabel="0,1 %" />
+            <BulletBar label={t('adm.sys.ui.v3.bounces')} display="2,1 %" value={2.1} target={3} zones={[3, 5]} max={6} targetLabel="3 %" />
+          </div>
+        </Block>
+        <Block title={t('adm.sys.ui.v3.uptime')}>
+          <div className="flex flex-col gap-4">
+            <UptimeBars label="Stripe" summary="100 %" days={days.map((x) => ({ d: x.d, state: 'ok' as const }))} />
+            <UptimeBars label="E-mail" summary="96,7 %" days={days.map((x, i) => ({ d: x.d, state: i === 12 ? 'down' as const : i === 20 ? 'warn' as const : 'ok' as const }))} />
+          </div>
+        </Block>
+      </Grid>
+      <Block title={t('adm.sys.ui.v3.funnel')}>
+        <FunnelSteps fmtShare={(r) => fmtPct(r * 100, 0, lang)} lossLabel={(l, p) => `− ${l} (${p})`} steps={[
+          { key: 'v', label: t('adm.sys.ui.f.v'), value: 1840, display: fmtNum(1840, lang) }, { key: 'o', label: t('adm.sys.ui.f.o'), value: 212, display: fmtNum(212, lang) },
+          { key: 'c', label: t('adm.sys.ui.f.c'), value: 41, display: fmtNum(41, lang) }, { key: 'p', label: t('adm.sys.ui.f.p'), value: 9, display: fmtNum(9, lang) }]} />
+      </Block>
+      <Grid cols={2}>
+        <Block title={t('adm.sys.ui.v3.cohort')}>
+          <CohortGrid fmt={(v) => fmtPct(v * 100, 0, lang)} columns={['M0', 'M1', 'M2', 'M3']} rows={[
+            { key: '1', label: 'août', size: '12', cells: [1, 0.75, 0.58, 0.5] }, { key: '2', label: 'sept.', size: '9', cells: [1, 0.66, 0.55, null] },
+            { key: '3', label: 'oct.', size: '14', cells: [1, 0.71, null, null] }, { key: '4', label: 'nov.', size: '6', cells: [1, null, null, null] }]} />
+        </Block>
+        <Block title={t('adm.sys.ui.v3.calendar')}>
+          <CalendarHeat weekdays={['L', 'M', 'M', 'J', 'V', 'S', 'D']} fmt={(d, v) => `${d} · ${v}`}
+            days={Array.from({ length: 84 }, (_, i) => ({ d: new Date(Date.UTC(2026, 7, 24) + i * DAY).toISOString().slice(0, 10), v: i % 7 === 5 ? 30 + (i % 4) * 12 : i % 7 === 4 ? 12 : i % 3 }))} />
+        </Block>
+      </Grid>
+
       <KpiRow>
         <Kpi label={t('adm.sys.ui.k.sales')} value={fmtEur(18420, lang, { cents: false })} current={18420} previous={16010} to="/admin/money" />
         <Kpi label={t('adm.sys.ui.k.fees')} value={fmtEur(1104, lang, { cents: false })} current={1104} previous={960} />
