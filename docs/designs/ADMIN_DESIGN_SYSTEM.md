@@ -63,7 +63,7 @@ graphiques validée). La v3 ajoute :
 | Fond clair | papier `#faf9f6`, panneau `#ffffff` |
 | Héros | 56 px / 600 / −0,03 em ; phrase 15 px encre 2, chiffres de la phrase en encre 1 |
 | Bande de stats | libellé mono 11 px, valeur 20 px, écart 12 px, filets verticaux |
-| Teinte de cellule | `color-mix(var(--a-accent) N %, transparent)`, N de 0 à 30 selon la valeur |
+| Teinte de cellule | encre neutre : `color-mix(var(--a-text) N %, transparent)`, N de 3 à 16 (tableaux), 4 à 26 (cohortes, calendrier) ; le rouge reste à l'attention |
 | Disponibilité | ok `--a-pos`, incident `--a-warn`, panne `--a-neg-soft`, inconnu `--a-grid` |
 
 ## Primitives (src/admin/ui, dessins dans `viz/`)
