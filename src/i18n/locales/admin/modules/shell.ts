@@ -187,6 +187,7 @@ const dict: AdminDict = {
   'adm.ui.confirm': ['Confirm', 'Confirmer', 'Confirmar'],
   'adm.ui.working': ['Working…', 'En cours…', 'En curso…'],
   'adm.ui.close': ['Close', 'Fermer', 'Cerrar'],
+  'adm.ui.drill.open': ['Open the full list', 'Ouvrir la liste complète', 'Abrir la lista completa'],
   'adm.ui.reason.label': ['Reason', 'Motif', 'Motivo'],
   'adm.ui.reason.placeholder': ['Why are you doing this?', 'Pourquoi faites-vous ce geste ?', '¿Por qué hace esto?'],
   'adm.ui.reason.hint': ['Required. It goes into the audit log with your name.', 'Obligatoire. Il entre au journal d’audit avec votre nom.', 'Obligatorio. Se guarda en el registro de auditoría con su nombre.'],

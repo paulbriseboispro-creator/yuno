@@ -24,7 +24,8 @@ export function Page({
       <header className="mb-6 flex flex-wrap items-start gap-x-6 gap-y-3">
         <div className="min-w-0 flex-1">
           <h1 className="a-t1 text-[22px] font-semibold leading-[1.25] tracking-[-0.02em]" style={{ textWrap: 'balance' }}>{title}</h1>
-          {subtitle && <p className="a-t2 mt-1 max-w-[80ch] text-[14px] leading-normal">{subtitle}</p>}
+          <span aria-hidden className="a-title-rule" />
+          {subtitle && <p className="a-t2 mt-3 max-w-[80ch] text-[14px] leading-normal">{subtitle}</p>}
         </div>
         {(actions || period) && (
           <div className="flex flex-wrap items-center gap-2">

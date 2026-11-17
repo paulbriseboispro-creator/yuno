@@ -26,6 +26,8 @@ declare module '@tanstack/react-table' {
     align?: 'left' | 'right' | 'center';
     /** Largeur CSS de la colonne (« 120px », « 30% »). */
     width?: string;
+    /** Fond teinté selon la valeur de la case (v3) : `cellTint(valeur, max)`. */
+    tint?: (row: TData) => string | undefined;
   }
 }
 
@@ -135,7 +137,7 @@ export function DataTable<T>({
                 {row.getVisibleCells().map((cell) => {
                   const meta = cell.column.columnDef.meta;
                   return (
-                    <td key={cell.id} className={meta?.align === 'right' ? 'a-num' : undefined} style={{ textAlign: meta?.align ?? 'left' }}>
+                    <td key={cell.id} className={meta?.align === 'right' ? 'a-num' : undefined} style={{ textAlign: meta?.align ?? 'left', background: meta?.tint?.(row.original) }}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   );

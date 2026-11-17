@@ -15,7 +15,7 @@
  */
 import type { ReactNode } from 'react';
 import {
-  Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import { fmtCompact, fmtEur, fmtNum, fmtPct } from '@/lib/adminFormat';
 import { useAdminT } from './i18n';
@@ -48,9 +48,11 @@ export interface ChartProps {
   error?: unknown;
   onRetry?: () => void;
   empty?: ReactNode;
+  /** Lignes de repère horizontales (moyenne, objectif), étiquetées directement. */
+  refs?: Array<{ y: number; label: string }>;
 }
 
-export function Chart({ kind, data, x, formatX, series, previous, unit, height = 280, loading, error, onRetry, empty }: ChartProps) {
+export function Chart({ kind, data, x, formatX, series, previous, unit, height = 280, loading, error, onRetry, empty, refs }: ChartProps) {
   const { t, lang } = useAdminT();
   const fmt = (v: number): string => {
     if (typeof unit === 'object') return unit.format(v);
@@ -98,6 +100,10 @@ export function Chart({ kind, data, x, formatX, series, previous, unit, height =
       formatter={(v: number | string, name: string) => [typeof v === 'number' ? fmtFull(v) : v, name]}
     />
   );
+  const refLines = (refs ?? []).map((r) => (
+    <ReferenceLine key={r.label} y={r.y} stroke="var(--a-text-3)" strokeDasharray="2 3" ifOverflow="extendDomain"
+      label={{ value: r.label, position: 'insideTopRight', fill: 'var(--a-text-3)', fontSize: 11, fontFamily: 'var(--a-font-mono)' }} />
+  ));
   const legend = (series.length > 1 || previous) ? (
     <Legend verticalAlign="top" align="left" height={30} iconType={kind === 'line' ? 'plainline' : 'square'} iconSize={kind === 'line' ? 14 : 9}
       wrapperStyle={{ fontSize: 12, paddingLeft: yWidth }}
@@ -109,7 +115,7 @@ export function Chart({ kind, data, x, formatX, series, previous, unit, height =
       <ResponsiveContainer width="100%" height="100%">
         {kind === 'line' ? (
           <LineChart {...common}>
-            {grid}{xAxis}{yAxis}{tooltip}{legend}
+            {grid}{xAxis}{yAxis}{tooltip}{legend}{refLines}
             {previous && (
               <Line type="monotone" dataKey={previous.key} name={previous.label} stroke="var(--a-prev)" strokeWidth={1.5}
                 strokeDasharray="4 4" dot={false} isAnimationActive={false} />
@@ -121,7 +127,7 @@ export function Chart({ kind, data, x, formatX, series, previous, unit, height =
           </LineChart>
         ) : (
           <BarChart {...common} barCategoryGap="22%">
-            {grid}{xAxis}{yAxis}{tooltip}{legend}
+            {grid}{xAxis}{yAxis}{tooltip}{legend}{refLines}
             {series.map((s, i) => (
               <Bar key={s.key} dataKey={s.key} name={s.label} fill={s.color ?? PALETTE[i % PALETTE.length]}
                 stackId={kind === 'stacked' ? 'a' : undefined}
