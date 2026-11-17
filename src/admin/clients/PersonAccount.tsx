@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { Badge, Card, EmptyState, KeyValue, ReasonDialog, Status, useAdminT } from '@/admin/ui';
+import { Badge, EmptyState, KeyValue, ReasonDialog, Status, useAdminT } from '@/admin/ui';
+import { Panel as Card } from '../pros/v3';
 import { fmtDate } from '@/lib/adminFormat';
 import { rpc, type Person } from './data';
 
@@ -34,7 +35,7 @@ export default function PersonAccount({ p, onChanged }: { p: Person; onChanged: 
   });
 
   if (!acc) {
-    return <div className="a-card"><EmptyState title={t('adm.cl.acc.none')} body={t('adm.cl.acc.none.body')} /></div>;
+    return <EmptyState title={t("adm.cl.acc.none")} body={t("adm.cl.acc.none.body")} />;
   }
   const uid = acc.profile.id;
   const roleLabel = (r: string) => { const k = `adm.role.${r}.label`; const v = t(k); return v === k ? r : v; };

@@ -19,11 +19,12 @@ import { Clock, MessageCircle, Plus } from 'lucide-react';
 import { rpc } from '@/crm/lib/rpc';
 import type { AdminPipeline, Prospect, ProspectStage } from '@/crm/admin/data';
 import { fmtDate, fmtEur, fmtNum, fmtRelative } from '@/lib/adminFormat';
-import { Badge, Card, Checkbox, DataTable, Dialog, Drawer, EmptyState, ErrorState, Kpi, KpiRow, Section, Status, useAdminFilters, useAdminT, type ColumnDef } from '@/admin/ui';
+import { Badge, Checkbox, DataTable, Dialog, Drawer, EmptyState, ErrorState, Section, Status, useAdminFilters, useAdminT, type ColumnDef } from '@/admin/ui';
 import { Field } from '@/admin/ui';
 import { Segmented } from '@/admin/ui';
 import { accountHref } from '../accounts';
 import { PROS_QK } from '../data';
+import { Panel, Stat, StatRow } from '../v3';
 
 const STAGES = ['prospect', 'contacted', 'demo', 'trial', 'paid'] as const;
 type Col = (typeof STAGES)[number];
@@ -66,7 +67,7 @@ export function Pipeline() {
         <span className="flex-1" />
         <button type="button" className="a-btn" onClick={() => set('p', 'new')}><Plus className="h-4 w-4" />{t('adm.pros.pl.add')}</button>
       </div>
-      {view === 'targets' ? <Targets /> : q.error && !q.data ? <div className="a-card"><ErrorState onRetry={() => void q.refetch()} /></div>
+      {view === 'targets' ? <Targets /> : q.error && !q.data ? <ErrorState onRetry={() => void q.refetch()} />
         : !q.data ? <div className="a-skel h-[420px]" />
         : view === 'board' ? <Board d={q.data} onOpen={(p) => set('p', p.id)} />
         : view === 'forecast' ? <Forecast d={q.data} /> : <Lost d={q.data} onOpen={(p) => set('p', p.id)} />}
@@ -93,7 +94,7 @@ function Board({ d, onOpen }: { d: AdminPipeline; onOpen: (p: Prospect) => void 
           const accounts = accountsIn(d, s);
           const n = cards.length + accounts.length;
           return (
-            <Card key={s} padded={false} className="min-h-[320px]"
+            <Panel key={s} padded={false} className="min-h-[320px]"
               title={<span className="inline-flex items-center gap-2">{t(`adm.pros.pl.s.${s}`)}<span className="a-t3 a-num font-normal">{fmtNum(n, lang)}</span></span>}
               footer={t('adm.pros.pl.proba', { p: Math.round(STAGE_PROBA[s] * 100), w: fmtEur(n * STAGE_PROBA[s] * d.price, lang, { cents: false }) })}>
               <div className="flex flex-col gap-2 p-2">
@@ -127,7 +128,7 @@ function Board({ d, onOpen }: { d: AdminPipeline; onOpen: (p: Prospect) => void 
                 ))}
                 {n === 0 && <p className="a-t3 px-1 py-2 text-[12.5px]">{t(manual ? 'adm.pros.pl.emptyManual' : 'adm.pros.pl.emptyAccounts')}</p>}
               </div>
-            </Card>
+            </Panel>
           );
         })}
       </div>
@@ -153,12 +154,12 @@ function Forecast({ d }: { d: AdminPipeline }) {
   ];
   return (
     <div className="flex flex-col gap-6">
-      <KpiRow>
-        <Kpi label={t('adm.pros.pl.k.open')} value={`+${fmtEur(open, lang, { cents: false })}`} hint={t('adm.pros.pl.k.openHint')} />
-        <Kpi label={t('adm.pros.pl.k.paid')} value={fmtEur(paid?.w ?? 0, lang, { cents: false })} hint={t('adm.pros.pl.k.paidHint')} />
-        <Kpi label={t('adm.pros.pl.k.trial')} value={fmtNum(rows.find((r) => r.s === 'trial')?.cnt ?? 0, lang)} />
-        <Kpi label={t('adm.pros.pl.k.price')} value={fmtEur(d.price, lang)} hint={t('adm.pros.pl.k.priceHint')} />
-      </KpiRow>
+      <StatRow>
+        <Stat label={t('adm.pros.pl.k.open')} value={`+${fmtEur(open, lang, { cents: false })}`} hint={t('adm.pros.pl.k.openHint')} />
+        <Stat label={t('adm.pros.pl.k.paid')} value={fmtEur(paid?.w ?? 0, lang, { cents: false })} hint={t('adm.pros.pl.k.paidHint')} />
+        <Stat label={t('adm.pros.pl.k.trial')} value={fmtNum(rows.find((r) => r.s === 'trial')?.cnt ?? 0, lang)} />
+        <Stat label={t('adm.pros.pl.k.price')} value={fmtEur(d.price, lang)} hint={t('adm.pros.pl.k.priceHint')} />
+      </StatRow>
       <Section title={t('adm.pros.pl.f.title')} description={t('adm.pros.pl.f.sub')}>
         <DataTable data={rows} columns={columns} getRowId={(r) => r.s} />
       </Section>
@@ -183,7 +184,7 @@ function Lost({ d, onOpen }: { d: AdminPipeline; onOpen: (p: Prospect) => void }
   ];
   return (
     <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-      <Card title={t('adm.pros.pl.l.why')}>
+      <Panel title={t('adm.pros.pl.l.why')}>
         {reasons.length === 0 ? <EmptyState title={t('adm.pros.pl.l.none')} /> : (
           <div className="flex flex-col gap-2.5">
             {reasons.map(([r, c]) => (
@@ -195,7 +196,7 @@ function Lost({ d, onOpen }: { d: AdminPipeline; onOpen: (p: Prospect) => void }
             ))}
           </div>
         )}
-      </Card>
+      </Panel>
       <Section title={t('adm.pros.pl.l.last')}>
         <DataTable data={lost} columns={columns} getRowId={(p) => p.id} onRowClick={onOpen} initialSort={[{ id: 'at', desc: true }]} empty={{ title: t('adm.pros.pl.l.none') }} />
       </Section>
@@ -222,7 +223,7 @@ function Targets() {
     try { await rpc('crm_admin_target_add', { p_key: x.key }); toast.success(t('adm.pros.pl.t.added', { name: x.name })); void refresh(); }
     catch (e) { toast.error(t((e as { code?: string }).code === '23505' ? 'adm.pros.pl.t.dup' : 'adm.ui.error.title')); }
   };
-  if (q.data && q.data.cities.length === 0) return <div className="a-card"><EmptyState title={t('adm.pros.pl.t.noCity')} /></div>;
+  if (q.data && q.data.cities.length === 0) return <EmptyState title={t("adm.pros.pl.t.noCity")} />;
   const cityCols: ColumnDef<Targets['cities'][number], unknown>[] = [
     { id: 'city', header: t('adm.pros.f.city'), accessorKey: 'city', cell: ({ row: { original: c } }) => <span className="a-t1 font-medium">{c.city}</span> },
     { id: 'ap', header: t('adm.pros.pl.t.approached'), accessorFn: (c) => (c.total ? c.approached / c.total : 0), meta: { align: 'right' }, cell: ({ row: { original: c } }) => `${fmtNum(c.approached, lang)} / ${fmtNum(c.total, lang)}` },

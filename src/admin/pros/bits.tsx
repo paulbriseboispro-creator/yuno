@@ -1,6 +1,6 @@
 /** Petites pièces partagées par les pages de la rubrique « Pros ». */
 import type { ReactNode } from 'react';
-import { Badge, useAdminT } from '@/admin/ui';
+import { useAdminT } from '@/admin/ui';
 import type { AccountProduct, AccountType } from './accounts';
 
 export function ProductBadges({ products }: { products: AccountProduct[] }) {
@@ -8,7 +8,11 @@ export function ProductBadges({ products }: { products: AccountProduct[] }) {
   if (products.length === 0) return <span className="a-t3">—</span>;
   return (
     <span className="inline-flex flex-wrap gap-1">
-      {products.map((p) => <Badge key={p} tone={p === 'crm' ? 'accent' : 'neutral'}>{t(`adm.pros.product.${p}`)}</Badge>)}
+      {products.map((p) => (
+        <span key={p} className="a-mono rounded-[4px] border px-1.5 py-[1px] text-[10.5px] uppercase tracking-[0.04em]" style={{ color: 'var(--a-text-2)' }}>
+          {t(`adm.pros.v3.pill.${p}`)}
+        </span>
+      ))}
     </span>
   );
 }

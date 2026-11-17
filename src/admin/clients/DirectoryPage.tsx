@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BadgeCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { Badge, DataTable, Page, ReasonDialog, Status, Tabs, useAdminT, useTab, type ColumnDef } from '@/admin/ui';
+import { Badge, DataTable, Page, ReasonDialog, Status, Tabs, cellTint, useAdminT, useTab, type ColumnDef } from '@/admin/ui';
 import { fmtDate, fmtEur, fmtNum } from '@/lib/adminFormat';
 import { personHref } from './personKey';
 
@@ -91,16 +91,18 @@ export default function DirectoryPage() {
   const active = (b: boolean) => <Status tone={b ? 'positive' : 'neutral'}>{t(b ? 'adm.cl.dir.active' : 'adm.cl.dir.inactive')}</Status>;
   const created = (c: { getValue: () => unknown }) => fmtDate(c.getValue() as string, lang);
 
+  const maxEv = Math.max(0, ...(djs.data ?? []).map((d) => d.events));
+  const maxPend = Math.max(0, ...(promos.data ?? []).map((p) => p.pending));
   const djCols: ColumnDef<DjRow>[] = [
     { accessorKey: 'name', header: t('adm.cl.dir.col.dj'), cell: (c) => nameCell(c.row.original.name, c.row.original.user_id) },
     { accessorKey: 'city', header: t('adm.cl.dir.col.city'), cell: (c) => c.getValue<string | null>() || '—' },
     { accessorKey: 'venue', header: t('adm.cl.dir.col.venue') },
-    { accessorKey: 'events', header: t('adm.cl.dir.col.events'), meta: { align: 'right' }, cell: (c) => fmtNum(c.getValue<number>(), lang) },
+    { accessorKey: 'events', header: t('adm.cl.dir.col.events'), meta: { align: 'right', tint: (r) => cellTint(r.events, maxEv) }, cell: (c) => fmtNum(c.getValue<number>(), lang) },
     { accessorKey: 'is_active', header: t('adm.cl.dir.col.status'), cell: (c) => active(c.getValue<boolean>()) },
     { accessorKey: 'is_verified', header: t('adm.cl.dir.col.verified'), cell: (c) => {
       const r = c.row.original;
       return r.user_id ? (
-        <button type="button" className={r.is_verified ? 'a-btn a-btn--sm a-btn--primary' : 'a-btn a-btn--sm a-btn--ghost'} onClick={() => setVerify(r)}>
+        <button type="button" className="a-btn a-btn--sm a-btn--ghost" onClick={() => setVerify(r)} style={r.is_verified ? { color: 'var(--a-pos)' } : undefined}>
           <BadgeCheck className="h-3.5 w-3.5" />{t(r.is_verified ? 'adm.cl.dir.verified' : 'adm.cl.dir.verify')}
         </button>
       ) : <Badge>{t('adm.cl.dir.noAccount')}</Badge>;
@@ -111,7 +113,7 @@ export default function DirectoryPage() {
     { accessorKey: 'name', header: t('adm.cl.dir.col.promoter'), cell: (c) => nameCell(c.row.original.name, c.row.original.user_id) },
     { accessorKey: 'code', header: t('adm.cl.dir.col.code'), cell: (c) => <span className="a-mono">{c.getValue<string | null>() ?? '—'}</span> },
     { accessorKey: 'venue', header: t('adm.cl.dir.col.venue') },
-    { accessorKey: 'pending', header: t('adm.cl.dir.col.pending'), meta: { align: 'right' }, cell: (c) => fmtEur(c.getValue<number>(), lang) },
+    { accessorKey: 'pending', header: t('adm.cl.dir.col.pending'), meta: { align: 'right', tint: (r) => cellTint(r.pending, maxPend) }, cell: (c) => fmtEur(c.getValue<number>(), lang) },
     { accessorKey: 'paid', header: t('adm.cl.dir.col.paid'), meta: { align: 'right' }, cell: (c) => fmtEur(c.getValue<number>(), lang) },
     { accessorKey: 'is_active', header: t('adm.cl.dir.col.status'), cell: (c) => active(c.getValue<boolean>()) },
     { accessorKey: 'created_at', header: t('adm.cl.dir.col.created'), meta: { align: 'right' }, cell: created },
@@ -138,6 +140,13 @@ export default function DirectoryPage() {
   return (
     <Page title={t('adm.cl.dir.title')} subtitle={t('adm.cl.dir.subtitle')}>
       <div className="flex flex-col gap-4">
+        {djs.data && promos.data && staff.data && (
+          <p className="a-hero-sentence max-w-[72ch]">
+            <b>{fmtNum(djs.data.length, lang)}</b> {t('adm.cl.v3.dir.djs', { v: fmtNum(djs.data.filter((d) => d.is_verified).length, lang) })},{' '}
+            <b>{fmtNum(promos.data.length, lang)}</b> {t('adm.cl.v3.dir.promos', { a: fmtNum(promos.data.filter((p) => p.is_active).length, lang) })},{' '}
+            <b>{fmtNum(staff.data.length, lang)}</b> {t('adm.cl.v3.dir.staff', { p: fmtNum(staff.data.filter((x) => !x.has_pin).length, lang) })}.
+          </p>
+        )}
         <Tabs items={tabs} value={tab} onChange={setTab} />
         {tab === 'djs' && <DataTable data={djs.data} columns={djCols} loading={djs.isLoading} error={djs.error} onRetry={() => void djs.refetch()} searchable getRowId={(r) => r.id} />}
         {tab === 'promoters' && <DataTable data={promos.data} columns={promoCols} loading={promos.isLoading} error={promos.error} onRetry={() => void promos.refetch()} searchable getRowId={(r) => r.id} />}

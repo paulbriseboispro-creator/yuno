@@ -9,12 +9,13 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { Badge, DataTable, Kpi, KpiRow, Page, ReasonDialog, Status, Tabs, Timeline, useAdminT, useTab, type ColumnDef } from '@/admin/ui';
+import { Badge, DataTable, Hero, Page, ReasonDialog, Status, Tabs, useAdminT, useTab, type ColumnDef } from '@/admin/ui';
 import { fmtDate, fmtNum, fmtRelative } from '@/lib/adminFormat';
 import { accountHref } from './accounts';
 import { Field } from '@/admin/ui';
 import { ProductBadges } from './bits';
 import { useProsRefresh, useSupportOverview, type SupportGrant } from './data';
+import { Spine, type SpineItem } from './v3';
 
 const isOpen = (g: SupportGrant) => !g.revoked_at && (!g.expires_at || new Date(g.expires_at) > new Date());
 
@@ -70,28 +71,49 @@ export default function SupportPage() {
   const accounts = q.data?.accounts ?? [];
   const picked = accounts.find((a) => a.key === target);
 
+  const logItems: SpineItem[] = (q.data?.log ?? []).map((l, i) => ({
+    id: String(i), at: l.at, family: l.by_admin ? 'admin' : 'pro', strong: l.by_admin,
+    title: <><Link className="hover:underline" to={accountHref(l.key)}>{l.name}</Link> <span className="a-mono a-t3 text-[11.5px]">{l.action}{l.table ? ` · ${l.table}` : ''}</span></>,
+  }));
+  const sentence = q.isLoading ? null : (
+    <>
+      {live.length === 0 ? t('adm.pros.v3.sup.noLive') : <><b>{fmtNum(live.length, lang)}</b> {t(live.length === 1 ? 'adm.pros.v3.sup.liveOne' : 'adm.pros.v3.sup.live')}</>}
+      {'. '}<b>{fmtNum(active.length, lang)}</b> {t('adm.pros.v3.sup.granted')}, <b>{fmtNum(pending.length, lang)}</b> {t('adm.pros.v3.sup.waiting')}.
+    </>
+  );
+
   return (
     <Page title={t('adm.pros.sup.title')} subtitle={t('adm.pros.sup.sub')}
       actions={<button type="button" className="a-btn a-btn--primary" onClick={() => setAsk(true)}>{t('adm.pros.g.support')}</button>}>
-      <KpiRow>
-        <Kpi label={t('adm.pros.sup.active')} value={fmtNum(active.length, lang)} loading={q.isLoading} />
-        <Kpi label={t('adm.pros.sup.pending')} value={fmtNum(pending.length, lang)} loading={q.isLoading} />
-        <Kpi label={t('adm.pros.sup.liveNow')} value={fmtNum(live.length, lang)} loading={q.isLoading} />
-      </KpiRow>
-      <Tabs items={items} value={tab} onChange={setTab} />
-      {tab === 'log' ? (
-        <div className="a-card p-4">
-          <Timeline empty={t('adm.pros.sup.noLog')} items={(q.data?.log ?? []).map((l, i) => ({
-            id: String(i), at: l.at, tone: l.by_admin ? 'accent' as const : 'neutral' as const,
-            title: <span><Link className="hover:underline" to={accountHref(l.key)}>{l.name}</Link> · {l.action}{l.table ? ` · ${l.table}` : ''}</span>,
-            actor: t(l.by_admin ? 'adm.pros.sup.byAdmin' : 'adm.pros.sup.byPro'),
-          }))} />
+      <Hero kicker={t('adm.pros.sup.liveNow')} loading={q.isLoading} value={fmtNum(live.length, lang)} sentence={sentence}
+        chart={live.length === 0 ? undefined : (
+          <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {live.map((g) => (
+              <li key={g.id} className="a-card flex flex-col gap-1.5 p-4" style={{ borderColor: 'var(--a-accent)' }}>
+                <div className="flex items-center gap-2">
+                  <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: 'var(--a-accent)' }} />
+                  <Link className="a-t1 truncate text-[14px] font-medium hover:underline" to={accountHref(g.key)}>{g.name}</Link>
+                </div>
+                <span className="a-mono a-t3 text-[11px]">{t('adm.pros.v3.sup.until', { when: g.live_until ? fmtDate(g.live_until, lang, 'time') : '—' })}</span>
+                {g.reason && <span className="a-t2 line-clamp-2 text-[12.5px]">{g.reason}</span>}
+              </li>
+            ))}
+          </ul>
+        )} />
+
+      <div className="grid grid-cols-1 gap-x-10 gap-y-8 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="flex min-w-0 flex-col gap-3">
+          <Tabs items={items.filter((i) => i.value !== 'log')} value={tab === 'log' ? 'active' : tab} onChange={setTab} />
+          <DataTable data={data} columns={columns} loading={q.isLoading} error={q.error} onRetry={() => void q.refetch()} searchable
+            getRowId={(g) => g.id} rowHref={(g) => accountHref(g.key)} initialSort={[{ id: 'at', desc: true }]}
+            empty={{ title: t('adm.pros.sup.empty') }} />
         </div>
-      ) : (
-        <DataTable data={data} columns={columns} loading={q.isLoading} error={q.error} onRetry={() => void q.refetch()} searchable
-          getRowId={(g) => g.id} rowHref={(g) => accountHref(g.key)} initialSort={[{ id: 'at', desc: true }]}
-          empty={{ title: t('adm.pros.sup.empty') }} />
-      )}
+        <aside className="flex min-w-0 flex-col gap-3 xl:border-l xl:pl-8">
+          <h2 className="a-t1 border-b pb-2 text-[14px] font-semibold">{t('adm.pros.sup.log')}</h2>
+          <Spine items={logItems} limit={30} familyLabel={(f) => t(f === 'admin' ? 'adm.pros.sup.byAdmin' : 'adm.pros.sup.byPro')}
+            familyColor={(f) => (f === 'admin' ? 'var(--a-text)' : 'var(--a-text-3)')} empty={t('adm.pros.sup.noLog')} />
+        </aside>
+      </div>
 
       <ReasonDialog open={ask} onOpenChange={(v) => { setAsk(v); if (!v) setTarget(''); }}
         title={t('adm.pros.g.support')} description={t('adm.pros.sup.askBody')} confirmLabel={t('adm.pros.g.supportSend')}

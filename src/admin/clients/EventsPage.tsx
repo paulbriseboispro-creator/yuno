@@ -5,7 +5,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { Badge, DataTable, Kpi, KpiRow, Page, ReasonDialog, Status, useAdminFilters, useAdminT, type ColumnDef, type Tone } from '@/admin/ui';
+import { Badge, CalendarHeat, DataTable, Page, ReasonDialog, Status, useAdminFilters, useAdminT, type ColumnDef, type Tone } from '@/admin/ui';
+import { Chip } from '../pros/v3';
 import { fmtDate, fmtNum } from '@/lib/adminFormat';
 import { canAdminRepublish, discoveryBlockers } from '@/lib/adminEventDiscovery';
 
@@ -73,7 +74,7 @@ export default function EventsPage() {
       return (
         <div className="flex max-w-[320px] items-center gap-2">
           <span className="a-t1 truncate font-medium">{e.title ?? '—'}</span>
-          {demo.has(e.id) && <Badge tone="accent">{t('adm.events.demo')}</Badge>}
+          {demo.has(e.id) && <Badge>{t('adm.events.demo')}</Badge>}
           {e.is_bde && <Badge>{t('adm.events.assoPill')}</Badge>}
           <a href={`/event/${e.id}`} target="_blank" rel="noopener noreferrer" onClick={(ev) => ev.stopPropagation()} aria-label={t('adm.common.seePage')}><ExternalLink className="a-t3 h-3 w-3" /></a>
         </div>
@@ -83,7 +84,7 @@ export default function EventsPage() {
     { accessorKey: 'start_at', header: t('adm.cl.ev.col.date'), cell: (c) => fmtDate(c.getValue<string>(), lang, 'datetime') },
     { id: 'moderation', header: t('adm.cl.ev.col.moderation'), accessorFn: (e) => e.discovery_status ?? '', cell: (c) => {
       const s = c.getValue<string>();
-      return s ? <Badge tone={s === 'approved' ? 'positive' : s === 'rejected' ? 'negative' : 'accent'}>{t(`adm.events.mod.${s}`)}</Badge> : <span className="a-t3">—</span>;
+      return s ? <Badge tone={s === 'approved' ? 'positive' : s === 'rejected' ? 'negative' : 'warning'}>{t(`adm.events.mod.${s}`)}</Badge> : <span className="a-t3">—</span>;
     } },
     { id: 'state', header: t('adm.cl.ev.col.state'), accessorFn: (e) => state(e).label, cell: (c) => {
       const s = state(c.row.original);
@@ -119,6 +120,21 @@ export default function EventsPage() {
   };
 
   const initialSearch = sp.get('q') ?? '';
+  const upcomingRows = visible.filter(upcoming).sort((x, y) => x.start_at.localeCompare(y.start_at));
+  const next = upcomingRows[0] ?? null;
+  const calendar = useMemo(() => {
+    const by = new Map<string, number>();
+    for (const e of upcomingRows) { const d = e.start_at.slice(0, 10); by.set(d, (by.get(d) ?? 0) + 1); }
+    const out: Array<{ d: string; v: number }> = [];
+    const cur = new Date(); cur.setUTCHours(12, 0, 0, 0);
+    for (let i = 0; i < 16 * 7; i += 1) { const d = cur.toISOString().slice(0, 10); out.push({ d, v: by.get(d) ?? 0 }); cur.setUTCDate(cur.getUTCDate() + 1); }
+    return out;
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- recalculé quand la liste chargée change
+  }, [q.data, includeDemo]);
+  const weekdays = useMemo(() => {
+    const f = new Intl.DateTimeFormat(lang, { weekday: 'narrow' });
+    return Array.from({ length: 7 }, (_, i) => f.format(new Date(Date.UTC(2024, 0, 1 + i, 12))));
+  }, [lang]);
   const searchRows = useMemo(() => {
     const s = initialSearch.trim().toLowerCase();
     return s ? rows.filter((e) => (e.title ?? '').toLowerCase().includes(s) || e.id.toLowerCase() === s) : rows;
@@ -126,20 +142,35 @@ export default function EventsPage() {
 
   return (
     <Page title={t('adm.cl.ev.title')} subtitle={t('adm.cl.ev.subtitle')}>
-      <KpiRow>
-        {FILTERS.map((f) => (
-          <Kpi key={f} label={t(`adm.cl.ev.f.${f}`)} loading={q.isLoading} value={fmtNum(counts[f], lang)}
-            to={`/admin/clients/events${f === 'all' ? '' : `?f=${f}`}`} />
-        ))}
-      </KpiRow>
-      <DataTable data={searchRows} columns={cols} loading={q.isLoading} error={q.error} onRetry={() => void q.refetch()} searchable
-        searchPlaceholder={t('adm.events.search')} getRowId={(e) => e.id} initialSort={[{ id: 'start_at', desc: true }]}
-        toolbar={<div className="flex gap-1.5">{FILTERS.map((f) => (
-          <button key={f} type="button" className={`a-btn a-btn--sm ${filter === f ? 'a-btn--primary' : ''}`}
-            onClick={() => setSp((prev) => { const n = new URLSearchParams(prev); if (f === 'all') n.delete('f'); else n.set('f', f); return n; }, { replace: true })}>
-            {t(`adm.cl.ev.f.${f}`)}
-          </button>))}</div>}
-        empty={{ title: t('adm.events.none') }} />
+      <section className="grid grid-cols-1 gap-x-12 gap-y-6 xl:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="flex flex-col gap-3">
+          <span className="a-kicker">{t('adm.cl.v3.ev.kicker')}</span>
+          {q.isLoading ? <div className="a-skel h-12 w-full max-w-[60ch]" /> : (
+            <p className="a-hero-sentence max-w-[68ch]">
+              {counts.upcoming === 0 ? t('adm.cl.v3.ev.noneUp') : <><b>{fmtNum(counts.upcoming, lang)}</b> {t(counts.upcoming === 1 ? 'adm.cl.v3.ev.upOne' : 'adm.cl.v3.ev.up')}</>}
+              {next ? <>, {t('adm.cl.v3.ev.next')} <b>{next.title ?? '—'}</b> {fmtDate(next.start_at, lang, 'day')}</> : null}
+              {counts.pending > 0 ? <>. <b>{fmtNum(counts.pending, lang)}</b> {t('adm.cl.v3.ev.pending')}</> : <>. {t('adm.cl.v3.ev.noPending')}</>}.
+            </p>
+          )}
+        </div>
+        {!q.isLoading && counts.upcoming > 0 && (
+          <div className="flex flex-col gap-2">
+            <span className="a-kicker">{t('adm.cl.v3.ev.calendar')}</span>
+            <CalendarHeat days={calendar} weekdays={weekdays}
+              fmt={(d, v) => `${fmtDate(`${d}T12:00:00Z`, lang, 'day')} · ${t('adm.cl.v3.ev.nN', { n: v })}`} />
+          </div>
+        )}
+      </section>
+      <div className="flex flex-col gap-3 border-t pt-4">
+        <DataTable data={searchRows} columns={cols} loading={q.isLoading} error={q.error} onRetry={() => void q.refetch()} searchable
+          searchPlaceholder={t('adm.events.search')} getRowId={(e) => e.id} initialSort={[{ id: 'start_at', desc: true }]}
+          toolbar={<div className="flex flex-wrap gap-1.5">{FILTERS.map((f) => (
+            <Chip key={f} on={filter === f} count={counts[f]}
+              onClick={() => setSp((prev) => { const n = new URLSearchParams(prev); if (f === 'all') n.delete('f'); else n.set('f', f); return n; }, { replace: true })}>
+              {t(`adm.cl.ev.f.${f}`)}
+            </Chip>))}</div>}
+          empty={{ title: t('adm.events.none') }} />
+      </div>
       {act && (
         <ReasonDialog open onOpenChange={(v) => { if (!v) setAct(null); }} tone={act.kind === 'cancel' || act.kind === 'reject' ? 'danger' : 'primary'}
           title={t(`adm.cl.ev.dlg.${act.kind}`, { title: act.ev.title ?? '' })} description={t(`adm.cl.ev.dlg.${act.kind}.desc`)} onConfirm={confirm} />

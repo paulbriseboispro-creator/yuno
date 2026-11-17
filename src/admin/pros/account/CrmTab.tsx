@@ -6,10 +6,11 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { useQuery } from '@tanstack/react-query';
 import { rpc } from '@/crm/lib/rpc';
-import { Badge, Card, EmptyState, ErrorState, Grid, Kpi, KpiRow, KeyValue, ReasonDialog, Section, Status, Timeline, useAdminT } from '@/admin/ui';
+import { Badge, EmptyState, ErrorState, Grid, KeyValue, ReasonDialog, Section, Status, Timeline, useAdminT } from '@/admin/ui';
 import { fmtDate, fmtEur, fmtNum, fmtRelative } from '@/lib/adminFormat';
 import { PROS_QK, type AccountCard } from '../data';
 import { CrmGestures } from '../gestures';
+import { Panel, Stat, StatRow } from '../v3';
 
 const OB_KEYS = ['conn', 'import', 'files', 'sender', 'sent', 'recipe', 'team'] as const;
 const H_KEYS = ['onboarding', 'activity', 'presence', 'sync'] as const;
@@ -19,7 +20,7 @@ export function CrmTab({ card }: { card: AccountCard }) {
   const { t, lang } = useAdminT();
   const crm = card.crm;
   if (!crm || crm.error || !crm.account) {
-    return <div className="a-card">{crm?.error ? <ErrorState /> : <EmptyState title={t('adm.pros.crm.none')} />}</div>;
+    return <div>{crm?.error ? <ErrorState /> : <EmptyState title={t('adm.pros.crm.none')} />}</div>;
   }
   const a = crm.account;
   return (
@@ -33,16 +34,16 @@ export function CrmTab({ card }: { card: AccountCard }) {
         <CrmGestures card={card} />
       </div>
 
-      <KpiRow>
-        <Kpi label={t('adm.pros.k.crmHealth')} value={`${a.health}/100`} hint={t('adm.pros.k.crmHealthHint')} />
-        <Kpi label="MRR" value={fmtEur(a.mrr, lang)} hint={t('adm.pros.crm.mrrHint')} />
-        <Kpi label="Yunits" value={fmtNum(a.balance, lang)} />
-        <Kpi label={t('adm.pros.crm.reach')} value={fmtNum(a.reach, lang)} hint={t('adm.pros.crm.reachHint', { n: fmtNum(a.contacts, lang) })} />
-        <Kpi label={t('adm.pros.crm.sends30')} value={fmtNum(a.sends30, lang)} />
-      </KpiRow>
+      <StatRow>
+        <Stat label={t('adm.pros.k.crmHealth')} value={`${a.health}/100`} hint={t('adm.pros.k.crmHealthHint')} />
+        <Stat label="MRR" value={fmtEur(a.mrr, lang)} hint={t('adm.pros.crm.mrrHint')} />
+        <Stat label="Yunits" value={fmtNum(a.balance, lang)} />
+        <Stat label={t('adm.pros.crm.reach')} value={fmtNum(a.reach, lang)} hint={t('adm.pros.crm.reachHint', { n: fmtNum(a.contacts, lang) })} />
+        <Stat label={t('adm.pros.crm.sends30')} value={fmtNum(a.sends30, lang)} />
+      </StatRow>
 
-      <Grid cols={2}>
-        <Card title={t('adm.pros.crm.subscription')}>
+      <Grid cols={2} className="gap-x-10 gap-y-8">
+        <Panel title={t('adm.pros.crm.subscription')}>
           <KeyValue items={[
             { label: t('adm.pros.crm.state'), value: t(`adm.pros.crm.${a.state}`) },
             ...(a.trial_ends_at ? [{ label: t('adm.pros.crm.trialEnds'), value: `${fmtDate(a.trial_ends_at, lang, 'long')}${a.trial_left != null ? ` (${t('adm.pros.crm.daysLeft', { n: a.trial_left })})` : ''}` }] : []),
@@ -52,8 +53,8 @@ export function CrmTab({ card }: { card: AccountCard }) {
             { label: t('adm.pros.crm.buys'), value: `${fmtNum(a.buys, lang)} · ${fmtEur(a.buys_eur, lang)}` },
             ...(a.frozen_at ? [{ label: t('adm.pros.crm.frozen'), value: `${fmtDate(a.frozen_at, lang)} · ${a.frozen_reason ?? ''}` }] : []),
           ]} />
-        </Card>
-        <Card title={t('adm.pros.crm.health')}>
+        </Panel>
+        <Panel title={t('adm.pros.crm.health')}>
           <div className="flex flex-col gap-2.5">
             {H_KEYS.map((k, i) => (
               <div key={k} className="flex items-center gap-3 text-[12.5px]">
@@ -66,11 +67,11 @@ export function CrmTab({ card }: { card: AccountCard }) {
           <div className="mt-4 flex flex-wrap gap-1.5">
             {OB_KEYS.map((k, i) => <Badge key={k} tone={a.ob?.[i] ? 'positive' : 'neutral'}>{t(`adm.pros.crm.ob.${k}`)}</Badge>)}
           </div>
-        </Card>
+        </Panel>
       </Grid>
 
-      <Grid cols={2}>
-        <Card title={t('adm.pros.crm.sync')}>
+      <Grid cols={2} className="gap-x-10 gap-y-8">
+        <Panel title={t('adm.pros.crm.sync')}>
           <KeyValue items={[
             { label: t('adm.pros.crm.provider'), value: a.provider ?? '—' },
             { label: t('adm.pros.crm.syncState'), value: <Status tone={a.sync === 'ok' ? 'positive' : a.sync === 'error' ? 'negative' : 'neutral'}>{t(`adm.pros.crm.sync.${a.sync}`)}</Status> },
@@ -88,12 +89,12 @@ export function CrmTab({ card }: { card: AccountCard }) {
               ))}
             </div>
           )}
-        </Card>
+        </Panel>
         <SmsAccess scopeKey={card.key} />
       </Grid>
 
       <Section title={t('adm.pros.crm.sends')}>
-        <div className="a-card divide-y">
+        <div className="divide-y border-y">
           {crm.sends.length === 0 ? <EmptyState title={t('adm.pros.crm.noSends')} /> : crm.sends.map((s, i) => (
             <div key={i} className="flex items-center gap-3 px-4 py-2.5 text-[13px]">
               <span className="a-t1 min-w-0 flex-1 truncate">{s.name}</span>
@@ -106,7 +107,7 @@ export function CrmTab({ card }: { card: AccountCard }) {
       </Section>
 
       <Section title={t('adm.pros.crm.moves')}>
-        <div className="a-card p-4">
+        <div className="">
           <Timeline items={crm.moves.slice(0, 20).map((m, i) => ({
             id: String(i), at: m.at, tone: m.delta >= 0 ? 'positive' : 'neutral',
             title: <span className="a-num">{m.delta > 0 ? '+' : ''}{fmtNum(m.delta, lang)} Yunits</span>,
@@ -127,7 +128,7 @@ function SmsAccess({ scopeKey }: { scopeKey: string }) {
   const q = useQuery({ queryKey: [PROS_QK, 'sms', scopeKey], queryFn: () => rpc<SmsAccessRow>('crm_admin_sms_access', { p_scope_key: scopeKey }) });
   const s = q.data;
   return (
-    <Card title={t('adm.pros.crm.smsTitle')}>
+    <Panel title={t('adm.pros.crm.smsTitle')}>
       {q.error ? <ErrorState onRetry={() => void q.refetch()} /> : !s ? <div className="a-skel h-16" /> : (
         <>
           <KeyValue items={[
@@ -150,6 +151,6 @@ function SmsAccess({ scopeKey }: { scopeKey: string }) {
           toast.success(t('adm.pros.g.saved'));
           void q.refetch();
         }} />
-    </Card>
+    </Panel>
   );
 }
