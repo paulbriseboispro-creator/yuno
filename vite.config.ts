@@ -1,4 +1,5 @@
-import { defineConfig } from "vite";
+import { defineConfig, searchForWorkspaceRoot } from "vite";
+import fs from "fs";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { VitePWA } from "vite-plugin-pwa";
@@ -10,6 +11,15 @@ export default defineConfig({
     host: "::",
     port: 8080,
     strictPort: true,
+    // node_modules peut être un lien (worktree qui partage les dépendances d'un
+    // autre) : Vite ne servirait alors pas les fichiers qu'il contient (polices
+    // Geist, etc.). On autorise le dossier réel, en plus de la racine habituelle.
+    fs: {
+      allow: [
+        searchForWorkspaceRoot(process.cwd()),
+        ...(fs.existsSync(path.resolve(__dirname, "node_modules")) ? [fs.realpathSync(path.resolve(__dirname, "node_modules"))] : []),
+      ],
+    },
     headers: {
       "X-Frame-Options": "DENY",
       "X-Content-Type-Options": "nosniff",
