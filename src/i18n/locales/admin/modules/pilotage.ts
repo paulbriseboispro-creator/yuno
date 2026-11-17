@@ -342,6 +342,11 @@ const pilotage: AdminDict = {
   'adm.pil.v3i.noHealth': ['No call over the period: no error rate or response time to read.', 'Aucun appel sur la période : ni taux d’erreur ni temps de réponse à lire.', 'Ninguna llamada en el periodo: ni tasa de error ni tiempo de respuesta.'],
   'adm.pil.madridNote': ['These visits still include the Madrid marketplace pages and their robots (about 12 % of sessions over 30 days). A database fix is planned.', 'Ces visites comptent encore les pages de la marketplace de Madrid et leurs robots (environ 12 % des sessions sur 30 jours). Une correction en base est prévue.', 'Estas visitas aún incluyen las páginas del marketplace de Madrid y sus robots (cerca del 12 % de las sesiones en 30 días). Hay una corrección prevista en la base.'],
   'adm.pil.madridNote.link': ['See Madrid', 'Voir Madrid', 'Ver Madrid'],
+  'adm.pil.v3p.kicker': ['Pages viewed, {period}', 'Pages vues, {period}', 'Páginas vistas, {period}'],
+  'adm.pil.v3p.stepSessions': ['Visits to an event page', 'Visites d’une page de soirée', 'Visitas a una página de evento'],
+  'adm.pil.v3p.stepScanned': ['Tickets scanned at the door', 'Billets scannés à la porte', 'Entradas escaneadas en la puerta'],
+  'adm.pil.v3p.lostBuy': ['{n} visits without a ticket', '{n} visites sans billet', '{n} visitas sin entrada'],
+  'adm.pil.v3p.lostCome': ['{n} {n|ticket|tickets} not scanned (yet)', '{n} {n|billet|billets} pas (encore) {n|scanné|scannés}', '{n} {n|entrada|entradas} sin escanear (aún)'],
 };
 
 export default pilotage;

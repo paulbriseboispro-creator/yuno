@@ -489,6 +489,11 @@ const dict: AdminDict = {
   'adm.sys.ui.k3.sp.b': ['Campaign sent', 'Campagne envoyée', 'Campaña enviada'],
   'adm.sys.ui.k3.sp.c': ['Account created', 'Compte créé', 'Cuenta creada'],
   'adm.sys.ui.k3.empty': ['When there is nothing to draw, one sentence says so: never an empty shape.', 'Quand il n’y a rien à dessiner, une phrase le dit : jamais une forme vide.', 'Cuando no hay nada que dibujar, una frase lo dice: nunca una forma vacía.'],
+  'adm.sys.pr.vKicker': ['Yuno CRM offer in force', 'Offre Yuno CRM en vigueur', 'Oferta de Yuno CRM vigente'],
+  'adm.sys.pr.vLaunch': ['Yuno CRM sells at the launch price: {m} a month, {y} a year.', 'Yuno CRM se vend au prix de lancement : {m} par mois, {y} par an.', 'Yuno CRM se vende al precio de lanzamiento: {m} al mes, {y} al año.'],
+  'adm.sys.pr.vPublic': ['Yuno CRM sells at the public price: {m} a month.', 'Yuno CRM se vend au prix public : {m} par mois.', 'Yuno CRM se vende al precio público: {m} al mes.'],
+  'adm.sys.pr.vLaunchSub': ['{n} paying {n|account|accounts} out of {at}: {left} more before new accounts pay {next}. Existing subscribers keep their price.', '{n} {n|compte payant|comptes payants} sur {at} : encore {left} avant que les nouveaux comptes paient {next}. Un abonné garde son prix.', '{n} {n|cuenta de pago|cuentas de pago} de {at}: faltan {left} para que las nuevas cuentas paguen {next}. Un suscriptor conserva su precio.'],
+  'adm.sys.pr.vPublicSub': ['{n} paying {n|account|accounts}. Accounts that subscribed at the launch price keep it.', '{n} {n|compte payant|comptes payants}. Les comptes abonnés au prix de lancement le gardent.', '{n} {n|cuenta de pago|cuentas de pago}. Las cuentas suscritas al precio de lanzamiento lo conservan.'],
 };
 
 export default dict;

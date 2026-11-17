@@ -211,7 +211,7 @@ function AccountList({ rows, loading, selected, onSelect, onOpen, sort, onSort, 
                 </span>
                 <span className="hidden items-center justify-end gap-2 md:flex">
                   <span className="a-num a-t1 text-right text-[12.5px]">{fmtNum(r.sales_period, lang)}</span>
-                  {(r.sales_period > 0 || r.sales_prev > 0) && <DeltaBadge current={r.sales_period} previous={r.sales_prev} />}
+                  {r.sales_prev > 0 && <DeltaBadge current={r.sales_period} previous={r.sales_prev} />}
                 </span>
                 <span className="a-num a-t1 hidden text-right text-[12.5px] md:block">{r.revenue_period == null ? <span className="a-t3">—</span> : r.revenue_period === 0 ? <span className="a-t3">0 €</span> : fmtEur(r.revenue_period, lang, { cents: false })}</span>
                 <span className="hidden md:block">{r.crm ? <MiniBar value={r.crm.health} max={100} width={34} tone={r.crm.health != null && r.crm.health < 40 ? 'warning' : 'neutral'} display={r.crm.health == null ? undefined : Math.round(r.crm.health)} label={t('adm.pros.k.crmHealthHint')} /> : <span className="a-t3 text-[12px]">—</span>}</span>

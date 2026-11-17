@@ -12,7 +12,7 @@
  */
 import { MadridVisitsNote } from './MadridVisitsNote';
 import { Link } from 'react-router-dom';
-import { Block, BulletBar, ErrorState, RankBars, StatStrip, useAdminFilters, useAdminT, DenseRows, Fold, Status } from '@/admin/ui';
+import { Block, BulletBar, ErrorState, RankBars, StatStrip, useAdminFilters, useAdminT, DenseRows, Fold, Status, Hero, FunnelSteps } from '@/admin/ui';
 import { fmtDate, fmtNum, fmtPct, fmtRelative } from '@/lib/adminFormat';
 import { MIN_SAMPLE } from '@/lib/metrics';
 import { useProductInsights, type KV } from './data';
@@ -39,20 +39,28 @@ export default function ProductSignals() {
   const views = d.page_groups.reduce((s, g) => s + g.views, 0);
   const en = d.entry;
   const top = d.top_events_viewed[0];
+  const eventSessions = d.page_groups.find((g) => g.group === 'event')?.sessions ?? 0;
   const per = t(`adm.pil.v3.per.${period}`);
 
   return (
     <div className="flex flex-col gap-10">
-      <div className="flex flex-col gap-4">
-        <p className="a-hero-sentence max-w-[72ch]">
-          {views === 0 ? t('adm.pil.v3p.noViews', { period: per }) : (
+      <div className="flex flex-col gap-6">
+        <Hero kicker={t('adm.pil.v3p.kicker', { period: per })} value={n(views)}
+          sentence={<>{views === 0 ? t('adm.pil.v3p.noViews', { period: per }) : (
             <>
               {t('adm.pil.v3p.viewed', { period: per })} <b>{n(views)}</b> {t('adm.pil.v3p.pages')}
               {top ? <>{t('adm.pil.v3p.topEvent')} <b>{top.title}</b> ({n(top.views)})</> : null}.
               {' '}{t('adm.pil.v3p.did', { t: n(en.tickets), g: n(en.guestlist) })}
             </>
-          )}
-        </p>
+          )}</>}
+          chart={eventSessions > 0 ? (
+            <FunnelSteps worstLabel={t('adm.pil.v3u.leak')} lostText={(i, lost) => t(i === 1 ? 'adm.pil.v3p.lostBuy' : 'adm.pil.v3p.lostCome', { n: n(lost) })}
+              steps={[
+                { key: 's', label: t('adm.pil.v3p.stepSessions'), value: eventSessions, display: n(eventSessions) },
+                { key: 't', label: t('adm.product.entry.tickets'), value: en.tickets, display: n(en.tickets) },
+                { key: 'c', label: t('adm.pil.v3p.stepScanned'), value: en.tickets_scanned, display: n(en.tickets_scanned) },
+              ]} offScaleLabel={t('adm.pil.v3a.offScale')} />
+          ) : null} />
         <StatStrip items={[
           { key: 'views', label: t('adm.pl.sig.k.views'), value: n(views), hint: t('adm.pl.sig.k.viewsHint') },
           { key: 'gl', label: t('adm.product.entry.guestlist'), value: n(en.guestlist) },

@@ -200,6 +200,15 @@ const labels: AdminDict = {
   'adm.lbl.update': ['Changed', 'Modification', 'Modificación'],
   'adm.lbl.delete': ['Removed', 'Suppression', 'Eliminación'],
   'adm.lbl.select': ['Read', 'Lecture', 'Lectura'],
+  'adm.lbl.session_opened': ['Session opened', 'Session ouverte', 'Sesión abierta'],
+  'adm.lbl.session_ended': ['Session closed', 'Session fermée', 'Sesión cerrada'],
+  'adm.lbl.grant_approved': ['Access approved by the pro', 'Accès accordé par le pro', 'Acceso concedido por el profesional'],
+  'adm.lbl.help_accepted_at_signup': ['Help accepted at sign-up', 'Aide acceptée à l’inscription', 'Ayuda aceptada al registrarse'],
+  'adm.lbl.agent_read': ['Assistant read the account', 'L’assistant a lu le compte', 'El asistente leyó la cuenta'],
+  'adm.lbl.agent_write': ['Assistant changed a draft', 'L’assistant a modifié un brouillon', 'El asistente cambió un borrador'],
+  'adm.lbl.agent_rpc': ['Assistant ran a reading', 'L’assistant a lancé une lecture', 'El asistente lanzó una lectura'],
+  'adm.lbl.agent_edge': ['Assistant called a service', 'L’assistant a appelé un service', 'El asistente llamó a un servicio'],
+  'adm.lbl.agent_refused': ['Assistant action refused', 'Geste de l’assistant refusé', 'Acción del asistente rechazada'],
 };
 
 export default labels;
