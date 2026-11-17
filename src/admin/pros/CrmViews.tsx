@@ -14,9 +14,10 @@ import { Check, X } from 'lucide-react';
 import { rpc } from '@/crm/lib/rpc';
 import { atRisk, blockedStep, OB_STEPS, sortAccounts, topBlocker, type AdminAccount } from '@/crm/lib/admin';
 import { fmtDate, fmtNum, fmtRelative } from '@/lib/adminFormat';
-import { Card, DataTable, Section, Status, useAdminFilters, useAdminT, type ColumnDef, type Tone } from '@/admin/ui';
+import { DataTable, Section, Status, useAdminFilters, useAdminT, type ColumnDef, type Tone } from '@/admin/ui';
 import { accountHref } from './accounts';
 import { PROS_QK } from './data';
+import { Panel } from './v3';
 
 export type CrmView = 'risk' | 'onboarding';
 
@@ -77,7 +78,7 @@ function RiskView({ rows, loading, error, onRetry }: ViewProps) {
         <DataTable data={risks} columns={columns} loading={loading} error={error} onRetry={onRetry} searchable getRowId={(a) => a.id}
           rowHref={(a) => accountHref(a.id)} initialSort={[{ id: 'health', desc: false }]} empty={{ title: t('adm.crm.cl.riskNone') }} />
       </Section>
-      <Card title={t('adm.crm.cl.scoreTitle')}>
+      <Panel title={t('adm.crm.cl.scoreTitle')}>
         <dl className="flex flex-col gap-3">
           {([0, 1, 2, 3] as const).map((i) => (
             <div key={i} className="flex flex-col gap-0.5">
@@ -86,7 +87,7 @@ function RiskView({ rows, loading, error, onRetry }: ViewProps) {
             </div>
           ))}
         </dl>
-      </Card>
+      </Panel>
     </div>
   );
 }

@@ -27,7 +27,7 @@ export default function AccountPage() {
   const hasCrm = !!card?.row?.products.includes('crm') || !!card?.crm;
 
   const items: TabItem[] = [
-    { value: 'overview', label: t('adm.pros.tab.overview') },
+    { value: 'overview', label: t('adm.pros.v3.tab.card') },
     { value: 'sales', label: t('adm.pros.tab.sales') },
     { value: 'events', label: t('adm.pros.tab.events'), count: card?.events.length },
     ...(hasCrm ? [{ value: 'crm', label: 'CRM' }] : []),
@@ -44,11 +44,9 @@ export default function AccountPage() {
     const notFound = (q.error as { code?: string }).code === 'P0002';
     return (
       <Page title={t(notFound ? 'adm.pros.card.notFound' : 'adm.ui.error.title')}>
-        <div className="a-card">
-          {notFound
-            ? <div className="p-6 text-center"><Link to="/admin/pros" className="a-btn">{t('adm.pros.card.back')}</Link></div>
-            : <ErrorState onRetry={() => void q.refetch()} />}
-        </div>
+        {notFound
+          ? <div className="border-y py-8 text-center"><Link to="/admin/pros" className="a-btn">{t('adm.pros.card.back')}</Link></div>
+          : <ErrorState onRetry={() => void q.refetch()} />}
       </Page>
     );
   }
@@ -83,14 +81,6 @@ export default function AccountPage() {
       actions={<AccountGestures card={card} />}
     >
       <Tabs items={items} value={tab} onChange={setTab} />
-      {tab === 'overview' && (
-        <nav aria-label={t('adm.pros.card.elsewhere')} className="flex flex-wrap items-center gap-2 text-[13px]">
-          <span className="a-t3">{t('adm.pros.card.elsewhere')}</span>
-          <Link className="a-btn a-btn--sm" to={`/admin/money/orders?q=${encodeURIComponent(String(id.name ?? ''))}`}>{t('adm.pros.card.seeOrders')}</Link>
-          <Link className="a-btn a-btn--sm" to={`/admin/legal/sellers?q=${encodeURIComponent(String(id.name ?? ''))}`}>{t('adm.pros.card.seeLegal')}</Link>
-          <Link className="a-btn a-btn--sm" to={`/admin/comms/deliverability?q=${encodeURIComponent(String(id.name ?? ''))}`}>{t('adm.pros.card.seeSending')}</Link>
-        </nav>
-      )}
       {tab === 'overview' && <OverviewTab card={card} onTab={setTab} />}
       {tab === 'sales' && <SalesTab card={card} />}
       {tab === 'events' && <EventsTab card={card} />}

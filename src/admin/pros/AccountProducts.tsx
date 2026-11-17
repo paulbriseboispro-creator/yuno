@@ -176,7 +176,7 @@ export function AccountProductsButton({ account, onChanged }: { account: Account
           </div>
 
           {missing ? (
-            <div className="a-card p-4">
+            <div className="">
               <div className="a-t1 text-[14px] font-semibold">{t('adm.prod.openOther').replace('{product}', productLabel(missing))}</div>
               <p className="a-t3 mt-1 text-[12.5px] leading-relaxed">{t(missing === 'crm' ? 'adm.prod.crmHint' : 'adm.prod.suiteHint')}</p>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -193,7 +193,7 @@ export function AccountProductsButton({ account, onChanged }: { account: Account
           )}
 
           {hasCrm && (
-            <div className="a-card p-4">
+            <div className="">
               <div className="a-t1 text-[14px] font-semibold">{t('adm.prod.giftTitle')}</div>
               {!history ? loading : gifted && crm ? (
                 <>

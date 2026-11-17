@@ -3,9 +3,10 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Pin, PinOff, Trash2 } from 'lucide-react';
 import { rpc } from '@/crm/lib/rpc';
-import { Badge, Card, Checkbox, EmptyState, Grid, KeyValue, Section, Status, Timeline, useAdminT } from '@/admin/ui';
+import { Badge, Checkbox, EmptyState, Grid, KeyValue, Section, Status, Timeline, useAdminT } from '@/admin/ui';
 import { fmtDate, fmtRelative } from '@/lib/adminFormat';
 import { useProsRefresh, type AccountCard } from '../data';
+import { Panel } from '../v3';
 
 export function TeamTab({ card }: { card: AccountCard }) {
   const { t, lang } = useAdminT();
@@ -18,7 +19,7 @@ export function TeamTab({ card }: { card: AccountCard }) {
   return (
     <div className="flex flex-col gap-6">
       <Section title={t('adm.pros.team.title')} description={t('adm.pros.team.sub')}>
-        <div className="a-card divide-y">
+        <div className="divide-y border-y">
           {people.length === 0 ? <EmptyState title={t('adm.pros.team.empty')} /> : people.map((p, i) => (
             <div key={`${p.id ?? p.email}-${i}`} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-[13px]">
               <div className="min-w-0 flex-1">
@@ -35,7 +36,7 @@ export function TeamTab({ card }: { card: AccountCard }) {
       </Section>
       {staff.length > 0 && (
         <Section title={t('adm.pros.team.staff')} description={t('adm.pros.team.staffSub')}>
-          <div className="a-card divide-y">
+          <div className="divide-y border-y">
             {staff.map((s) => (
               <div key={s.id} className="flex flex-wrap items-center gap-3 px-4 py-2 text-[13px]">
                 <span className="a-t1 min-w-0 flex-1 truncate">{s.name ?? s.email}</span>
@@ -56,8 +57,8 @@ export function SupportLegalTab({ card }: { card: AccountCard }) {
   const sending = card.sending;
   return (
     <div className="flex flex-col gap-6">
-      <Grid cols={2}>
-        <Card title={t('adm.pros.sl.support')}>
+      <Grid cols={2} className="gap-x-10 gap-y-8">
+        <Panel title={t('adm.pros.sl.support')}>
           <Timeline
             empty={t('adm.pros.sl.noSupport')}
             items={[
@@ -74,8 +75,8 @@ export function SupportLegalTab({ card }: { card: AccountCard }) {
                 body: s.ended_at ? t('adm.pros.sl.ended', { at: fmtDate(s.ended_at, lang, 'datetime') }) : undefined,
               })),
             ].sort((a, b) => b.at.localeCompare(a.at))} />
-        </Card>
-        <Card title={t('adm.pros.sl.feedback')}>
+        </Panel>
+        <Panel title={t('adm.pros.sl.feedback')}>
           {card.feedback.length + card.requests.length + card.nps.length === 0
             ? <EmptyState title={t('adm.pros.sl.noFeedback')} />
             : (
@@ -103,11 +104,11 @@ export function SupportLegalTab({ card }: { card: AccountCard }) {
                 ))}
               </ul>
             )}
-        </Card>
+        </Panel>
       </Grid>
 
-      <Grid cols={2}>
-        <Card title={t('adm.pros.sl.legal')}>
+      <Grid cols={2} className="gap-x-10 gap-y-8">
+        <Panel title={t('adm.pros.sl.legal')}>
           {legal && Object.values(legal).some(Boolean) ? (
             <KeyValue items={[
               { label: t('adm.pros.sl.legalName'), value: legal.legal_name ?? '—' },
@@ -118,8 +119,8 @@ export function SupportLegalTab({ card }: { card: AccountCard }) {
               { label: t('adm.pros.f.address'), value: legal.legal_address ?? '—' },
             ]} />
           ) : <EmptyState title={t('adm.pros.sl.noLegal')} />}
-        </Card>
-        <Card title={t('adm.pros.sl.acceptances')}>
+        </Panel>
+        <Panel title={t('adm.pros.sl.acceptances')}>
           {card.legal_acceptances.length === 0 ? <EmptyState title={t('adm.pros.sl.noAcceptances')} /> : (
             <ul className="flex flex-col gap-1.5 text-[13px]">
               {card.legal_acceptances.map((a, i) => (
@@ -131,10 +132,10 @@ export function SupportLegalTab({ card }: { card: AccountCard }) {
               ))}
             </ul>
           )}
-        </Card>
+        </Panel>
       </Grid>
 
-      <Card title={t('adm.pros.sl.sending')}>
+      <Panel title={t('adm.pros.sl.sending')}>
         {!sending ? <EmptyState title={t('adm.pros.sl.noSending')} /> : (
           <>
             <KeyValue columns={2} items={[
@@ -150,7 +151,7 @@ export function SupportLegalTab({ card }: { card: AccountCard }) {
             )}
           </>
         )}
-      </Card>
+      </Panel>
     </div>
   );
 }
@@ -170,8 +171,8 @@ export function JournalTab({ card }: { card: AccountCard }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <Grid cols={2}>
-        <Card title={t('adm.pros.j.notes')}>
+      <Grid cols={2} className="gap-x-10 gap-y-8">
+        <Panel title={t('adm.pros.j.notes')}>
           <div className="flex flex-col gap-2">
             <textarea className="a-input" rows={3} value={body} onChange={(e) => setBody(e.target.value)} placeholder={t('adm.pros.j.notePh')} />
             <div className="flex items-center gap-3">
@@ -207,8 +208,8 @@ export function JournalTab({ card }: { card: AccountCard }) {
               <p className="a-t1 whitespace-pre-wrap text-[13px]">{card.crm_note}</p>
             </div>
           )}
-        </Card>
-        <Card title={t('adm.pros.j.tags')}>
+        </Panel>
+        <Panel title={t('adm.pros.j.tags')}>
           <div className="flex flex-col gap-2">
             <input className="a-input" value={tags} onChange={(e) => setTags(e.target.value)} placeholder={t('adm.pros.j.tagsPh')} />
             <div className="flex items-center gap-2">
@@ -219,11 +220,11 @@ export function JournalTab({ card }: { card: AccountCard }) {
               </button>
             </div>
           </div>
-        </Card>
+        </Panel>
       </Grid>
 
       <Section title={t('adm.pros.j.audit')} description={t('adm.pros.j.auditSub')}>
-        <div className="a-card p-4">
+        <div className="">
           <Timeline empty={t('adm.pros.j.noAudit')} items={card.audit.map((a, i) => {
             const reason = (a.meta as { reason?: string } | null)?.reason;
             return { id: String(i), at: a.at, title: a.action.replace(/_/g, ' '), actor: a.admin ?? undefined, body: reason };
