@@ -16,13 +16,15 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Copy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { Badge, Card, Checkbox, DataTable, Page, Section, Status, useAdminT, type ColumnDef } from '@/admin/ui';
-import { fmtDate, fmtRelative } from '@/lib/adminFormat';
+import { Badge, BulletBar, Checkbox, DataTable, Page, Section, Status, useAdminT, type ColumnDef } from '@/admin/ui';
+import { useAdminInvites } from '@/crm/admin/inviteData';
+import { fmtDate, fmtNum, fmtRelative } from '@/lib/adminFormat';
 import { Field } from '@/admin/ui';
 import { accountHref, venueIdFromName, type AccountType } from './accounts';
 import { useInvitations, useProsRefresh, type PendingInvite } from './data';
 import { CrmInviteForm } from './invite/CrmInviteForm';
 import { INVITE_TONE, InviteDrawer } from './invite/InviteDrawer';
+import { Panel } from './v3';
 
 type Product = 'tickets' | 'crm' | 'founder';
 const TYPES: AccountType[] = ['club', 'organizer', 'association', 'agency'];
@@ -52,25 +54,74 @@ export default function InvitePage() {
 
   return (
     <Page title={t('adm.pros.inv.title')} subtitle={t('adm.pros.inv.sub')}>
-      <Card>
-        <div className="flex flex-col gap-4">
-          <Choice<AccountType> label={t('adm.pros.inv.step1')} value={type} options={TYPES.map((v) => ({ v, label: t(`adm.pros.type.${v}`) }))}
-            onChange={(v) => { setType(v); setProduct(v === 'agency' ? 'tickets' : null); }} />
-          {type && (
-            <Choice<Product> label={t('adm.pros.inv.step2')} value={product} options={products.map((v) => ({ v, label: t(`adm.pros.inv.p.${v}`) }))} onChange={setProduct} />
+      <div className="grid grid-cols-1 gap-x-12 gap-y-10 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="flex min-w-0 flex-col gap-8">
+          <div className="flex flex-col gap-4">
+            <Choice<AccountType> label={t('adm.pros.inv.step1')} value={type} options={TYPES.map((v) => ({ v, label: t(`adm.pros.type.${v}`) }))}
+              onChange={(v) => { setType(v); setProduct(v === 'agency' ? 'tickets' : null); }} />
+            {type && (
+              <Choice<Product> label={t('adm.pros.inv.step2')} value={product} options={products.map((v) => ({ v, label: t(`adm.pros.inv.p.${v}`) }))} onChange={setProduct} />
+            )}
+          </div>
+          {!type && <p className="a-t3 border-y py-6 text-[13px]">{t('adm.pros.v3.inv.pick')}</p>}
+          {type && product === 'tickets' && type === 'club' && <ClubForm />}
+          {type && product === 'tickets' && (type === 'organizer' || type === 'association') && <OrganizerForm association={type === 'association'} />}
+          {type === 'agency' && product === 'tickets' && <AgencyForm />}
+          {type && type !== 'agency' && (product === 'crm' || product === 'founder') && (
+            <CrmInviteForm key={`${type}:${product}`} kind={type === 'club' ? 'club' : 'organizer'} founder={product === 'founder'} onCreated={(id) => openInvite(`crm:${id}`)} />
           )}
         </div>
-      </Card>
-
-      {type && product === 'tickets' && type === 'club' && <ClubForm />}
-      {type && product === 'tickets' && (type === 'organizer' || type === 'association') && <OrganizerForm association={type === 'association'} />}
-      {type === 'agency' && product === 'tickets' && <AgencyForm />}
-      {type && type !== 'agency' && (product === 'crm' || product === 'founder') && (
-        <CrmInviteForm key={`${type}:${product}`} kind={type === 'club' ? 'club' : 'organizer'} founder={product === 'founder'} onCreated={(id) => openInvite(`crm:${id}`)} />
-      )}
+        <InviteRail onOpen={(r) => openInvite(`${r.source}:${r.id}`)} />
+      </div>
 
       <InvitationsList onOpen={(r) => openInvite(`${r.source}:${r.id}`)} />
     </Page>
+  );
+}
+
+/** À droite : les places de l'offre fondateurs et les invitations en cours, en direct. */
+function InviteRail({ onOpen }: { onOpen: (r: PendingInvite) => void }) {
+  const { t, lang } = useAdminT();
+  const inv = useAdminInvites();
+  const seats = inv.data?.seats;
+  const q = useInvitations();
+  const pending = (q.data ?? []).filter((r) => r.state === 'pending').sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const soon = pending.filter((r) => r.expires_at && new Date(r.expires_at).getTime() - Date.now() < 7 * 864e5).length;
+  return (
+    <aside className="flex min-w-0 flex-col gap-8 xl:sticky xl:top-[64px] xl:self-start xl:border-l xl:pl-8">
+      <section className="flex flex-col gap-3">
+        <h2 className="a-kicker">{t('adm.pros.v3.inv.seats')}</h2>
+        {inv.isLoading ? <div className="a-skel h-10 w-full" /> : !seats ? <p className="a-t3 text-[13px]">{t('adm.pros.v3.inv.noSeats')}</p> : (
+          <>
+            <BulletBar value={seats.claimed} max={Math.max(1, seats.total)} zones={[seats.claimed, seats.claimed + seats.pending]}
+              label={t('adm.pros.v3.inv.claimed')} display={`${fmtNum(seats.claimed, lang)} / ${fmtNum(seats.total, lang)}`} />
+            <p className="a-t2 text-[12.5px]">{t('adm.pros.ci.seats', { claimed: seats.claimed, pending: seats.pending, left: seats.left })}</p>
+          </>
+        )}
+      </section>
+      <section className="flex flex-col gap-3">
+        <div className="flex items-baseline gap-2 border-b pb-2">
+          <h2 className="a-t1 text-[14px] font-semibold">{t('adm.pros.v3.inv.pending')}</h2>
+          <span className="a-mono a-t3 ml-auto text-[11px]">{fmtNum(pending.length, lang)}</span>
+        </div>
+        {soon > 0 && <p className="text-[12.5px]" style={{ color: 'var(--a-warn)' }}>{t(soon === 1 ? 'adm.pros.v3.inv.soonOne' : 'adm.pros.v3.inv.soon', { n: soon })}</p>}
+        {q.isLoading ? <div className="a-skel h-24 w-full" /> : pending.length === 0 ? <p className="a-t3 text-[13px]">{t('adm.pros.inv.empty')}</p> : (
+          <ol className="flex flex-col">
+            {pending.slice(0, 8).map((r) => (
+              <li key={`${r.source}:${r.id}`}>
+                <button type="button" onClick={() => onOpen(r)} className="a-focus grid w-full grid-cols-[3.25rem_minmax(0,1fr)] gap-x-3 border-0 bg-transparent py-1.5 text-left font-[inherit] hover:bg-[var(--a-hover)]" style={{ cursor: 'pointer' }}>
+                  <span className="a-mono a-t3 pt-[1px] text-[11px]">{fmtDate(r.created_at, lang)}</span>
+                  <span className="min-w-0">
+                    <span className="a-t1 block truncate text-[13px]">{r.name ?? r.email ?? '—'}</span>
+                    <span className="a-mono a-t3 block truncate text-[10.5px] uppercase tracking-[0.04em]">{t(`adm.pros.type.${r.type}`)} · {t(`adm.pros.inv.p.${r.product}`)}{r.expires_at ? ` · ${t('adm.pros.v3.inv.expires', { when: fmtDate(r.expires_at, lang) })}` : ''}</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+    </aside>
   );
 }
 
@@ -121,7 +172,7 @@ function ClubForm() {
   };
   return (
     <Section title={t('adm.pros.inv.clubTitle')} description={t('adm.pros.inv.clubSub')}>
-      <Card>
+      <Panel>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label={t('adm.pros.f.name')} hint={id ? t('adm.pros.inv.clubId', { id }) : undefined}><input className="a-input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
           <Field label={t('adm.pros.f.city')}><input className="a-input" value={f.city} onChange={(e) => setF({ ...f, city: e.target.value })} /></Field>
@@ -133,7 +184,7 @@ function ClubForm() {
           {created && <Link className="a-btn" to={accountHref(`venue:${created}`)}>{t('adm.pros.inv.openCard')}</Link>}
           {link && <CopyLink url={link} />}
         </div>
-      </Card>
+      </Panel>
     </Section>
   );
 }
@@ -157,14 +208,14 @@ function OrganizerForm({ association }: { association: boolean }) {
   };
   return (
     <Section title={t(association ? 'adm.pros.inv.assocTitle' : 'adm.pros.inv.orgTitle')} description={t(association ? 'adm.pros.inv.assocSub' : 'adm.pros.inv.orgSub')}>
-      <Card>
+      <Panel>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label={t('adm.pros.inv.orgName')}><input className="a-input" value={org} onChange={(e) => setOrg(e.target.value)} /></Field>
           <Field label={t('adm.pros.f.email')}><input className="a-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
         </div>
         <Checkbox checked={help} onChange={setHelp}>{t('adm.pros.inv.offerHelp')}</Checkbox>
         <div className="mt-4"><button type="button" className="a-btn a-btn--primary" disabled={busy} onClick={() => void submit()}>{t(busy ? 'adm.ui.working' : 'adm.pros.inv.send')}</button></div>
-      </Card>
+      </Panel>
     </Section>
   );
 }
@@ -187,7 +238,7 @@ function AgencyForm() {
   };
   return (
     <Section title={t('adm.pros.inv.agencyTitle')} description={t('adm.pros.inv.agencySub')}>
-      <Card>
+      <Panel>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label={t('adm.pros.f.name')}><input className="a-input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
           <Field label={t('adm.pros.f.email')}><input className="a-input" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
@@ -198,7 +249,7 @@ function AgencyForm() {
           <button type="button" className="a-btn a-btn--primary" disabled={busy} onClick={() => void submit()}>{t(busy ? 'adm.ui.working' : 'adm.pros.inv.send')}</button>
           {link && <CopyLink url={link} />}
         </div>
-      </Card>
+      </Panel>
     </Section>
   );
 }
@@ -236,7 +287,7 @@ function InvitationsList({ onOpen }: { onOpen: (r: PendingInvite) => void }) {
       ),
     },
     { id: 'type', header: t('adm.pros.col.type'), accessorKey: 'type', cell: ({ row: { original: r } }) => t(`adm.pros.type.${r.type}`) },
-    { id: 'product', header: t('adm.pros.col.products'), accessorKey: 'product', cell: ({ row: { original: r } }) => <Badge tone={r.product === 'tickets' ? 'neutral' : 'accent'}>{t(`adm.pros.inv.p.${r.product}`)}</Badge> },
+    { id: 'product', header: t('adm.pros.col.products'), accessorKey: 'product', cell: ({ row: { original: r } }) => <Badge>{t(`adm.pros.inv.p.${r.product}`)}</Badge> },
     { id: 'state', header: t('adm.pros.col.status'), accessorKey: 'state', cell: ({ row: { original: r } }) => <Status tone={tone(r.state)}>{t(`adm.pros.inv.s.${r.state}`)}</Status> },
     { id: 'at', header: t('adm.pros.inv.sentAt'), accessorFn: (r) => new Date(r.created_at).getTime(), cell: ({ row: { original: r } }) => <span className="a-t2 text-[12.5px]" title={fmtDate(r.created_at, lang, 'datetime')}>{fmtRelative(r.created_at, lang)}</span> },
     { id: 'exp', header: t('adm.pros.inv.expires'), accessorFn: (r) => (r.expires_at ? new Date(r.expires_at).getTime() : 0), cell: ({ row: { original: r } }) => <span className="a-t3 a-num text-[12.5px]">{r.expires_at ? fmtDate(r.expires_at, lang) : '—'}</span> },

@@ -13,13 +13,15 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { DEMO_ACCOUNTS } from '@/lib/demoSession';
-import { fmtDate, fmtNum, fmtRelative } from '@/lib/adminFormat';
-import { Badge, Checkbox, DataTable, Kpi, KpiRow, Page, Status, Tabs, useAdminT, useTab, type ColumnDef } from '@/admin/ui';
+import { fmtDate, fmtNum, fmtPct, fmtRelative } from '@/lib/adminFormat';
+import { Checkbox, DataTable, FunnelSteps, Hero, Page, Status, Tabs, useAdminT, useTab, type ColumnDef } from '@/admin/ui';
+import { ProductBadges } from './bits';
 import { isLive, signupStage, useDemo, type DemoRow } from './demo/data';
 import { LinkDrawer } from './demo/LinkDrawer';
 import { NewDemoDialog, type DemoProduct } from './demo/NewDemoDialog';
 import { Showcases } from './demo/Showcases';
 import { STATE_TONE } from './demo/state';
+import { Spine, type SpineItem } from './v3';
 
 export default function DemoPage() {
   const { t, lang } = useAdminT();
@@ -50,6 +52,19 @@ export default function DemoPage() {
   const prepared = (d?.rows ?? []).filter((r) => r.signup && !r.signup.user_id && r.state !== 'cut').length;
   const created = (d?.rows ?? []).filter((r) => r.signup?.user_id).length;
 
+  const allRows = d?.rows ?? [];
+  const funnel = [
+    { key: 'made', label: t('adm.pros.v3.demo.f.made'), value: allRows.length, display: fmtNum(allRows.length, lang) },
+    { key: 'open', label: t('adm.pros.v3.demo.f.open'), value: allRows.filter((r) => r.used_count > 0).length, display: fmtNum(allRows.filter((r) => r.used_count > 0).length, lang) },
+    { key: 'prep', label: t('adm.pros.v3.demo.f.prep'), value: allRows.filter((r) => r.signup).length, display: fmtNum(allRows.filter((r) => r.signup).length, lang) },
+    { key: 'acc', label: t('adm.pros.v3.demo.f.acc'), value: created, display: fmtNum(created, lang) },
+  ];
+  const recent: SpineItem[] = allRows.filter((r) => r.last_used_at).map((r) => ({
+    id: r.id, at: r.last_used_at as string, family: r.products[0] ?? 'tickets',
+    title: <button type="button" className="a-t1 border-0 bg-transparent p-0 text-left hover:underline" onClick={() => setParam('open', r.id)}>{r.label}</button>,
+    value: t('adm.pros.v3.demo.opens', { n: fmtNum(r.used_count, lang) }),
+  }));
+
   // La ligne sous le nom : le compte préparé, l'invitation liée, ou le contact.
   const sub = (r: DemoRow) => (r.signup?.org_name ? `${t(`adm.pros.dl.su.${signupStage(r.signup)}`)} · ${r.signup.org_name}`
     : r.crm?.invite ? r.crm.invite.org_name : [r.crm?.contact_name, r.crm?.email].filter(Boolean).join(' · '));
@@ -65,7 +80,7 @@ export default function DemoPage() {
         </div>
       ),
     },
-    { id: 'product', header: t('adm.pros.col.products'), enableSorting: false, accessorFn: (r) => r.products.join(','), cell: ({ row: { original: r } }) => <span className="inline-flex gap-1">{r.products.map((p) => <Badge key={p} tone={p === 'crm' ? 'accent' : 'neutral'}>{t(`adm.pros.product.${p}`)}</Badge>)}</span> },
+    { id: 'product', header: t('adm.pros.col.products'), enableSorting: false, accessorFn: (r) => r.products.join(','), cell: ({ row: { original: r } }) => <ProductBadges products={r.products} /> },
     {
       id: 'roles', header: t('adm.pros.dl.col.roles'), enableSorting: false,
       accessorFn: (r) => (r.showcase ? r.showcase : r.targets.map((a) => DEMO_ACCOUNTS[a]?.label ?? a).join(', ')),
@@ -100,21 +115,34 @@ export default function DemoPage() {
   return (
     <Page title={t('adm.pros.demo.title')} subtitle={t('adm.pros.dl.sub')}
       actions={<button type="button" className="a-btn a-btn--primary" onClick={() => setNewOpen(true)}><Plus className="h-4 w-4" />{t('adm.pros.dl.new')}</button>}>
-      <KpiRow>
-        <Kpi label={t('adm.pros.dl.k.live')} value={fmtNum(live.length, lang)} loading={q.isLoading} hint={t('adm.pros.dl.k.liveHint')} />
-        <Kpi label={t('adm.pros.dl.k.seen')} value={fmtNum(seen, lang)} loading={q.isLoading} hint={t('adm.pros.dl.k.seenHint')} />
-        <Kpi label={t('adm.pros.dl.k.prepared')} value={fmtNum(prepared, lang)} loading={q.isLoading} hint={t('adm.pros.dl.k.preparedHint')} />
-        <Kpi label={t('adm.pros.dl.k.created')} value={fmtNum(created, lang)} loading={q.isLoading} hint={t('adm.pros.dl.k.createdHint')} />
-      </KpiRow>
-      <Tabs items={items} value={tab} onChange={setTab} />
-      {tab === 'showcases' ? (
-        <Showcases d={d} loading={q.isLoading} error={q.error} onRetry={() => void q.refetch()} />
-      ) : (
-        <DataTable data={rows} columns={columns} loading={q.isLoading} error={q.error} onRetry={() => void q.refetch()} searchable
-          searchPlaceholder={t('adm.pros.dl.search')} getRowId={(r) => r.id} initialSort={[{ id: 'at', desc: true }]}
-          onRowClick={(r) => setParam('open', r.id)} toolbar={toolbar}
-          empty={{ title: t(all ? 'adm.pros.dl.empty' : 'adm.pros.dl.emptyLive'), action: <button type="button" className="a-btn a-btn--sm" onClick={() => setNewOpen(true)}>{t('adm.pros.dl.new')}</button> }} />
-      )}
+      <Hero kicker={t('adm.pros.dl.k.live')} loading={q.isLoading} value={fmtNum(live.length, lang)}
+        sentence={q.isLoading ? null : (
+          <>
+            {live.length === 0 ? t('adm.pros.v3.demo.none') : <><b>{fmtNum(live.length, lang)}</b> {t(live.length === 1 ? 'adm.pros.v3.demo.liveOne' : 'adm.pros.v3.demo.live')}{', '}<b>{fmtNum(seen, lang)}</b> {t('adm.pros.v3.demo.seen')}</>}
+            {'. '}<b>{fmtNum(created, lang)}</b> {t(created === 1 ? 'adm.pros.v3.demo.createdOne' : 'adm.pros.v3.demo.created')}{prepared > 0 ? <>, <b>{fmtNum(prepared, lang)}</b> {t('adm.pros.v3.demo.prepared')}</> : null}.
+          </>
+        )}
+        chart={q.isLoading || funnel[0].value === 0 ? undefined : (
+          <FunnelSteps steps={funnel} fmtShare={(r) => fmtPct(r * 100, 0, lang)} lossLabel={(lost, share) => t('adm.pros.v3.demo.loss', { n: lost, pct: share })} />
+        )}
+        aside={(
+          <section className="flex flex-col gap-3">
+            <h2 className="a-kicker">{t('adm.pros.v3.demo.recent')}</h2>
+            <Spine items={recent} limit={8} familyLabel={(f) => t(`adm.pros.product.${f}`)} empty={t('adm.pros.v3.demo.noOpen')}
+              familyColor={() => 'var(--a-text-2)'} />
+          </section>
+        )} />
+      <div className="flex flex-col gap-3 border-t pt-4">
+        <Tabs items={items} value={tab} onChange={setTab} />
+        {tab === 'showcases' ? (
+          <Showcases d={d} loading={q.isLoading} error={q.error} onRetry={() => void q.refetch()} />
+        ) : (
+          <DataTable data={rows} columns={columns} loading={q.isLoading} error={q.error} onRetry={() => void q.refetch()} searchable
+            searchPlaceholder={t('adm.pros.dl.search')} getRowId={(r) => r.id} initialSort={[{ id: 'at', desc: true }]}
+            onRowClick={(r) => setParam('open', r.id)} toolbar={toolbar}
+            empty={{ title: t(all ? 'adm.pros.dl.empty' : 'adm.pros.dl.emptyLive'), action: <button type="button" className="a-btn a-btn--sm" onClick={() => setNewOpen(true)}>{t('adm.pros.dl.new')}</button> }} />
+        )}
+      </div>
       {opened && <LinkDrawer key={opened.id} row={opened} onClose={() => setParam('open', null)} />}
       {d && (
         <NewDemoDialog open={newOpen} showcaseVenues={d.showcaseVenues} showcaseOrgs={d.showcaseOrgs} crmInvites={d.crmInvites}

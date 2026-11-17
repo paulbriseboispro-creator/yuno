@@ -12,11 +12,12 @@ import { rpc } from '@/crm/lib/rpc';
 import { inviteErr, useAdminInvites, type CrmInvite, type InvitesData } from '@/crm/admin/inviteData';
 import type { InviteLang } from '@/crm/lib/crmInvites';
 import { fmtNum } from '@/lib/adminFormat';
-import { Badge, Card, Section, useAdminT } from '@/admin/ui';
+import { Badge, Section, useAdminT } from '@/admin/ui';
 import { Field } from '@/admin/ui';
 import { Phone } from '../demo/fields';
 import { Checkbox, Segmented } from '@/admin/ui';
 import { PROS_QK } from '../data';
+import { Panel } from '../v3';
 
 type Kind = 'club' | 'organizer';
 interface Draft { org: string; contact: string; email: string; phone: string; city: string; lang: InviteLang; support: boolean; demo: boolean; note: string }
@@ -57,7 +58,7 @@ export function CrmInviteForm({ kind, founder, onCreated }: { kind: Kind; founde
 
   return (
     <Section title={t(founder ? 'adm.pros.inv.founderTitle' : 'adm.pros.inv.crmTitle')} description={founder ? <Seats d={d} /> : d ? t('adm.pros.ci.standardSub', { days: d.trial.days, yunits: fmtNum(d.trial.yunits, lang), price: fmtNum(d.price_month, lang) }) : t('adm.pros.inv.crmSub')}>
-      <Card>
+      <Panel>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label={t(kind === 'club' ? 'adm.pros.ci.orgClub' : 'adm.pros.ci.orgOrg')}><input className="a-input" value={f.org} maxLength={120} onChange={(e) => set('org', e.target.value)} /></Field>
           <Field label={t('adm.pros.ci.contact')}><input className="a-input" value={f.contact} maxLength={120} autoComplete="off" onChange={(e) => set('contact', e.target.value)} /></Field>
@@ -81,7 +82,7 @@ export function CrmInviteForm({ kind, founder, onCreated }: { kind: Kind; founde
           <button type="button" className="a-btn a-btn--primary" disabled={!ok} onClick={() => void submit()}>{t(busy ? 'adm.ui.working' : 'adm.pros.ci.create')}</button>
           {full && <Badge tone="warning">{t('adm.pros.ci.full')}</Badge>}
         </div>
-      </Card>
+      </Panel>
     </Section>
   );
 }
@@ -96,7 +97,7 @@ function Seats({ d }: { d: InvitesData | undefined }) {
       <span className="inline-flex items-center gap-1" aria-hidden>
         {Array.from({ length: d.seats.total }, (_, i) => {
           const s = i < d.seats.claimed ? 'claimed' : i < d.seats.claimed + d.seats.pending ? 'pending' : 'free';
-          return <span key={i} className="h-2.5 w-2.5 rounded-full" style={{ background: s === 'claimed' ? 'var(--a-accent)' : 'transparent', border: `1.5px solid ${s === 'free' ? 'var(--a-border-strong)' : 'var(--a-accent)'}` }} />;
+          return <span key={i} className="h-2.5 w-2.5 rounded-full" style={{ background: s === 'claimed' ? 'var(--a-text)' : 'transparent', border: `1.5px solid ${s === 'free' ? 'var(--a-border-strong)' : 'var(--a-text)'}` }} />;
         })}
       </span>
       <span className="a-t2">{t('adm.pros.ci.seats', { claimed: d.seats.claimed, pending: d.seats.pending, left: d.seats.left })}</span>
