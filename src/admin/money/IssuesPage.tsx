@@ -16,6 +16,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, Check } from 'lucide-react';
 import { ErrorState, Page, ReasonDialog, useAdminFilters, useAdminT, type Tone, Status } from '@/admin/ui';
+import { cleanText } from '../ui/i18n';
 import { fmtDate, fmtEur, fmtNum, fmtRelative } from '@/lib/adminFormat';
 import { useIssueActions, useMoneyIssues, type MoneyAlert, type TransferIssue } from './data';
 import { issueLink } from './issueLinks';
@@ -60,7 +61,7 @@ export default function IssuesPage() {
       out.push({
         key: `a:${a.id}`, bucket: dueBucket({ alert: true }), amount: Number.isFinite(raw) && raw > 0 ? raw : null,
         tag: t(`adm.mon.iss.type.${a.type}`), tone: a.type === 'admin_payment_disputed' ? 'negative' : 'warning',
-        title: a.title ?? '—', who: a.message ? <span className="a-t3">{a.message}</span> : null,
+        title: cleanText(a.title) || '—', who: a.message ? <span className="a-t3">{cleanText(a.message)}</span> : null,
         since: a.at, due: null, href: issueLink(a),
         act: <button type="button" className="a-btn a-btn--sm" onClick={() => setPending({ kind: 'alert', row: a })}><Check className="h-3.5 w-3.5" />{t('adm.mon.iss.done')}</button>,
       });

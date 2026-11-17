@@ -134,7 +134,7 @@ export default function Deliverability() {
               {[
                 { l: t('adm.comms.dl.cap.pool'), u: q.pool_used, c: q.pool_cap, h: t('adm.comms.dl.cap.poolHint') },
                 { l: t('adm.comms.dl.cap.day'), u: q.day_used, c: q.day_cap },
-                { l: t('adm.comms.dl.cap.free'), u: q.used, c: q.free + q.credits, h: t('adm.comms.dl.cap.freeHint', { n: fmtNum(q.credits, lang) }) },
+                { l: t('adm.comms.dl.cap.free'), u: q.used, c: q.free + q.credits, h: q.credits > 0 ? t('adm.comms.dl.cap.freeHint', { n: fmtNum(q.credits, lang) }) : t('adm.comms.dl.cap.freeOnly') },
                 ...(q.platform_ceiling ? [{ l: t('adm.comms.dl.cap.ceiling'), u: q.platform_sent ?? 0, c: q.platform_ceiling, h: t('adm.comms.dl.cap.ceilingHint') }] : []),
               ].map((r) => (
                 <div key={r.l} className="flex flex-col gap-1">

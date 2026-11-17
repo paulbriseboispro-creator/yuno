@@ -40,3 +40,13 @@ describe('pluriels', () => {
     expect(bad.map(([k]) => k)).toEqual([]);
   });
 });
+
+import { cleanText } from '../ui/i18n';
+describe('identifiants techniques retirés des messages', () => {
+  it('références Stripe et UUID', () => {
+    expect(cleanText('Session cs_live_a1B2c3D4e5 payée, billet introuvable')).toBe('Session payée, billet introuvable');
+    expect(cleanText('Session cs_live_… payée')).toBe('Session payée');
+    expect(cleanText('Compte 0f8e3c1a-1111-4222-8333-944445555666 en retard')).toBe('Compte en retard');
+    expect(cleanText(null)).toBe('');
+  });
+});

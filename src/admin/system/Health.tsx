@@ -34,7 +34,7 @@ function history(events: Array<{ at: string }>, hard: (e: { at: string }) => boo
 }
 
 export default function SystemHealth() {
-  const { t, lang } = useAdminT();
+  const { t, lang, label } = useAdminT();
   const { includeDemo } = useAdminFilters();
   const q = useReleaseHealth();
   const sync = usePlatformSync(includeDemo);
@@ -113,7 +113,7 @@ export default function SystemHealth() {
                 {[
                   [t('adm.sys.h.db.migrations'), `${fmtNum(h.database.migrations, lang)} · ${h.database.latest_migration ?? ''}`],
                   [t('adm.sys.h.db.tables'), fmtNum(h.database.tables, lang)],
-                  [t('adm.sys.h.db.dead'), h.database.dead_tuples_top.map((d) => `${d.table} ${fmtNum(d.dead, lang)}`).join(' · ') || '—'],
+                  [t('adm.sys.h.db.dead'), h.database.dead_tuples_top.map((d) => `${label(d.table)} ${fmtNum(d.dead, lang)}`).join(' · ') || '—'],
                   [t('adm.sys.h.db.authFail'), fmtNum(h.security.failures_24h, lang)],
                   [t('adm.sys.h.db.support'), fmtNum(h.security.active_support_sessions, lang)],
                 ].map(([k, v]) => <li key={k} className="flex items-baseline gap-3 py-1.5"><span className="a-t2 w-[9rem] flex-none text-[12.5px]">{k}</span><span className="a-t1 min-w-0 break-words">{v}</span></li>)}
@@ -122,7 +122,7 @@ export default function SystemHealth() {
           )}
         </Block>
         <Block title={t('adm.sys.h.db.largest')} meta="MB">
-          <RankBars emptyText={t('adm.sys3.h.noTables')} items={(h?.database.largest ?? []).slice(0, 8).map((x) => ({ key: x.table, label: <span className="a-mono text-[12px]">{x.table}</span>, value: x.mb, display: `${fmtNum(x.mb, lang)} MB`, sub: t('adm.sys3.h.rows', { n: fmtNum(x.rows, lang) }) }))} />
+          <RankBars emptyText={t('adm.sys3.h.noTables')} items={(h?.database.largest ?? []).slice(0, 8).map((x) => ({ key: x.table, label: label(x.table), value: x.mb, display: `${fmtNum(x.mb, lang)} MB`, sub: t('adm.sys3.h.rows', { n: fmtNum(x.rows, lang) }) }))} />
         </Block>
       </div>
 

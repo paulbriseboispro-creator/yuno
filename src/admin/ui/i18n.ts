@@ -41,6 +41,19 @@ export function humanizeRaw(v: string): string {
   return v.replace(/^adm\.[\w.]*?\.(?=[^.]+$)/, '').replace(/[_.:-]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * Un texte venu de la base (message d'alerte) sans identifiant technique : les
+ * références Stripe (cs_…, pi_…, ch_…, acct_…) et les UUID ne disent rien à un
+ * humain ; le lien de la ligne mène à l'objet.
+ */
+export function cleanText(v: string | null | undefined): string {
+  return (v ?? '')
+    .replace(/\b(?:cs|pi|ch|acct|re|cus|sub|in|evt|seti|pm|txn|po|tr)_(?:live_|test_)?(?:[A-Za-z0-9]{6,}\b|[A-Za-z0-9]*…)/g, '')
+    .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, '')
+    .replace(/\(\s*\)|\[\s*\]/g, '')
+    .replace(/\s+([,.;:])/g, '$1').replace(/\s{2,}/g, ' ').trim();
+}
+
 /** La famille d'une erreur technique, pour la dire sans jargon. */
 export function errorKind(msg: string | null | undefined): 'none' | 'timeout' | 'denied' | 'network' | 'rate' | 'missing' | 'other' {
   const m = (msg ?? '').toLowerCase();

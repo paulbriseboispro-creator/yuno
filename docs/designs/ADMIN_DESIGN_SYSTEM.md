@@ -136,6 +136,31 @@ PILOTAGE › VUE D'ENSEMBLE
 | Système › Santé | UptimeBars par service sur 30 jours ; tâches planifiées en grille d'état. |
 | Madrid | Héros « sorties vers la billetterie » + verdict ; FunnelSteps visiteurs → soirée → sortis ; clubs en RankBars, soirs en Columns ; offre en grille teintée et UptimeBars de la synchro. |
 
+## Grille de notation d'une page (10 critères, 1 point chacun)
+
+Une page se note sur ses captures réelles (clair, sombre, 375 px, données riches
+ET pauvres). Un critère est acquis entier ou pas du tout. **Un seul terme
+technique, une seule forme vide ou un seul « (s) » = la page n'a pas 9.**
+
+| # | Critère | Acquis quand |
+|---|---|---|
+| 1 | Réponse en une phrase | La question du titre a sa réponse calculée en une phrase, en tête. |
+| 2 | Hiérarchie | Un grand chiffre ou un verdict, puis le reste ; l'essentiel tient sans défiler à 1440 × 900. |
+| 3 | Forme adaptée | Chaque forme répond à sa question (évolution = courbe ou barres par semaine, part = barre à 100 %, étapes = entonnoir, classement = barres triées) ; aucune forme décorative. |
+| 4 | Aucun jargon | Aucun nom de fonction, table, fichier, clé, statut brut ni message d'erreur technique (hors nom d'une tâche planifiée dans Santé technique). |
+| 5 | Phrases justes à 0 / 1 / n | Vrais singuliers et pluriels (`{n|une|plusieurs}`), aucune phrase cassée à zéro. |
+| 6 | Tient avec des données pauvres | Zéros, un seul point, séries plates : une phrase le dit, aucune forme vide ni trompeuse, aucun pourcentage sous 10. |
+| 7 | Cohérence | Mêmes formes, mêmes mots, même clavier que les autres pages (kit `src/admin/ui` seulement). |
+| 8 | Clavier et accessibilité | Tout au clavier, focus visible, chaque graphique a son résumé texte, info-bulles dessinées. |
+| 9 | Clair et sombre | Lisible dans les deux thèmes (contrastes AA, aucun point ou aplat invisible). |
+| 10 | 375 px | Aucun défilement horizontal de page, rien de coupé, la vue partagée s'empile. |
+
+Contrôle automatique au banc (`cdp-audit`, 46 pages) : débordement, graphique
+sans résumé, titre manquant, erreurs de rendu et motifs de jargon dans le texte
+affiché (`snake_case`, `adm.…`, « RPC », « (s) », « ·e », `undefined`, `NaN`,
+`null`). Ce qu'il ne voit pas (forme qui ne dit rien, hiérarchie) se juge sur
+capture.
+
 ## À faire / à ne pas faire
 
 | À faire | À ne pas faire |
