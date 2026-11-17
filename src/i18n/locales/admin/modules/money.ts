@@ -253,7 +253,7 @@ const money: AdminDict = {
   'adm.mon.v3s.orderOne': ['paid order', 'commande payée', 'pedido pagado'],
   'adm.mon.v3s.kept': ['; Yuno keeps', ' ; Yuno en garde', '; Yuno se queda'],
   'adm.mon.v3s.refunded': [', {n} refunds for {eur}', ', {n} remboursements pour {eur}', ', {n} reembolsos por {eur}'],
-  'adm.mon.v3s.note': ['Curve: club revenue per day (tickets and tables, without Yuno fees); dashed grey: refunds. Sales including fees do not exist day by day yet.', 'Courbe : CA club par jour (billets et tables hors frais Yuno) ; gris pointillé : remboursements. Les ventes frais compris n’existent pas encore jour par jour.', 'Curva: ingresos del club por día (entradas y mesas sin comisiones de Yuno); gris discontinuo: reembolsos. Las ventas con comisiones aún no existen día a día.'],
+  'adm.mon.v3s.note': ['Club revenue per week (tickets and tables, without Yuno fees); dashed grey: refunds. Sales including fees do not exist week by week yet.', 'CA club par semaine (billets et tables hors frais Yuno) ; gris pointillé : remboursements. Les ventes frais compris n’existent pas encore semaine par semaine.', 'Ingresos del club por semana (entradas y mesas sin comisiones de Yuno); gris discontinuo: reembolsos. Las ventas con comisiones aún no existen semana a semana.'],
   'adm.mon.v3s.waterTitle': ['From sales to revenue', 'Des ventes au revenu', 'De las ventas al ingreso'],
   'adm.mon.v3s.noRate': ['No sale: no rate.', 'Pas de vente : pas de taux.', 'Sin ventas: sin tasa.'],
   'adm.mon.v3s.rateVs': ['Red mark: {pct} over the previous period.', 'Trait rouge : {pct} sur la période précédente.', 'Marca roja: {pct} en el periodo anterior.'],

@@ -256,6 +256,15 @@ const dict: AdminDict = {
   'adm.today.w.salesEmpty': ['No sale this week', 'Aucune vente cette semaine', 'Ninguna venta esta semana'],
   'adm.today.w.noRefund': ['No refund this week', 'Aucun remboursement cette semaine', 'Ningún reembolso esta semana'],
   'adm.today.w.zero': ['Nothing this week', 'Rien cette semaine', 'Nada esta semana'],
+  'adm.today.al.kicker': ['Platform alerts, last 30 days', 'Alertes de la plateforme, 30 derniers jours', 'Alertas de la plataforma, últimos 30 días'],
+  'adm.today.al.vUrgent': ['{n} urgent {n|alert waits|alerts wait} for you, among {u} unread.', '{n} {n|alerte urgente vous attend|alertes urgentes vous attendent}, parmi {u} non {u|lue|lues}.', '{n} {n|alerta urgente te espera|alertas urgentes te esperan}, entre {u} sin leer.'],
+  'adm.today.al.vUnread': ['{n} unread {n|alert|alerts}, none urgent.', '{n} {n|alerte non lue|alertes non lues}, aucune urgente.', '{n} {n|alerta sin leer|alertas sin leer}, ninguna urgente.'],
+  'adm.today.al.vClear': ['Nothing to read: every alert has been seen.', 'Rien à lire : toutes les alertes ont été vues.', 'Nada que leer: todas las alertas se han visto.'],
+  'adm.today.al.vSub': ['{n} {n|alert|alerts} over 30 days. Each line opens the page that settles it.', '{n} {n|alerte|alertes} sur 30 jours. Chaque ligne ouvre la page qui la règle.', '{n} {n|alerta|alertas} en 30 días. Cada línea abre la página que la resuelve.'],
+  'adm.today.fb.kicker': ['Support and feedback', 'Support et retours', 'Soporte y comentarios'],
+  'adm.today.fb.vOpen': ['{n} open {n|item|items}, {h} critical or high.', '{n} {n|élément ouvert|éléments ouverts}, dont {h} {h|critique ou haut|critiques ou hauts}.', '{n} {n|elemento abierto|elementos abiertos}, {h} {h|crítico o alto|críticos o altos}.'],
+  'adm.today.fb.vClear': ['Nothing open: every request has an answer.', 'Rien d’ouvert : chaque demande a sa réponse.', 'Nada abierto: cada solicitud tiene su respuesta.'],
+  'adm.today.fb.vSub': ['{p} in progress, {r} resolved over 30 days.', '{p} en cours, {r} {r|résolu|résolus} sur 30 jours.', '{p} en curso, {r} {r|resuelto|resueltos} en 30 días.'],
 };
 
 export default dict;

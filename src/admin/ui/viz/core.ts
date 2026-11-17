@@ -201,14 +201,16 @@ export function weekdayInitials(lang: string): string[] {
 
 /**
  * Faut-il lire une série quotidienne par semaine ? Oui quand elle a au moins
- * trois semaines et que plus de 40 % de ses jours sont vides, ou que c'est un
+ * trois semaines et que plus de 40 % de ses jours sont vides ou presque (sous
+ * 5 % du maximum : des ventes groupées sur les soirs de fête), ou que c'est un
  * petit comptage (entiers, moins de 2 par jour en moyenne) : tracée jour par
  * jour, elle ne dessinerait que des dents de scie.
  */
 export function shouldWeekly(values: Array<number | null | undefined>): boolean {
   const known = values.filter((v): v is number => v != null && Number.isFinite(v));
   if (known.length < 21) return false;
-  const zeros = known.filter((v) => v === 0).length / known.length;
+  const max = Math.max(0, ...known);
+  const zeros = known.filter((v) => v <= max * 0.05).length / known.length;
   const mean = known.reduce((a, v) => a + v, 0) / known.length;
   return zeros > 0.4 || (known.every(Number.isInteger) && mean < 2);
 }

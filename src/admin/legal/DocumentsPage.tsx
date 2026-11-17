@@ -54,7 +54,7 @@ export default function DocumentsPage() {
         <EmptyLine>{t('adm.lg2.dc.textsSub')}</EmptyLine>
         <Ledger>
           {docs.map((d) => (
-            <div key={d.doc} className="grid grid-cols-1 items-center gap-x-4 px-1 py-2.5 md:grid-cols-[minmax(0,1.3fr)_70px_minmax(0,1.2fr)_minmax(0,1fr)]">
+            <div key={d.doc} className="grid grid-cols-1 items-center gap-x-4 px-1 py-2.5 md:grid-cols-[minmax(0,1.3fr)_120px_minmax(0,1.2fr)_minmax(0,1fr)]">
               <span className="a-t1 text-[13.5px] font-medium">{t(`adm.lg2.doc.${d.doc}`)}</span>
               <span className="a-t2 whitespace-nowrap text-[12px]">{/^\d{4}-\d{2}-\d{2}$/.test(d.version) ? t('adm.lg3.dc.versionOf', { d: fmtDate(d.version, lang) }) : d.version}</span>
               <span className="a-t2 text-[12.5px]">{t(`adm.lg2.dc.who.${d.doc}`)}</span>

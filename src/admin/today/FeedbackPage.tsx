@@ -12,7 +12,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { fmtDate, fmtNum, fmtRelative } from '@/lib/adminFormat';
 import {
-  Badge, Card, DataTable, Dialog, Drawer, KeyValue, Kpi, KpiRow, Page, Status, useAdminT,
+  Badge, Card, DataTable, Dialog, Drawer, KeyValue, Page, Status, Verdict, useAdminT,
   type ColumnDef, type Tone,
 } from '@/admin/ui';
 import { TODAY_KEY } from './data';
@@ -124,12 +124,11 @@ export default function FeedbackPage() {
   return (
     <Page title={t('adm.today.fb.title')} subtitle={t('adm.today.fb.subtitle')}
       actions={<button type="button" className="a-btn a-btn--sm a-btn--primary" onClick={() => setCreateOpen(true)}><Plus className="h-3.5 w-3.5" />{t('adm.today.fb.new')}</button>}>
-      <KpiRow>
-        <Kpi label={t('adm.today.fb.open')} value={fmtNum(counts.open, lang)} loading={q.isLoading} />
-        <Kpi label={t('adm.today.fb.progress')} value={fmtNum(counts.progress, lang)} loading={q.isLoading} />
-        <Kpi label={t('adm.today.fb.critical')} value={fmtNum(counts.hot, lang)} loading={q.isLoading} />
-        <Kpi label={t('adm.today.fb.resolved30')} value={fmtNum(counts.resolved, lang)} loading={q.isLoading} />
-      </KpiRow>
+      {!q.isLoading && (
+        <Verdict tone={counts.hot ? 'negative' : counts.open ? 'warning' : 'positive'} kicker={t('adm.today.fb.kicker')}
+          headline={counts.open || counts.progress ? t('adm.today.fb.vOpen', { n: fmtNum(counts.open, lang), h: fmtNum(counts.hot, lang) }) : t('adm.today.fb.vClear')}
+          sub={t('adm.today.fb.vSub', { p: fmtNum(counts.progress, lang), r: fmtNum(counts.resolved, lang) })} />
+      )}
       <DataTable data={rows} columns={columns} loading={q.isLoading} error={q.error} onRetry={() => void q.refetch()}
         searchable searchPlaceholder={t('adm.today.fb.search')} getRowId={(r) => r.id}
         onRowClick={(r) => setOpen(r.id)}

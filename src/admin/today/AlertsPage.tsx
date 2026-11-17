@@ -14,7 +14,7 @@ import {
   type AppNotif, ADMIN_FEED_CONFIG, ADMIN_HIDDEN_TYPES, CATEGORY_META, getNotifDef, notifLink,
 } from '@/lib/notifications';
 import { fmtNum, fmtRelative } from '@/lib/adminFormat';
-import { Badge, Card, EmptyState, ErrorState, Kpi, KpiRow, Page, Tabs, useAdminT, useTab } from '@/admin/ui';
+import { Badge, Card, EmptyLine, ErrorState, Page, Tabs, Verdict, useAdminT, useTab } from '@/admin/ui';
 
 const cfg = ADMIN_FEED_CONFIG;
 const shown = (n: AppNotif) => !(ADMIN_HIDDEN_TYPES as readonly string[]).includes(n.notification_type);
@@ -137,18 +137,19 @@ export default function AlertsPage() {
           </button>
         </>
       )}>
-      <KpiRow>
-        <Kpi label={t('adminAlerts.statTotal')} hint={t('notif.last30days')} loading={!rows} value={fmtNum(rows?.length ?? 0, lang)} />
-        <Kpi label={t('adminAlerts.statUnread')} hint={t('notif.toProcess')} loading={!rows} value={fmtNum(unread.length, lang)} />
-        <Kpi label={t('adminAlerts.statUrgent')} hint={t('notif.highPriority')} loading={!rows} value={fmtNum(urgent.length, lang)} />
-      </KpiRow>
+      {rows && (
+        <Verdict tone={urgent.length ? 'negative' : unread.length ? 'warning' : 'positive'} kicker={t('adm.today.al.kicker')}
+          headline={urgent.length ? t('adm.today.al.vUrgent', { n: fmtNum(urgent.length, lang), u: fmtNum(unread.length, lang) })
+            : unread.length ? t('adm.today.al.vUnread', { n: fmtNum(unread.length, lang) }) : t('adm.today.al.vClear')}
+          sub={t('adm.today.al.vSub', { n: fmtNum(rows.length, lang) })} />
+      )}
 
       <div className="flex flex-col gap-4">
         <Tabs items={tabs} value={tab} onChange={setTab} />
         {error && !rows ? <Card><ErrorState onRetry={() => void load()} /></Card>
           : !rows ? <div className="a-card flex flex-col gap-0">{[0, 1, 2, 3, 4].map((i) => <div key={i} className="border-b p-4 last:border-b-0"><div className="a-skel h-4 w-1/3" /><div className="a-skel mt-2 h-3 w-2/3" /></div>)}</div>
             : groups.length === 0 ? (
-              <Card><EmptyState title={tab === 'unread' ? t('notif.emptyUpToDate') : tab === 'urgent' ? t('notif.emptyNoUrgent') : t('adminAlerts.feedEmpty')} body={t('adminAlerts.feedEmptyHint')} /></Card>
+              <EmptyLine>{tab === 'unread' ? t('notif.emptyUpToDate') : tab === 'urgent' ? t('notif.emptyNoUrgent') : t('adminAlerts.feedEmpty')} {t('adminAlerts.feedEmptyHint')}</EmptyLine>
             ) : groups.map(({ g, items }) => (
               <section key={g} className="flex flex-col gap-2">
                 <h2 className="a-t3 text-[12px] font-medium">{t(GROUP_KEY[g])}</h2>

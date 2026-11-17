@@ -23,7 +23,7 @@ const STROKE: Record<NonNullable<LineSeries['role']>, { c: string; w: number; da
   ref: { c: 'var(--a-prev)', w: 1.5, dash: '4 4' },
 };
 
-export function LinesChart({ xs: xsDaily, series: seriesDaily, formatX, formatV, formatTick, height = 220, weekOf }: {
+export function LinesChart({ xs: xsDaily, series: seriesDaily, formatX, formatV, formatTick, height = 220, weekOf, bucket = 'auto' }: {
   xs: string[];
   series: LineSeries[];
   formatX: (x: string) => string;
@@ -32,10 +32,12 @@ export function LinesChart({ xs: xsDaily, series: seriesDaily, formatX, formatV,
   height?: number;
   /** Titre de l'info-bulle quand la série passe par semaine. */
   weekOf?: (x: string) => string;
+  /** `auto` : par semaine quand la série jour par jour ne dirait rien ; `week` : toujours. */
+  bucket?: 'auto' | 'day' | 'week';
 }) {
   // Une série quotidienne à jours vides ou à petit comptage se lit par semaine (même règle que le héros).
   const main = seriesDaily.find((s) => s.role === 'main') ?? seriesDaily[0];
-  const weekly = !!main && shouldWeekly(main.values);
+  const weekly = bucket === 'week' ? xsDaily.length >= 14 : bucket === 'auto' && !!main && shouldWeekly(main.values);
   const { xs, series } = useMemo(() => {
     if (!weekly) return { xs: xsDaily, series: seriesDaily };
     const starts: number[] = [];

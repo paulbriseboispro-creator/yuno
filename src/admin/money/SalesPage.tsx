@@ -85,7 +85,8 @@ export default function SalesPage() {
           previous={p?.gmv}
           sentence={sentence}
           chart={!cur ? <div className="a-skel h-[220px] w-full" /> : days.length === 0 ? null : (
-            <LinesChart xs={days.map((d) => d.d)} series={series} formatX={(x) => fmtAxisDay(x, lang)} formatV={eur}
+            <LinesChart xs={days.map((d) => d.d)} series={series} formatX={(x) => fmtAxisDay(x, lang)} formatV={eur} bucket={days.length >= 28 ? 'week' : 'auto'}
+              weekOf={(x) => t('adm.ui.weekOf', { d: fmtAxisDay(x, lang) })}
               formatTick={(v) => (v >= 1000 ? `${fmtCompact(v, lang)} €` : `${fmtNum(v, lang)} €`)} />
           )}
           note={t('adm.mon.v3s.note')}
