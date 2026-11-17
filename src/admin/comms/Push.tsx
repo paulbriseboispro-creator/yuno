@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Badge, Card, DataTable, Drawer, Kpi, KpiRow, Page, useAdminT, type ColumnDef, type Tone } from '@/admin/ui';
+import { Badge, Block, DataTable, Drawer, Page, useAdminT, type ColumnDef, type Tone } from '@/admin/ui';
 import { supabase } from '@/integrations/supabase/client';
 import { fmtDate, fmtNum, fmtPct } from '@/lib/adminFormat';
 import { COMMS_KEY, usePushCampaigns, usePushClicks, type PushCampaignRow } from './data';
@@ -54,16 +54,19 @@ export default function Push() {
   return (
     <Page title={t('adm.comms.pu.title')} subtitle={t('adm.push.historyScope')}
       actions={<button type="button" className="a-btn a-btn--primary" onClick={() => setOpen(true)}>{t('adminPush.newCampaign')}</button>}>
-      <KpiRow>
-        <Kpi label={t('adm.comms.pu.k.campaigns')} value={fmtNum(rows.length, lang)} loading={q.isLoading} />
-        <Kpi label={t('adm.comms.cp.c.sent')} value={fmtNum(sent, lang)} loading={q.isLoading} />
-        <Kpi label={t('adm.comms.pu.clicks')} value={fmtNum(clicked, lang)} hint={t('adm.comms.pu.k.clicksHint')} loading={q.isLoading || clicks.isLoading} />
-        <Kpi label={t('adminPush.ctr')} value={sent >= 30 ? fmtPct((clicked * 100) / sent, 1) : '—'} hint={t('adm.comms.pu.k.ctrHint')} loading={q.isLoading || clicks.isLoading} />
-      </KpiRow>
-      <Card padded={false} title={t('adminPush.history')}>
+      <section className="flex flex-col gap-2">
+        <span className="a-kicker">{t('adm.comms.pu3.kicker')}</span>
+        <p className="a-hero-sentence max-w-[68ch]">
+          {q.isLoading || clicks.isLoading ? <span className="a-skel inline-block h-5 w-96 max-w-full align-middle" /> : rows.length === 0 ? t('adm.comms.pu3.none')
+            : sent >= 30 ? t('adm.comms.pu3.sentence', { n: fmtNum(rows.length, lang), sent: fmtNum(sent, lang), clicks: fmtNum(clicked, lang), pct: fmtPct((clicked * 100) / sent, 1, lang) })
+              : t('adm.comms.pu3.few', { n: fmtNum(rows.length, lang), sent: fmtNum(sent, lang) })}
+        </p>
+        <p className="a-t3 text-[12px]">{t('adm.comms.pu.k.clicksHint')} {t('adm.comms.pu.k.ctrHint')}</p>
+      </section>
+      <Block title={t('adminPush.history')} meta={String(rows.length)}>
         <DataTable data={q.data} columns={cols} loading={q.isLoading} error={q.error} onRetry={() => void q.refetch()} searchable getRowId={(r) => r.id}
           initialSort={[{ id: 'date', desc: true }]} empty={{ title: t('adminPush.noCampaigns') }} />
-      </Card>
+      </Block>
       {open && <NewPush onClose={() => { setOpen(false); if (sp.has('new')) setSp((prev) => { const n = new URLSearchParams(prev); n.delete('new'); return n; }, { replace: true }); }} />}
     </Page>
   );

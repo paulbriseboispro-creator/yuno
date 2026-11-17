@@ -7,7 +7,7 @@ import { useMemo, useState } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Badge, DataTable, Dialog, Kpi, KpiRow, useAdminT, type ColumnDef } from '@/admin/ui';
+import { Badge, DataTable, Dialog, useAdminT, type ColumnDef } from '@/admin/ui';
 import { supabase } from '@/integrations/supabase/client';
 import { fmtDate, fmtNum } from '@/lib/adminFormat';
 import { COMMS_KEY, type WaitlistEntry } from './data';
@@ -62,13 +62,11 @@ export default function LinksWaitlist({ waitlist }: { waitlist: UseQueryResult<W
   const total = all?.length ?? 0;
   return (
     <>
-      <KpiRow>
-        <Kpi label={t('adminWaitlist.registered')} value={fmtNum(total, lang)} loading={waitlist.isLoading} />
-        <Kpi label={t('adm.links.fromBio')} value={fmtNum((all ?? []).filter((e) => e.source === 'links').length, lang)} loading={waitlist.isLoading} />
-        <Kpi label={t('adminWaitlist.withCity')} value={fmtNum((all ?? []).filter((e) => e.city).length, lang)} loading={waitlist.isLoading} />
-        <Kpi label={t('adminWaitlist.notified')} value={fmtNum((all ?? []).filter((e) => e.notified_at).length, lang)} loading={waitlist.isLoading} />
-      </KpiRow>
-      <div className="a-card">
+      <p className="a-hero-sentence max-w-[68ch]">
+        {waitlist.isLoading ? <span className="a-skel inline-block h-5 w-80 max-w-full align-middle" /> : total === 0 ? t('adm.comms.ln3.wlNone')
+          : t('adm.comms.ln3.wl', { n: fmtNum(total, lang), bio: fmtNum((all ?? []).filter((e) => e.source === 'links').length, lang), city: fmtNum((all ?? []).filter((e) => e.city).length, lang), notified: fmtNum((all ?? []).filter((e) => e.notified_at).length, lang) })}
+      </p>
+      <div>
         <DataTable data={rows} columns={cols} loading={waitlist.isLoading} error={waitlist.error} onRetry={() => void waitlist.refetch()} searchable getRowId={(r) => r.id}
           searchPlaceholder={t('adminWaitlist.searchPlaceholder')} initialSort={[{ id: 'created_at', desc: true }]}
           toolbar={(

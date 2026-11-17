@@ -7,13 +7,12 @@
  * adresse : texte exact, date, source, par produit. Lecture seule.
  */
 import { useState, type FormEvent } from 'react';
-import {
-  Badge, Card, DataTable, EmptyState, Grid, Kpi, KpiRow, Page, Section, Timeline, useAdminT, type ColumnDef,
-} from '@/admin/ui';
+import { Badge, Block, DataTable, Page, StatStrip, Timeline, useAdminT, type ColumnDef, type Stat } from '@/admin/ui';
 import { fmtDate, fmtNum, fmtPct } from '@/lib/adminFormat';
 import { useLegalConsents, type ImportRow, type ProductConsents } from './data';
 import { proHref } from './rules';
 import { SourceNote } from './ui';
+import { Cutoff, Disclosure, Ledger, LedgerRow, ShareBar, StateMark } from './parts';
 import { tOr } from './format';
 
 type Prod = 'tickets' | 'crm' | 'platform';
@@ -67,55 +66,90 @@ export default function ConsentsPage() {
     ...proof.opt_outs.map((x, i) => ({ id: `o${i}`, at: x.at, tone: 'negative' as const, title: t('adm.lg2.cs.optOut', { r: x.reason ?? '—' }), body: x.name ?? undefined })),
   ].sort((a, b) => b.at.localeCompare(a.at)) : [];
 
+  const mail = { ok: sum('subscribed'), out: sum('unsubscribed'), sup: (d?.suppressions.email_suppressions ?? 0) + (d?.suppressions.email_opt_outs ?? 0) };
+  const sms = { ok: sum('sms_ok'), stop: sum('sms_stop') };
+  const ev = d?.events;
+  const share = sum('subscribed') ? sum('with_proof') / sum('subscribed') : null;
+  const stats: Stat[] = [
+    { key: 'proof', label: t('adm.lg2.cs.k.proof'), value: share == null ? '—' : fmtPct(share * 100, 0, lang), hint: t('adm.lg2.cs.k.proofHint'), loading: !d },
+    { key: 'granted', label: t('adm.lg2.cs.k.granted'), value: fmtNum(ev?.granted_period, lang), current: ev?.granted_period, previous: ev?.granted_previous, loading: !d },
+    { key: 'withdrawn', label: t('adm.lg2.cs.k.withdrawn'), value: fmtNum(ev?.withdrawn_period, lang), current: ev?.withdrawn_period, previous: ev?.withdrawn_previous, invert: true, loading: !d },
+    { key: 'unattested', label: t('adm.lg2.cs.k.unattested'), value: fmtNum(sum('imports_unattested') + sum('imports_support'), lang), hint: t('adm.lg2.cs.k.unattestedHint'), loading: !d },
+  ];
+
   return (
     <Page title={t('adm.lg2.cs.title')} subtitle={t('adm.lg2.cs.sub')} period>
-      <KpiRow>
-        <Kpi label={t('adm.lg2.cs.k.subscribed')} loading={!d} value={fmtNum(sum('subscribed'), lang)} hint={t('adm.lg2.cs.k.subscribedHint')} />
-        <Kpi label={t('adm.lg2.cs.k.proof')} loading={!d} value={sum('subscribed') ? fmtPct((sum('with_proof') / sum('subscribed')) * 100) : '—'} hint={t('adm.lg2.cs.k.proofHint')} />
-        <Kpi label={t('adm.lg2.cs.k.granted')} loading={!d} value={fmtNum(d?.events.granted_period, lang)} current={d?.events.granted_period} previous={d?.events.granted_previous} />
-        <Kpi label={t('adm.lg2.cs.k.withdrawn')} loading={!d} value={fmtNum(d?.events.withdrawn_period, lang)} current={d?.events.withdrawn_period} previous={d?.events.withdrawn_previous} invert />
-        <Kpi label={t('adm.lg2.cs.k.suppressed')} loading={!d} value={fmtNum((d?.suppressions.email_suppressions ?? 0) + (d?.suppressions.email_opt_outs ?? 0), lang)} hint={t('adm.lg2.cs.k.suppressedHint')} />
-        <Kpi label={t('adm.lg2.cs.k.unattested')} loading={!d} value={fmtNum(sum('imports_unattested') + sum('imports_support'), lang)} hint={t('adm.lg2.cs.k.unattestedHint')} />
-      </KpiRow>
-
-      <Section title={t('adm.lg2.cs.search')} description={t('adm.lg2.cs.searchSub')}>
-        <form onSubmit={submit} className="flex flex-wrap gap-2">
-          <input className="a-input max-w-[380px]" type="email" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="nom@exemple.fr" aria-label={t('adm.lg2.cs.search')} />
-          <button type="submit" className="a-btn a-btn--primary" disabled={draft.trim().length < 3}>{t('adm.lg2.cs.find')}</button>
-          {email && <button type="button" className="a-btn a-btn--ghost" onClick={() => { setDraft(''); setEmail(''); }}>{t('adm.lg2.clear')}</button>}
+      {/* L'action principale : retrouver la preuve d'une adresse. */}
+      <section className="flex flex-col gap-3" aria-label={t('adm.lg2.cs.search')}>
+        <span className="a-kicker">{t('adm.lg3.cs.kicker')}</span>
+        <h2 className="a-t1 text-[26px] font-semibold leading-[1.2] tracking-[-0.03em]" style={{ textWrap: 'balance', maxWidth: '30ch' }}>{t('adm.lg3.cs.ask')}</h2>
+        <form onSubmit={submit} className="flex max-w-[640px] flex-wrap gap-2">
+          <input className="a-input min-w-[240px] flex-1" style={{ height: 44, fontSize: 15 }} type="email" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="nom@exemple.fr" aria-label={t('adm.lg2.cs.search')} />
+          <button type="submit" className="a-btn a-btn--primary" style={{ height: 44, padding: '0 20px', fontSize: 14 }} disabled={draft.trim().length < 3}>{t('adm.lg2.cs.find')}</button>
+          {email && <button type="button" className="a-btn a-btn--ghost" style={{ height: 44 }} onClick={() => { setDraft(''); setEmail(''); }}>{t('adm.lg2.clear')}</button>}
         </form>
-        {email && proof && (
-          <Grid cols={2}>
-            <Card title={t('adm.lg2.cs.proofOf', { e: proof.email })}>
-              <Timeline items={proofItems} empty={t('adm.lg2.cs.noProof')} />
-            </Card>
-            <Card title={t('adm.lg2.cs.registry')} padded={false}>
-              {proof.subscriptions.length === 0 ? <EmptyState title={t('adm.lg2.cs.notInRegistry')} /> : (
-                <table className="a-table">
-                  <thead><tr><th>{t('adm.lg2.cs.col.scope')}</th><th>{t('adm.lg2.cs.col.product')}</th><th>{t('adm.lg2.cs.col.state')}</th><th>{t('adm.lg2.cs.col.at')}</th></tr></thead>
-                  <tbody>{proof.subscriptions.map((s, i) => (
-                    <tr key={i}>
-                      <td>{s.name ?? t('adm.lg2.product.platform')}</td>
-                      <td>{t(`adm.lg2.product.${s.product}`)}</td>
-                      <td>{s.opted_in ? <Badge tone="positive">{t('adm.lg2.cs.optedIn')}</Badge> : <Badge tone="negative">{t('adm.lg2.cs.optedOut')}</Badge>}{s.from_import && <span className="a-t3 text-[12px]"> · {t('adm.lg2.cs.fromFile')}</span>}</td>
-                      <td className="a-t2">{fmtDate(s.recorded_at, lang, 'short')}</td>
-                    </tr>))}
-                  </tbody>
-                </table>
-              )}
-            </Card>
-          </Grid>
+        <p className="a-t3 text-[12.5px]">{t('adm.lg2.cs.searchSub')}</p>
+      </section>
+
+      {email && (
+        <Block title={t('adm.lg2.cs.proofOf', { e: proof?.email ?? email })}>
+          {q.isLoading && !proof ? <div className="a-skel h-24 w-full" /> : !proof ? <Cutoff>{t('adm.lg2.cs.noProof')}</Cutoff> : (
+            <div className="grid grid-cols-1 gap-x-10 gap-y-8 lg:grid-cols-2">
+              <div className="min-w-0"><Timeline items={proofItems} empty={t('adm.lg2.cs.noProof')} /></div>
+              <div className="min-w-0">
+                <span className="a-kicker">{t('adm.lg2.cs.registry')}</span>
+                {proof.subscriptions.length === 0 ? <div className="mt-2"><Cutoff>{t('adm.lg2.cs.notInRegistry')}</Cutoff></div> : (
+                  <Ledger className="mt-2">
+                    {proof.subscriptions.map((s, i) => (
+                      <LedgerRow key={i} className="grid-cols-[minmax(0,1fr)_auto_auto]">
+                        <span className="a-t1 min-w-0 truncate text-[13px]">{s.name ?? t('adm.lg2.product.platform')} <span className="a-t3">· {t(`adm.lg2.product.${s.product}`)}{s.from_import ? ` · ${t('adm.lg2.cs.fromFile')}` : ''}</span></span>
+                        <StateMark tone={s.opted_in ? 'ok' : 'late'}>{s.opted_in ? t('adm.lg2.cs.optedIn') : t('adm.lg2.cs.optedOut')}</StateMark>
+                        <span className="a-mono a-t3 text-[11px]">{fmtDate(s.recorded_at, lang, 'short')}</span>
+                      </LedgerRow>
+                    ))}
+                  </Ledger>
+                )}
+              </div>
+            </div>
+          )}
+        </Block>
+      )}
+
+      <Block title={t('adm.lg3.cs.right')} meta={t('adm.lg3.cs.rightMeta')}>
+        {!d ? <div className="a-skel h-24 w-full" /> : (
+          <div className="flex flex-col gap-7">
+            <p className="a-hero-sentence max-w-[68ch]">{t('adm.lg3.cs.sentence', { mail: fmtNum(mail.ok, lang), sms: fmtNum(sms.ok, lang) })}</p>
+            <div className="grid grid-cols-1 gap-x-10 gap-y-7 lg:grid-cols-2">
+              <div className="flex flex-col gap-2.5">
+                <span className="a-kicker">{t('adm.lg3.cs.mail')}</span>
+                <ShareBar emptyText={t('adm.lg3.cs.noMail')} parts={[
+                  { key: 'ok', label: t('adm.lg3.cs.reachable'), value: mail.ok, display: fmtNum(mail.ok, lang), tone: 'strong' },
+                  { key: 'out', label: t('adm.lg3.cs.unsub'), value: mail.out, display: fmtNum(mail.out, lang), tone: 'soft' },
+                  { key: 'sup', label: t('adm.lg3.cs.suppressed'), value: mail.sup, display: fmtNum(mail.sup, lang), tone: 'alert' },
+                ]} />
+              </div>
+              <div className="flex flex-col gap-2.5">
+                <span className="a-kicker">{t('adm.lg3.cs.sms')}</span>
+                <ShareBar emptyText={t('adm.lg3.cs.noSms')} parts={[
+                  { key: 'ok', label: t('adm.lg3.cs.reachable'), value: sms.ok, display: fmtNum(sms.ok, lang), tone: 'strong' },
+                  { key: 'stop', label: t('adm.lg3.cs.stop'), value: sms.stop, display: fmtNum(sms.stop, lang), tone: 'alert' },
+                ]} />
+              </div>
+            </div>
+            <StatStrip items={stats} />
+          </div>
         )}
-      </Section>
+      </Block>
 
-      <Section title={t('adm.lg2.cs.byProduct')} description={t('adm.lg2.cs.byProductSub')}>
+      <Disclosure title={t('adm.lg2.cs.byProduct')} hint={t('adm.lg2.cs.byProductSub')} defaultOpen>
         <DataTable data={productRows} columns={pcols} loading={q.isLoading} error={q.isError ? q.error : undefined} onRetry={() => void q.refetch()} getRowId={(r) => r.prod} />
-      </Section>
+      </Disclosure>
 
-      <Section title={t('adm.lg2.cs.imports')} description={t('adm.lg2.cs.importsSub')}>
+      <Disclosure title={t('adm.lg2.cs.imports')} hint={d ? fmtNum(d.imports.length, lang) : undefined}>
+        <Cutoff>{t('adm.lg2.cs.importsSub')}</Cutoff>
         <DataTable data={d?.imports} columns={icols} loading={q.isLoading} error={q.isError ? q.error : undefined} onRetry={() => void q.refetch()}
           searchable getRowId={(r) => `${r.channel}:${r.id}`} rowHref={(r) => proHref(r.key)} empty={{ title: t('adm.lg2.cs.noImports') }} />
-      </Section>
+      </Disclosure>
 
       <SourceNote>{t('adm.lg2.cs.note')}</SourceNote>
     </Page>

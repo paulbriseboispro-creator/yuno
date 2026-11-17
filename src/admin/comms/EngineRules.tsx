@@ -7,13 +7,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Badge, DataTable, Drawer, KeyValue, Status, Tabs, useAdminT, type ColumnDef } from '@/admin/ui';
+import { Badge, Block, Drawer, KeyValue, Tabs, useAdminT } from '@/admin/ui';
 import { fmtDate, fmtEur, fmtNum, fmtPct } from '@/lib/adminFormat';
 import { ENGINE_RULES, tapRate } from '@/lib/pushEngine';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 import { COMMS_KEY, useRuleTemplates, type EngineOverview, type RuleStats, type RuleTemplate } from './data';
 import { rpc } from '../system/data';
 import { Field, SwitchRow } from '@/admin/ui';
+import { Cutoff, Ledger, LedgerRow, MiniBar, StateMark } from '../legal/parts';
 
 const ORDER = new Map(ENGINE_RULES.map((r, i) => [r.key as string, i]));
 
@@ -22,36 +23,36 @@ export default function EngineRules({ data }: { data: EngineOverview }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
   const rows = useMemo(() => [...data.rules].filter((r) => ORDER.has(r.key)).sort((a, b) => ORDER.get(a.key)! - ORDER.get(b.key)!), [data.rules]);
   const open = rows.find((r) => r.key === openKey) ?? null;
-
-  const cols: ColumnDef<RuleStats, unknown>[] = [
-    { id: 'rule', header: t('adm.comms.en.r.rule'), accessorFn: (r) => ORDER.get(r.key) ?? 0,
-      cell: ({ row }) => (
-        <div className="min-w-0">
-          <div className="a-t1 truncate font-medium">{t(`adm.engine.rule.${row.original.key}.name`)}</div>
-          <div className="a-t3 max-w-[56ch] truncate text-[12px]">{t(`adm.engine.rule.${row.original.key}.desc`)}</div>
-        </div>
-      ) },
-    { id: 'state', header: t('adm.comms.en.r.state'), accessorFn: (r) => (r.enabled ? 1 : 0),
-      cell: ({ row }) => <Status tone={row.original.enabled ? 'positive' : 'neutral'}>{row.original.enabled ? t('adm.comms.en.r.on') : t('adm.comms.en.r.off')}</Status> },
-    { accessorKey: 'sent', header: t('adm.comms.en.k.sent'), meta: { align: 'right' }, cell: (c) => fmtNum(c.getValue<number>(), lang) },
-    { id: 'taps', header: t('adm.comms.en.k.opened'), meta: { align: 'right' }, accessorFn: (r) => r.taps,
-      cell: ({ row }) => {
-        const rate = tapRate(row.original.taps, row.original.sent);
-        return <span>{fmtNum(row.original.taps, lang)}{rate != null && <span className="a-t3"> · {fmtPct(rate)}</span>}</span>;
-      } },
-    { accessorKey: 'buyers', header: t('adm.comms.en.k.buyers'), meta: { align: 'right' }, cell: (c) => fmtNum(c.getValue<number>(), lang) },
-    { id: 'last', header: t('adm.comms.en.r.last'), accessorFn: (r) => r.lastAt ?? '', cell: ({ row }) => (row.original.lastAt ? fmtDate(row.original.lastAt, lang) : <span className="a-t3">{t('adm.engine.neverSent')}</span>) },
-  ];
+  // Mêmes maxima pour toute la colonne : les barres se comparent d'une ligne à l'autre.
+  const maxSent = Math.max(0, ...rows.map((r) => r.sent));
+  const maxBuyers = Math.max(0, ...rows.map((r) => r.buyers));
+  const maxRate = Math.max(0, ...rows.map((r) => tapRate(r.taps, r.sent) ?? 0));
 
   return (
-    <>
-      <p className="a-t2 -mb-2 max-w-[80ch] text-[13px]">{t('adm.comms.en.r.intro')}</p>
-      <div className="a-card">
-        <DataTable data={rows} columns={cols} getRowId={(r) => r.key} onRowClick={(r) => setOpenKey(r.key)} pageSize={12}
-          empty={{ title: t('adm.comms.en.r.empty') }} />
-      </div>
+    <Block title={t('adm.comms.en3.rules')} meta={t('adm.comms.en3.rulesMeta')}>
+      <Cutoff>{t('adm.comms.en.r.intro')}</Cutoff>
+      {rows.length === 0 ? <Cutoff>{t('adm.comms.en.r.empty')}</Cutoff> : (
+        <Ledger>
+          <div className="a-mono a-t3 hidden grid-cols-[90px_minmax(0,1.6fr)_150px_150px_130px_90px] gap-x-4 px-1 py-2 text-[10.5px] uppercase tracking-wide lg:grid">
+            <span>{t('adm.comms.en.r.state')}</span><span>{t('adm.comms.en.r.rule')}</span><span>{t('adm.comms.en.k.sent')}</span><span>{t('adm.comms.en.k.opened')}</span><span>{t('adm.comms.en.k.buyers')}</span><span>{t('adm.comms.en.r.last')}</span>
+          </div>
+          {rows.map((r) => {
+            const rate = tapRate(r.taps, r.sent);
+            return (
+              <LedgerRow key={r.key} onClick={() => setOpenKey(r.key)} className="grid-cols-1 lg:grid-cols-[90px_minmax(0,1.6fr)_150px_150px_130px_90px]">
+                <StateMark tone={r.enabled ? 'ok' : 'none'}>{r.enabled ? t('adm.comms.en.r.on') : t('adm.comms.en.r.off')}</StateMark>
+                <div className="min-w-0"><div className="a-t1 truncate text-[13.5px] font-medium">{t(`adm.engine.rule.${r.key}.name`)}</div><div className="a-t3 truncate text-[12px]">{t(`adm.engine.rule.${r.key}.desc`)}</div></div>
+                <MiniBar value={r.sent} max={maxSent} display={fmtNum(r.sent, lang)} />
+                <MiniBar value={rate} max={maxRate} display={rate == null ? '—' : fmtPct(rate)} />
+                <MiniBar value={r.buyers} max={maxBuyers} display={fmtNum(r.buyers, lang)} width={64} />
+                <span className="a-mono a-t3 text-[11px]">{r.lastAt ? fmtDate(r.lastAt, lang) : t('adm.engine.neverSent')}</span>
+              </LedgerRow>
+            );
+          })}
+        </Ledger>
+      )}
       {open && <RuleDrawer rule={open} onClose={() => setOpenKey(null)} />}
-    </>
+    </Block>
   );
 }
 

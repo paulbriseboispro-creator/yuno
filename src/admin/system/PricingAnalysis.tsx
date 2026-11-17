@@ -7,7 +7,7 @@
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { useLocaleSection } from '@/contexts/LanguageContext';
-import { Badge, Card, DataTable, ErrorState, KeyValue, ReasonDialog, Section, useAdminT, type ColumnDef } from '@/admin/ui';
+import { Badge, Block, DataTable, ErrorState, KeyValue, ReasonDialog, Section, useAdminT, type ColumnDef } from '@/admin/ui';
 import { fmtDate, fmtNum } from '@/lib/adminFormat';
 import { rpc } from './data';
 import { useLearning, type LearningOverview } from './pricingData';
@@ -55,7 +55,7 @@ export default function PricingAnalysis() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Card title={t('adm.crm.an.learnT')}>
+      <Block title={t('adm.crm.an.learnT')}>
         <div className="flex flex-col gap-3">
           <p className="a-t2 text-[13px] leading-relaxed">{t('adm.crm.an.learnS')}</p>
           <div className="flex items-center gap-3">
@@ -64,7 +64,7 @@ export default function PricingAnalysis() {
           </div>
           <KeyValue items={[{ label: t('adm.sys.pr.an.contributors'), value: t('adm.crm.an.contributors', { n: fmtNum(d.contributors, lang) }) }]} />
         </div>
-      </Card>
+      </Block>
       <Section title={t('adm.crm.an.priors')}>
         <DataTable data={d.priors} columns={priorCols} getRowId={(p) => `${p.family}-${p.variant}-${p.rules_version}`} pageSize={10} empty={{ title: t('adm.crm.an.noPriors') }} />
       </Section>

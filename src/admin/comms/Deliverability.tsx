@@ -1,27 +1,56 @@
 /**
- * Communication › Délivrabilité : « Est-ce que les e-mails de Yuno et de ses
- * clients arrivent ? » UN seul endroit pour ce qui vivait dans six écrans :
- * pool et plafonds, plaintes et rebonds, Google Postmaster, reprise Gmail,
- * comptes expéditeurs, sous-domaines d'envoi, liste de suppression. Le pool
- * e-mail du mois n'est affiché qu'ici.
+ * Communication › Délivrabilité (v3) : « Est-ce que les e-mails de Yuno et de
+ * ses clients arrivent ? »
+ *   1. le verdict en héros (« L'envoi est sain » / « Gmail met une partie de
+ *      nos e-mails en spam ») ;
+ *   2. les seuils en bullets : valeur, seuil d'alerte, zones ;
+ *   3. le plafond du mois en bullets, et les envois par jour sur un même axe ;
+ *   4. les comptes expéditeurs en lignes, leur niveau de confiance sur cinq crans ;
+ *   5. la surveillance en cours en frise ;
+ *   6. repliés : Gmail (reprise, Postmaster), sous-domaines, liste de suppression.
+ * Les RPC sont celles de data.ts, inchangées. Les seuils d'alerte reprennent la
+ * politique d'envoi (CLAUDE.md : disjoncteur à 0,1 % de plaintes et 3 % de
+ * rebonds ; Google : `google_spam_watch` / `google_spam_limit`).
  */
+import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useMemo } from 'react';
-import { rpc } from '../system/data';
 import {
-  Badge, Card, Chart, DataTable, EmptyState, Grid, Kpi, KpiRow, KeyValue, Page, Section, Status, Tabs, useAdminFilters, useAdminT, useTab,
-  type ColumnDef, type Tone,
+  Block, BulletBar, ErrorState, HoverSync, Page, RankBars, SmallMultiples, Spark, useAdminFilters, useAdminT,
+  type Multiple, type Rank,
 } from '@/admin/ui';
 import { fmtAxisDay, fmtDate, fmtNum, fmtPct, fmtRelative } from '@/lib/adminFormat';
+import { rpc, usePlatformSync, useReleaseHealth } from '../system/data';
+import { Cutoff, Disclosure, Ledger, LedgerRow, MiniBar, Scale5, StateMark, Verdict, type Tone3 } from '../legal/parts';
 import { COMMS_KEY, useDeliverability, usePostmaster, useSenders, useSendingDomains, useWatch, type Sender, type SendingDomain } from './data';
-import { useReleaseHealth, usePlatformSync } from '../system/data';
 import { useReasonAction } from './reason';
-import { Meter } from './Meter';
 
-/** Seuil de lecture : sous 30 envois un taux ne dit rien. */
+/** Sous 30 envois un taux ne dit rien. */
 const MIN_SENT = 30;
-const rate = (a: number, b: number, digits = 1) => (b >= MIN_SENT ? fmtPct((a * 100) / b, digits) : '—');
+/** Seuils d'alerte de la politique d'envoi (disjoncteur) ; la zone ambre commence à moitié. */
+const ALERT = { complaints: 0.1, bounces: 3 } as const;
 const isFrozen = (s: Sender) => !!s.cold_frozen_until && new Date(s.cold_frozen_until).getTime() > Date.now();
+type Ask = ReturnType<typeof useReasonAction>['ask'];
+
+/** Un seuil : la valeur contre son repère et ses zones (Few). Sans assez d'envois, une phrase, pas une barre à zéro. */
+function Signal({ label, hint, value, alert, display, alertDisplay, noData }: {
+  label: string; hint: string; value: number | null; alert: number; display: string; alertDisplay: string; noData: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      {value == null ? (
+        <>
+          <div className="flex items-baseline gap-2 text-[13px]"><span className="a-t2 flex-1">{label}</span><span className="a-t3 a-num">—</span></div>
+          <p className="a-t3 text-[12px]">{noData}</p>
+        </>
+      ) : (
+        <>
+          <BulletBar value={value} max={Math.max(alert * 2, value * 1.1)} zones={[alert / 2, alert]} target={alert} targetLabel={alertDisplay} label={label} display={display} />
+          <div className="a-mono a-t3 flex justify-between text-[11px]"><span>{hint}</span><span>{alertDisplay}</span></div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function Deliverability() {
   const { t, lang } = useAdminT();
@@ -32,20 +61,16 @@ export default function Deliverability() {
   const pm = usePostmaster();
   const platform = usePlatformSync(includeDemo);
   const { ask, dialog } = useReasonAction(COMMS_KEY);
-  const tabs = [
-    { value: 'senders', label: t('adm.comms.dl.tab.senders') },
-    { value: 'gmail', label: t('adm.comms.dl.tab.gmail') },
-    { value: 'domains', label: t('adm.comms.dl.tab.domains') },
-    { value: 'suppressions', label: t('adm.comms.dl.tab.suppressions') },
-  ];
-  const [tab, setTab] = useTab(tabs);
 
   const q = health.data?.email.quota ?? null;
-  const rows = senders.data ?? [];
+  const rows = useMemo(() => senders.data ?? [], [senders.data]);
   const sent30 = rows.reduce((a, s) => a + s.sent, 0);
   const bounced30 = rows.reduce((a, s) => a + s.bounced, 0);
   const complained30 = rows.reduce((a, s) => a + s.complained, 0);
   const frozen = rows.filter(isFrozen);
+  const enough = sent30 >= MIN_SENT;
+  const complaints = enough ? (complained30 * 100) / sent30 : null;
+  const bounces = enough ? (bounced30 * 100) / sent30 : null;
 
   // Dernier jour connu de Google Postmaster : le pire des domaines suivis.
   const lastSpam = useMemo(() => {
@@ -56,82 +81,104 @@ export default function Deliverability() {
     }
     return best;
   }, [pm.data]);
+  const spamWatch = (pm.data?.watch ?? 0.001) * 100;
+  const spamLimit = (pm.data?.limit ?? 0.003) * 100;
+  const spamPct = lastSpam ? lastSpam.spam * 100 : null;
 
-  const series = useMemo(() => {
-    const days = (deliv.data?.days ?? []).slice(-range.days);
-    return days.map((d) => ({ day: d.day.slice(0, 10), gmail: d.gmail_sent, other: d.other_sent }));
-  }, [deliv.data, range.days]);
+  // Le verdict : un seul signal en tête, le plus grave (Gmail, plaintes, rebonds, comptes gelés).
+  const verdict = useMemo((): { tone: Tone3; key: string } => {
+    if (spamPct != null && spamPct >= spamWatch) return { tone: spamPct >= spamLimit ? 'late' : 'todo', key: 'gmail' };
+    if (complaints != null && complaints >= ALERT.complaints) return { tone: 'late', key: 'complaints' };
+    if (bounces != null && bounces >= ALERT.bounces) return { tone: 'late', key: 'bounces' };
+    if (frozen.length > 0) return { tone: 'todo', key: 'frozen' };
+    if ((complaints != null && complaints >= ALERT.complaints / 2) || (bounces != null && bounces >= ALERT.bounces / 2)) return { tone: 'todo', key: 'near' };
+    if (!enough && spamPct == null) return { tone: 'none', key: 'few' };
+    return { tone: 'ok', key: 'ok' };
+  }, [spamPct, spamWatch, spamLimit, complaints, bounces, frozen.length, enough]);
+
+  const days = useMemo(() => (deliv.data?.days ?? []).slice(-range.days), [deliv.data, range.days]);
+  const xLabels = days.map((d) => fmtAxisDay(d.day.slice(0, 10), lang));
+  const sumOf = (f: (d: (typeof days)[number]) => number) => days.reduce((a, d) => a + f(d), 0);
+  const openRate = (o: number, s: number) => (s >= MIN_SENT ? Math.round((o * 1000) / s) / 10 : 0);
+  const multiples: Multiple[] = [
+    { key: 'g', label: t('adm.comms.dl3.m.gmailSent'), total: fmtNum(sumOf((d) => d.gmail_sent), lang), series: days.map((d) => d.gmail_sent), format: (v) => fmtNum(v, lang), kind: 'bar', emptyText: t('adm.comms.dl3.m.none') },
+    { key: 'o', label: t('adm.comms.dl3.m.otherSent'), total: fmtNum(sumOf((d) => d.other_sent), lang), series: days.map((d) => d.other_sent), format: (v) => fmtNum(v, lang), kind: 'bar', emptyText: t('adm.comms.dl3.m.none') },
+    { key: 'go', label: t('adm.comms.dl3.m.gmailOpen'), total: fmtPct(openRate(sumOf((d) => d.gmail_opened), sumOf((d) => d.gmail_sent)), 1, lang), series: days.map((d) => openRate(d.gmail_opened, d.gmail_sent)), format: (v) => fmtPct(v, 1, lang), emptyText: t('adm.comms.dl3.m.none') },
+    { key: 'oo', label: t('adm.comms.dl3.m.otherOpen'), total: fmtPct(openRate(sumOf((d) => d.other_opened), sumOf((d) => d.other_sent)), 1, lang), series: days.map((d) => openRate(d.other_opened, d.other_sent)), format: (v) => fmtPct(v, 1, lang), emptyText: t('adm.comms.dl3.m.none') },
+  ];
+
+  const loadingTop = senders.isLoading && !senders.data;
+  if (senders.isError && !senders.data) return <Page title={t('adm.comms.dl.title')} period><ErrorState onRetry={() => void senders.refetch()} /></Page>;
 
   return (
     <Page title={t('adm.comms.dl.title')} subtitle={t('adm.comms.dl.sub')} period>
-      <KpiRow>
-        <Kpi label={t('adm.comms.dl.k.month')} value={q ? `${fmtNum(q.pool_used, lang)} / ${fmtNum(q.pool_cap, lang)}` : '—'} hint={t('adm.comms.dl.k.monthHint')} loading={health.isLoading} />
-        <Kpi label={t('adm.comms.dl.k.complaints')} value={rate(complained30, sent30, 2)} invert hint={t('adm.comms.dl.k.complaintsHint')} loading={senders.isLoading} />
-        <Kpi label={t('adm.comms.dl.k.bounces')} value={rate(bounced30, sent30)} invert hint={t('adm.comms.dl.k.bouncesHint')} loading={senders.isLoading} />
-        <Kpi label={t('adm.comms.dl.k.spam')} value={lastSpam ? fmtPct(lastSpam.spam * 100, 2) : '—'} invert
-          hint={lastSpam ? t('adm.comms.dl.k.spamHint', { d: fmtDate(`${lastSpam.day}T12:00:00Z`, lang) }) : t('adm.comms.dl.k.spamNone')} loading={pm.isLoading} />
-        <Kpi label={t('adm.comms.dl.k.frozen')} value={fmtNum(frozen.length, lang)} invert to="?tab=senders" loading={senders.isLoading} />
-      </KpiRow>
+      {loadingTop ? (
+        <div className="flex flex-col gap-3"><div className="a-skel h-10 w-[30rem] max-w-full" /><div className="a-skel h-4 w-96 max-w-full" /></div>
+      ) : (
+        <Verdict tone={verdict.tone} kicker={t('adm.comms.dl3.kicker')}
+          headline={t(`adm.comms.dl3.head.${verdict.key}`, { n: fmtNum(frozen.length, lang), sent: fmtNum(sent30, lang) })}
+          sub={t(enough ? 'adm.comms.dl3.sub' : 'adm.comms.dl3.subFew', { sent: fmtNum(sent30, lang), k: rows.length, c: complaints == null ? '—' : fmtPct(complaints, 2, lang), b: bounces == null ? '—' : fmtPct(bounces, 1, lang) })} />
+      )}
 
-      <Grid cols={2}>
-        <Card title={t('adm.comms.dl.curve')}>
-          <Chart kind="stacked" data={series} x="day" formatX={(v) => fmtAxisDay(v, lang)} unit="count" height={200}
-            series={[{ key: 'gmail', label: 'Gmail' }, { key: 'other', label: t('adm.comms.dl.others') }]}
-            loading={deliv.isLoading} error={deliv.error} onRetry={() => void deliv.refetch()} empty={t('adm.comms.dl.curveEmpty')} />
-        </Card>
-        <Card title={t('adm.comms.dl.capacity')} footer={q ? t('adm.comms.dl.resets', { d: fmtDate(q.resets_on, lang) }) : undefined}>
-          {q ? (
-            <div className="flex flex-col gap-4">
+      <Block title={t('adm.comms.dl3.thresholds')} meta={t('adm.comms.dl3.thresholdsMeta')}>
+        <div className="grid grid-cols-1 gap-x-10 gap-y-6 md:grid-cols-3">
+          <Signal label={t('adm.comms.dl.k.complaints')} hint={t('adm.comms.dl3.last30')} value={complaints} alert={ALERT.complaints}
+            display={complaints == null ? '—' : fmtPct(complaints, 2, lang)} alertDisplay={t('adm.comms.dl3.alertAt', { v: fmtPct(ALERT.complaints, 1, lang) })} noData={t('adm.comms.dl3.fewSends', { n: MIN_SENT })} />
+          <Signal label={t('adm.comms.dl.k.bounces')} hint={t('adm.comms.dl3.last30')} value={bounces} alert={ALERT.bounces}
+            display={bounces == null ? '—' : fmtPct(bounces, 1, lang)} alertDisplay={t('adm.comms.dl3.alertAt', { v: fmtPct(ALERT.bounces, 0, lang) })} noData={t('adm.comms.dl3.fewSends', { n: MIN_SENT })} />
+          <Signal label={t('adm.comms.dl.k.spam')} hint={lastSpam ? fmtDate(`${lastSpam.day}T12:00:00Z`, lang) : ''} value={spamPct} alert={spamLimit}
+            display={spamPct == null ? '—' : fmtPct(spamPct, 2, lang)} alertDisplay={t('adm.comms.dl3.watchAt', { w: fmtPct(spamWatch, 1, lang), l: fmtPct(spamLimit, 1, lang) })} noData={pm.data && !pm.data.connected ? t('adm.comms.dl.pm.notConnected') : t('adm.comms.dl.k.spamNone')} />
+        </div>
+      </Block>
+
+      <div className="grid grid-cols-1 gap-x-12 gap-y-10 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+        <Block title={t('adm.comms.dl.capacity')} meta={q ? t('adm.comms.dl.resets', { d: fmtDate(q.resets_on, lang) }) : undefined}>
+          {!q ? <Cutoff>{t('adm.comms.dl.capEmpty')}</Cutoff> : (
+            <div className="flex flex-col gap-5">
               {[
                 { l: t('adm.comms.dl.cap.pool'), u: q.pool_used, c: q.pool_cap, h: t('adm.comms.dl.cap.poolHint') },
                 { l: t('adm.comms.dl.cap.day'), u: q.day_used, c: q.day_cap },
                 { l: t('adm.comms.dl.cap.free'), u: q.used, c: q.free + q.credits, h: t('adm.comms.dl.cap.freeHint', { n: fmtNum(q.credits, lang) }) },
                 ...(q.platform_ceiling ? [{ l: t('adm.comms.dl.cap.ceiling'), u: q.platform_sent ?? 0, c: q.platform_ceiling, h: t('adm.comms.dl.cap.ceilingHint') }] : []),
               ].map((r) => (
-                <div key={r.l} className="flex flex-col gap-1.5">
-                  <div className="flex items-baseline justify-between gap-3 text-[13px]">
-                    <span className="a-t2">{r.l}</span>
-                    <span className="a-t1 a-num font-medium">{fmtNum(r.u, lang)} / {fmtNum(r.c, lang)}</span>
-                  </div>
-                  <Meter used={r.u} cap={r.c} />
+                <div key={r.l} className="flex flex-col gap-1">
+                  <BulletBar value={r.u} max={Math.max(1, r.c)} zones={[r.c * 0.7, r.c * 0.9]} label={r.l} display={`${fmtNum(r.u, lang)} / ${fmtNum(r.c, lang)}`} />
                   {r.h && <span className="a-t3 text-[12px]">{r.h}</span>}
                 </div>
               ))}
-              <KeyValue items={[{ label: t('adm.comms.dl.cap.transactional'), value: fmtNum(health.data?.email.transactional_month ?? 0, lang) }]} />
+              <p className="a-t3 text-[12px]">{t('adm.comms.dl.cap.transactional')} : <b className="a-t2 font-medium">{fmtNum(health.data?.email.transactional_month ?? 0, lang)}</b></p>
             </div>
-          ) : <EmptyState title={t('adm.comms.dl.capEmpty')} />}
-        </Card>
-      </Grid>
+          )}
+        </Block>
+        <Block title={t('adm.comms.dl.curve')} meta={t('adm.comms.dl3.sameAxis')}>
+          {deliv.isLoading ? <div className="a-skel h-40 w-full" /> : days.length === 0 ? <Cutoff>{t('adm.comms.dl.curveEmpty')}</Cutoff> : (
+            <HoverSync><SmallMultiples items={multiples} xLabels={xLabels} columns={2} height={52} /></HoverSync>
+          )}
+        </Block>
+      </div>
 
-      <Tabs items={tabs} value={tab} onChange={setTab} />
-      {tab === 'senders' && <SendersTable rows={rows} loading={senders.isLoading} error={senders.error} onRetry={() => void senders.refetch()} ask={ask} />}
-      {tab === 'gmail' && <GmailTab ask={ask} />}
-      {tab === 'domains' && <DomainsTab ask={ask} />}
-      {tab === 'suppressions' && (
-        <Section title={t('adm.comms.dl.supp.title')} description={t('adm.comms.dl.supp.sub')}>
-          <Card padded={false}>
-            <DataTable
-              data={Object.entries(platform.data?.suppression.by_reason ?? {}).map(([reason, n]) => ({ reason, n })).sort((a, b) => b.n - a.n)}
-              loading={platform.isLoading} error={platform.error} onRetry={() => void platform.refetch()}
-              columns={[
-                { accessorKey: 'reason', header: t('adm.comms.dl.supp.reason') },
-                { accessorKey: 'n', header: t('adm.comms.dl.supp.count'), meta: { align: 'right' }, cell: (c) => fmtNum(c.getValue<number>(), lang) },
-              ] as ColumnDef<{ reason: string; n: number }, unknown>[]}
-              empty={{ title: t('adm.comms.dl.supp.none') }} />
-          </Card>
-          <p className="a-t3 text-[12.5px]">{t('adm.comms.dl.supp.total', { total: fmtNum(platform.data?.suppression.total ?? 0, lang), last: fmtNum(platform.data?.suppression.last30 ?? 0, lang) })}</p>
-        </Section>
-      )}
+      <SendersBlock rows={rows} loading={senders.isLoading} ask={ask} />
+      <WatchBlock />
+
+      <Disclosure title={t('adm.comms.dl.tab.gmail')} hint={t('adm.comms.dl3.gmailHint')}><GmailPart ask={ask} /></Disclosure>
+      <Disclosure title={t('adm.comms.dl.tab.domains')} hint={t('adm.comms.dl3.domainsHint')}><DomainsPart ask={ask} /></Disclosure>
+      <Disclosure title={t('adm.comms.dl.supp.title')} hint={platform.data ? fmtNum(platform.data.suppression.total, lang) : undefined}>
+        <Cutoff>{t('adm.comms.dl.supp.sub')}</Cutoff>
+        {platform.isError && !platform.data ? <ErrorState onRetry={() => void platform.refetch()} /> : (
+          <RankBars emptyText={t('adm.comms.dl.supp.none')}
+            items={Object.entries(platform.data?.suppression.by_reason ?? {}).map(([reason, n]): Rank => ({ key: reason, label: reason, value: n, display: fmtNum(n, lang) })).sort((a, b) => b.value - a.value)} />
+        )}
+        <p className="a-t3 text-[12.5px]">{t('adm.comms.dl.supp.total', { total: fmtNum(platform.data?.suppression.total ?? 0, lang), last: fmtNum(platform.data?.suppression.last30 ?? 0, lang) })}</p>
+      </Disclosure>
       {dialog}
     </Page>
   );
 }
 
-type Ask = ReturnType<typeof useReasonAction>['ask'];
-
-function SendersTable({ rows, loading, error, onRetry, ask }: { rows: Sender[]; loading: boolean; error: unknown; onRetry: () => void; ask: Ask }) {
-  const [searchParams] = useSearchParams();
+function SendersBlock({ rows, loading, ask }: { rows: Sender[]; loading: boolean; ask: Ask }) {
+  const [sp] = useSearchParams();
   const { t, lang } = useAdminT();
+  const [filter, setFilter] = useState(sp.get('q') ?? '');
   const setBurst = (s: Sender, allowed: boolean) => ask({
     title: t(allowed ? 'adm.comms.dl.s.burstOnTitle' : 'adm.comms.dl.s.burstOffTitle', { name: s.name }),
     description: t('adm.comms.dl.s.burstDesc'),
@@ -142,118 +189,118 @@ function SendersTable({ rows, loading, error, onRetry, ask }: { rows: Sender[]; 
     title: t('adm.comms.dl.s.liftTitle', { name: s.name }), description: t('adm.comms.dl.s.liftDesc'),
     run: (reason) => rpc('admin_lift_sender_freeze', { p_scope_key: s.scope_key, p_reason: reason }),
   });
-  const columns: ColumnDef<Sender, unknown>[] = [
-    { accessorKey: 'name', header: t('adm.comms.dl.s.account') },
-    { id: 'level', header: t('adm.comms.dl.s.level'), accessorFn: (s) => s.level ?? 0,
-      cell: ({ row }) => {
-        const s = row.original;
-        if (s.level == null) return '—';
-        return (
-          <div className="flex flex-col gap-0.5">
-            <Badge tone={s.level >= 4 ? 'positive' : s.level <= 2 ? 'warning' : 'neutral'}>{t('adm.comms.dl.s.levelN', { n: s.level })}</Badge>
-            {s.rights && <span className="a-t3 whitespace-nowrap text-[11.5px]">{s.rights.burst ? t('adm.comms.dl.s.burstOn') : t('adm.comms.dl.s.rights', { d: fmtNum(s.rights.daily_cap, lang), h: fmtNum(s.rights.per_hour, lang) })}</span>}
-          </div>
-        );
-      } },
-    { accessorKey: 'sent', header: t('adm.comms.dl.s.sent'), meta: { align: 'right' }, cell: (c) => fmtNum(c.getValue<number>(), lang) },
-    { id: 'bounce', header: t('adm.comms.dl.s.bounce'), meta: { align: 'right' }, accessorFn: (s) => (s.sent >= MIN_SENT ? s.bounced / s.sent : -1), cell: ({ row }) => rate(row.original.bounced, row.original.sent) },
-    { id: 'complaint', header: t('adm.comms.dl.s.complaint'), meta: { align: 'right' }, accessorFn: (s) => (s.sent >= MIN_SENT ? s.complained / s.sent : -1), cell: ({ row }) => rate(row.original.complained, row.original.sent, 2) },
-    { id: 'gmail', header: t('adm.comms.dl.s.opens'), meta: { align: 'right' }, enableSorting: false,
-      cell: ({ row }) => { const s = row.original; return `${rate(s.gmail_opened, s.gmail_sent)} / ${rate(s.opened - s.gmail_opened, s.sent - s.gmail_sent)}`; } },
-    { id: 'state', header: t('adm.comms.dl.s.state'), accessorFn: (s) => (isFrozen(s) ? 1 : 0),
-      cell: ({ row }) => {
-        const s = row.original;
-        if (!isFrozen(s)) return <Status tone="positive">{t('adm.comms.dl.s.ok')}</Status>;
-        return <Status tone="negative">{s.reason === 'recidive' ? t('adm.comms.dl.s.recidive') : t('adm.comms.dl.s.frozen', { d: fmtDate(s.cold_frozen_until, lang) })}</Status>;
-      } },
-    { id: 'act', header: '', enableSorting: false, meta: { align: 'right' },
-      cell: ({ row }) => {
-        const s = row.original;
-        return (
-          <div className="flex justify-end gap-1.5">
-            {isFrozen(s) && <button type="button" className="a-btn a-btn--sm" onClick={() => lift(s)}>{t('adm.comms.dl.s.lift')}</button>}
-            <button type="button" className="a-btn a-btn--sm" onClick={() => setBurst(s, !s.burst_allowed)}>{t(s.burst_allowed ? 'adm.comms.dl.s.burstRemove' : 'adm.comms.dl.s.burstAllow')}</button>
-          </div>
-        );
-      } },
-  ];
+  const list = useMemo(() => rows.filter((s) => !filter || s.name.toLowerCase().includes(filter.toLowerCase())).sort((a, b) => b.sent - a.sent), [rows, filter]);
+  const max = Math.max(0, ...rows.map((s) => s.sent));
+  const pc = (a: number, b: number, d = 1) => (b >= MIN_SENT ? fmtPct((a * 100) / b, d, lang) : '—');
   return (
-    <Section title={t('adm.comms.dl.s.title')} description={t('adm.comms.dl.s.sub')}>
-      <Card padded={false}>
-        <DataTable data={rows} columns={columns} loading={loading} error={error} onRetry={onRetry} searchable initialSearch={searchParams.get('q')} initialSort={[{ id: 'sent', desc: true }]}
-          empty={{ title: t('adm.comms.dl.s.none') }} getRowId={(s) => s.scope_key} />
-      </Card>
-    </Section>
+    <Block title={t('adm.comms.dl.s.title')} meta={t('adm.comms.dl3.sendersMeta')}>
+      <Cutoff>{t('adm.comms.dl.s.sub')}</Cutoff>
+      {rows.length > 8 && <input className="a-input max-w-[280px]" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('adm.comms.dl3.filter')} aria-label={t('adm.comms.dl3.filter')} />}
+      {loading ? <div className="a-skel h-24 w-full" /> : list.length === 0 ? <Cutoff>{t('adm.comms.dl.s.none')}</Cutoff> : (
+        <Ledger>
+          {list.map((s) => (
+            <LedgerRow key={s.scope_key} className="grid-cols-1 lg:grid-cols-[minmax(0,1.3fr)_150px_150px_minmax(0,1.1fr)_auto]">
+              <div className="flex min-w-0 flex-col">
+                <span className="a-t1 truncate text-[13.5px] font-medium">{s.name}</span>
+                <span className="a-t3 text-[12px]">{s.rights ? (s.rights.burst ? t('adm.comms.dl.s.burstOn') : t('adm.comms.dl.s.rights', { d: fmtNum(s.rights.daily_cap, lang), h: fmtNum(s.rights.per_hour, lang) })) : '—'}</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                {s.level == null ? <span className="a-t3">—</span> : <><Scale5 level={s.level} label={t('adm.comms.dl.s.levelN', { n: s.level })} /><span className="a-mono a-t3 text-[11px]">{t('adm.comms.dl.s.levelN', { n: s.level })}</span></>}
+              </div>
+              <MiniBar value={s.sent} max={max} display={fmtNum(s.sent, lang)} />
+              <div className="flex flex-col gap-0.5">
+                <span className="a-t2 text-[12px]">{t('adm.comms.dl.s.bounce')} <b className="a-t1 font-medium">{pc(s.bounced, s.sent)}</b> · {t('adm.comms.dl.s.complaint')} <b className="a-t1 font-medium">{pc(s.complained, s.sent, 2)}</b></span>
+                <span className="a-t3 text-[11.5px]">{t('adm.comms.dl.s.opens')} {pc(s.gmail_opened, s.gmail_sent)} / {pc(s.opened - s.gmail_opened, s.sent - s.gmail_sent)}</span>
+              </div>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {isFrozen(s) ? <StateMark tone="late">{s.reason === 'recidive' ? t('adm.comms.dl.s.recidive') : t('adm.comms.dl.s.frozen', { d: fmtDate(s.cold_frozen_until, lang) })}</StateMark> : <StateMark tone="ok">{t('adm.comms.dl.s.ok')}</StateMark>}
+                {isFrozen(s) && <button type="button" className="a-btn a-btn--sm" onClick={() => lift(s)}>{t('adm.comms.dl.s.lift')}</button>}
+                <button type="button" className="a-btn a-btn--sm" onClick={() => setBurst(s, !s.burst_allowed)}>{t(s.burst_allowed ? 'adm.comms.dl.s.burstRemove' : 'adm.comms.dl.s.burstAllow')}</button>
+              </div>
+            </LedgerRow>
+          ))}
+        </Ledger>
+      )}
+    </Block>
   );
 }
 
-function GmailTab({ ask }: { ask: Ask }) {
+/** La surveillance en cours : comptes sous garde et vagues d'envoi, du plus récent au plus ancien. */
+function WatchBlock() {
+  const { t, lang } = useAdminT();
+  const w = useWatch();
+  const live = (w.data?.senders ?? []).filter((x) => new Date(x.until).getTime() > Date.now());
+  const waves = (w.data?.waves ?? []).slice(0, 6);
+  return (
+    <Block title={t('adm.comms.dl.g.watch')} meta={w.data ? t('adm.comms.dl3.watchMeta', { n: live.length, w: waves.length }) : undefined}>
+      {w.isLoading ? <div className="a-skel h-12 w-full" /> : live.length === 0 && waves.length === 0 ? <Cutoff>{t('adm.comms.dl.g.watchNone')}</Cutoff> : (
+        <Ledger>
+          {live.map((x) => (
+            <LedgerRow key={x.scope_key} className="grid-cols-[110px_minmax(0,1fr)_auto]">
+              <StateMark tone="late">{t('adm.comms.dl3.guarded')}</StateMark>
+              <span className="a-t1 truncate text-[13px]">{x.name} <span className="a-t3">· {x.reason}</span></span>
+              <span className="a-mono a-t3 text-[11px]">{t('adm.comms.dl.g.until', { d: fmtDate(x.until, lang) })}</span>
+            </LedgerRow>
+          ))}
+          {waves.map((x) => (
+            <LedgerRow key={x.id} className="grid-cols-[110px_minmax(0,1fr)]">
+              <StateMark tone={x.state === 'halted' ? 'late' : x.state === 'done' ? 'ok' : 'none'}>{t('adm.comms.dl3.wave')}</StateMark>
+              <span className="a-t1 truncate text-[13px]">{x.name} <span className="a-t3">· {t(`adm.comms.dl.g.wave.${x.state}`, { r: x.released ?? 0, t: x.total ?? 0 })}</span></span>
+            </LedgerRow>
+          ))}
+        </Ledger>
+      )}
+    </Block>
+  );
+}
+
+function GmailPart({ ask }: { ask: Ask }) {
   const { t, lang } = useAdminT();
   const d = useDeliverability();
-  const w = useWatch();
   const pm = usePostmaster();
   const toggle = (on: boolean) => d.data && ask({
     title: t(on ? 'adm.comms.dl.g.onTitle' : 'adm.comms.dl.g.offTitle'), description: t('adm.comms.dl.g.desc'),
     run: (reason) => rpc('admin_set_email_deliverability', { p_gmail_recovery: on, p_gmail_engaged_days: d.data!.gmail_engaged_days, p_reason: reason }),
   });
-  const live = (w.data?.senders ?? []).filter((x) => new Date(x.until).getTime() > Date.now());
   return (
     <div className="flex flex-col gap-6">
-      <Section title={t('adm.comms.dl.g.title')} description={t('adm.comms.dl.g.sub')}
-        actions={d.data && <button type="button" className="a-btn a-btn--sm" onClick={() => toggle(!d.data!.gmail_recovery)}>{t(d.data.gmail_recovery ? 'adm.comms.dl.g.turnOff' : 'adm.comms.dl.g.turnOn')}</button>}>
-        <Grid cols={2}>
-          <Card title={<span className="inline-flex items-center gap-2">{t('adm.comms.dl.g.recovery')} {d.data && <Badge tone={d.data.gmail_recovery ? 'accent' : 'neutral'}>{t(d.data.gmail_recovery ? 'adm.comms.dl.g.on' : 'adm.comms.dl.g.off')}</Badge>}</span>}>
-            {d.data ? (
-              <KeyValue items={[
-                { label: t('adm.comms.dl.g.pool'), value: fmtNum(d.data.gmail_engaged_pool, lang) },
-                { label: t('adm.comms.dl.g.held'), value: fmtNum(d.data.gmail_held_30d, lang) },
-                { label: t('adm.comms.dl.g.window', { n: d.data.gmail_engaged_days }), value: d.data.gmail_recovery ? t('adm.comms.dl.g.since', { t: fmtRelative(d.data.started_at, lang) }) : '—' },
-              ]} />
-            ) : <div className="a-skel h-24" />}
-          </Card>
-          <Card title={t('adm.comms.dl.g.watch')}>
-            {live.length === 0 ? <p className="a-t3 text-[13px]">{t('adm.comms.dl.g.watchNone')}</p> : (
-              <ul className="flex flex-col gap-1.5 text-[13px]">
-                {live.map((x) => <li key={x.scope_key}><Status tone="negative">{x.name} · {x.reason} · {t('adm.comms.dl.g.until', { d: fmtDate(x.until, lang) })}</Status></li>)}
-              </ul>
-            )}
-            {(w.data?.waves ?? []).slice(0, 5).map((x) => (
-              <p key={x.id} className="a-t2 mt-2 text-[12.5px]">
-                <Status tone={x.state === 'halted' ? 'negative' : x.state === 'done' ? 'positive' : 'neutral'}>
-                  {x.name} · {t(`adm.comms.dl.g.wave.${x.state}`, { r: x.released ?? 0, t: x.total ?? 0 })}
-                </Status>
-              </p>
-            ))}
-          </Card>
-        </Grid>
-      </Section>
-      <Section title={t('adm.comms.dl.pm.title')} description={t('adm.comms.dl.pm.sub')}>
-        {pm.data && !pm.data.connected && <EmptyState title={t('adm.comms.dl.pm.notConnected')} />}
-        {(pm.data?.domains ?? []).map((dom) => {
-          const rows = dom.compliance?.complianceData?.rowData ?? [];
-          const data = dom.days.slice(-30).map((y) => ({ day: y.day.slice(0, 10), spam: (y.spam ?? 0) * 100 }));
-          return (
-            <Card key={dom.domain} title={dom.domain}
-              actions={<span className="a-t3 text-[12px]" style={dom.last_error ? { color: 'var(--a-neg)' } : undefined}>{dom.last_error ?? t('adm.comms.dl.pm.fetched', { t: fmtRelative(dom.fetched_at, lang) })}</span>}>
-              {rows.length > 0 && (
-                <div className="mb-3 flex flex-wrap gap-1.5">
-                  {rows.map((r) => <Badge key={r.requirement} tone={r.status?.status === 'COMPLIANT' ? 'positive' : 'negative'}>{r.requirement}</Badge>)}
-                </div>
-              )}
-              <Chart kind="line" data={data} x="day" formatX={(v) => fmtAxisDay(v, lang)} height={200}
-                unit={{ label: '%', format: (v) => fmtPct(v, 2) }} series={[{ key: 'spam', label: t('adm.comms.dl.pm.spam') }]} empty={t('adm.comms.dl.pm.noData')} />
-            </Card>
-          );
-        })}
-        <p className="a-t3 text-[12.5px]">{t('adm.comms.dl.pm.read')}</p>
-      </Section>
+      <Cutoff>{t('adm.comms.dl.g.sub')}</Cutoff>
+      {d.data && (
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px]">
+          <StateMark tone={d.data.gmail_recovery ? 'todo' : 'none'}>{t('adm.comms.dl.g.recovery')} · {t(d.data.gmail_recovery ? 'adm.comms.dl.g.on' : 'adm.comms.dl.g.off')}</StateMark>
+          <span className="a-t2">{t('adm.comms.dl.g.pool')} <b className="a-t1 font-medium">{fmtNum(d.data.gmail_engaged_pool, lang)}</b></span>
+          <span className="a-t2">{t('adm.comms.dl.g.held')} <b className="a-t1 font-medium">{fmtNum(d.data.gmail_held_30d, lang)}</b></span>
+          <span className="a-t3">{t('adm.comms.dl.g.window', { n: d.data.gmail_engaged_days })} · {d.data.gmail_recovery ? t('adm.comms.dl.g.since', { t: fmtRelative(d.data.started_at, lang) }) : '—'}</span>
+          <button type="button" className="a-btn a-btn--sm ml-auto" onClick={() => toggle(!d.data!.gmail_recovery)}>{t(d.data.gmail_recovery ? 'adm.comms.dl.g.turnOff' : 'adm.comms.dl.g.turnOn')}</button>
+        </div>
+      )}
+      <div className="flex flex-col gap-1">
+        <span className="a-kicker">{t('adm.comms.dl.pm.title')}</span>
+        <Cutoff>{t('adm.comms.dl.pm.sub')}</Cutoff>
+      </div>
+      {pm.data && !pm.data.connected && <Cutoff>{t('adm.comms.dl.pm.notConnected')}</Cutoff>}
+      {(pm.data?.domains ?? []).map((dom) => {
+        const req = dom.compliance?.complianceData?.rowData ?? [];
+        const series = dom.days.slice(-30).map((y) => (y.spam ?? 0) * 100);
+        return (
+          <div key={dom.domain} className="flex flex-col gap-2 border-t pt-3">
+            <div className="flex flex-wrap items-baseline gap-3">
+              <span className="a-t1 text-[14px] font-medium">{dom.domain}</span>
+              <span className="a-mono a-t3 text-[11px]" style={dom.last_error ? { color: 'var(--a-neg)' } : undefined}>{dom.last_error ?? t('adm.comms.dl.pm.fetched', { t: fmtRelative(dom.fetched_at, lang) })}</span>
+            </div>
+            {req.length > 0 && <div className="flex flex-wrap gap-x-4 gap-y-1">{req.map((r) => <StateMark key={r.requirement} tone={r.status?.status === 'COMPLIANT' ? 'ok' : 'late'}>{r.requirement}</StateMark>)}</div>}
+            {series.some((v) => v > 0) ? <Spark data={series} height={44} /> : <Cutoff>{t('adm.comms.dl.pm.noData')}</Cutoff>}
+          </div>
+        );
+      })}
+      <p className="a-t3 text-[12.5px]">{t('adm.comms.dl.pm.read')}</p>
     </div>
   );
 }
 
-const DOMAIN_TONE: Record<SendingDomain['status'], Tone> = { pending: 'warning', verified: 'neutral', active: 'positive', paused: 'neutral' };
+const DOMAIN_TONE: Record<SendingDomain['status'], Tone3> = { pending: 'todo', verified: 'none', active: 'ok', paused: 'none' };
 
-function DomainsTab({ ask }: { ask: Ask }) {
+function DomainsPart({ ask }: { ask: Ask }) {
   const { t, lang } = useAdminT();
   const q = useSendingDomains();
   const set = (d: SendingDomain, status: 'active' | 'paused') => ask({
@@ -262,27 +309,27 @@ function DomainsTab({ ask }: { ask: Ask }) {
     tone: status === 'active' ? 'primary' : 'danger',
     run: (reason) => rpc('admin_set_email_sending_domain', { p_scope_key: d.scope_key, p_status: status, p_reason: reason }),
   });
-  const columns: ColumnDef<SendingDomain, unknown>[] = [
-    { accessorKey: 'name', header: t('adm.comms.dl.s.account') },
-    { accessorKey: 'address', header: t('adm.comms.dl.d.address'), cell: (c) => <span className="a-mono text-[12.5px]">{c.getValue<string>()}</span> },
-    { accessorKey: 'status', header: t('adm.comms.dl.s.state'), cell: (c) => <Status tone={DOMAIN_TONE[c.getValue<SendingDomain['status']>()]}>{t(`adm.comms.dl.d.st.${c.getValue<string>()}`)}</Status> },
-    { accessorKey: 'verified_at', header: t('adm.comms.dl.d.verified'), cell: (c) => (c.getValue<string | null>() ? fmtDate(c.getValue<string>(), lang) : '—') },
-    { accessorKey: 'activated_at', header: t('adm.comms.dl.d.activated'), cell: (c) => (c.getValue<string | null>() ? fmtDate(c.getValue<string>(), lang) : '—') },
-    { id: 'act', header: '', enableSorting: false, meta: { align: 'right' },
-      cell: ({ row }) => {
-        const d = row.original;
-        if (d.status === 'active') return <button type="button" className="a-btn a-btn--sm" onClick={() => set(d, 'paused')}>{t('adm.comms.dl.d.pause')}</button>;
-        if (d.status === 'pending') return <span className="a-t3 text-[12px]">{t('adm.comms.dl.d.waitVerify')}</span>;
-        return <button type="button" className="a-btn a-btn--sm a-btn--primary" onClick={() => set(d, 'active')}>{t('adm.comms.dl.d.activate')}</button>;
-      } },
-  ];
   return (
-    <Section title={t('adm.comms.dl.d.title')} description={t('adm.comms.dl.d.sub')}>
-      <Card padded={false}>
-        <DataTable data={q.data} columns={columns} loading={q.isLoading} error={q.error} onRetry={() => void q.refetch()} getRowId={(d) => d.scope_key}
-          empty={{ title: t('adm.comms.dl.d.none'), body: t('adm.comms.dl.d.noneBody') }} />
-      </Card>
+    <div className="flex flex-col gap-3">
+      <Cutoff>{t('adm.comms.dl.d.sub')}</Cutoff>
+      {q.isLoading ? <div className="a-skel h-12 w-full" /> : (q.data ?? []).length === 0 ? <Cutoff>{t('adm.comms.dl.d.none')} {t('adm.comms.dl.d.noneBody')}</Cutoff> : (
+        <Ledger>
+          {(q.data ?? []).map((d) => (
+            <LedgerRow key={d.scope_key} className="grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_120px_auto]">
+              <span className="a-t1 truncate text-[13.5px] font-medium">{d.name}</span>
+              <span className="a-mono a-t2 truncate text-[12px]">{d.address}</span>
+              <StateMark tone={DOMAIN_TONE[d.status]}>{t(`adm.comms.dl.d.st.${d.status}`)}</StateMark>
+              <div className="flex items-center justify-end gap-2">
+                <span className="a-mono a-t3 text-[11px]">{d.activated_at ? fmtDate(d.activated_at, lang) : d.verified_at ? fmtDate(d.verified_at, lang) : ''}</span>
+                {d.status === 'active' ? <button type="button" className="a-btn a-btn--sm" onClick={() => set(d, 'paused')}>{t('adm.comms.dl.d.pause')}</button>
+                  : d.status === 'pending' ? <span className="a-t3 text-[12px]">{t('adm.comms.dl.d.waitVerify')}</span>
+                    : <button type="button" className="a-btn a-btn--sm a-btn--primary" onClick={() => set(d, 'active')}>{t('adm.comms.dl.d.activate')}</button>}
+              </div>
+            </LedgerRow>
+          ))}
+        </Ledger>
+      )}
       <p className="a-t3 text-[12.5px]">{t('adm.comms.dl.d.how')}</p>
-    </Section>
+    </div>
   );
 }

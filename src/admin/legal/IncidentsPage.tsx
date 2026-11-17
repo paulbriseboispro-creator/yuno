@@ -8,14 +8,15 @@
  * délais » pour la Billetterie (même accord, article 7). Préparer la liste des
  * pros à prévenir n'envoie rien. Chaque geste demande un motif (journal).
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
-import { Badge, Checkbox, DataTable, Drawer, KeyValue, Kpi, KpiRow, Page, ReasonDialog, Section, Timeline, useAdminT, type ColumnDef } from '@/admin/ui';
+import { Block, Checkbox, Drawer, ErrorState, KeyValue, Page, ReasonDialog, Section, Timeline, useAdminT } from '@/admin/ui';
 import { fmtDate, fmtNum } from '@/lib/adminFormat';
 import { prepareIncidentPros, useIncidentSave, useLegalAccounts, useLegalIncidents, type Incident } from './data';
 import { hoursUntil, proHref, type LegalState } from './rules';
-import { SourceNote, StateBadge } from './ui';
+import { SourceNote } from './ui';
+import { Countdown, Cutoff, Ledger, LedgerRow, StateMark, Steps, useNow, Verdict, type Tone3 } from './parts';
 import { Field, Segmented } from '@/admin/ui';
 import { fromLocalInput, toLocalInput } from './format';
 
@@ -27,53 +28,71 @@ function incidentState(i: Incident, now: number): LegalState {
   return 'todo';
 }
 
-function useNow(): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => { const id = window.setInterval(() => setNow(Date.now()), 60_000); return () => window.clearInterval(id); }, []);
-  return now;
-}
-
 export default function IncidentsPage() {
   const { t, lang } = useAdminT();
   const q = useLegalIncidents();
   const now = useNow();
   const [open, setOpen] = useState<Incident | 'new' | null>(null);
   const list = useMemo(() => q.data?.incidents ?? [], [q.data]);
-  const openList = list.filter((i) => !i.closed_at);
-  const cnil = openList.filter((i) => !i.cnil_notified_at);
+  const openList = useMemo(() => list.filter((i) => !i.closed_at).sort((a, b) => a.deadline.localeCompare(b.deadline)), [list]);
+  // L'incident qui presse : le premier dont la CNIL n'est pas encore prévenue, sinon le premier ouvert.
+  const lead = openList.find((i) => !i.cnil_notified_at) ?? openList[0] ?? null;
   const late = list.filter((i) => incidentState(i, now) === 'late');
 
-  const left = (i: Incident) => {
+  const rowState = (i: Incident): Tone3 => incidentState(i, now);
+  const cnilLabel = (i: Incident) => {
     if (i.closed_at) return t('adm.lg2.in.closed');
     if (i.cnil_notified_at) return t('adm.lg2.in.cnilDone');
     const h = hoursUntil(i.deadline, now) ?? 0;
     return h <= 0 ? t('adm.lg2.in.overdue') : t('adm.lg2.in.left', { h: Math.floor(h) });
   };
 
-  const columns: ColumnDef<Incident, unknown>[] = [
-    { id: 'state', accessorFn: (i) => incidentState(i, now), header: t('adm.lg2.col.state'), meta: { width: '120px' }, cell: (c) => <StateBadge state={incidentState(c.row.original, now)} /> },
-    { accessorKey: 'discovered_at', header: t('adm.lg2.in.col.discovered'), meta: { width: '150px' }, cell: (c) => fmtDate(c.getValue<string>(), lang, 'datetime') },
-    { accessorKey: 'nature', header: t('adm.lg2.in.col.nature'), cell: (c) => <span className="a-t1 line-clamp-2 py-1.5">{c.getValue<string>()}</span> },
-    { accessorKey: 'product', header: t('adm.lg2.col.products'), cell: (c) => <Badge>{t(`adm.lg2.in.product.${c.getValue<string>()}`)}</Badge> },
-    { id: 'accounts', accessorFn: (i) => i.accounts.length, header: t('adm.lg2.in.col.accounts'), meta: { align: 'right' }, cell: (c) => fmtNum(c.getValue<number>(), lang) },
-    { id: 'cnil', accessorFn: (i) => i.deadline, header: t('adm.lg2.in.col.cnil'),
-      cell: (c) => { const i = c.row.original; const h = hoursUntil(i.deadline, now) ?? 0;
-        return <span style={{ color: !i.closed_at && !i.cnil_notified_at ? (h <= 6 ? 'var(--a-neg)' : h <= 24 ? 'var(--a-warn)' : undefined) : undefined }}>{left(i)}</span>; } },
-  ];
-
   return (
     <Page title={t('adm.lg2.in.title')} subtitle={t('adm.lg2.in.sub')}
       actions={<button type="button" className="a-btn a-btn--primary" onClick={() => setOpen('new')}><Plus className="h-4 w-4" />{t('adm.lg2.in.declare')}</button>}>
-      <KpiRow>
-        <Kpi label={t('adm.lg2.in.k.open')} loading={q.isLoading} value={fmtNum(openList.length, lang)} />
-        <Kpi label={t('adm.lg2.in.k.cnil')} loading={q.isLoading} value={fmtNum(cnil.length, lang)} />
-        <Kpi label={t('adm.lg2.in.k.late')} loading={q.isLoading} value={fmtNum(late.length, lang)} />
-        <Kpi label={t('adm.lg2.in.k.total')} loading={q.isLoading} value={fmtNum(list.length, lang)} />
-      </KpiRow>
-      <Section>
-        <DataTable data={list} columns={columns} loading={q.isLoading} error={q.isError ? q.error : undefined} onRetry={() => void q.refetch()}
-          getRowId={(i) => i.id} onRowClick={(i) => setOpen(i)} empty={{ title: t('adm.lg2.in.none'), body: t('adm.lg2.in.noneBody') }} />
-      </Section>
+      {q.isError && !q.data ? <ErrorState onRetry={() => void q.refetch()} /> : !q.data ? (
+        <div className="flex flex-col gap-3"><div className="a-skel h-10 w-[26rem] max-w-full" /><div className="a-skel h-16 w-72" /></div>
+      ) : !lead ? (
+        <Verdict tone="ok" kicker={t('adm.lg3.in.kicker')} headline={t('adm.lg2.in.none')} sub={t('adm.lg3.in.noneSub', { n: list.length })} />
+      ) : (
+        <section className="grid grid-cols-1 gap-x-12 gap-y-8 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+          <Countdown label={t('adm.lg3.in.cnilClock')} hours={hoursUntil(lead.deadline, now) ?? 0} total={72} tone={rowState(lead)}
+            done={lead.cnil_notified_at ? t('adm.lg2.in.cnilDone') : undefined} />
+          <div className="flex min-w-0 flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <span className="a-kicker">{t('adm.lg3.in.lead', { n: openList.length })}</span>
+              <button type="button" className="a-focus a-t1 rounded-md text-left text-[20px] font-semibold leading-snug tracking-[-0.02em] hover:underline" onClick={() => setOpen(lead)}>{lead.nature}</button>
+              <span className="a-t2 text-[12.5px]">{t(`adm.lg2.in.product.${lead.product}`)} · {t('adm.lg3.in.accounts', { n: lead.accounts.length })}{lead.persons_estimate != null ? ` · ${t('adm.lg3.in.persons', { n: fmtNum(lead.persons_estimate, lang) })}` : ''}</span>
+            </div>
+            <Steps items={[
+              { key: 'found', label: t('adm.lg3.in.step.found'), when: fmtDate(lead.discovered_at, lang, 'datetime'), done: true },
+              { key: 'cnil', label: t('adm.lg3.in.step.cnil'), when: lead.cnil_notified_at ? fmtDate(lead.cnil_notified_at, lang, 'datetime') : fmtDate(lead.deadline, lang, 'datetime'), done: !!lead.cnil_notified_at, current: !lead.cnil_notified_at },
+              { key: 'pros', label: t('adm.lg3.in.step.pros'), when: lead.pros_notified_at ? fmtDate(lead.pros_notified_at, lang, 'datetime') : undefined, done: !!lead.pros_notified_at, current: !!lead.cnil_notified_at && !lead.pros_notified_at },
+              { key: 'closed', label: t('adm.lg3.in.step.closed'), when: lead.closed_at ? fmtDate(lead.closed_at, lang, 'datetime') : undefined, done: !!lead.closed_at },
+            ]} />
+            <div><button type="button" className="a-btn a-btn--sm" onClick={() => setOpen(lead)}>{t('adm.lg3.in.openLead')}</button></div>
+          </div>
+        </section>
+      )}
+
+      <Block title={t('adm.lg3.in.register')} meta={q.data ? t('adm.lg3.in.registerMeta', { n: list.length, l: late.length }) : undefined}>
+        {!q.data ? <div className="a-skel h-20 w-full" /> : list.length === 0 ? <Cutoff>{t('adm.lg2.in.noneBody')}</Cutoff> : (
+          <Ledger>
+            {list.map((i) => {
+              const st = incidentState(i, now);
+              return (
+                <LedgerRow key={i.id} onClick={() => setOpen(i)} selected={i.id === lead?.id} className="grid-cols-1 md:grid-cols-[120px_minmax(0,1.6fr)_minmax(0,1fr)_130px]">
+                  <StateMark tone={st}>{t(`adm.lg2.state.${st}`)}</StateMark>
+                  <div className="flex min-w-0 flex-col"><span className="a-t1 line-clamp-1 text-[13.5px] font-medium">{i.nature}</span>
+                    <span className="a-t3 text-[12px]">{fmtDate(i.discovered_at, lang, 'datetime')} · {t(`adm.lg2.in.product.${i.product}`)}</span></div>
+                  <span className="a-t2 text-[12.5px]">{t('adm.lg3.in.accounts', { n: i.accounts.length })}</span>
+                  <span className="a-mono text-[11.5px]" style={{ color: st === 'late' ? 'var(--a-neg)' : undefined }}>{cnilLabel(i)}</span>
+                </LedgerRow>
+              );
+            })}
+          </Ledger>
+        )}
+      </Block>
       <SourceNote jurist>{t('adm.lg2.in.note')}</SourceNote>
       {open && <IncidentDrawer incident={open === 'new' ? null : open} now={now} onClose={() => setOpen(null)} />}
     </Page>

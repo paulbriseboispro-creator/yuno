@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Badge, Card, DataTable, Dialog, ReasonDialog, useAdminT, type ColumnDef } from '@/admin/ui';
+import { Badge, Block, DataTable, Dialog, ReasonDialog, useAdminT, type ColumnDef } from '@/admin/ui';
 import { fmtNum, fmtRelative } from '@/lib/adminFormat';
 import { COMMS_KEY, useCreditAccounts, type CreditAccount, type EngineOverview } from './data';
 import { rpc } from '../system/data';
@@ -51,10 +51,10 @@ export default function EngineCredits({ data }: { data: EngineOverview }) {
   return (
     <div className="flex flex-col gap-6">
       <SettingsGroup title={t('adm.engine.creditsPolicy')} hint={t('adm.comms.en.cr.policyHint')} fields={CREDIT_FIELDS} settings={data.settings} hintPrefix="adm.comms.en.pol" />
-      <Card padded={false} title={t('adm.engine.accounts')}>
+      <Block title={t('adm.engine.accounts')}>
         <DataTable data={q.data} columns={cols} loading={q.isLoading} error={q.error} onRetry={() => void q.refetch()} searchable getRowId={(r) => r.scope}
           empty={{ title: t('adm.engine.noAccounts') }} />
-      </Card>
+      </Block>
 
       {grant && (
         <ReasonDialog open onOpenChange={(v) => { if (!v) setGrant(null); }}
