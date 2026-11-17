@@ -184,7 +184,7 @@ const pilotage: AdminDict = {
   'adm.pil.v3a.none': ['No pro account created over the {period}.', 'Aucun compte pro créé sur les {period}.', 'Ninguna cuenta pro creada en los {period}.'],
   'adm.pil.v3a.noneStarted': ['{n} sign-ups started without reaching an account.', '{n} parcours ont commencé sans aller jusqu’au compte.', '{n} registros empezaron sin llegar a una cuenta.'],
   'adm.pil.v3a.startedLine': ['Sign-ups started', 'Parcours commencés', 'Registros iniciados'],
-  'adm.pil.v3a.heroNote': ['Bars: accounts created per week. The previous period is not recorded yet: no comparison.', 'Barres : comptes créés par semaine. La période précédente n’est pas encore mesurée : pas de comparaison.', 'Barras: cuentas creadas por semana. El periodo anterior aún no se mide: sin comparación.'],
+  'adm.pil.v3a.heroNote': ['Bars: pro accounts created per week. Sign-up journeys started, a different order of magnitude, are in the funnel below.', 'Barres : comptes pros créés par semaine. Les parcours d’inscription commencés, d’un autre ordre de grandeur, sont dans l’entonnoir ci-dessous.', 'Barras: cuentas profesionales creadas por semana. Las altas empezadas, de otro orden de magnitud, están en el embudo de abajo.'],
   'adm.pil.v3a.funnelTitle': ['How far do they go?', 'Jusqu’où vont-ils ?', '¿Hasta dónde llegan?'],
   'adm.pil.v3a.offScale': ['off scale', 'hors échelle', 'fuera de escala'],
   'adm.pil.v3a.worst': ['Biggest loss', 'Plus grosse perte', 'Mayor pérdida'],

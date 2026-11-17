@@ -9,8 +9,7 @@ import { AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 import {
   Badge, Block, BulletBar, CalendarHeat, Card, Chart, CohortGrid, DataTable, Dialog, EmptyState, ErrorState, Funnel, FunnelSteps, Grid, Hero, HeroChart,
   HoverSync, KeyValue, Kpi, KpiRow, Page, RankBars, Section, SmallMultiples, StackedShare, StatStrip, Status, Tabs, Timeline, UptimeBars, Waterfall,
-  useAdminT, type ColumnDef,
-} from '@/admin/ui';
+  useAdminT, type ColumnDef, weekdayInitials } from '@/admin/ui';
 import { fmtAxisDay, fmtEur, fmtNum, fmtPct } from '@/lib/adminFormat';
 import { UiReferenceKit } from './UiReferenceKit';
 
@@ -112,7 +111,7 @@ export default function UiReference() {
             { key: '3', label: 'oct.', size: '14', cells: [1, 0.71, null, null] }, { key: '4', label: 'nov.', size: '6', cells: [1, null, null, null] }]} />
         </Block>
         <Block title={t('adm.sys.ui.v3.calendar')}>
-          <CalendarHeat weekdays={['L', 'M', 'M', 'J', 'V', 'S', 'D']} fmt={(d, v) => `${d} · ${v}`}
+          <CalendarHeat month={(d) => new Intl.DateTimeFormat(lang, { month: 'short' }).format(new Date(`${d}T12:00:00Z`))} weekdays={weekdayInitials(lang)} fmt={(d, v) => `${d} · ${v}`}
             days={Array.from({ length: 84 }, (_, i) => ({ d: new Date(Date.UTC(2026, 7, 24) + i * DAY).toISOString().slice(0, 10), v: i % 7 === 5 ? 30 + (i % 4) * 12 : i % 7 === 4 ? 12 : i % 3 }))} />
         </Block>
       </Grid>

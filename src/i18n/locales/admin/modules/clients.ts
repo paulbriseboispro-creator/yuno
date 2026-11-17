@@ -323,7 +323,7 @@ const dict: AdminDict = {
   'adm.cl.v3.avg': ['{v} on average', '{v} en moyenne', '{v} de media'],
   'adm.cl.v3.drill': ['{rule} · {n} people, top spenders first', '{rule} · {n} personnes, les plus grosses dépenses en tête', '{rule} · {n} personas, mayor gasto primero'],
   'adm.cl.v3.cohMeta': ['last 12 months of first visits', '12 derniers mois de premières venues', 'últimos 12 meses de primeras visitas'],
-  'adm.cl.v3.cohNote': ['Each square: new customers that month, and what was spent that month. Retention by cohort is not computed yet.', 'Chaque case : les nouveaux clients du mois et ce qui a été dépensé ce mois-là. La rétention par cohorte ne se calcule pas encore.', 'Cada casilla: clientes nuevos del mes y lo gastado ese mes. La retención por cohorte aún no se calcula.'],
+  'adm.cl.v3.cohNote': ['Each column: the month’s new customers (first visit on Yuno). Retention per cohort is not computed yet: the trend is read from one month to the next.', 'Chaque colonne : les nouveaux clients du mois (première venue sur Yuno). La rétention par cohorte ne se calcule pas encore : la tendance se lit d’un mois à l’autre.', 'Cada columna: los clientes nuevos del mes (primera visita en Yuno). La retención por cohorte aún no se calcula: la tendencia se lee de un mes a otro.'],
   'adm.cl.v3.noCohort': ['No cohort yet.', "Aucune cohorte pour l'instant.", 'Aún no hay cohortes.'],
   // ── v3 : liste ──
   'adm.cl.v3.nightsShort': ['Nights', 'Nuits', 'Noches'],

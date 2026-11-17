@@ -213,22 +213,25 @@ export function SegmentBar({ segments, selected, onSelect, ariaLabel, fmt }: {
 }) {
   const tip = useTip();
   const shown = segments.filter((s) => s.value > 0);
+  const total = shown.reduce((a, s) => a + s.value, 0);
   return (
     <div className="flex flex-col gap-2" role="group" aria-label={ariaLabel}>
-      <div ref={tip.ref} className="relative flex h-9 w-full gap-[2px]">
+      <div ref={tip.ref} className="relative flex h-10 w-full gap-[2px]">
         {shown.map((s) => {
           const on = selected === s.key;
           return (
             <button key={s.key} type="button" aria-pressed={on} aria-label={`${s.label} ${fmt(s.value)}`}
               {...tip.on(s.label, [{ label: s.hint ?? '', value: fmt(s.value), color: s.color, strong: true }])}
               onClick={() => onSelect(on ? null : s.key)}
-              className="a-focus relative min-w-[28px] overflow-hidden rounded-[3px] border-0 p-0 text-left"
+              className="a-focus relative min-w-[36px] overflow-hidden rounded-[3px] border-0 p-0 text-left"
               style={{
                 flexGrow: s.value, flexBasis: 0, cursor: 'pointer', background: s.color,
                 boxShadow: on ? 'inset 0 0 0 2px var(--a-accent)' : undefined,
                 opacity: selected && !on ? 0.45 : 1, transition: 'opacity 120ms',
               }}>
-              <span className="a-mono absolute bottom-1 left-1.5 text-[11px] font-medium" style={{ color: 'var(--a-text)' }}>{fmt(s.value)}</span>
+              <span className="absolute inset-x-1.5 bottom-1 truncate text-[11.5px] font-medium" style={{ color: 'var(--a-text)' }}>
+                <span className="a-num">{fmt(s.value)}</span>{total > 0 && s.value / total >= 0.14 && <span className="font-normal"> {s.label}</span>}
+              </span>
             </button>
           );
         })}

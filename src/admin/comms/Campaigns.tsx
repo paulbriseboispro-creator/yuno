@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useMemo, useState, type ReactNode } from 'react';
-import { Block, BulletBar, CalendarHeat, DataTable, Hero, HeroChart, Page, useAdminFilters, useAdminT, type ColumnDef, EmptyLine, Fold, Ledger, LedgerRow, MiniBar, StackedShare, Status, type Tone } from '@/admin/ui';
+import { Block, BulletBar, CalendarHeat, DataTable, Hero, HeroChart, Page, useAdminFilters, useAdminT, type ColumnDef, EmptyLine, Fold, Ledger, LedgerRow, MiniBar, StackedShare, Status, type Tone, weekdayInitials } from '@/admin/ui';
 import ContactImportDialog from '@/components/contacts/ContactImportDialog';
 import { fmtAxisDay, fmtCompact, fmtDate, fmtNum, fmtPct } from '@/lib/adminFormat';
 import { relativeDelta } from '../context/period';
@@ -150,7 +150,7 @@ export default function Campaigns() {
 
       <Block title={t('adm.comms.cp3.rhythm')} meta={t('adm.comms.cp3.rhythmMeta')}>
         {loading ? <div className="a-skel h-24 w-full" /> : sends.length === 0 ? <EmptyLine>{t('adm.comms.cp3.rhythmNone')}</EmptyLine> : (
-          <CalendarHeat days={heat} weekdays={['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((x) => x)} fmt={(d, v) => `${fmtDate(`${d}T12:00:00Z`, lang)} · ${fmtNum(v, lang)}`} />
+          <CalendarHeat month={(d) => new Intl.DateTimeFormat(lang, { month: 'short' }).format(new Date(`${d}T12:00:00Z`))} days={heat} weekdays={weekdayInitials(lang)} fmt={(d, v) => `${fmtDate(`${d}T12:00:00Z`, lang)} · ${fmtNum(v, lang)}`} />
         )}
       </Block>
 

@@ -95,7 +95,7 @@ export default function ClubsPage() {
         </Block>
         <Block title={t('adm.mad.cl.calTitle')} meta={t('adm.mad.cl.calMeta')}>
           {!d ? <div className="a-skel h-28 w-full" /> : (
-            <CalendarHeat days={d.series.map((s) => ({ d: s.d, v: s.exits }))} weekdays={weekdayLabels.map((w) => w.slice(0, 1))}
+            <CalendarHeat month={(d) => new Intl.DateTimeFormat(lang, { month: 'short' }).format(new Date(`${d}T12:00:00Z`))} days={d.series.map((s) => ({ d: s.d, v: s.exits }))} weekdays={weekdayLabels.map((w) => w.slice(0, 1))}
               fmt={(x, v) => `${day(x)} · ${exitsN(v)}`} />
           )}
           {d && (

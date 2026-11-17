@@ -33,7 +33,7 @@ export default function AcquisitionPage() {
   const n = (v: number | null | undefined) => fmtNum(v ?? 0, lang);
   const per = t(`adm.pil.v3.per.${period}`);
 
-  const points = useMemo(() => (d?.by_day ?? []).map((x) => ({ x: x.d, v: x.created, prev: x.started })), [d]);
+  const points = useMemo(() => (d?.by_day ?? []).map((x) => ({ x: x.d, v: x.created })), [d]);
   const started = useMemo(() => (d?.by_day ?? []).reduce((s, x) => s + x.started, 0), [d]);
   const sources = useMemo(() => (d ? sourceRows(d.sources, t) : []), [d, t]);
 
@@ -66,7 +66,8 @@ export default function AcquisitionPage() {
           value={n(d?.created)}
           sentence={sentence}
           chart={!d ? <div className="a-skel h-[200px] w-full" /> : points.length === 0 ? null : (
-            <HeroChart data={points} height={200} formatX={(x) => fmtAxisDay(x, lang)} formatV={(v) => n(v)} formatTick={(v) => n(v)}
+            <HeroChart data={points} height={200} formatX={(x) => fmtAxisDay(x, lang)} formatV={(v) => n(v)} formatTick={(v) => n(v)} bucket="week"
+              weekOf={(x) => t('adm.ui.weekOf', { d: fmtAxisDay(x, lang) })}
               labels={{ cur: t('adm.pil.acq.step.created'), prev: t('adm.pil.v3a.startedLine'), peak: t('adm.pil.v3.peak') }} />
           )}
           note={t('adm.pil.v3a.heroNote')}

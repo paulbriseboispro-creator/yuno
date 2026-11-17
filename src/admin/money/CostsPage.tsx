@@ -46,7 +46,7 @@ function itemAmount(m: CostsMonth | null, item: string): { amount: number; auto:
 }
 
 function MarginTab() {
-  const { t, lang } = useAdminT();
+  const { t, lang, label, has } = useAdminT();
   const { range, includeDemo } = useAdminFilters();
   const ov = usePilotOverview(range, includeDemo);
   const cq = useCosts();
@@ -56,7 +56,8 @@ function MarginTab() {
   const [picked, setPicked] = useState<string | null>(null);
   const eur = (v: number) => fmtEur(v, lang);
   const eur0 = (v: number) => fmtEur(v, lang, { cents: false });
-  const itemLabel = (i: string) => costItemLabel(t, i);
+  // Un poste connu a son libellé ; un fournisseur saisi à la main garde son nom propre (« Octopush »).
+  const itemLabel = (i: string) => (has(`adm.mon.cost.item.${i}`) ? t(`adm.mon.cost.item.${i}`) : label(i));
 
   const rows = useMemo<MarginRow[] | null>(() => {
     if (!ov.data || !cq.data) return null;
@@ -127,14 +128,14 @@ function MarginTab() {
       <Block title={t('adm.mon.cost.byMonth')} meta={t('adm.mon.v3k.tableMeta')}>
         {!rows ? <div className="a-skel h-64 w-full" /> : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] border-collapse text-[12.5px]">
+            <table className="w-full min-w-[720px] border-collapse text-[12px]">
               <thead>
                 <tr className="border-b">
                   <th className="a-kicker py-2 pr-3 text-left font-normal">{t('adm.pil.ov.month')}</th>
                   <th className="a-kicker py-2 pr-3 text-right font-normal">{t(moneyLabelKey('yunoRevenue'))}</th>
                   {items.map((i) => <th key={i} className="a-kicker py-2 pr-2 text-right font-normal">{itemLabel(i)}</th>)}
                   <th className="a-kicker py-2 pr-3 text-right font-normal">{t(moneyLabelKey('costs'))}</th>
-                  <th className="a-kicker py-2 text-right font-normal">{t(moneyLabelKey('margin'))}</th>
+                  <th className="a-kicker py-2 pl-2 pr-2 text-right font-normal">{t(moneyLabelKey('margin'))}</th>
                 </tr>
               </thead>
               <tbody>
@@ -146,7 +147,7 @@ function MarginTab() {
                         <button type="button" className="a-focus a-mono a-t1 border-0 bg-transparent p-0 text-left font-[inherit] text-[12px] underline-offset-2 hover:underline" style={{ cursor: 'pointer' }}
                           onClick={() => setPicked(r.m)} aria-pressed={on}>{fmtMonth(r.m, lang)}</button>
                       </td>
-                      <td className="a-mono py-1 pr-3 text-right" style={{ background: cellTint(r.revenue, tops.rev) }}>{eur(r.revenue)}</td>
+                      <td className="a-mono py-1 pr-3 text-right" style={{ background: cellTint(r.revenue, tops.rev) }}>{eur0(r.revenue)}</td>
                       {items.map((i) => {
                         const a = itemAmount(r.month, i);
                         return (
@@ -157,7 +158,7 @@ function MarginTab() {
                                 title={a.auto ? t('adm.mon.v3k.autoHint') : t('adm.mon.cost.edit')}
                                 aria-label={`${itemLabel(i)} · ${fmtMonth(r.m, lang)}`}
                                 onClick={() => setEdit({ m: r.m, item: i, amount: a.line ? String(a.line.amount) : a.auto ? String(a.amount) : '', note: a.line?.note ?? '' })}>
-                                {a.amount > 0 ? eur(a.amount) : <Plus className="inline h-3 w-3" />}
+                                {a.amount > 0 ? eur0(a.amount) : <Plus className="inline h-3 w-3" />}
                               </button>
                               {a.line && (
                                 <button type="button" className="a-focus rounded border-0 bg-transparent p-0.5 opacity-0 group-hover:opacity-100 focus:opacity-100"
@@ -170,8 +171,8 @@ function MarginTab() {
                           </td>
                         );
                       })}
-                      <td className="a-mono py-1 pr-3 text-right" style={{ background: cellTint(r.costs, tops.cost) }}>{eur(r.costs)}</td>
-                      <td className="a-mono py-1 text-right font-semibold" style={{ background: cellTint(r.margin, tops.mar), color: r.margin < 0 ? 'var(--a-neg)' : undefined }}>{eur(r.margin)}</td>
+                      <td className="a-mono py-1 pr-3 text-right" style={{ background: cellTint(r.costs, tops.cost) }}>{eur0(r.costs)}</td>
+                      <td className="a-mono whitespace-nowrap py-1 pl-2 pr-2 text-right font-semibold" style={{ background: cellTint(r.margin, tops.mar), color: r.margin < 0 ? 'var(--a-neg)' : undefined }}>{eur0(r.margin)}</td>
                     </tr>
                   );
                 })}
@@ -281,9 +282,3 @@ function InvoicesTab() {
   );
 }
 
-/** Libellé d'un poste de coût ; un poste inconnu (saisi avant une liste plus courte) garde son nom. */
-function costItemLabel(t: (k: string) => string, item: string): string {
-  const k = `adm.mon.cost.item.${item}`;
-  const v = t(k);
-  return v === k ? item : v;
-}

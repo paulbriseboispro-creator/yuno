@@ -12,7 +12,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, MessageCircle, Phone } from 'lucide-react';
-import { Badge, Block, CalendarHeat, Chart, DataTable, EmptyState, Hero, HeroChart, HoverSync, StatStrip, Status, cellTint, useAdminT, type ColumnDef, type Stat as StripStat, KeyValue, Spine, type SpineItem } from '@/admin/ui';
+import { Badge, Block, Columns, Chart, DataTable, EmptyState, Hero, HeroChart, HoverSync, StatStrip, Status, cellTint, useAdminT, type ColumnDef, type Stat as StripStat, KeyValue, Spine, type SpineItem } from '@/admin/ui';
 import { fmtCompact, fmtDate, fmtEur, fmtNum, fmtRelative } from '@/lib/adminFormat';
 import type { AccountCard, EventRow } from '../data';
 import { YesNo } from '../bits';
@@ -31,11 +31,6 @@ function useMonthFmt() {
     const f = new Intl.DateTimeFormat(lang, { month: 'short', year: '2-digit' });
     return (m: string) => f.format(new Date(`${m.slice(0, 7)}-15T12:00:00Z`));
   }, [lang]);
-}
-
-function weekdayInitials(lang: string): string[] {
-  const f = new Intl.DateTimeFormat(lang, { weekday: 'narrow' });
-  return Array.from({ length: 7 }, (_, i) => f.format(new Date(Date.UTC(2024, 0, 1 + i, 12))));
 }
 
 /** Les morceaux de la frise, du plus récent au plus ancien. */
@@ -94,6 +89,12 @@ export function OverviewTab({ card, onTab }: { card: AccountCard; onTab: (v: str
     return nightsByDay(card.events, from, to);
   }, [card.events]);
   const nights = calendar.filter((d) => d.v > 0).length;
+  // Une colonne par mois : avec quelques nuits par an, un calendrier de 365 cases ne montre que du vide.
+  const byMonth = useMemo(() => {
+    const m = new Map<string, number>();
+    calendar.forEach((d) => m.set(d.d.slice(0, 7), (m.get(d.d.slice(0, 7)) ?? 0) + d.v));
+    return [...m.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [calendar]);
   const nightCount = card.events.filter((e) => !e.cancelled && new Date(e.start_at).getTime() >= Date.now() - 365 * 864e5).length;
 
   return (
@@ -121,8 +122,9 @@ export function OverviewTab({ card, onTab }: { card: AccountCard; onTab: (v: str
           <Block title={t('adm.pros.v3.nightsTitle')} meta={t('adm.pros.v3.nightsMeta', { n: fmtNum(nightCount, lang) })}>
             {nightCount === 0 ? <p className="a-t3 text-[13px]">{t('adm.pros.v3.noNights')}</p> : (
               <div className="flex flex-col gap-2">
-                <CalendarHeat days={calendar} weekdays={weekdayInitials(lang)}
-                  fmt={(d, v) => `${fmtDate(`${d}T12:00:00Z`, lang)} · ${v > 0 ? t('adm.pros.v3.placesN', { n: fmtNum(v, lang) }) : t('adm.pros.v3.noNight')}`} />
+                <Columns label={t('adm.pros.v3.nightsTitle')} highlight="max" values height={120} emptyText={t('adm.pros.v3.noNights')}
+                  items={byMonth.map(([m, v]) => ({ key: m, x: new Intl.DateTimeFormat(lang, { month: 'short' }).format(new Date(`${m}-15T12:00:00Z`)), value: v,
+                    display: v > 0 ? fmtNum(v, lang) : '' }))} />
                 <p className="a-t3 text-[12px]">{t('adm.pros.v3.nightsNote', { n: fmtNum(nights, lang) })}</p>
               </div>
             )}
@@ -142,7 +144,7 @@ export function OverviewTab({ card, onTab }: { card: AccountCard; onTab: (v: str
 }
 
 function AccountRail({ card, onTab }: { card: AccountCard; onTab: (v: string) => void }) {
-  const { t, lang } = useAdminT();
+  const { t, lang, label } = useAdminT();
   const id = card.identity;
   const o = card.owner;
   const row = card.row;
@@ -192,7 +194,7 @@ function AccountRail({ card, onTab }: { card: AccountCard; onTab: (v: string) =>
 
       <KeyValue hideEmpty title={t('adm.pros.tab.team')} items={[
         { label: t('adm.pros.v3.teamSize'), value: <button type="button" className="a-t1 border-0 bg-transparent p-0 underline-offset-2 hover:underline" onClick={() => onTab('team')}>{fmtNum(card.team.length + (o ? 1 : 0), lang)}</button> },
-        ...card.team.slice(0, 4).map((m) => ({ label: m.role, value: m.name ?? m.email })),
+        ...card.team.slice(0, 4).map((m) => ({ label: label(m.role), value: m.name ?? m.email })),
       ]} />
 
       {legal && (

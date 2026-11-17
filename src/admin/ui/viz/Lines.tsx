@@ -5,7 +5,7 @@
  */
 import { useMemo } from 'react';
 import { HoverTip } from './Tip';
-import { allIntegers, linear, linePath, nearestIndex, niceTicks, useWidth } from './core';
+import { allIntegers, linear, monotonePath, nearestIndex, niceTicks, useWidth } from './core';
 import { useHoverIndex } from './Sync';
 
 // ── Plusieurs lignes étiquetées ──────────────────────────────────────────────
@@ -76,7 +76,7 @@ export function LinesChart({ xs, series, formatX, formatV, formatTick, height = 
           ) : null)}
           {series.map((s) => {
             const st = STROKE[s.role ?? 'ink'];
-            const d = linePath(s.values.map((v, i) => (v == null ? null : [sx(i), sy(v)])));
+            const d = monotonePath(s.values.map((v, i) => (v == null ? null : [sx(i), sy(v)])));
             return (
               <g key={s.key}>
                 <path d={d} fill="none" stroke={st.c} strokeWidth={st.w} strokeDasharray={st.dash} strokeLinejoin="round" strokeLinecap="round" />

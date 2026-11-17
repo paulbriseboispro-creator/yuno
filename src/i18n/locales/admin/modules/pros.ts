@@ -474,7 +474,7 @@ const dict: AdminDict = {
   'adm.pros.v3.noSales12': ['No sale in the last 12 months.', 'Aucune vente sur les 12 derniers mois.', 'Ninguna venta en los últimos 12 meses.'],
   'adm.pros.v3.nightsTitle': ['Nights', 'Les nuits', 'Las noches'],
   'adm.pros.v3.nightsMeta': ['{n} over 12 months', '{n} sur 12 mois', '{n} en 12 meses'],
-  'adm.pros.v3.nightsNote': ['One square per day; shade = places taken that night (tickets, tables, guest list). {n} nights with places.', 'Une case par jour ; teinte = places prises ce soir-là (billets, tables, guest list). {n} nuits avec des places.', 'Una casilla por día; tono = plazas de esa noche (entradas, mesas, lista). {n} noches con plazas.'],
+  'adm.pros.v3.nightsNote': ['Places taken each month (tickets, tables, guest list); {n} {n|night|nights} with places.', 'Places prises chaque mois (billets, tables, guest list) ; {n} {n|nuit|nuits} avec des places.', 'Plazas tomadas cada mes (entradas, mesas, lista); {n} {n|noche|noches} con plazas.'],
   'adm.pros.v3.noNights': ['No night over the last 12 months.', 'Aucune soirée sur les 12 derniers mois.', 'Ninguna noche en los últimos 12 meses.'],
   'adm.pros.v3.placesN': ['{n} places', '{n} places', '{n} plazas'],
   'adm.pros.v3.noNight': ['no night', 'pas de soirée', 'sin noche'],
@@ -567,7 +567,7 @@ const dict: AdminDict = {
   'adm.pros.v3.sup.granted': ['accesses granted', 'accès accordés', 'accesos concedidos'],
   'adm.pros.v3.sup.waiting': ['waiting for the pro', 'en attente du pro', 'esperando al pro'],
   'adm.pros.v3.sup.until': ['open until {when}', "ouverte jusqu'à {when}", 'abierta hasta las {when}'],
-  'adm.pros.v3.f.legalAccepted': ['{doc} accepted (version of {d})', '{doc} acceptées (version du {d})', '{doc} aceptadas (versión del {d})'],
+  'adm.pros.v3.f.legalAccepted': ['{doc}: accepted (version of {d})', '{doc} : acceptation (version du {d})', '{doc}: aceptación (versión del {d})'],
 };
 
 export default dict;

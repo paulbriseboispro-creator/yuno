@@ -196,9 +196,11 @@ export interface FunnelStepV2 {
 }
 
 /**
- * Étapes, la perte ÉCRITE entre deux étapes, la plus grosse marquée (en
- * personnes). Une première étape plus de 5 fois plus grande que la suivante
- * sort de l'échelle (barre coupée), les nombres restent exacts.
+ * Étapes en barres horizontales sur UNE échelle commune, la perte ÉCRITE entre
+ * deux étapes (en personnes), la plus coûteuse marquée. Une première étape plus
+ * de 5 fois plus grande que la suivante (des visites face à des comptes) n'est
+ * pas dessinée : elle s'écrit sur sa propre ligne, et l'échelle part de la
+ * deuxième.
  */
 export function FunnelSteps({ steps, lostText, lossLabel, fmtShare, worstLabel, offScaleLabel }: {
   steps: FunnelStepV2[];
@@ -208,42 +210,54 @@ export function FunnelSteps({ steps, lostText, lossLabel, fmtShare, worstLabel, 
   lossLabel?: (lost: string, share: string) => string;
   fmtShare?: (r: number) => string;
   worstLabel?: string;
+  /** Mot à côté d'une première étape trop grande pour l'échelle (« hors échelle »). */
   offScaleLabel?: string;
 }) {
   const offScale = steps.length > 2 && (steps[1]?.value ?? 0) > 0 && steps[0].value > steps[1].value * 5;
-  const top = Math.max(1, ...steps.slice(offScale ? 1 : 0).map((s) => s.value));
+  const drawn = offScale ? steps.slice(1) : steps;
+  const top = Math.max(1, ...drawn.map((s) => s.value));
   const worst = biggestDrop(steps.map((s) => s.value));
   const lossOf = (i: number, lost: number, prev: number) =>
     lostText ? lostText(i, lost) : lossLabel ? lossLabel(String(lost), fmtShare && prev > 0 ? fmtShare(lost / prev) : '') : `−${lost}`;
+  const summary = steps.map((s) => `${s.label} ${s.display}`).join(' → ');
   return (
-    <ol className="grid grid-cols-2 gap-y-6 sm:grid-cols-3 xl:[grid-template-columns:repeat(var(--n),minmax(0,1fr))]" style={{ ['--n' as string]: Math.max(1, steps.length) }}>
+    <div className="flex flex-col" role="img" aria-label={summary}>
       {steps.map((s, i) => {
         const prev = i > 0 ? steps[i - 1].value : null;
         const lost = prev != null ? Math.max(0, prev - s.value) : 0;
-        const isWorst = worst === i && !!worstLabel;
-        const cut = offScale && i === 0;
+        const isWorst = worst === i && lost > 0;
+        const head = offScale && i === 0;
         return (
-          <li key={s.key} className="flex min-w-0 flex-col gap-2 border-l px-4 first:border-l-0 first:pl-0">
-            <span className="a-kicker truncate">{s.label}</span>
-            <span className="a-stat-value">{s.display}</span>
-            <div className="relative flex h-16 items-end border-b" aria-hidden>
-              <div className="w-full rounded-t-[2px]" style={{
-                height: s.value > 0 ? `${cut ? 100 : Math.max(3, (s.value / top) * 100)}%` : 0,
-                background: i === steps.length - 1 ? 'var(--a-chart-1)' : 'color-mix(in srgb, var(--a-text) 26%, transparent)',
-              }} />
-              {cut && <div className="absolute inset-x-0 top-[38%] h-[5px]" style={{ background: 'var(--a-bg)', transform: 'skewY(-6deg)' }} />}
+          <div key={s.key} className="flex flex-col">
+            {prev != null && (
+              <div className="grid grid-cols-[minmax(0,8rem)_minmax(0,1fr)] gap-3 py-1 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)]">
+                <span />
+                <span className="text-[12px] leading-snug" style={{ color: isWorst ? 'var(--a-accent-text)' : 'var(--a-text-3)' }}>
+                  {lost > 0 ? <>{isWorst && worstLabel && <b className="a-mono mr-1.5 text-[10.5px] font-semibold uppercase tracking-[0.04em]">{worstLabel}</b>}↓ {lossOf(i, lost, prev)}</> : '↓'}
+                </span>
+              </div>
+            )}
+            <div className="grid grid-cols-[minmax(0,8rem)_minmax(0,1fr)_auto] items-center gap-3 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto]">
+              <span className="min-w-0">
+                <span className="a-t1 block truncate text-[13px] font-medium">{s.label}</span>
+                {s.source && <span className="a-t3 block truncate text-[11.5px]">{s.source}</span>}
+              </span>
+              {head ? (
+                <span className="a-mono a-t3 text-[11px]">{offScaleLabel ?? ''}</span>
+              ) : (
+                <span className="relative h-5 rounded-[3px]" style={{ background: 'var(--a-grid)' }} aria-hidden>
+                  <span className="absolute inset-y-0 left-0 rounded-[3px]" style={{
+                    width: s.value > 0 ? `max(3px, ${(s.value / top) * 100}%)` : 0,
+                    background: i === steps.length - 1 ? 'var(--a-chart-1)' : 'color-mix(in srgb, var(--a-text) 38%, transparent)',
+                  }} />
+                </span>
+              )}
+              <span className="a-num a-t1 min-w-[3rem] text-right text-[15px] font-semibold">{s.display}</span>
             </div>
-            {cut && offScaleLabel && <span className="a-mono a-t3 -mt-1 text-[10.5px]">{offScaleLabel}</span>}
-            <span className="min-h-[2.4em] text-[12px] leading-snug" style={{ color: isWorst ? 'var(--a-accent-text)' : 'var(--a-text-2)' }}>
-              {prev != null && lost > 0 ? (
-                <>{isWorst && <span className="a-mono mr-1 block text-[10.5px] font-semibold uppercase tracking-[0.04em]">{worstLabel}</span>}{lossOf(i, lost, prev)}</>
-              ) : prev != null ? '—' : ''}
-            </span>
-            {s.source && <span className="a-t3 text-[11.5px] leading-snug">{s.source}</span>}
-          </li>
+          </div>
         );
       })}
-    </ol>
+    </div>
   );
 }
 
@@ -277,12 +291,20 @@ export function CohortGrid({ rows, columns, fmt }: {
 }
 
 // ── Calendrier ───────────────────────────────────────────────────────────────
-export function CalendarHeat({ days, fmt, weekdays }: {
+/** Teinte d'une case : 25 à 85 % d'encre selon la part du maximum ; zéro reste la grille. */
+function heatInk(v: number, max: number): string {
+  if (v <= 0 || max <= 0) return 'var(--a-grid)';
+  return `color-mix(in srgb, var(--a-text) ${Math.round(25 + 60 * Math.min(1, v / max))}%, transparent)`;
+}
+
+export function CalendarHeat({ days, fmt, weekdays, month }: {
   /** Jours consécutifs (AAAA-MM-JJ) et leur valeur. */
   days: Array<{ d: string; v: number }>;
   fmt: (d: string, v: number) => string;
   /** Initiales lundi → dimanche. */
   weekdays: string[];
+  /** Nom court d'un mois pour le repère au-dessus des colonnes (« nov. »). */
+  month?: (d: string) => string;
 }) {
   const tip = useTip();
   const max = Math.max(0, ...days.map((x) => x.v));
@@ -290,18 +312,25 @@ export function CalendarHeat({ days, fmt, weekdays }: {
   const cells: Array<{ d: string; v: number } | null> = [...Array(first).fill(null), ...days];
   const weeks: Array<typeof cells> = [];
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+  const active = days.filter((x) => x.v > 0).length;
   return (
-    <div ref={tip.ref} className="relative flex gap-2">
-      <div className="a-mono a-t3 flex flex-col gap-[3px] text-[10px]">{weekdays.map((w, i) => <span key={i} className="h-3 leading-3">{i % 2 === 0 ? w : ''}</span>)}</div>
+    <div ref={tip.ref} className="relative flex gap-2" role="img" aria-label={`${active} / ${days.length}`}>
+      <div className="a-mono a-t3 flex flex-col gap-[3px] pt-[16px] text-[10px]">{weekdays.map((w, i) => <span key={i} className="h-3 leading-3">{i % 2 === 0 ? w : ''}</span>)}</div>
       <div className="flex gap-[3px] overflow-x-auto">
-        {weeks.map((w, i) => (
-          <div key={i} className="flex flex-col gap-[3px]">
-            {Array.from({ length: 7 }, (_, j) => w[j]).map((c, j) => (
-              <span key={j} className="h-3 w-3 rounded-[2px]" {...(c ? tip.on('', [{ label: '', value: fmt(c.d, c.v), strong: true }]) : {})}
-                style={{ background: c ? (c.v > 0 ? tintOf(intensity(c.v, max)) : 'var(--a-grid)') : 'transparent', outline: c && c.v > 0 && c.v === max ? '1px solid var(--a-chart-1)' : undefined }} />
-            ))}
-          </div>
-        ))}
+        {weeks.map((w, i) => {
+          const firstDay = w.find((c) => c)?.d;
+          const prevFirst = i > 0 ? weeks[i - 1].find((c) => c)?.d : undefined;
+          const newMonth = month && firstDay && (!prevFirst || firstDay.slice(0, 7) !== prevFirst.slice(0, 7));
+          return (
+            <div key={i} className="flex flex-col gap-[3px]">
+              <span className="a-mono a-t3 h-[13px] whitespace-nowrap text-[10px] leading-[13px]">{newMonth && firstDay ? month(firstDay) : ''}</span>
+              {Array.from({ length: 7 }, (_, j) => w[j]).map((c, j) => (
+                <span key={j} className="h-3 w-3 rounded-[2px]" {...(c ? tip.on('', [{ label: '', value: fmt(c.d, c.v), strong: true }]) : {})}
+                  style={{ background: c ? heatInk(c.v, max) : 'transparent', outline: c && c.v > 0 && c.v === max ? '1.5px solid var(--a-chart-1)' : undefined, outlineOffset: 1 }} />
+              ))}
+            </div>
+          );
+        })}
       </div>
       {tip.node}
     </div>

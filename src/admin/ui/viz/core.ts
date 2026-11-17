@@ -63,6 +63,54 @@ export function linePath(pts: Array<[number, number] | null>): string {
   return d;
 }
 
+/**
+ * Courbe adoucie monotone (Fritsch-Carlson) : passe exactement par chaque point
+ * et ne dépasse jamais entre deux points (aucun pic inventé). Les `null` et
+ * `NaN` coupent la courbe.
+ */
+export function monotonePath(pts: Array<[number, number] | null>): string {
+  let d = '';
+  const runs: Array<Array<[number, number]>> = [];
+  let cur: Array<[number, number]> = [];
+  for (const p of pts) {
+    if (!p || !Number.isFinite(p[0]) || !Number.isFinite(p[1])) { if (cur.length) runs.push(cur); cur = []; continue; }
+    cur.push(p);
+  }
+  if (cur.length) runs.push(cur);
+  for (const r of runs) {
+    const n = r.length;
+    d += `M${r[0][0].toFixed(1)},${r[0][1].toFixed(1)}`;
+    if (n === 1) continue;
+    if (n === 2) { d += `L${r[1][0].toFixed(1)},${r[1][1].toFixed(1)}`; continue; }
+    const dx: number[] = [], m: number[] = [];
+    for (let i = 0; i < n - 1; i += 1) { dx.push(r[i + 1][0] - r[i][0]); m.push(dx[i] === 0 ? 0 : (r[i + 1][1] - r[i][1]) / dx[i]); }
+    const tg: number[] = [m[0]];
+    for (let i = 1; i < n - 1; i += 1) tg.push(m[i - 1] * m[i] <= 0 ? 0 : (m[i - 1] + m[i]) / 2);
+    tg.push(m[n - 2]);
+    for (let i = 0; i < n - 1; i += 1) {
+      if (m[i] === 0) { tg[i] = 0; tg[i + 1] = 0; continue; }
+      const a = tg[i] / m[i], b = tg[i + 1] / m[i], h = a * a + b * b;
+      if (h > 9) { const k = 3 / Math.sqrt(h); tg[i] = k * a * m[i]; tg[i + 1] = k * b * m[i]; }
+    }
+    for (let i = 0; i < n - 1; i += 1) {
+      const h = dx[i] / 3;
+      d += `C${(r[i][0] + h).toFixed(1)},${(r[i][1] + h * tg[i]).toFixed(1)} ${(r[i + 1][0] - h).toFixed(1)},${(r[i + 1][1] - h * tg[i + 1]).toFixed(1)} ${r[i + 1][0].toFixed(1)},${r[i + 1][1].toFixed(1)}`;
+    }
+  }
+  return d;
+}
+
+/** Des jours en semaines, en partant de la fin (la dernière semaine finit au dernier jour). */
+export function toWeeks<T extends { x: string; v: number | null; prev?: number | null }>(data: T[]): Array<{ x: string; v: number | null; prev: number | null; days: number }> {
+  const out: Array<{ x: string; v: number | null; prev: number | null; days: number }> = [];
+  for (let end = data.length; end > 0; end -= 7) {
+    const chunk = data.slice(Math.max(0, end - 7), end);
+    const sum = (k: 'v' | 'prev') => (chunk.every((d) => d[k] == null) ? null : chunk.reduce((s, d) => s + (d[k] ?? 0), 0));
+    out.unshift({ x: chunk[0].x, v: sum('v'), prev: sum('prev'), days: chunk.length });
+  }
+  return out;
+}
+
 /** Le plus proche index pour une abscisse, sur `n` points répartis de x0 à x1. */
 export function nearestIndex(x: number, n: number, x0: number, x1: number): number {
   if (n <= 1 || !Number.isFinite(x) || x1 === x0) return 0;
@@ -123,10 +171,10 @@ export function elapsedShare(from: number, to: number, now: number): number {
   return Math.max(0, Math.min(1, (now - from) / span));
 }
 
-/** Teinte d'encre neutre pour un rang d'étape (0..n-1), de 10 à 30 %. */
+/** Teinte d'encre neutre pour un rang d'étape (0..n-1), de 16 à 48 % : chaque étape se distingue. */
 export function stepInk(i: number, n: number): string {
   const k = n <= 1 ? 1 : i / (n - 1);
-  return `color-mix(in srgb, var(--a-text) ${Math.round(10 + k * 20)}%, transparent)`;
+  return `color-mix(in srgb, var(--a-text) ${Math.round(16 + k * 32)}%, transparent)`;
 }
 
 /** Remplissage d'une barre selon le ton (le rouge vif reste l'attention, le retard est l'aplat bordeaux). */
@@ -143,4 +191,10 @@ export function useNow(everyMs = 60_000): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const id = window.setInterval(() => setNow(Date.now()), everyMs); return () => window.clearInterval(id); }, [everyMs]);
   return now;
+}
+
+/** Initiales des jours, lundi → dimanche, dans la langue de l'écran. */
+export function weekdayInitials(lang: string): string[] {
+  const f = new Intl.DateTimeFormat(lang, { weekday: 'narrow' });
+  return Array.from({ length: 7 }, (_, i) => f.format(new Date(Date.UTC(2024, 0, 1 + i, 12))));
 }

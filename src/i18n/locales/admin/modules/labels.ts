@@ -155,6 +155,17 @@ const labels: AdminDict = {
   'adm.lbl.err.network': ['Service unreachable', 'Service injoignable', 'Servicio inaccesible'],
   'adm.lbl.err.missing': ['Something it needs is missing', 'Il lui manque quelque chose', 'Le falta algo'],
   'adm.lbl.err.other': ['Technical error (detail in the logs)', 'Erreur technique (détail dans les journaux)', 'Error técnico (detalle en los registros)'],
+  'adm.ui.weekOf': ['Week of {d}', 'Semaine du {d}', 'Semana del {d}'],
+  'adm.lbl.manager': ['Manager', 'Manager', 'Gerente'],
+  'adm.lbl.owner': ['Owner', 'Titulaire', 'Titular'],
+  'adm.lbl.editor': ['Editor', 'Éditeur', 'Editor'],
+  'adm.lbl.scanner': ['Door scanner', 'Scanneur', 'Escáner'],
+  'adm.lbl.bouncer': ['Door', 'Videur', 'Portero'],
+  'adm.lbl.barman': ['Bartender', 'Barman', 'Camarero'],
+  'adm.lbl.cloakroom': ['Cloakroom', 'Vestiaire', 'Guardarropa'],
+  'adm.lbl.vip_host': ['VIP host', 'Hôte VIP', 'Anfitrión VIP'],
+  'adm.lbl.promoter': ['Promoter', 'Promoteur', 'Promotor'],
+  'adm.lbl.dj': ['DJ', 'DJ', 'DJ'],
 };
 
 export default labels;

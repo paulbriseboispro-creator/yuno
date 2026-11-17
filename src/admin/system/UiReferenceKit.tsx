@@ -5,8 +5,7 @@
 import { useState } from 'react';
 import {
   Block, CapacityBar, Chips, Columns, Complete, Countdown, DeadlineBar, EmptyLine, Grid, Ledger, LedgerRow, Level, LinesChart,
-  MiniBar, Note, PairBars, SegmentBar, Spine, Status, Steps, TinyBars, Verdict, useAdminT,
-} from '@/admin/ui';
+  MiniBar, Note, PairBars, SegmentBar, Spine, Status, Steps, TinyBars, Verdict, useAdminT, weekdayInitials } from '@/admin/ui';
 import { fmtAxisDay, fmtNum } from '@/lib/adminFormat';
 
 const DAY = 86400e3;
@@ -29,7 +28,7 @@ export function UiReferenceKit() {
           ]} />
         </Block>
         <Block title={t('adm.sys.ui.k3.columns')}>
-          <Columns label={t('adm.sys.ui.k3.web')} highlight="max" emptyText="—" items={['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((x, i) => ({ key: String(i), x, value: [3, 4, 2, 9, 22, 31, 6][i], display: n([3, 4, 2, 9, 22, 31, 6][i]) }))} />
+          <Columns label={t('adm.sys.ui.k3.web')} highlight="max" emptyText="—" items={weekdayInitials(lang).map((x, i) => ({ key: String(i), x, value: [3, 4, 2, 9, 22, 31, 6][i], display: n([3, 4, 2, 9, 22, 31, 6][i]) }))} />
         </Block>
       </Grid>
       <Block title={t('adm.sys.ui.k3.segment')}>

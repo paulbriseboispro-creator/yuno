@@ -155,7 +155,7 @@ export default function EventsPage() {
         {!q.isLoading && counts.upcoming > 0 && (
           <div className="flex flex-col gap-2">
             <span className="a-kicker">{t('adm.cl.v3.ev.calendar')}</span>
-            <CalendarHeat days={calendar} weekdays={weekdays}
+            <CalendarHeat month={(d) => new Intl.DateTimeFormat(lang, { month: 'short' }).format(new Date(`${d}T12:00:00Z`))} days={calendar} weekdays={weekdays}
               fmt={(d, v) => `${fmtDate(`${d}T12:00:00Z`, lang, 'day')} · ${t('adm.cl.v3.ev.nN', { n: v })}`} />
           </div>
         )}

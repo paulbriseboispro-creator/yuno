@@ -17,8 +17,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Block, DrillDrawer, ErrorState, Hero, HeroChart, HoverSync, Page, RankBars, StackedShare,
-  intensity, tintOf, useAdminFilters, useAdminT,
-} from '@/admin/ui';
+  intensity, tintOf, useAdminFilters, useAdminT, Columns } from '@/admin/ui';
 import { fmtAxisDay, fmtDate, fmtEur, fmtNum, fmtPct } from '@/lib/adminFormat';
 import { rpc, personName, type CustomerList, type Overview, type Period, type SegmentKey } from './data';
 import { personHref } from './personKey';
@@ -100,8 +99,8 @@ export default function OverviewPage() {
       <Block title={t('adm.cl.v3.gridTitle')} meta={t('adm.cl.v3.gridMeta')}>
         {!o ? <div className="a-skel h-56 w-full" /> : tot && tot.customers === 0 ? <p className="a-t3 text-[13px]">{t('adm.cl.v3.noBase')}</p> : (
           <div className="grid grid-cols-[2.5rem_minmax(0,1fr)] gap-x-3">
-            <div className="a-mono a-t3 flex flex-col justify-between py-2 text-[10.5px]" aria-hidden>
-              <span>{t('adm.cl.v3.ax.recent')}</span><span>{t('adm.cl.v3.ax.old')}</span>
+            <div className="a-mono a-t2 flex flex-col justify-between py-2 text-[11px]" aria-hidden>
+              <span>↑ {t('adm.cl.v3.ax.recent')}</span><span>↓ {t('adm.cl.v3.ax.old')}</span>
             </div>
             <div className="flex flex-col gap-2">
               <div className="grid grid-cols-3 gap-[3px]" style={{ gridTemplateRows: 'repeat(3, minmax(5.5rem, auto))' }}>
@@ -109,10 +108,14 @@ export default function OverviewPage() {
                   const [row, col, span] = SEGMENT_GRID[r.key];
                   const share = tot && tot.customers > 0 ? r.count / tot.customers : 0;
                   const k = intensity(r.count, segMax);
+                  // Le segment le plus précieux (venus souvent, récemment) porte le filet rouge.
+                  const best = r.key === 'champions';
                   return (
                     <button key={r.key} type="button" onClick={() => setSeg(r.key)} disabled={r.count === 0}
+                      aria-label={`${t(`adm.cl.seg.${r.key}`)} : ${fmtNum(r.count, lang)}`}
                       className="a-focus flex min-w-0 flex-col justify-between gap-2 rounded-[4px] border-0 p-3 text-left font-[inherit] hover:outline hover:outline-1"
-                      style={{ gridRow: row + 1, gridColumn: `${col + 1} / span ${span}`, background: r.count ? tintOf(k) : 'var(--a-grid)', cursor: r.count ? 'pointer' : 'default', outlineColor: 'var(--a-accent)' }}>
+                      style={{ gridRow: row + 1, gridColumn: `${col + 1} / span ${span}`, background: r.count ? `color-mix(in srgb, var(--a-text) ${Math.round(6 + 30 * k)}%, transparent)` : 'var(--a-grid)',
+                        boxShadow: best && r.count ? 'inset 3px 0 0 var(--a-chart-1)' : undefined, cursor: r.count ? 'pointer' : 'default', outlineColor: 'var(--a-accent)' }}>
                       <span className="flex items-baseline gap-2">
                         <span className="a-t1 text-[13px] font-medium">{t(`adm.cl.seg.${r.key}`)}</span>
                         <span className="a-t3 truncate text-[11.5px]">{t(`adm.cl.seg.${r.key}.rule`)}</span>
@@ -126,7 +129,7 @@ export default function OverviewPage() {
                   );
                 })}
               </div>
-              <div className="a-mono a-t3 grid grid-cols-3 text-[10.5px]" aria-hidden>
+              <div className="a-mono a-t2 grid grid-cols-3 text-[11px]" aria-hidden>
                 <span>{t('adm.cl.v3.ax.once')}</span><span className="text-center">{t('adm.cl.v3.ax.few')}</span><span className="text-right">{t('adm.cl.v3.ax.often')}</span>
               </div>
             </div>
@@ -137,16 +140,9 @@ export default function OverviewPage() {
       <Block title={t('adm.cl.ov.cohorts')} meta={t('adm.cl.v3.cohMeta')}>
         {!o ? <div className="a-skel h-24 w-full" /> : cohorts.length === 0 ? <p className="a-t3 text-[13px]">{t('adm.cl.v3.noCohort')}</p> : (
           <div className="flex flex-col gap-2">
-            <div className="grid gap-[3px]" style={{ gridTemplateColumns: `repeat(${Math.max(12, cohorts.length)}, minmax(0, 1fr))` }}>
-              {cohorts.map((c) => (
-                <div key={c.month} className="flex min-w-0 flex-col gap-1 rounded-[3px] px-2 py-2" style={{ background: c.new_customers ? tintOf(intensity(c.new_customers, cohMax)) : 'var(--a-grid)' }}
-                  title={`${c.month} · ${fmtNum(c.new_customers, lang)} · ${fmtEur(c.revenue, lang, { cents: false })}`}>
-                  <span className="a-mono a-t3 truncate text-[10.5px]">{monthFmt.format(new Date(`${c.month.slice(0, 7)}-15T12:00:00Z`))}</span>
-                  <span className="a-num a-t1 text-[15px] font-semibold">{fmtNum(c.new_customers, lang)}</span>
-                  <span className="a-mono a-t3 truncate text-[10.5px]">{fmtEur(c.revenue, lang, { cents: false })}</span>
-                </div>
-              ))}
-            </div>
+            <Columns label={t('adm.cl.ov.cohorts')} highlight="last" values emptyText={t('adm.cl.v3.noCohort')}
+              items={cohorts.map((c) => ({ key: c.month, x: monthFmt.format(new Date(`${c.month.slice(0, 7)}-15T12:00:00Z`)), value: c.new_customers,
+                display: fmtNum(c.new_customers, lang) }))} />
             <p className="a-t3 text-[12px]">{t('adm.cl.v3.cohNote')}</p>
           </div>
         )}

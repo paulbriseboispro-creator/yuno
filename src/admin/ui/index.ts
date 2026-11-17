@@ -21,7 +21,7 @@ export { useAdminPortal } from './portal';
 export { useAdminFilters, type AdminFilters } from '../context/useAdminFilters';
 export { ADMIN_PERIODS, periodRange, relativeDelta, type AdminPeriod, type PeriodRange } from '../context/period';
 // v3 : dessins sur mesure, héros, bandes de stats, mises en page de traitement.
-export { useWidth, niceTicks, tintOf, intensity, cellTint, biggestDrop, elapsedShare, stepInk, useNow, TONE_FILL } from './viz/core';
+export { useWidth, niceTicks, tintOf, intensity, cellTint, biggestDrop, elapsedShare, stepInk, useNow, TONE_FILL, weekdayInitials, monotonePath, toWeeks } from './viz/core';
 export { isTyping, useListKeys, stepIndex } from './keys';
 export { HoverSync, useHoverIndex } from './viz/Sync';
 export { HeroChart, type HeroPoint } from './viz/HeroChart';
