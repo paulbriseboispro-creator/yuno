@@ -68,14 +68,34 @@ graphiques validée). La v3 ajoute :
 
 ## Primitives (src/admin/ui, dessins dans `viz/`)
 
-`Hero` (phrase, grand chiffre, écart, graphique) · `HeroChart` (SVG : série rouge,
-période précédente en pointillé gris, réticule, annotations pic / creux, plage glissée)
-· `StatStrip` · `SmallMultiples` + `HoverSync` · `Sparkline` · `BulletBar` ·
-`Waterfall` · `StackedShare` · `Heatmap` / `CohortGrid` · `CalendarHeat` · `RankBars`
-· `UptimeBars` · `FunnelSteps` · `SplitView` · `DrillDrawer` · teinte des cellules de
-`DataTable` (`meta.tint`) · repères dans `Chart` (`refs`) · raccourcis globaux et leur
-aide · barre latérale repliable · barre de pouls (paiements, e-mail, tâches, apps,
-ventes du jour) dans l'en-tête, visible partout.
+**Une seule version de chaque forme, importée de `@/admin/ui`** (consolidation du
+17/11 : les formes que chaque rubrique avait composées dans son `parts.tsx` / `v3.tsx`
+y sont remontées, les copies locales sont supprimées). Une forme nouvelle entre dans
+le kit, sa section de `/admin/system/ui`, et cette liste ; jamais dans une rubrique.
+
+| Famille | Formes | Fichier |
+|---|---|---|
+| Héros | `Hero` (phrase, grand chiffre, écart, graphique, à côté), `Verdict` (page d'état : un point, une phrase), `Block` (titre + filet, `meta`, `actions`) | `viz/Hero`, `viz/State` |
+| Séries | `HeroChart` (série + période d'avant, réticule, pic, plage), `LinesChart` (2 à 5 séries étiquetées au bout), `SmallMultiples` + `HoverSync`, `Spark`, `Columns`, `TinyBars`, `PairBars` | `viz/HeroChart`, `viz/Lines`, `viz/Multiples`, `viz/Bars` |
+| Chiffres | `StatStrip` (ou `StatRow` + `StatCell`), `KeyValue` (`title`, `hideEmpty` : un rail de faits) | `viz/Multiples`, `Details` |
+| Parts et classements | `StackedShare` (tons, légende en liste ou en ligne), `SegmentBar` (segments cliquables = filtre), `RankBars`, `Waterfall` (totaux signés, étape inconnue dite) | `viz/Shapes`, `viz/Bars` |
+| Étapes et délais | `FunnelSteps` (perte écrite, la plus grosse marquée, échelle coupée), `Steps`, `DeadlineBar`, `Countdown`, `Level`, `Complete`, `BulletBar`, `MiniBar`, `CapacityBar` | `viz/Shapes`, `viz/Bars`, `viz/State` |
+| Temps | `CohortGrid`, `CalendarHeat`, `UptimeBars`, `Spine` (frise par mois), `Timeline` | `viz/Shapes`, `viz/Lists`, `Details` |
+| Listes | `SplitView` + `useListKeys` (j / k / entrée, ligne visible), `DrillDrawer`, `Ledger` / `LedgerRow`, `DenseRows`, `DataTable` (`meta.tint`, sans boîte quand il n'a pas de barre) | `viz/Split`, `keys`, `viz/Lists`, `DataTable` |
+| Mots | `Status` (point + mot ; `strong` quand l'état est la donnée), `Badge`, `EmptyLine` (la phrase quand il n'y a rien), `Note` (la règle d'un chiffre), `GoTo` | `Badge`, `viz/Lists` |
+| Filtres | `Chips` / `Chip` (encre inversée), `Segmented`, `FilterSelect`, `Fold` (repli sans boîte) | `Form` |
+
+Règles du kit : chaque forme a son info-bulle **dessinée** (`HoverTip`, `useTip` pour
+les formes en blocs HTML, au survol et au focus clavier), jamais le `title` gris du
+navigateur ; chaque graphique a un résumé texte (`aria-label` avec les valeurs) ; un
+compte (personnes, billets) n'a que des graduations entières (`niceTicks(max, 4,
+true)`, `allIntegers`) ; le rouge n'est que l'attention (une composition prend les
+teintes 2 à 5, un classement l'encre) ; un `null` ou un `NaN` coupe une ligne, il ne la
+casse pas. Les tons d'état sont les cinq du kit (`stateTone` pour Légal).
+
+Coquille : raccourcis globaux et leur aide (`?`), `g` + lettre par rubrique
+(`t p d r c a m l s`, `shell/keys.ts`), barre latérale repliable (`[`), barre de
+pouls (paiements, e-mail, tâches, apps, ventes du jour) dans l'en-tête.
 
 ## Composition par rubrique
 
@@ -114,6 +134,7 @@ PILOTAGE › VUE D'ENSEMBLE
 | Communication | Délivrabilité : BulletBar par seuil (plaintes, rebonds) ; envois en CalendarHeat. |
 | Légal | File d'obligations en SplitView ; échéances en BulletBar de délai. |
 | Système › Santé | UptimeBars par service sur 30 jours ; tâches planifiées en grille d'état. |
+| Madrid | Héros « sorties vers la billetterie » + verdict ; FunnelSteps visiteurs → soirée → sortis ; clubs en RankBars, soirs en Columns ; offre en grille teintée et UptimeBars de la synchro. |
 
 ## À faire / à ne pas faire
 
@@ -126,3 +147,5 @@ PILOTAGE › VUE D'ENSEMBLE
 | Un chiffre qui ouvre sa liste | Un chiffre mort |
 | « Aucune vente cette semaine » | Une courbe plate à zéro sans un mot |
 | Une couleur = une variable `--a-*` | Un hexadécimal dans une page |
+| Une forme du kit, importée de `@/admin/ui` | Une copie locale « en attendant le kit » |
+| Un tableau sans barre posé dans sa section | Un tableau en carte sous un titre de section |

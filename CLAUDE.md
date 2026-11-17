@@ -1091,7 +1091,7 @@ La Console CRM est reconstruite écran par écran depuis le projet Claude Design
   tiré du design, Google et Apple, lien de confirmation e-mail à la place d'un code.
 
 **Le pilotage de Yuno CRM vit dans l'admin unique** (`/admin`, section « Super
-admin : UN admin à huit rubriques ») ; les anciennes adresses `/admin/crm/*`
+admin : UN admin à neuf rubriques ») ; les anciennes adresses `/admin/crm/*`
 redirigent. Règles de fond qui restent :
 
 - `_crm_admin_rows` est la ligne de compte unique du CRM (statut, MRR Stripe
@@ -5201,19 +5201,22 @@ tous `src/pages/OwnerHelpCenter.tsx` (coquille + URL) et `src/components/help/*`
   `venue_id` NULL) ; avant, le bouton « Contacter le support » de l'organisateur
   tombait sur une 404.
 
-## Super admin : UN admin à huit rubriques (refonte du 2026-11-16)
+## Super admin : UN admin à neuf rubriques (refonte du 2026-11-16, v3 du 17/11)
 
 Plan, état final et mise en ligne : `docs/designs/ADMIN_REBUILD_PLAN.md`
 (sections 7 à 9). L'admin de la Billetterie et l'ex-Admin CRM n'en font plus
 qu'un, sur **yunoapp.eu**. Règles :
 
 - **Un seul point de montage** : `<Route path="/admin/*" element={<AdminApp />} />`
-  (`src/admin/AdminApp.tsx`). Huit rubriques, un dossier chacune, routes
+  (`src/admin/AdminApp.tsx`). Neuf rubriques, un dossier chacune, routes
   RELATIVES dans `src/admin/<rubrique>/routes.tsx` :
   Aujourd'hui `/admin` (`today/` : file du jour, six chiffres, feux, fil
   d'activité, Alertes, Support et retours) · Pilotage `/admin/pilot` (vue
   d'ensemble du revenu, acquisition des pros, rétention, audience, produit et
-  usage) · Pros `/admin/pros` (tous les comptes, **fiche unique
+  usage) · Madrid `/admin/madrid` (marketplace externe : verdict, clubs et
+  soirées, audience, effet sur Yuno, santé de l'offre ; RPC `admin_madrid_traffic`,
+  `admin_madrid_offer`, migration `20261218180000`, doc `docs/designs/ADMIN_MADRID.md`)
+  · Pros `/admin/pros` (tous les comptes, **fiche unique
   `/admin/pros/<venue|org|agency>:<id>`**, Prospects, Inviter, Démo, Accès
   assisté) · Clients `/admin/clients` (vue d'ensemble, liste, **fiche unique
   `/admin/clients/<e-mail ou id>`**, soirées, annuaire) · Argent `/admin/money`
@@ -5225,7 +5228,9 @@ qu'un, sur **yunoapp.eu**. Règles :
   interrupteurs, offre et tarifs, connecteurs, IA). Ne jamais remettre une
   route admin dans `App.tsx` ni recréer une seconde coquille.
 - **La carte du menu est `src/admin/nav.ts`** (pure, testée) : barre latérale,
-  fil d'Ariane et ⌘K la lisent. Une page = sa route + son entrée + son libellé
+  fil d'Ariane et ⌘K la lisent. Une rubrique ajoutée a sa propre icône et sa
+  lettre `g` + lettre (`shell/keys.ts`, test `keys.test.ts` : une lettre et une
+  icône par rubrique). Une page = sa route + son entrée + son libellé
   `adm.nav2.<rubrique>.<clé>` (module `shell.ts`). Ses textes vont dans le
   module de sa rubrique (`src/i18n/locales/admin/modules/<rubrique>.ts`,
   triplets [EN, FR, ES]).
@@ -5270,6 +5275,16 @@ qu'un, sur **yunoapp.eu**. Règles :
   font qu'ASSEMBLER : les calculs restent ceux des RPC existantes
   (`admin_platform_analytics`, `_crm_admin_rows`, `admin_cockpit`,
   `admin_release_health`, `admin_ai_usage`…).
+- **Une seule version de chaque forme : le kit `src/admin/ui`** (consolidé le
+  17/11, liste et règles dans `docs/designs/ADMIN_DESIGN_SYSTEM.md`). Une rubrique
+  n'a jamais de `parts.tsx` / `v3.tsx` de formes « en attendant le kit » : la forme
+  entre dans le kit et dans `/admin/system/ui`. Info-bulles dessinées (`useTip`),
+  résumé texte par graphique, graduations entières pour des comptes, rouge réservé
+  à l'attention, tons des cinq du kit, clavier des listes `useListKeys`.
+- **Les visites de la plateforme comptent encore Madrid** (12 % des sessions sur
+  30 jours, presque toutes des robots) : correction en base décrite dans le plan
+  (« Visites et Madrid »), et `pilotage/MadridVisitsNote.tsx` le dit à l'écran
+  jusqu'à elle.
 - **Écrans encore dans un cadre hérité** (`SuiteFrame` / `CrmFrame`,
   `src/admin/shell/frames.tsx`), parce que partagés avec la Console des pros :
   Email Studio et recettes, éditeur SMS, rapport du plan de soirée, catalogue

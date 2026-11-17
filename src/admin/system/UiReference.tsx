@@ -12,6 +12,7 @@ import {
   useAdminT, type ColumnDef,
 } from '@/admin/ui';
 import { fmtAxisDay, fmtEur, fmtNum, fmtPct } from '@/lib/adminFormat';
+import { UiReferenceKit } from './UiReferenceKit';
 
 const DAY = 86_400_000;
 const days = Array.from({ length: 30 }, (_, i) => {
@@ -115,6 +116,7 @@ export default function UiReference() {
             days={Array.from({ length: 84 }, (_, i) => ({ d: new Date(Date.UTC(2026, 7, 24) + i * DAY).toISOString().slice(0, 10), v: i % 7 === 5 ? 30 + (i % 4) * 12 : i % 7 === 4 ? 12 : i % 3 }))} />
         </Block>
       </Grid>
+      <UiReferenceKit />
 
       <KpiRow>
         <Kpi label={t('adm.sys.ui.k.sales')} value={fmtEur(18420, lang, { cents: false })} current={18420} previous={16010} to="/admin/money" />
