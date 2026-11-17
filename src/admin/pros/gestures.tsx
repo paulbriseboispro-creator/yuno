@@ -3,8 +3,10 @@
  * Chaque geste sensible passe par ReasonDialog : le motif part dans la RPC
  * (qui écrit le journal) ou, pour une RPC sans motif, dans admin_account_log.
  *
- *   club          : modifier, masquer / afficher, décommissionner, restaurer
- *   organisateur  : statut Association
+ *   club          : modifier, masquer / afficher, décommissionner, restaurer,
+ *                   inviter un propriétaire, compte vitrine, supprimer maintenant
+ *                   (gesturesMore.tsx, repris de l'ancienne liste Clubs)
+ *   organisateur  : statut Association, renommer, retirer (gesturesMore.tsx)
  *   agence        : activer / désactiver
  *   tous          : produits (AccountProductsButton), demander l'accès assisté,
  *                   « Voir sa Console » (accès accordé seulement)
@@ -12,7 +14,7 @@
  */
 import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { Eye, EyeOff, LogIn, MoreHorizontal, Pencil, Power, RotateCcw, ShieldQuestion, Trash2 } from 'lucide-react';
+import { Eye, EyeOff, LogIn, MoreHorizontal, Pencil, Power, RotateCcw, ShieldQuestion, Store, Trash2, UserPlus, UserX } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { rpc } from '@/crm/lib/rpc';
 import { setSupportSession } from '@/lib/supportSession';
@@ -20,8 +22,10 @@ import { AccountProductsButton, normalizeProducts } from '@/components/admin/Acc
 import { Dialog, ReasonDialog, useAdminT } from '@/admin/ui';
 import { consoleLanding } from './accounts';
 import { useProsRefresh, type AccountCard } from './data';
+import { OwnerInviteDialog, PurgeVenueDialog, RemoveOrgDialog, RenameOrgDialog, ShowcaseVenueDialog } from './gesturesMore';
 
-type Open = null | 'edit' | 'hide' | 'show' | 'decommission' | 'restore' | 'assoc' | 'agency' | 'support' | 'console';
+type Open = null | 'edit' | 'hide' | 'show' | 'decommission' | 'restore' | 'assoc' | 'agency' | 'support' | 'console'
+  | 'owner' | 'showcase' | 'purge' | 'rename' | 'remove';
 
 async function edgeError(error: unknown, data: unknown): Promise<string | null> {
   const d = data as { error?: string } | null;
@@ -57,12 +61,21 @@ export function AccountGestures({ card }: { card: AccountCard }) {
       items.push(id.is_hidden
         ? { key: 'show', label: t('adm.pros.g.show'), icon: <Eye className="h-4 w-4" /> }
         : { key: 'hide', label: t('adm.pros.g.hide'), icon: <EyeOff className="h-4 w-4" /> });
+      if (!card.owner) {
+        items.push({ key: 'owner', label: t('adm.pros.gx.owner'), icon: <UserPlus className="h-4 w-4" /> });
+        items.push({ key: 'showcase', label: t('adm.pros.gx.showcase'), icon: <Store className="h-4 w-4" /> });
+      }
       items.push({ key: 'decommission', label: t('adm.pros.g.decommission'), icon: <Trash2 className="h-4 w-4" />, danger: true });
     } else {
       items.push({ key: 'restore', label: t('adm.pros.g.restore'), icon: <RotateCcw className="h-4 w-4" /> });
+      items.push({ key: 'purge', label: t('adm.pros.gx.purge'), icon: <Trash2 className="h-4 w-4" />, danger: true });
     }
   }
-  if (card.kind === 'org') items.push({ key: 'assoc', label: t(id.association ? 'adm.pros.g.assocOff' : 'adm.pros.g.assocOn'), icon: <Power className="h-4 w-4" /> });
+  if (card.kind === 'org') {
+    items.push({ key: 'assoc', label: t(id.association ? 'adm.pros.g.assocOff' : 'adm.pros.g.assocOn'), icon: <Power className="h-4 w-4" /> });
+    items.push({ key: 'rename', label: t('adm.pros.gx.rename'), icon: <Pencil className="h-4 w-4" /> });
+    items.push({ key: 'remove', label: t('adm.pros.gx.remove'), icon: <UserX className="h-4 w-4" />, danger: true });
+  }
   if (card.kind === 'agency') items.push({ key: 'agency', label: t(id.is_active === false ? 'adm.pros.g.agencyOn' : 'adm.pros.g.agencyOff'), icon: <Power className="h-4 w-4" />, danger: id.is_active !== false });
 
   const prods = card.kind !== 'agency' ? normalizeProducts(id.product, id.extra_products) : null;
@@ -98,6 +111,11 @@ export function AccountGestures({ card }: { card: AccountCard }) {
       )}
 
       {card.kind === 'venue' && <EditVenueDialog card={card} open={open === 'edit'} onOpenChange={close} onDone={() => done(t('adm.pros.g.saved'))} />}
+      {card.kind === 'venue' && <OwnerInviteDialog card={card} open={open === 'owner'} onOpenChange={close} />}
+      {card.kind === 'venue' && open === 'showcase' && <ShowcaseVenueDialog card={card} onClose={() => setOpen(null)} />}
+      {card.kind === 'venue' && <PurgeVenueDialog card={card} open={open === 'purge'} onOpenChange={close} />}
+      {card.kind === 'org' && <RenameOrgDialog key={String(id.name ?? '')} card={card} open={open === 'rename'} onOpenChange={close} />}
+      {card.kind === 'org' && <RemoveOrgDialog card={card} open={open === 'remove'} onOpenChange={close} />}
 
       <ReasonDialog open={open === 'hide' || open === 'show'} onOpenChange={close}
         title={t(open === 'show' ? 'adm.pros.g.show' : 'adm.pros.g.hide')} description={t(open === 'show' ? 'adm.pros.g.showBody' : 'adm.pros.g.hideBody')}

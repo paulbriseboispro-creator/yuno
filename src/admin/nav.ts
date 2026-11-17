@@ -75,12 +75,6 @@ export const ADMIN_NAV: AdminRubric[] = [
       { key: 'invite', path: '/admin/pros/invite' },
       { key: 'demo', path: '/admin/pros/demo' },
       { key: 'support', path: '/admin/pros/support' },
-      // Anciennes listes, hors menu : gestes pas encore repris par la fiche
-      // (purge d'un club, organisateur vitrine, invitations d'agence…).
-      { key: 'venues', path: '/admin/pros/venues', hidden: true },
-      { key: 'organizers', path: '/admin/pros/organizers', hidden: true },
-      { key: 'agencies', path: '/admin/pros/agencies', hidden: true },
-      { key: 'crmAccounts', path: '/admin/pros/crm', hidden: true },
     ],
   },
   {

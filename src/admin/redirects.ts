@@ -18,7 +18,7 @@ const RULES: readonly Rule[] = [
   [/^\/admin\/crm\/clients$/, '/admin/pros?product=crm'],
   [/^\/admin\/crm\/sales$/, '/admin/pros/prospects?tab=pipeline'],
   [/^\/admin\/crm\/invite$/, '/admin/pros/invite'],
-  [/^\/admin\/crm\/demo$/, '/admin/pros/demo?tab=crm'],
+  [/^\/admin\/crm\/demo$/, '/admin/pros/demo?product=crm'],
   [/^\/admin\/crm\/support$/, '/admin/pros/support'],
   [/^\/admin\/crm\/acquisition$/, '/admin/pilot/acquisition'],
   [/^\/admin\/crm\/product$/, '/admin/pilot/product?tab=crm'],
@@ -56,8 +56,13 @@ const RULES: readonly Rule[] = [
   // Adresses du lot 0, remplacées par la fiche unique et les pages réunies.
   [/^\/admin\/pros\/venues\/(.+)$/, '/admin/pros/venue:$1'],
   [/^\/admin\/pros\/crm\/(.+)$/, '/admin/pros/$1'],
+  // Anciennes listes cachées (supprimées le 17/11) : la liste filtrée.
+  [/^\/admin\/pros\/venues$/, '/admin/pros?type=club'],
+  [/^\/admin\/pros\/organizers$/, '/admin/pros?type=organizer'],
+  [/^\/admin\/pros\/agencies$/, '/admin/pros?type=agency'],
+  [/^\/admin\/pros\/crm$/, '/admin/pros?product=crm'],
   [/^\/admin\/pros\/sales$/, '/admin/pros/prospects?tab=pipeline'],
-  [/^\/admin\/pros\/crm-demo$/, '/admin/pros/demo?tab=crm'],
+  [/^\/admin\/pros\/crm-demo$/, '/admin/pros/demo?product=crm'],
   [/^\/admin\/pros\/crm-support$/, '/admin/pros/support'],
   [/^\/admin\/demo-access$/, '/admin/pros/demo'],
   [/^\/admin\/support$/, '/admin/pros/support'],

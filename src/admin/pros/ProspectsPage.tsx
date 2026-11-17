@@ -4,22 +4,20 @@
  * (links_pro_leads), inscriptions pro regroupées par personne
  * (admin_pro_signups) et pipeline Yuno CRM (crm_prospects). UN geste
  * « Contacté », qui écrit dans la bonne table (admin_prospect_contacted).
- * L'onglet Pipeline garde le kanban de l'ex-Admin CRM.
+ * L'onglet Pipeline (prospects/Pipeline.tsx) : kanban, comptes cibles,
+ * prévision et raisons de perte du pipeline Yuno CRM.
  */
-import { Suspense, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Check, Mail, MessageCircle, Phone, StickyNote } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { rpc } from '@/crm/lib/rpc';
-import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { Badge, DataTable, Dialog, Kpi, KpiRow, Page, Status, Tabs, useAdminFilters, useAdminT, useTab, type ColumnDef } from '@/admin/ui';
 import { fmtDate, fmtNum, fmtRelative } from '@/lib/adminFormat';
-import { CrmFrame } from '../shell/frames';
 import { useProspects, useProsRefresh } from './data';
 import { accountHref, accountKey, phoneLinks } from './accounts';
-
-const CrmSales = lazyWithRetry(() => import('@/crm/admin/pages/SalesPage'));
+import { Pipeline } from './prospects/Pipeline';
 
 type Source = 'links' | 'signup' | 'crm';
 interface Prospect {
@@ -35,10 +33,7 @@ export default function ProspectsPage() {
   return (
     <Page title={t('adm.pros.pr.title')} subtitle={t('adm.pros.pr.sub')} period={tab === 'all'}>
       <Tabs items={items} value={tab} onChange={setTab} />
-      {tab === 'all' ? <AllProspects /> : (
-        // Le kanban de l'ex-Admin CRM, tel quel, jusqu'à sa réécriture.
-        <div className="a-card overflow-hidden"><CrmFrame><Suspense fallback={<div className="a-skel m-6 h-40" />}><CrmSales /></Suspense></CrmFrame></div>
-      )}
+      {tab === 'all' ? <AllProspects /> : <Pipeline />}
     </Page>
   );
 }

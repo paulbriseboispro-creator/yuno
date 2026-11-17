@@ -32,6 +32,7 @@ import crmAdminCustomerBasis from './crmAdminCustomerBasis';
 import shell from './shell';
 import today from './today';
 import pros from './pros';
+import prosRewrite from './prosRewrite';
 import clients from './clients';
 import pilotage from './pilotage';
 import money from './money';
@@ -42,7 +43,7 @@ import comms from './comms';
 export const ADMIN_DICT: AdminDict = {
   ...common, ...layout, ...cockpit, ...product, ...ai, ...links,
   ...venues, ...organizers, ...agencies, ...events, ...people, ...demo, ...alerts,
-  ...audit, ...feedback, ...push, ...automations, ...system, ...marketing, ...drinks, ...signups, ...crmAdmin, ...crmAdmin2, ...crmAdmin3, ...crmAdmin4, ...crmAdminAnalysis, ...crmAdminFounder, ...crmAdminInvite, ...crmAdminSms, ...crmAdminCustomerBasis, ...shell, ...today, ...pros, ...clients, ...pilotage, ...money, ...legal, ...comms,
+  ...audit, ...feedback, ...push, ...automations, ...system, ...marketing, ...drinks, ...signups, ...crmAdmin, ...crmAdmin2, ...crmAdmin3, ...crmAdmin4, ...crmAdminAnalysis, ...crmAdminFounder, ...crmAdminInvite, ...crmAdminSms, ...crmAdminCustomerBasis, ...shell, ...today, ...pros, ...prosRewrite, ...clients, ...pilotage, ...money, ...legal, ...comms,
 };
 
 export function pickLanguage(index: 0 | 1 | 2): Record<string, string> {
