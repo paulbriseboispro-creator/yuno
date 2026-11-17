@@ -218,6 +218,10 @@
 [data-admin] .a-input::placeholder { color: var(--a-text-3); }
 [data-admin] .a-input:focus { border-color: var(--a-accent); box-shadow: 0 0 0 3px var(--a-ring); }
 [data-admin] textarea.a-input { height: auto; padding: 8px 10px; line-height: 1.5; resize: vertical; }
+/* Liste de la barre de filtres d'un tableau. */
+[data-admin] .a-input--filter { width: auto; min-width: 120px; height: 32px; }
+/* Cases à cocher et boutons radio : l'accent du kit. */
+[data-admin] input[type="checkbox"], [data-admin] input[type="radio"] { accent-color: var(--a-accent); width: 15px; height: 15px; }
 
 /* ── Kbd ── */
 [data-admin] .a-kbd {

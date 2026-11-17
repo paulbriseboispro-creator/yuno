@@ -119,7 +119,7 @@ export default function OrdersPage() {
               <input className="a-input" style={{ width: 240 }} value={search} placeholder={t('adm.mon.ord.search')}
                 aria-label={t('adm.mon.ord.search')}
                 onChange={(e) => { setSearch(e.target.value); setParam('q', e.target.value.trim() || null); }} />
-              <select className="a-input" style={{ width: 170 }} value={status} aria-label={t('adm.mon.ord.status')}
+              <select className="a-input a-input--filter" value={status} aria-label={t('adm.mon.ord.status')}
                 onChange={(e) => setParam('status', e.target.value)}>
                 {statuses.map((s) => <option key={s} value={s}>{s === 'all' ? t('adm.mon.ord.allStatuses') : statusLabel(t, s)}</option>)}
               </select>

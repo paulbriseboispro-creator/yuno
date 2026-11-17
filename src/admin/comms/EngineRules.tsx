@@ -13,7 +13,7 @@ import { ENGINE_RULES, tapRate } from '@/lib/pushEngine';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 import { COMMS_KEY, useRuleTemplates, type EngineOverview, type RuleStats, type RuleTemplate } from './data';
 import { rpc } from '../system/data';
-import { Field, SwitchRow } from './form';
+import { Field, SwitchRow } from '@/admin/ui';
 
 const ORDER = new Map(ENGINE_RULES.map((r, i) => [r.key as string, i]));
 

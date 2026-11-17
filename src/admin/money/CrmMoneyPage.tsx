@@ -95,7 +95,7 @@ export default function CrmMoneyPage() {
 
       <Grid cols={2}>
         <Card title={t('adm.mon.crm.rechargeChart')}>
-          <Chart kind="bar" data={weeks} x="w" unit="eur" loading={!d} height={220}
+          <Chart kind="bar" data={weeks} x="w" unit="eur" loading={!d} height={200}
             series={[{ key: 'eur', label: t(moneyLabelKey('recharges')) }]} />
         </Card>
         <Section title={t('adm.mon.crm.buys')}>

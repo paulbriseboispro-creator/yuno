@@ -47,7 +47,7 @@ export default function Engine() {
             <Kpi label={t('adm.comms.en.k.held')} value={fmtNum(d?.totals.held ?? 0, lang)} current={d?.totals.held} previous={prev?.held} hint={t('adm.comms.en.k.heldHint')} loading={cur.isLoading} />
           </KpiRow>
           <Card title={t('adm.comms.en.chart')}>
-            <Chart kind="line" data={series} x="day" formatX={(v) => fmtAxisDay(v, lang)} unit="count" height={240}
+            <Chart kind="line" data={series} x="day" formatX={(v) => fmtAxisDay(v, lang)} unit="count" height={200}
               series={[{ key: 'sent', label: t('adm.comms.en.k.sent') }, { key: 'taps', label: t('adm.comms.en.k.opened') }]}
               loading={cur.isLoading} empty={t('adm.comms.en.noSends')} />
           </Card>

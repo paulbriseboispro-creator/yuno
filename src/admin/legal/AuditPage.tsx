@@ -11,7 +11,7 @@ import { Badge, DataTable, Drawer, KeyValue, Kpi, KpiRow, Page, Section, useAdmi
 import { fmtDate, fmtNum } from '@/lib/adminFormat';
 import { useLegalAudit, type AuditEntry, type AuditSource } from './data';
 import { proHref } from './rules';
-import { Seg } from './ui';
+import { Segmented } from '@/admin/ui';
 import { tOr } from './format';
 
 const SOURCE_TONE = { admin: 'neutral', support: 'warning', agent: 'accent' } as const;
@@ -41,7 +41,7 @@ export default function AuditPage() {
 
   return (
     <Page title={t('adm.lg2.au.title')} subtitle={t('adm.lg2.au.sub')} period
-      actions={<Seg value={source} onChange={(v) => set('source', v)} label={t('adm.lg2.au.col.source')}
+      actions={<Segmented value={source} onChange={(v) => set('source', v)} label={t('adm.lg2.au.col.source')}
         options={(['all', 'admin', 'support', 'agent'] as const).map((s) => ({ value: s, label: t(`adm.lg2.au.src.${s}`) }))} />}>
       <KpiRow>
         <Kpi label={t('adm.lg2.au.k.total')} loading={r.isLoading} value={fmtNum(rows.length, lang)} />

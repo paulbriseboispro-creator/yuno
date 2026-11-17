@@ -17,10 +17,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { rpc } from '@/crm/lib/rpc';
 import { fmtDate } from '@/lib/adminFormat';
 import { ReasonDialog, useAdminT } from '@/admin/ui';
-import { Field } from './gestures';
+import { Field } from '@/admin/ui';
 import { useProsRefresh, type AccountCard } from './data';
 import { invokeEdge } from './demo/data';
-import { Seg } from './demo/fields';
+import { Segmented } from '@/admin/ui';
 import { BuilderLinkDialog } from './demo/Showcases';
 
 interface Props { card: AccountCard; open: boolean; onOpenChange: (v: boolean) => void }
@@ -79,8 +79,8 @@ export function OwnerInviteDialog({ card, open, onOpenChange }: Props) {
             <button type="button" className="a-btn a-btn--sm" onClick={() => copy(`${window.location.origin}/auth?invite=${encodeURIComponent(pending.token)}`)}><Copy className="h-3.5 w-3.5" />{t('adm.pros.iv.copyLink')}</button>
           </div>
         )}
-        <Seg<'email' | 'link'> label={t('adm.pros.gx.owner')} value={mode} onChange={setMode}
-          options={[{ v: 'email', label: t('adm.pros.gx.ownerByEmail') }, { v: 'link', label: t('adm.pros.gx.ownerByLink') }]} />
+        <Segmented<'email' | 'link'> label={t('adm.pros.gx.owner')} value={mode} onChange={setMode}
+          options={[{ value: 'email', label: t('adm.pros.gx.ownerByEmail') }, { value: 'link', label: t('adm.pros.gx.ownerByLink') }]} />
         {mode === 'email'
           ? <Field label={t('adm.pros.inv.ownerEmail')} hint={t('adm.pros.gx.ownerEmailHint')}><input className="a-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
           : <p className="a-t3 text-[12px]">{t('adm.pros.gx.ownerLinkHint')}</p>}

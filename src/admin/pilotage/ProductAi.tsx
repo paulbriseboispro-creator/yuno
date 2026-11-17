@@ -11,7 +11,7 @@ import {
 } from '@/admin/ui';
 import { fmtAxisDay, fmtDate, fmtMs, fmtNum, fmtPct, fmtPlural, fmtRelative, fmtTokens, fmtUsd } from '@/lib/adminFormat';
 import { useAiUsage, useMcpUsage, type AiUsage, type McpUsage } from './data';
-import { Fold } from './Fold';
+import { Fold } from '@/admin/ui';
 
 type Recent = AiUsage['recent'][number];
 

@@ -11,7 +11,7 @@ import { Badge, Card, DataTable, ErrorState, KeyValue, ReasonDialog, Section, us
 import { fmtDate, fmtNum } from '@/lib/adminFormat';
 import { rpc } from './data';
 import { useLearning, type LearningOverview } from './pricingData';
-import { Toggle } from './Toggle';
+import { Switch } from '@/admin/ui';
 
 type Ask = { kind: 'global'; on: boolean } | { kind: 'rules'; v: number };
 
@@ -59,7 +59,7 @@ export default function PricingAnalysis() {
         <div className="flex flex-col gap-3">
           <p className="a-t2 text-[13px] leading-relaxed">{t('adm.crm.an.learnS')}</p>
           <div className="flex items-center gap-3">
-            <Toggle on={on} label={t('adm.crm.an.global')} onChange={(v) => setAsk({ kind: 'global', on: v })} />
+            <Switch checked={on} label={t('adm.crm.an.global')} onChange={(v) => setAsk({ kind: 'global', on: v })} />
             <span className="a-t1 text-[13.5px] font-medium">{t('adm.crm.an.global')}</span>
           </div>
           <KeyValue items={[{ label: t('adm.sys.pr.an.contributors'), value: t('adm.crm.an.contributors', { n: fmtNum(d.contributors, lang) }) }]} />

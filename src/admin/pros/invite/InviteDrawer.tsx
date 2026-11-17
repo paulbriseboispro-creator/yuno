@@ -21,7 +21,7 @@ import { Badge, Dialog, Drawer, KeyValue, ReasonDialog, Section, Status, useAdmi
 import { accountHref } from '../accounts';
 import { PROS_QK, type PendingInvite } from '../data';
 import { invokeEdge } from '../demo/data';
-import { Seg } from '../demo/fields';
+import { Segmented } from '@/admin/ui';
 
 const TONE_KEY = 'yuno.crm.admin.inviteTone';
 /** Dernier ton choisi sur cet appareil ; le vouvoiement par défaut. */
@@ -145,7 +145,7 @@ function CrmShare({ x, d }: { x: CrmInvite; d: InvitesData }) {
           <a className="a-btn" href={whatsAppUrl(x.phone, text)} target="_blank" rel="noopener noreferrer" onClick={() => mark('whatsapp')}>
             <MessageCircle className="h-4 w-4" />{x.phone ? t('adm.pros.dl.waTo', { phone: x.phone }) : t('adm.pros.dl.wa')}
           </a>
-          {lang !== 'en' && <Seg<InviteTone> label={t('adm.pros.iv.tone')} value={tone} onChange={setTone} options={[{ v: 'formal', label: t('adm.pros.iv.toneFormal') }, { v: 'casual', label: t('adm.pros.iv.toneCasual') }]} />}
+          {lang !== 'en' && <Segmented<InviteTone> label={t('adm.pros.iv.tone')} value={tone} onChange={setTone} options={[{ value: 'formal', label: t('adm.pros.iv.toneFormal') }, { value: 'casual', label: t('adm.pros.iv.toneCasual') }]} />}
         </div>
         <details className="a-t2 text-[12.5px]">
           <summary className="cursor-pointer">{t('adm.pros.dl.d.message')}</summary>

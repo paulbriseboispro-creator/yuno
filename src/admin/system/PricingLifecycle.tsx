@@ -13,7 +13,7 @@ import { fmtNum, fmtRelative } from '@/lib/adminFormat';
 import { renderLifecycleEmail, type LifecycleKey, type LifecycleLang } from '@/crm/lib/lifecycleEmail';
 import { rpc } from './data';
 import { useLifecycle, type LcEmail } from './pricingData';
-import { Toggle } from './Toggle';
+import { Switch } from '@/admin/ui';
 
 type Log = NonNullable<ReturnType<typeof useLifecycle>['data']>['log'][number];
 
@@ -40,7 +40,7 @@ export default function PricingLifecycle() {
     { accessorKey: 'failed30', header: t('adm.crm.lc.failed30'), meta: { align: 'right' }, cell: (c) => (c.getValue<number>() > 0 ? <Badge tone="negative">{fmtNum(c.getValue<number>(), lang)}</Badge> : fmtNum(0, lang)) },
     { id: 'preview', header: '', enableSorting: false, meta: { align: 'right' }, cell: ({ row }) => <button type="button" className="a-btn a-btn--sm" onClick={() => setPreview(row.original)}>{t('adm.crm.lc.preview')}</button> },
     { accessorKey: 'enabled', header: t('adm.sys.pr.lc.on'), meta: { align: 'right' }, cell: ({ row }) => (
-      <Toggle on={row.original.enabled} label={(row.original.copy[pl] ?? row.original.copy.fr).subject} onChange={(v) => setAsk({ key: row.original.key, on: v })} />
+      <Switch checked={row.original.enabled} label={(row.original.copy[pl] ?? row.original.copy.fr).subject} onChange={(v) => setAsk({ key: row.original.key, on: v })} />
     ) },
   ], [t, lang, pl]);
 

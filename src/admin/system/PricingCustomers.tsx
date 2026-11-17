@@ -13,8 +13,8 @@ import { Badge, Card, DataTable, ErrorState, ReasonDialog, Section, useAdminT, t
 import { fmtDate, fmtNum } from '@/lib/adminFormat';
 import { statusLine, useBasisOverview, type BasisAccount, type BasisSettings } from '@/crm/admin/pages/CustomerBasisAdmin';
 import { rpc } from './data';
-import { NumField } from './NumField';
-import { Toggle } from './Toggle';
+import { NumberInput } from '@/admin/ui';
+import { Switch } from '@/admin/ui';
 
 const NUMS = ['eligibility_months', 'validity_months', 'ramp_start', 'complaint_pause_pct', 'bounce_pause_pct', 'max_per_30d'] as const;
 
@@ -47,7 +47,7 @@ export default function PricingCustomers() {
 
   const sw = (k: 'enabled' | 'sending_ready') => (
     <div className="flex items-start gap-3">
-      <Toggle on={draft[k]} label={t(`adm.crm.cb.g.${k}`)} onChange={(v) => setDraft({ ...draft, [k]: v })} />
+      <Switch checked={draft[k]} label={t(`adm.crm.cb.g.${k}`)} onChange={(v) => setDraft({ ...draft, [k]: v })} />
       <span className="flex flex-col"><span className="a-t1 text-[13.5px] font-medium">{t(`adm.crm.cb.g.${k}`)}</span><span className="a-t3 text-[12.5px]">{t(`adm.crm.cb.g.${k}S`)}</span></span>
     </div>
   );
@@ -66,7 +66,7 @@ export default function PricingCustomers() {
           {NUMS.map((k) => (
             <label key={k} className="flex flex-wrap items-center justify-between gap-3 text-[13.5px]">
               <span className="a-t1">{t(`adm.crm.cb.g.${k}`)}</span>
-              <NumField label={t(`adm.crm.cb.g.${k}`)} value={draft[k]} step={k.endsWith('pct') ? 0.01 : 1} width={120} onChange={(v) => setDraft({ ...draft, [k]: v })} />
+              <NumberInput label={t(`adm.crm.cb.g.${k}`)} value={draft[k]} step={k.endsWith('pct') ? 0.01 : 1} width={120} onChange={(v) => setDraft({ ...draft, [k]: v })} />
             </label>
           ))}
           {'declaration_version' in patch && <p className="text-[12.5px]" style={{ color: 'var(--a-warn)' }}>{t('adm.crm.cb.g.versionWarn')}</p>}

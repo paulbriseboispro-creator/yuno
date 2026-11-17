@@ -14,9 +14,10 @@ import { ALL_TARGET_ACCOUNTS, type TargetAccount } from '@/lib/demoSession';
 import { inviteErr, type DemoAccess, type DemoData } from '@/crm/admin/inviteData';
 import type { InviteLang } from '@/crm/lib/crmInvites';
 import { Dialog, useAdminT } from '@/admin/ui';
-import { Field } from '../gestures';
+import { Field } from '@/admin/ui';
 import { previewUrl, useDemoRefresh, type ShowcaseOrg, type ShowcaseVenue } from './data';
-import { AccountPicker, Check, Phone, Seg, SignupFields } from './fields';
+import { AccountPicker, Phone, SignupFields } from './fields';
+import { Checkbox, Segmented } from '@/admin/ui';
 import { EMPTY_SIGNUP, signupPayload, type SignupDraft } from './signup';
 
 export type DemoProduct = 'tickets' | 'crm';
@@ -127,8 +128,8 @@ export function NewDemoDialog({ open, onOpenChange, showcaseVenues, showcaseOrgs
       confirmLabel={t(product === 'tickets' ? 'adm.pros.dl.createCopy' : 'adm.pros.dl.create')} busy={busy} onConfirm={() => void submit()}>
       <div className="flex flex-col gap-4 pb-1">
         <Field label={t('adm.pros.dl.product')}>
-          <Seg<DemoProduct> label={t('adm.pros.dl.product')} value={product} onChange={(v) => { setProduct(v); setErr(null); }}
-            options={[{ v: 'tickets', label: t('adm.pros.product.tickets') }, { v: 'crm', label: t('adm.pros.product.crm') }]} />
+          <Segmented<DemoProduct> label={t('adm.pros.dl.product')} value={product} onChange={(v) => { setProduct(v); setErr(null); }}
+            options={[{ value: 'tickets', label: t('adm.pros.product.tickets') }, { value: 'crm', label: t('adm.pros.product.crm') }]} />
         </Field>
 
         {product === 'tickets' ? (
@@ -164,8 +165,8 @@ export function NewDemoDialog({ open, onOpenChange, showcaseVenues, showcaseOrgs
             )}
             {!showcase && (
               <div className="a-subtle flex flex-col gap-3 rounded-lg p-3">
-                <Check checked={signup.enabled} onChange={(v) => setSignup((d) => ({ ...d, enabled: v, firstName: d.firstName || label }))}
-                  hint={t('adm.pros.dl.f.signupHint')}>{t('adm.demo.signup.enable')}</Check>
+                <Checkbox checked={signup.enabled} onChange={(v) => setSignup((d) => ({ ...d, enabled: v, firstName: d.firstName || label }))}
+                  hint={t('adm.pros.dl.f.signupHint')}>{t('adm.demo.signup.enable')}</Checkbox>
                 {signup.enabled && <SignupFields draft={signup} onChange={setSignup} />}
               </div>
             )}
@@ -203,10 +204,10 @@ export function NewDemoDialog({ open, onOpenChange, showcaseVenues, showcaseOrgs
             </div>
             <div className="flex flex-wrap gap-4">
               <Field label={t('adm.pros.dl.f.lang')}>
-                <Seg<InviteLang> label={t('adm.pros.dl.f.lang')} value={c.lang} onChange={(v) => setCrm('lang', v)} options={LANGS.map((l) => ({ v: l, label: l.toUpperCase() }))} />
+                <Segmented<InviteLang> label={t('adm.pros.dl.f.lang')} value={c.lang} onChange={(v) => setCrm('lang', v)} options={LANGS.map((l) => ({ value: l, label: l.toUpperCase() }))} />
               </Field>
               <Field label={t('adm.pros.dl.f.days')}>
-                <Seg<(typeof DAYS)[number]> label={t('adm.pros.dl.f.days')} value={c.days} onChange={(v) => setCrm('days', v)} options={DAYS.map((d) => ({ v: d, label: t('adm.pros.dl.daysN', { n: d }) }))} />
+                <Segmented<(typeof DAYS)[number]> label={t('adm.pros.dl.f.days')} value={c.days} onChange={(v) => setCrm('days', v)} options={DAYS.map((d) => ({ value: d, label: t('adm.pros.dl.daysN', { n: d }) }))} />
               </Field>
             </div>
             <Field label={t('adm.pros.dl.f.passwordOpt')} hint={t('adm.pros.dl.f.passwordOptHint')}>

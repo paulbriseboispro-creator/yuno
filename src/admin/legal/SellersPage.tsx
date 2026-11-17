@@ -14,7 +14,8 @@ import { downloadBlob } from '@/lib/generateDocuments';
 import { fmtEur, fmtNum } from '@/lib/adminFormat';
 import { useLegalSellers } from './data';
 import { DAC7_MARKERS, dac7Reached, proHref, sellerGaps, sellersCsv, type SellerRow } from './rules';
-import { Seg, SourceNote } from './ui';
+import { SourceNote } from './ui';
+import { Segmented } from '@/admin/ui';
 import { tOr } from './format';
 
 export default function SellersPage() {
@@ -64,7 +65,7 @@ export default function SellersPage() {
   return (
     <Page title={t('adm.lg2.sl.title')} subtitle={t('adm.lg2.sl.sub')}
       actions={<>
-        <Seg value={String(year)} label={t('adm.lg2.sl.year')} onChange={(v) => setYear(Number(v))}
+        <Segmented value={String(year)} label={t('adm.lg2.sl.year')} onChange={(v) => setYear(Number(v))}
           options={[thisYear - 2, thisYear - 1, thisYear].map((y) => ({ value: String(y), label: String(y) }))} />
         <button type="button" className="a-btn" onClick={exportCsv} disabled={rows.length === 0}><Download className="h-4 w-4" />{t('adm.lg2.sl.export')}</button>
       </>}>

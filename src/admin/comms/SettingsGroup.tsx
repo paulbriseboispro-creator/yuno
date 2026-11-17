@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { Card, useAdminT } from '@/admin/ui';
 import { COMMS_KEY } from './data';
 import { rpc } from '../system/data';
-import { Field } from './form';
+import { Field } from '@/admin/ui';
 
 /** Formulaire de réglages numériques : « Enregistrer » ne s'allume que si un champ a changé. */
 export function SettingsGroup({ title, hint, fields, settings, hintPrefix }: {

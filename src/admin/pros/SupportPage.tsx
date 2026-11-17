@@ -12,7 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Badge, DataTable, Kpi, KpiRow, Page, ReasonDialog, Status, Tabs, Timeline, useAdminT, useTab, type ColumnDef } from '@/admin/ui';
 import { fmtDate, fmtNum, fmtRelative } from '@/lib/adminFormat';
 import { accountHref } from './accounts';
-import { Field } from './gestures';
+import { Field } from '@/admin/ui';
 import { ProductBadges } from './bits';
 import { useProsRefresh, useSupportOverview, type SupportGrant } from './data';
 

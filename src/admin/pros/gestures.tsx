@@ -19,7 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { rpc } from '@/crm/lib/rpc';
 import { setSupportSession } from '@/lib/supportSession';
 import { AccountProductsButton, normalizeProducts } from '@/components/admin/AccountProducts';
-import { Dialog, ReasonDialog, useAdminT } from '@/admin/ui';
+import { Dialog, Field, ReasonDialog, useAdminT } from '@/admin/ui';
 import { consoleLanding } from './accounts';
 import { useProsRefresh, type AccountCard } from './data';
 import { OwnerInviteDialog, PurgeVenueDialog, RemoveOrgDialog, RenameOrgDialog, ShowcaseVenueDialog } from './gesturesMore';
@@ -224,16 +224,6 @@ function EditVenueDialog({ card, open, onOpenChange, onDone }: { card: AccountCa
         <Field label={t('adm.pros.f.address')}><input className="a-input" value={address} onChange={(e) => setAddress(e.target.value)} /></Field>
       </div>
     </ReasonDialog>
-  );
-}
-
-export function Field({ label, hint, children }: { label: ReactNode; hint?: ReactNode; children: ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="a-t1 text-[12.5px] font-medium">{label}</span>
-      {children}
-      {hint && <span className="a-t3 text-[12px]">{hint}</span>}
-    </label>
   );
 }
 

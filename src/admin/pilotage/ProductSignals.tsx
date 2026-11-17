@@ -13,7 +13,7 @@ import { fmtDate, fmtNum, fmtPct, fmtPlural, fmtRelative } from '@/lib/adminForm
 import { MIN_SAMPLE } from '@/lib/metrics';
 import { useProductInsights, type KV, type ProductInsights } from './data';
 import { proHref } from './format';
-import { Fold } from './Fold';
+import { Fold } from '@/admin/ui';
 
 const secs = (n: number | null): string => (n == null ? '—' : n >= 60 ? `${Math.round(n / 60)} min` : `${Math.round(n)} s`);
 

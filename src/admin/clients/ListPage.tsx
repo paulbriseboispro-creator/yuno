@@ -107,7 +107,7 @@ export default function ListPage() {
   };
 
   const chip = (param: keyof Filters, label: string, values: readonly string[], text: (v: string) => string) => (
-    <select className="a-input" style={{ width: 'auto', minWidth: 120 }} aria-label={label} value={f[param] as string}
+    <select className="a-input a-input--filter" aria-label={label} value={f[param] as string}
       onChange={(e) => set({ [param]: e.target.value || null })}>
       <option value="">{label}</option>
       {values.map((v) => <option key={v} value={v}>{text(v)}</option>)}
@@ -123,7 +123,7 @@ export default function ListPage() {
       {chip('account', t('adm.cl.list.hasAccount'), YESNO, (v) => t(`adm.cl.yn.${v}`))}
       {chip('app', t('adm.cl.list.hasApp'), YESNO, (v) => t(`adm.cl.yn.${v}`))}
       {chip('reach', t('adm.cl.list.joinable'), REACH, (v) => t(`adm.cl.reach.${v}`))}
-      <select className="a-input" style={{ width: 'auto', minWidth: 120 }} aria-label={t('adm.cl.list.sort')} value={f.sort} onChange={(e) => set({ sort: e.target.value === 'total_spent' ? null : e.target.value })}>
+      <select className="a-input a-input--filter" aria-label={t('adm.cl.list.sort')} value={f.sort} onChange={(e) => set({ sort: e.target.value === 'total_spent' ? null : e.target.value })}>
         {SORTS.map((v) => <option key={v} value={v}>{t(`adm.cl.sort.${v}`)}</option>)}
       </select>
       <button type="button" className="a-btn a-btn--sm" onClick={() => set({ dir: f.dir === 'desc' ? 'asc' : null })} aria-label={t('adm.cl.list.dir')}>

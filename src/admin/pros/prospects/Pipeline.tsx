@@ -19,9 +19,9 @@ import { Clock, MessageCircle, Plus } from 'lucide-react';
 import { rpc } from '@/crm/lib/rpc';
 import type { AdminPipeline, Prospect, ProspectStage } from '@/crm/admin/data';
 import { fmtDate, fmtEur, fmtNum, fmtRelative } from '@/lib/adminFormat';
-import { Badge, Card, DataTable, Dialog, Drawer, EmptyState, ErrorState, Kpi, KpiRow, Section, Status, useAdminFilters, useAdminT, type ColumnDef } from '@/admin/ui';
-import { Field } from '../gestures';
-import { Seg } from '../demo/fields';
+import { Badge, Card, Checkbox, DataTable, Dialog, Drawer, EmptyState, ErrorState, Kpi, KpiRow, Section, Status, useAdminFilters, useAdminT, type ColumnDef } from '@/admin/ui';
+import { Field } from '@/admin/ui';
+import { Segmented } from '@/admin/ui';
 import { accountHref } from '../accounts';
 import { PROS_QK } from '../data';
 
@@ -61,8 +61,8 @@ export function Pipeline() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center gap-3">
-        <Seg<View> label={t('adm.pros.pl.view')} value={view} onChange={(v) => set('view', v === 'board' ? null : v)}
-          options={VIEWS.map((v) => ({ v, label: t(`adm.pros.pl.v.${v}`) }))} />
+        <Segmented<View> label={t('adm.pros.pl.view')} value={view} onChange={(v) => set('view', v === 'board' ? null : v)}
+          options={VIEWS.map((v) => ({ value: v, label: t(`adm.pros.pl.v.${v}`) }))} />
         <span className="flex-1" />
         <button type="button" className="a-btn" onClick={() => set('p', 'new')}><Plus className="h-4 w-4" />{t('adm.pros.pl.add')}</button>
       </div>
@@ -257,7 +257,7 @@ function Targets() {
         actions={(
           <div className="flex items-center gap-2">
             {city && <button type="button" className="a-btn a-btn--sm" onClick={() => setCity(null)}>{t('adm.pros.pl.t.allCities')}</button>}
-            <label className="a-t2 inline-flex items-center gap-1.5 text-[12.5px]"><input type="checkbox" checked={free} onChange={(e) => setFree(e.target.checked)} />{t('adm.pros.pl.t.free')}</label>
+            <Checkbox checked={free} onChange={setFree}>{t('adm.pros.pl.t.free')}</Checkbox>
           </div>
         )}>
         <DataTable data={list} columns={tCols} loading={q.isLoading} error={q.error} onRetry={() => void q.refetch()} searchable getRowId={(x) => x.key}
@@ -326,7 +326,7 @@ function ProspectDrawer({ prospect, onClose }: { prospect: Prospect | null; onCl
         </div>
         {f.stage === 'lost' && <Field label={t('adm.pros.pl.fl.loss')}><input className="a-input" value={f.loss_reason} onChange={(e) => set('loss_reason', e.target.value)} /></Field>}
         <Field label={t('adm.pros.ci.note')}><textarea className="a-input" rows={3} value={f.note} onChange={(e) => set('note', e.target.value)} /></Field>
-        <label className="a-t1 inline-flex items-center gap-2 text-[13px]"><input type="checkbox" checked={f.opposed} onChange={(e) => set('opposed', e.target.checked)} />{t('adm.pros.pl.fl.opposed')}</label>
+        <Checkbox checked={f.opposed} onChange={(v) => set('opposed', v)}>{t('adm.pros.pl.fl.opposed')}</Checkbox>
         {err && <p role="alert" className="text-[12.5px]" style={{ color: 'var(--a-neg)' }}>{err}</p>}
 
         {prospect && (

@@ -11,7 +11,7 @@ import { Badge, Card, DataTable, Dialog, ReasonDialog, useAdminT, type ColumnDef
 import { fmtNum, fmtRelative } from '@/lib/adminFormat';
 import { COMMS_KEY, useCreditAccounts, type CreditAccount, type EngineOverview } from './data';
 import { rpc } from '../system/data';
-import { Field } from './form';
+import { Field } from '@/admin/ui';
 import { SettingsGroup } from './SettingsGroup';
 
 const CREDIT_FIELDS = ['credits_venue', 'credits_org', 'credits_agency', 'event_info_per_event', 'manual_per_24h'] as const;

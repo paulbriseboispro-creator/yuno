@@ -39,7 +39,7 @@ export default function Ai() {
         <Kpi label={t('adm.sys.ai.k.p95')} value={fmtMs(tt?.p95_latency_ms ?? null, lang)} loading={q.isLoading} />
       </KpiRow>
       <Card title={t('adm.sys.ai.chart')}>
-        <Chart kind="bar" data={days} x="day" formatX={(v) => fmtAxisDay(v, lang)} height={240}
+        <Chart kind="bar" data={days} x="day" formatX={(v) => fmtAxisDay(v, lang)} height={200}
           unit={{ label: 'USD', format: (v) => fmtUsd(v, lang) }} series={[{ key: 'cost', label: t('adm.sys.ai.k.cost') }]}
           loading={q.isLoading} error={q.error} onRetry={() => void q.refetch()} empty={t('adm.sys.ai.noCalls')} />
       </Card>

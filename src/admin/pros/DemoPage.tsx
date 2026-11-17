@@ -14,7 +14,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { DEMO_ACCOUNTS } from '@/lib/demoSession';
 import { fmtDate, fmtNum, fmtRelative } from '@/lib/adminFormat';
-import { Badge, DataTable, Kpi, KpiRow, Page, Status, Tabs, useAdminT, useTab, type ColumnDef } from '@/admin/ui';
+import { Badge, Checkbox, DataTable, Kpi, KpiRow, Page, Status, Tabs, useAdminT, useTab, type ColumnDef } from '@/admin/ui';
 import { isLive, signupStage, useDemo, type DemoRow } from './demo/data';
 import { LinkDrawer } from './demo/LinkDrawer';
 import { NewDemoDialog, type DemoProduct } from './demo/NewDemoDialog';
@@ -87,13 +87,13 @@ export default function DemoPage() {
 
   const toolbar = (
     <div className="flex flex-wrap items-center gap-2">
-      <select className="a-input" style={{ width: 'auto', height: 32 }} value={product} aria-label={t('adm.pros.col.products')}
+      <select className="a-input a-input--filter" value={product} aria-label={t('adm.pros.col.products')}
         onChange={(e) => setParam('product', e.target.value === 'all' ? null : e.target.value)}>
         <option value="all">{t('adm.pros.dl.allProducts')}</option>
         <option value="tickets">{t('adm.pros.product.tickets')}</option>
         <option value="crm">{t('adm.pros.product.crm')}</option>
       </select>
-      <label className="a-t2 inline-flex items-center gap-1.5 text-[12.5px]"><input type="checkbox" checked={all} onChange={(e) => setParam('state', e.target.checked ? 'all' : null)} />{t('adm.pros.dl.showClosed')}</label>
+      <Checkbox checked={all} onChange={(v) => setParam('state', v ? 'all' : null)}>{t('adm.pros.dl.showClosed')}</Checkbox>
     </div>
   );
 

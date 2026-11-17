@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Pin, PinOff, Trash2 } from 'lucide-react';
 import { rpc } from '@/crm/lib/rpc';
-import { Badge, Card, EmptyState, Grid, KeyValue, Section, Status, Timeline, useAdminT } from '@/admin/ui';
+import { Badge, Card, Checkbox, EmptyState, Grid, KeyValue, Section, Status, Timeline, useAdminT } from '@/admin/ui';
 import { fmtDate, fmtRelative } from '@/lib/adminFormat';
 import { useProsRefresh, type AccountCard } from '../data';
 
@@ -175,7 +175,7 @@ export function JournalTab({ card }: { card: AccountCard }) {
           <div className="flex flex-col gap-2">
             <textarea className="a-input" rows={3} value={body} onChange={(e) => setBody(e.target.value)} placeholder={t('adm.pros.j.notePh')} />
             <div className="flex items-center gap-3">
-              <label className="a-t2 inline-flex items-center gap-1.5 text-[12.5px]"><input type="checkbox" checked={pin} onChange={(e) => setPin(e.target.checked)} />{t('adm.pros.j.pin')}</label>
+              <Checkbox checked={pin} onChange={setPin}>{t('adm.pros.j.pin')}</Checkbox>
               <span className="flex-1" />
               <button type="button" className="a-btn a-btn--primary a-btn--sm" disabled={busy || !body.trim()}
                 onClick={() => void run(async () => { await rpc('admin_account_note_add', { p_key: card.key, p_body: body, p_pinned: pin }); setBody(''); setPin(false); })}>

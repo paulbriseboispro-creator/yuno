@@ -75,7 +75,7 @@ export default function Deliverability() {
 
       <Grid cols={2}>
         <Card title={t('adm.comms.dl.curve')}>
-          <Chart kind="stacked" data={series} x="day" formatX={(v) => fmtAxisDay(v, lang)} unit="count" height={240}
+          <Chart kind="stacked" data={series} x="day" formatX={(v) => fmtAxisDay(v, lang)} unit="count" height={200}
             series={[{ key: 'gmail', label: 'Gmail' }, { key: 'other', label: t('adm.comms.dl.others') }]}
             loading={deliv.isLoading} error={deliv.error} onRetry={() => void deliv.refetch()} empty={t('adm.comms.dl.curveEmpty')} />
         </Card>

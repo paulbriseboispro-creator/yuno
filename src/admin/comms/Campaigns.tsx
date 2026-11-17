@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useState } from 'react';
-import { Badge, Card, DataTable, Kpi, KpiRow, Page, Tabs, useAdminT, useTab, type ColumnDef, type Tone } from '@/admin/ui';
+import { Badge, Card, DataTable, Fold, Kpi, KpiRow, Page, Tabs, useAdminT, useTab, type ColumnDef, type Tone } from '@/admin/ui';
 import ContactImportDialog from '@/components/contacts/ContactImportDialog';
 import { fmtDate, fmtNum, fmtPct } from '@/lib/adminFormat';
 import { rpc } from '../system/data';
@@ -97,9 +97,8 @@ export default function Campaigns() {
         <Kpi label={t('adm.comms.cp.k.drafts')} value={fmtNum(draftCount, lang)} loading={ov.isLoading} />
       </KpiRow>
       {o?.quota && (
-        <details className="a-card">
-          <summary className="a-t1 flex min-h-[44px] cursor-pointer items-center px-4 text-[14px] font-semibold">{t('adm.comms.cp.quota')}</summary>
-          <div className="grid grid-cols-1 gap-5 border-t p-4 md:grid-cols-3">
+        <Fold title={t('adm.comms.cp.quota')}>
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
             {([
               ['quotaMonth', o.quota.used, o.quota.free],
               ['quotaDay', o.quota.day_used, o.quota.day_cap],
@@ -112,7 +111,7 @@ export default function Campaigns() {
             ))}
             <p className="a-t3 text-[12.5px] md:col-span-3">{t('pm.quotaHint')}</p>
           </div>
-        </details>
+        </Fold>
       )}
       <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
         <Tabs className="min-w-0 flex-1" items={tabs} value={tab} onChange={setTab} />

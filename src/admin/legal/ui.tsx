@@ -28,34 +28,3 @@ export function SourceNote({ children, jurist }: { children: ReactNode; jurist?:
   );
 }
 
-export function Field({ label, hint, children }: { label: ReactNode; hint?: ReactNode; children: ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1.5">
-      <span className="a-t1 text-[12.5px] font-medium">{label}</span>
-      {children}
-      {hint && <span className="a-t3 text-[12px]">{hint}</span>}
-    </label>
-  );
-}
-
-export function Seg<V extends string>({ value, options, onChange, label }: {
-  value: NoInfer<V>; options: { value: V; label: ReactNode }[]; onChange: (v: NoInfer<V>) => void; label?: string;
-}) {
-  return (
-    <div className="a-seg" role="group" aria-label={label}>
-      {options.map((o) => (
-        <button key={o.value} type="button" aria-pressed={o.value === value} onClick={() => onChange(o.value)}>{o.label}</button>
-      ))}
-    </div>
-  );
-}
-
-export function Select<V extends string>({ value, options, onChange, label }: {
-  value: NoInfer<V>; options: { value: V; label: string }[]; onChange: (v: NoInfer<V>) => void; label?: string;
-}) {
-  return (
-    <select className="a-input" aria-label={label} value={value} onChange={(e) => onChange(e.target.value as V)}>
-      {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
-  );
-}

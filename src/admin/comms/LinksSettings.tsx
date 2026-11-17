@@ -9,7 +9,7 @@ import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { Card, ErrorState, Grid, useAdminT } from '@/admin/ui';
 import { DEFAULT_LINKS_CONFIG, fetchLinksConfig, saveLinksConfig, type LinksConfig } from '@/lib/yunoLinks';
 import { COMMS_KEY } from './data';
-import { Field, SwitchRow } from './form';
+import { Field, SwitchRow } from '@/admin/ui';
 
 const splitCities = (s: string) => Array.from(new Set(s.split(/[,\n;]/).map((x) => x.trim()).filter(Boolean))).slice(0, 12);
 const phoneStyle = { background: 'var(--a-panel)', border: '1px solid var(--a-border)', borderRadius: 8, color: 'var(--a-text)', fontSize: 13 } as const;

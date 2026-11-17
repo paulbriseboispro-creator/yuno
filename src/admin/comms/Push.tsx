@@ -13,7 +13,7 @@ import { Badge, Card, DataTable, Drawer, Kpi, KpiRow, Page, useAdminT, type Colu
 import { supabase } from '@/integrations/supabase/client';
 import { fmtDate, fmtNum, fmtPct } from '@/lib/adminFormat';
 import { COMMS_KEY, usePushCampaigns, usePushClicks, type PushCampaignRow } from './data';
-import { Field } from './form';
+import { Field } from '@/admin/ui';
 
 const SEGMENTS = [
   ['all', 'adminPush.segAll'], ['active_30d', 'adminPush.segActive30d'], ['inactive_30d', 'adminPush.segInactive30d'],

@@ -125,7 +125,7 @@ export default function SystemHealth() {
         <span id="sys-db" />
         <Grid cols={2}>
           <Card title={t('adm.sys.h.db.largest')}>
-            <Chart kind="bar" data={h?.database.largest.map((x) => ({ table: x.table, mb: x.mb })) ?? null} x="table" height={240}
+            <Chart kind="bar" data={h?.database.largest.map((x) => ({ table: x.table, mb: x.mb })) ?? null} x="table" height={200}
               unit={{ label: 'MB', format: (v) => `${fmtNum(v, lang)} MB` }} series={[{ key: 'mb', label: 'MB' }]} loading={q.isLoading} />
           </Card>
           <Card title={t('adm.sys.h.db.state')}>

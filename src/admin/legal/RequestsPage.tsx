@@ -10,13 +10,12 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
-import {
-  Badge, DataTable, Drawer, Kpi, KpiRow, Page, ReasonDialog, Section, Status, Tabs, useAdminT, useTab, type ColumnDef,
-} from '@/admin/ui';
+import { Badge, Checkbox, DataTable, Drawer, Kpi, KpiRow, Page, ReasonDialog, Section, Status, Tabs, useAdminT, useTab, type ColumnDef } from '@/admin/ui';
 import { fmtDate, fmtNum } from '@/lib/adminFormat';
 import { usePrivacyRequests, usePrivacyRequestSave, type PrivacyRequest, type RequestKind, type RequestStatus } from './data';
 import { daysUntil, personHref, proHref, requestDeadline, requestState } from './rules';
-import { Field, Select, SourceNote, StateBadge } from './ui';
+import { SourceNote, StateBadge } from './ui';
+import { Field, Select } from '@/admin/ui';
 import { fromLocalInput, toLocalInput } from './format';
 
 const KINDS: RequestKind[] = ['access', 'erasure', 'objection', 'rectification', 'portability', 'other'];
@@ -147,7 +146,7 @@ function RequestDrawer({ request, onClose }: { request: PrivacyRequest | null; o
         <Field label={t('adm.lg2.rq.f.kind')} hint={t(`adm.lg2.rq.kind.${kind}.hint`)}>
           <Select value={kind} onChange={setKind} options={KINDS.map((k) => ({ value: k, label: t(`adm.lg2.rq.kind.${k}`) }))} />
         </Field>
-        <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" checked={verified} onChange={(e) => setVerified(e.target.checked)} /><span className="a-t1">{t('adm.lg2.rq.f.verified')}</span></label>
+        <Checkbox checked={verified} onChange={setVerified}>{t('adm.lg2.rq.f.verified')}</Checkbox>
         <Field label={t('adm.lg2.rq.f.account')} hint={t('adm.lg2.rq.f.accountHint')}>
           <input className="a-input a-mono" value={accountKey} onChange={(e) => setAccountKey(e.target.value)} placeholder="venue:… / org:…" />
         </Field>

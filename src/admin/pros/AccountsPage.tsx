@@ -123,7 +123,7 @@ export default function AccountsPage() {
   ], [t, lang, range.days]);
 
   const select = (k: keyof AccountFilters, opts: { v: string; label: string }[]) => (
-    <select className="a-input" style={{ width: 'auto', height: 32 }} value={f[k]} onChange={(e) => setFilter(k, e.target.value)} aria-label={t(`adm.pros.filter.${k}`)}>
+    <select className="a-input a-input--filter" value={f[k]} onChange={(e) => setFilter(k, e.target.value)} aria-label={t(`adm.pros.filter.${k}`)}>
       <option value="all">{t(`adm.pros.filter.${k}`)}</option>
       {opts.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
     </select>

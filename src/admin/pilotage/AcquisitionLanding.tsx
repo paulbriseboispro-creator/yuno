@@ -6,7 +6,7 @@
 import { Card, Chart, DataTable, EmptyState, ErrorState, Grid, KeyValue, useAdminFilters, useAdminT, type ColumnDef } from '@/admin/ui';
 import { fmtAxisDay, fmtNum, fmtPct } from '@/lib/adminFormat';
 import { useCrmLanding, type CrmLanding } from './data';
-import { Fold } from './Fold';
+import { Fold } from '@/admin/ui';
 
 /** L'ordre de lecture de la page (src/pages/crm.tsx du dépôt landing). */
 const ORDER = ['hero', 'proof', 'problem', 'night', 'how', 'engine', 'mcp', 'compare', 'features', 'channels', 'pricing', 'faq', 'final'];

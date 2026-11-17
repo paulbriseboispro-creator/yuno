@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { Check, Mail, MessageCircle, Phone, StickyNote } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { rpc } from '@/crm/lib/rpc';
-import { Badge, DataTable, Dialog, Kpi, KpiRow, Page, Status, Tabs, useAdminFilters, useAdminT, useTab, type ColumnDef } from '@/admin/ui';
+import { Badge, Checkbox, DataTable, Dialog, Kpi, KpiRow, Page, Status, Tabs, useAdminFilters, useAdminT, useTab, type ColumnDef } from '@/admin/ui';
 import { fmtDate, fmtNum, fmtRelative } from '@/lib/adminFormat';
 import { useProspects, useProsRefresh } from './data';
 import { accountHref, accountKey, phoneLinks } from './accounts';
@@ -150,11 +150,11 @@ function AllProspects() {
         empty={{ title: t(onlyOpen ? 'adm.pros.pr.emptyOpen' : 'adm.pros.pr.empty') }}
         toolbar={(
           <div className="flex flex-wrap items-center gap-2">
-            <select className="a-input" style={{ width: 'auto', height: 32 }} value={source} onChange={(e) => setSource(e.target.value as 'all' | Source)} aria-label={t('adm.pros.pr.col.source')}>
+            <select className="a-input a-input--filter" value={source} onChange={(e) => setSource(e.target.value as 'all' | Source)} aria-label={t('adm.pros.pr.col.source')}>
               <option value="all">{t('adm.pros.pr.allSources')}</option>
               {(['links', 'signup', 'crm'] as const).map((s) => <option key={s} value={s}>{t(`adm.pros.pr.src.${s}`)}</option>)}
             </select>
-            <label className="a-t2 inline-flex items-center gap-1.5 text-[12.5px]"><input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} />{t('adm.pros.pr.onlyOpen')}</label>
+            <Checkbox checked={onlyOpen} onChange={setOnlyOpen}>{t('adm.pros.pr.onlyOpen')}</Checkbox>
           </div>
         )} />
       <SignupDrawer person={personFor} onClose={() => setPersonFor(null)} />

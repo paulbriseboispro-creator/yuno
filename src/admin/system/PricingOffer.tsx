@@ -16,7 +16,7 @@ import { fmtDate, fmtEur, fmtNum, fmtPct, fmtRelative } from '@/lib/adminFormat'
 import type { AdminPricing, PricingCfg } from '@/crm/admin/data';
 import { rpc } from './data';
 import { usePriceTier, type StripePrices } from './pricingData';
-import { NumField } from './NumField';
+import { NumberInput } from '@/admin/ui';
 
 const NUM_KEYS = ['price_month', 'price_month_next', 'price_year', 'price_switch_at', 'trial_days', 'trial_yunits', 'trial_extensions', 'monthly_yunits', 'annual_bonus_yunits'] as const;
 /** Grille des prix : le SMS a un second tarif, vers l'étranger (tout indicatif hors +33). */
@@ -73,11 +73,11 @@ function Editor({ cfg, onSaved }: { cfg: PricingCfg; onSaved: () => void }) {
       <span className="flex items-center gap-2"><span className="a-t1 font-medium">{t(`adm.crm.se.ch.${row.original.key}`)}</span>{!row.original.live && <Badge>{t('adm.crm.se.soon')}</Badge>}</span>
     ) },
     { accessorKey: 'rate', header: 'Yunits', enableSorting: false, meta: { align: 'right' }, cell: ({ row }) => (
-      <NumField value={row.original.rate} width={84} label={`Yunits ${row.original.key}`} onChange={(v) => setRate(row.original.key, v)} />
+      <NumberInput value={row.original.rate} width={84} label={`Yunits ${row.original.key}`} onChange={(v) => setRate(row.original.key, v)} />
     ) },
     { accessorKey: 'billed', header: t('adm.crm.se.h.billed'), enableSorting: false, meta: { align: 'right' }, cell: (c) => price4(c.getValue<number>()) },
     { accessorKey: 'cost', header: t('adm.crm.se.h.cost'), enableSorting: false, meta: { align: 'right' }, cell: ({ row }) => (
-      <NumField value={row.original.cost} step={0.0001} width={104} label={`${t('adm.crm.se.h.cost')} ${row.original.key}`} onChange={(v) => setCost(row.original.key, v)} />
+      <NumberInput value={row.original.cost} step={0.0001} width={104} label={`${t('adm.crm.se.h.cost')} ${row.original.key}`} onChange={(v) => setCost(row.original.key, v)} />
     ) },
     { accessorKey: 'margin', header: t('adm.crm.se.h.margin'), enableSorting: false, meta: { align: 'right' }, cell: ({ row }) => {
       const m = row.original.margin;
@@ -101,19 +101,19 @@ function Editor({ cfg, onSaved }: { cfg: PricingCfg; onSaved: () => void }) {
       <Grid cols={3}>
         <Card title={t('adm.crm.se.price')}>
           <div className="flex flex-col gap-3">
-            <Field label={t('adm.crm.se.priceMonth')}><NumField label={t('adm.crm.se.priceMonth')} value={draft.price_month} onChange={(v) => set('price_month', v)} /></Field>
-            <Field label={t('adm.crm.se.priceYear')}><NumField label={t('adm.crm.se.priceYear')} value={draft.price_year} onChange={(v) => set('price_year', v)} /></Field>
-            <Field label={t('adm.crm.se.priceNext')}><NumField label={t('adm.crm.se.priceNext')} value={draft.price_month_next} onChange={(v) => set('price_month_next', v)} /></Field>
-            <Field label={t('adm.crm.se.switchAt')}><NumField label={t('adm.crm.se.switchAt')} value={draft.price_switch_at} onChange={(v) => set('price_switch_at', v)} /></Field>
+            <Field label={t('adm.crm.se.priceMonth')}><NumberInput label={t('adm.crm.se.priceMonth')} value={draft.price_month} onChange={(v) => set('price_month', v)} /></Field>
+            <Field label={t('adm.crm.se.priceYear')}><NumberInput label={t('adm.crm.se.priceYear')} value={draft.price_year} onChange={(v) => set('price_year', v)} /></Field>
+            <Field label={t('adm.crm.se.priceNext')}><NumberInput label={t('adm.crm.se.priceNext')} value={draft.price_month_next} onChange={(v) => set('price_month_next', v)} /></Field>
+            <Field label={t('adm.crm.se.switchAt')}><NumberInput label={t('adm.crm.se.switchAt')} value={draft.price_switch_at} onChange={(v) => set('price_switch_at', v)} /></Field>
             <p className="a-t3 text-[12.5px] leading-relaxed">{t('adm.crm.se.priceHelp', { month: draft.monthly_yunits, year: draft.annual_bonus_yunits })}</p>
           </div>
         </Card>
         <Card title={t('adm.crm.se.trial')}>
           <div className="flex flex-col gap-3">
-            <Field label={t('adm.crm.se.trialDays')}><NumField label={t('adm.crm.se.trialDays')} value={draft.trial_days} onChange={(v) => set('trial_days', v)} /></Field>
-            <Field label={t('adm.crm.se.trialYunits')}><NumField label={t('adm.crm.se.trialYunits')} value={draft.trial_yunits} step={500} onChange={(v) => set('trial_yunits', v)} /></Field>
-            <Field label={t('adm.crm.se.monthlyYunits')}><NumField label={t('adm.crm.se.monthlyYunits')} value={draft.monthly_yunits} step={500} onChange={(v) => set('monthly_yunits', v)} /></Field>
-            <Field label={t('adm.crm.se.annualBonus')}><NumField label={t('adm.crm.se.annualBonus')} value={draft.annual_bonus_yunits} step={500} onChange={(v) => set('annual_bonus_yunits', v)} /></Field>
+            <Field label={t('adm.crm.se.trialDays')}><NumberInput label={t('adm.crm.se.trialDays')} value={draft.trial_days} onChange={(v) => set('trial_days', v)} /></Field>
+            <Field label={t('adm.crm.se.trialYunits')}><NumberInput label={t('adm.crm.se.trialYunits')} value={draft.trial_yunits} step={500} onChange={(v) => set('trial_yunits', v)} /></Field>
+            <Field label={t('adm.crm.se.monthlyYunits')}><NumberInput label={t('adm.crm.se.monthlyYunits')} value={draft.monthly_yunits} step={500} onChange={(v) => set('monthly_yunits', v)} /></Field>
+            <Field label={t('adm.crm.se.annualBonus')}><NumberInput label={t('adm.crm.se.annualBonus')} value={draft.annual_bonus_yunits} step={500} onChange={(v) => set('annual_bonus_yunits', v)} /></Field>
           </div>
         </Card>
         <Card title={t('adm.crm.se.recharge')} footer={t('adm.crm.se.rechargeNote', { months: 12 })}>

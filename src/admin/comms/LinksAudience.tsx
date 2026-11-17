@@ -3,7 +3,7 @@
  * clics), puis les clics par lien et la provenance en tableaux. Le détail
  * (pays, langues, appareils, campagnes, villes) reste replié.
  */
-import { Card, Chart, DataTable, Grid, Kpi, KpiRow, useAdminFilters, useAdminT, type ColumnDef } from '@/admin/ui';
+import { Card, Chart, DataTable, Fold, Grid, Kpi, KpiRow, useAdminFilters, useAdminT, type ColumnDef } from '@/admin/ui';
 import { fmtAxisDay, fmtNum, fmtPct } from '@/lib/adminFormat';
 import { useLinksAnalytics } from './data';
 
@@ -63,7 +63,7 @@ export default function LinksAudience() {
         <Kpi label={t('adminLinks.kLeads')} value={fmtNum(tt?.pro_leads ?? 0, lang)} current={tt?.pro_leads} previous={p?.totals.pro_leads} to="/admin/pros/prospects" loading={cur.isLoading} />
       </KpiRow>
       <Card title={t('adm.comms.ln.a.chart')}>
-        <Chart kind="line" data={series} x="t" formatX={fmtX} unit="count" height={240}
+        <Chart kind="line" data={series} x="t" formatX={fmtX} unit="count" height={200}
           series={[{ key: 'visitors', label: t('adminLinks.kVisitors') }, { key: 'clicks', label: t('adminLinks.kClicks') }]}
           loading={cur.isLoading} error={cur.error} onRetry={() => void cur.refetch()} empty={empty ? t('adminLinks.emptyBody') : undefined} />
       </Card>
@@ -78,9 +78,8 @@ export default function LinksAudience() {
       <Card padded={false} title={t('adminLinks.eventsTitle')}>
         <DataTable data={s?.events} columns={eventCols} loading={cur.isLoading} pageSize={8} getRowId={(r) => r.event_id} initialSort={[{ id: 'clicks', desc: true }]} empty={{ title: t('adminLinks.noClicks') }} />
       </Card>
-      <details className="a-card group">
-        <summary className="a-t1 flex min-h-[44px] cursor-pointer items-center px-4 text-[14px] font-semibold">{t('adm.comms.ln.a.more')}</summary>
-        <div className="grid grid-cols-1 gap-4 border-t p-4 md:grid-cols-2 xl:grid-cols-3">
+      <Fold title={t('adm.comms.ln.a.more')}>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {([
             [t('adminLinks.countriesTitle'), s?.countries, plain(t('adminLinks.countriesTitle'))],
             [t('adminLinks.langsTitle'), s?.langs, upper(t('adminLinks.langsTitle'))],
@@ -95,7 +94,7 @@ export default function LinksAudience() {
             </div>
           ))}
         </div>
-      </details>
+      </Fold>
     </>
   );
 }

@@ -16,9 +16,9 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Copy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { Badge, Card, DataTable, Page, Section, Status, useAdminT, type ColumnDef } from '@/admin/ui';
+import { Badge, Card, Checkbox, DataTable, Page, Section, Status, useAdminT, type ColumnDef } from '@/admin/ui';
 import { fmtDate, fmtRelative } from '@/lib/adminFormat';
-import { Field } from './gestures';
+import { Field } from '@/admin/ui';
 import { accountHref, venueIdFromName, type AccountType } from './accounts';
 import { useInvitations, useProsRefresh, type PendingInvite } from './data';
 import { CrmInviteForm } from './invite/CrmInviteForm';
@@ -162,7 +162,7 @@ function OrganizerForm({ association }: { association: boolean }) {
           <Field label={t('adm.pros.inv.orgName')}><input className="a-input" value={org} onChange={(e) => setOrg(e.target.value)} /></Field>
           <Field label={t('adm.pros.f.email')}><input className="a-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
         </div>
-        <label className="a-t2 mt-3 inline-flex items-center gap-2 text-[13px]"><input type="checkbox" checked={help} onChange={(e) => setHelp(e.target.checked)} />{t('adm.pros.inv.offerHelp')}</label>
+        <Checkbox checked={help} onChange={setHelp}>{t('adm.pros.inv.offerHelp')}</Checkbox>
         <div className="mt-4"><button type="button" className="a-btn a-btn--primary" disabled={busy} onClick={() => void submit()}>{t(busy ? 'adm.ui.working' : 'adm.pros.inv.send')}</button></div>
       </Card>
     </Section>
@@ -243,7 +243,7 @@ function InvitationsList({ onOpen }: { onOpen: (r: PendingInvite) => void }) {
   ];
   return (
     <Section title={t('adm.pros.inv.listTitle')} description={t('adm.pros.inv.listSub')}
-      actions={<label className="a-t2 inline-flex items-center gap-1.5 text-[12.5px]"><input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} />{t('adm.pros.inv.showAll')}</label>}>
+      actions={<Checkbox checked={all} onChange={setAll}>{t('adm.pros.inv.showAll')}</Checkbox>}>
       <DataTable data={rows} columns={columns} loading={q.isLoading} error={q.error} onRetry={() => void q.refetch()} searchable
         getRowId={(r) => `${r.source}:${r.id}`} initialSort={[{ id: 'at', desc: true }]} empty={{ title: t('adm.pros.inv.empty') }}
         onRowClick={onOpen} />

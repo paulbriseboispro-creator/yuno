@@ -11,13 +11,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
-import {
-  Badge, DataTable, Drawer, Kpi, KpiRow, KeyValue, Page, ReasonDialog, Section, Timeline, useAdminT, type ColumnDef,
-} from '@/admin/ui';
+import { Badge, Checkbox, DataTable, Drawer, KeyValue, Kpi, KpiRow, Page, ReasonDialog, Section, Timeline, useAdminT, type ColumnDef } from '@/admin/ui';
 import { fmtDate, fmtNum } from '@/lib/adminFormat';
 import { prepareIncidentPros, useIncidentSave, useLegalAccounts, useLegalIncidents, type Incident } from './data';
 import { hoursUntil, proHref, type LegalState } from './rules';
-import { Field, Seg, SourceNote, StateBadge } from './ui';
+import { SourceNote, StateBadge } from './ui';
+import { Field, Segmented } from '@/admin/ui';
 import { fromLocalInput, toLocalInput } from './format';
 
 type Product = Incident['product'];
@@ -118,7 +117,7 @@ function IncidentDrawer({ incident, now, onClose }: { incident: Incident | null;
           ]} />
         )}
         <Field label={t('adm.lg2.in.f.product')}>
-          <Seg value={product} onChange={setProduct} options={(['tickets', 'crm', 'both'] as const).map((p) => ({ value: p, label: t(`adm.lg2.in.product.${p}`) }))} />
+          <Segmented value={product} onChange={setProduct} options={(['tickets', 'crm', 'both'] as const).map((p) => ({ value: p, label: t(`adm.lg2.in.product.${p}`) }))} />
         </Field>
         <Field label={t('adm.lg2.in.f.discovered')}><input type="datetime-local" className="a-input" value={discovered} onChange={(e) => setDiscovered(e.target.value)} /></Field>
         <Field label={t('adm.lg2.in.f.nature')}><textarea className="a-input" rows={3} maxLength={2000} value={nature} onChange={(e) => setNature(e.target.value)} /></Field>
@@ -141,7 +140,7 @@ function IncidentDrawer({ incident, now, onClose }: { incident: Incident | null;
             <Field label={t('adm.lg2.in.f.cnilRef')}><input className="a-input" maxLength={120} value={cnilRef} onChange={(e) => setCnilRef(e.target.value)} /></Field>
           </div>
           <Field label={t('adm.lg2.in.f.pros')}><input type="datetime-local" className="a-input" value={prosAt} onChange={(e) => setProsAt(e.target.value)} /></Field>
-          <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" checked={closed} onChange={(e) => setClosed(e.target.checked)} /><span className="a-t1">{t('adm.lg2.in.f.closed')}</span></label>
+          <Checkbox checked={closed} onChange={setClosed}>{t('adm.lg2.in.f.closed')}</Checkbox>
           {incident.accounts.length > 0 && (
             <div className="flex flex-col gap-2">
               <button type="button" className="a-btn a-btn--sm self-start" onClick={() => void prepareIncidentPros(incident.id).then(setPros)}>{t('adm.lg2.in.prepare')}</button>

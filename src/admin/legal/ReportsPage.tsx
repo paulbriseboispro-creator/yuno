@@ -9,7 +9,8 @@ import { Plus } from 'lucide-react';
 import { Badge, DataTable, Drawer, Kpi, KpiRow, Page, ReasonDialog, Section, useAdminT, type ColumnDef } from '@/admin/ui';
 import { fmtDate, fmtNum } from '@/lib/adminFormat';
 import { useContentReportSave, useContentReports, type ContentReport } from './data';
-import { Field, Select, SourceNote } from './ui';
+import { SourceNote } from './ui';
+import { Field, Select } from '@/admin/ui';
 import { fromLocalInput, toLocalInput } from './format';
 
 const KINDS = ['event', 'pro', 'content', 'other'] as const;

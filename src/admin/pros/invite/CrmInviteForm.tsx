@@ -13,8 +13,9 @@ import { inviteErr, useAdminInvites, type CrmInvite, type InvitesData } from '@/
 import type { InviteLang } from '@/crm/lib/crmInvites';
 import { fmtNum } from '@/lib/adminFormat';
 import { Badge, Card, Section, useAdminT } from '@/admin/ui';
-import { Field } from '../gestures';
-import { Check, Phone, Seg } from '../demo/fields';
+import { Field } from '@/admin/ui';
+import { Phone } from '../demo/fields';
+import { Checkbox, Segmented } from '@/admin/ui';
 import { PROS_QK } from '../data';
 
 type Kind = 'club' | 'organizer';
@@ -67,12 +68,12 @@ export function CrmInviteForm({ kind, founder, onCreated }: { kind: Kind; founde
           </div>
           <Field label={t('adm.pros.f.city')}><input className="a-input" value={f.city} maxLength={120} onChange={(e) => set('city', e.target.value)} /></Field>
           <Field label={t('adm.pros.dl.f.lang')}>
-            <Seg<InviteLang> label={t('adm.pros.dl.f.lang')} value={f.lang} onChange={(v) => set('lang', v)} options={(['fr', 'en', 'es'] as const).map((l) => ({ v: l, label: t(`adm.pros.dl.lang.${l}`) }))} />
+            <Segmented<InviteLang> label={t('adm.pros.dl.f.lang')} value={f.lang} onChange={(v) => set('lang', v)} options={(['fr', 'en', 'es'] as const).map((l) => ({ value: l, label: t(`adm.pros.dl.lang.${l}`) }))} />
           </Field>
         </div>
         <div className="mt-4 flex flex-col gap-3">
-          <Check checked={f.support} onChange={(v) => set('support', v)} hint={t('adm.pros.ci.supportHint')}>{t('adm.pros.ci.support')}</Check>
-          <Check checked={f.demo} onChange={(v) => set('demo', v)} hint={t('adm.pros.ci.demoHint')}>{t('adm.pros.ci.demo')}</Check>
+          <Checkbox checked={f.support} onChange={(v) => set('support', v)} hint={t('adm.pros.ci.supportHint')}>{t('adm.pros.ci.support')}</Checkbox>
+          <Checkbox checked={f.demo} onChange={(v) => set('demo', v)} hint={t('adm.pros.ci.demoHint')}>{t('adm.pros.ci.demo')}</Checkbox>
           <Field label={t('adm.pros.ci.note')}><textarea className="a-input" rows={2} maxLength={500} value={f.note} onChange={(e) => set('note', e.target.value)} /></Field>
         </div>
         {err && <p role="alert" className="mt-3 text-[12.5px]" style={{ color: 'var(--a-neg)' }}>{err}</p>}

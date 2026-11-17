@@ -14,10 +14,10 @@ import { Copy, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { fmtDate, fmtRelative } from '@/lib/adminFormat';
 import { DataTable, Dialog, Section, useAdminT, type ColumnDef } from '@/admin/ui';
-import { Field } from '../gestures';
+import { Field } from '@/admin/ui';
 import { accountHref } from '../accounts';
 import { invokeEdge, useDemoRefresh, type ClaimRequest, type DemoPayload } from './data';
-import { Check } from './fields';
+import { Checkbox } from '@/admin/ui';
 
 /** Les messages d'erreur connus de l'edge, en phrases. */
 function showcaseError(t: (k: string) => string, msg: string): string {
@@ -125,7 +125,7 @@ function ClaimInviteDialog({ claim, name, onClose }: { claim: ClaimRequest; name
       confirmLabel={t('adm.pros.inv.send')} busy={busy} onConfirm={() => { if (email.trim()) void send(); else toast.error(t('adm.pros.g.editMissing')); }}>
       <div className="flex flex-col gap-3 pb-1">
         <Field label={t('adm.pros.f.email')}><input className="a-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
-        <Check checked={help} onChange={setHelp}>{t('adm.pros.inv.offerHelp')}</Check>
+        <Checkbox checked={help} onChange={setHelp}>{t('adm.pros.inv.offerHelp')}</Checkbox>
       </div>
     </Dialog>
   );

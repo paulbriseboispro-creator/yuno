@@ -56,7 +56,7 @@ function ShotgunTab() {
         <Kpi label={t('adm.sys.cn.k.dur')} value={s?.duration.p50 == null ? '—' : fmtMs(s.duration.p50 * 1000, lang)} hint={s?.duration.p95 != null ? t('adm.sys.cn.k.durHint', { p: fmtMs(s.duration.p95 * 1000, lang) }) : undefined} loading={p.isLoading} />
       </KpiRow>
       <Card title={t('adm.sys.cn.quota')} footer={t('adm.sys.cn.quotaNote', { peak: Math.round(peak * 10) / 10, limit: SHOTGUN_LIMIT })}>
-        <Chart kind="bar" data={s?.hours.map((h) => ({ h: h.h, req: h.req })) ?? null} x="h" formatX={(v) => fmtDate(v, lang, 'time')} height={220}
+        <Chart kind="bar" data={s?.hours.map((h) => ({ h: h.h, req: h.req })) ?? null} x="h" formatX={(v) => fmtDate(v, lang, 'time')} height={200}
           unit={{ label: 'req', format: (v) => fmtNum(v, lang) }} series={[{ key: 'req', label: t('adm.sys.cn.requests') }]} loading={p.isLoading} error={p.error} onRetry={() => void p.refetch()} />
       </Card>
       <Grid cols={2}>
