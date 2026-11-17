@@ -6,13 +6,15 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fmtDate, fmtEur, fmtRelative } from '@/lib/adminFormat';
-import { Card, EmptyState, ErrorState, Section, Status, useAdminT } from '@/admin/ui';
+import { Block, EmptyState, ErrorState, useAdminT } from '@/admin/ui';
+import { toneColor } from '@/admin/ui/tone';
 import { FEED_FAMILIES, mergeFeed, type FeedFamily, type FeedRow } from './queue';
 import { useCrmFeed, useSuiteFeed } from './data';
 
 export function ActivityFeed({ includeDemo }: { includeDemo: boolean }) {
   const { t } = useAdminT();
   const [filter, setFilter] = useState<FeedFamily | 'all'>('all');
+  const [limit, setLimit] = useState(12);
   const suite = useSuiteFeed(includeDemo);
   const crm = useCrmFeed(includeDemo);
   const suiteRows = useMemo(() => suite.data?.pages.flat() ?? [], [suite.data]);
@@ -22,7 +24,7 @@ export function ActivityFeed({ includeDemo }: { includeDemo: boolean }) {
   const failed = suite.isError && crm.isError;
 
   return (
-    <Section title={t('adm.today.feed.title')} description={t('adm.today.feed.desc')}>
+    <Block title={t('adm.today.feed.title')} meta={t('adm.today.feed.desc')}>
       <div className="max-w-full self-start overflow-x-auto"><div className="a-seg" role="group">
         {(['all', ...FEED_FAMILIES] as const).map((f) => (
           <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)}>
@@ -30,42 +32,41 @@ export function ActivityFeed({ includeDemo }: { includeDemo: boolean }) {
           </button>
         ))}
       </div></div>
-      <Card padded={false}
-        footer={suite.hasNextPage ? (
-          <button type="button" className="a-btn a-btn--sm" disabled={suite.isFetchingNextPage} onClick={() => void suite.fetchNextPage()}>
-            {suite.isFetchingNextPage ? t('adm.ui.working') : t('adm.today.feed.more')}
-          </button>
-        ) : undefined}>
-        {failed ? (
-          <ErrorState onRetry={() => { void suite.refetch(); void crm.refetch(); }} />
-        ) : loading ? (
-          <div>{[0, 1, 2, 3, 4].map((i) => <div key={i} className="border-b px-4 py-3 last:border-b-0"><div className="a-skel h-4 w-1/2" /></div>)}</div>
-        ) : rows.length === 0 ? (
-          <EmptyState title={t('adm.today.feed.empty')} />
-        ) : (
-          <ul className="flex flex-col">{rows.map((r) => <FeedLine key={r.id} row={r} />)}</ul>
-        )}
-      </Card>
-    </Section>
+      {failed ? (
+        <ErrorState onRetry={() => { void suite.refetch(); void crm.refetch(); }} />
+      ) : loading ? (
+        <div className="flex flex-col gap-1">{[0, 1, 2, 3, 4].map((i) => <div key={i} className="a-skel h-7" />)}</div>
+      ) : rows.length === 0 ? (
+        <EmptyState title={t('adm.today.feed.empty')} />
+      ) : (
+        <ol className="a-frieze flex flex-col">{rows.slice(0, limit).map((r) => <FeedLine key={r.id} row={r} />)}</ol>
+      )}
+      {(rows.length > limit || suite.hasNextPage) && !failed && !loading && (
+        <button type="button" className="a-btn a-btn--ghost a-btn--sm self-start" disabled={suite.isFetchingNextPage}
+          onClick={() => { if (rows.length > limit) setLimit((l) => l + 25); else void suite.fetchNextPage(); }}>
+          {suite.isFetchingNextPage ? t('adm.ui.working') : t('adm.today.feed.more')}
+        </button>
+      )}
+    </Block>
   );
 }
 
 function FeedLine({ row }: { row: FeedRow }) {
   const { t, lang } = useAdminT();
   const body = (
-    <div className="flex items-center gap-3 px-4 py-2.5">
-      <div className="w-[120px] flex-none sm:w-[150px]"><Status tone={row.tone}>{t(`adm.today.feed.k.${row.kind}`)}</Status></div>
-      <div className="min-w-0 flex-1">
-        <span className="a-t1 text-[13px]">{row.title || t('adm.today.unknown')}</span>
-        {row.sub && <span className="a-t3 ml-2 truncate text-[12.5px]">{row.sub}</span>}
-      </div>
-      {row.amount != null && row.amount > 0 && <span className="a-num a-t2 flex-none text-[12.5px]">{fmtEur(row.amount, lang)}</span>}
-      <time className="a-t3 w-[96px] flex-none whitespace-nowrap text-right text-[12px] sm:w-[120px]" dateTime={row.at} title={fmtDate(row.at, lang, 'datetime')}>{fmtRelative(row.at, lang)}</time>
+    <div className="grid grid-cols-[4.5rem_minmax(0,9rem)_minmax(0,1fr)_auto] items-center gap-3 px-1 py-1.5 text-[13px]">
+      <time className="a-mono a-t3 text-[11px]" dateTime={row.at} title={fmtDate(row.at, lang, 'datetime')}>{fmtRelative(row.at, lang)}</time>
+      <span className="a-t2 flex min-w-0 items-center gap-2 truncate text-[12.5px]">
+        <span aria-hidden className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: toneColor(row.tone) }} />
+        <span className="truncate">{t(`adm.today.feed.k.${row.kind}`)}</span>
+      </span>
+      <span className="min-w-0 truncate"><span className="a-t1">{row.title || t('adm.today.unknown')}</span>{row.sub && <span className="a-t3 ml-2">{row.sub}</span>}</span>
+      <span className="a-num a-t2 text-[12.5px]">{row.amount != null && row.amount > 0 ? fmtEur(row.amount, lang) : ''}</span>
     </div>
   );
   return (
     <li className="border-b last:border-b-0">
-      {row.href ? <Link to={row.href} className="a-focus block hover:bg-[var(--a-hover)]">{body}</Link> : body}
+      {row.href ? <Link to={row.href} className="a-focus block no-underline hover:bg-[var(--a-hover)]">{body}</Link> : body}
     </li>
   );
 }
