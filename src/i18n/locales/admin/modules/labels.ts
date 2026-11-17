@@ -196,6 +196,10 @@ const labels: AdminDict = {
   'adm.lbl.ota_devices': ['App devices', 'Appareils des apps', 'Dispositivos de las apps'],
   'adm.lbl.invoices': ['Invoices', 'Factures', 'Facturas'],
   'adm.lbl.crm_person_profile': ['Customer analysis profiles', 'Profils d’analyse client', 'Perfiles de análisis de clientes'],
+  'adm.lbl.insert': ['Created', 'Création', 'Creación'],
+  'adm.lbl.update': ['Changed', 'Modification', 'Modificación'],
+  'adm.lbl.delete': ['Removed', 'Suppression', 'Eliminación'],
+  'adm.lbl.select': ['Read', 'Lecture', 'Lectura'],
 };
 
 export default labels;

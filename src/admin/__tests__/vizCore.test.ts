@@ -95,3 +95,26 @@ describe('clavier des listes', () => {
     expect(stepIndex(0, 0, 1)).toBe(-1);
   });
 });
+
+import { monotonePath, shouldWeekly, toWeeks } from '../ui/viz/core';
+describe('agrégation et courbes', () => {
+  it('une série à jours vides ou un petit comptage passe par semaine', () => {
+    expect(shouldWeekly([])).toBe(false);
+    expect(shouldWeekly(new Array(30).fill(0).map((_, i) => (i % 2 ? 1 : 0)))).toBe(true);
+    expect(shouldWeekly(new Array(30).fill(0).map((_, i) => 20 + (i % 5)))).toBe(false);
+    expect(shouldWeekly(new Array(10).fill(0))).toBe(false);
+  });
+  it('les semaines finissent au dernier jour et gardent les trous', () => {
+    const d = Array.from({ length: 9 }, (_, i) => ({ x: `d${i}`, v: i === 0 ? null : 1 }));
+    const w = toWeeks(d);
+    expect(w.map((x) => x.v)).toEqual([1, 7]);
+    expect(w[1].x).toBe('d2');
+  });
+  it('la courbe adoucie passe par chaque point et coupe aux trous', () => {
+    expect(monotonePath([])).toBe('');
+    expect(monotonePath([[0, 0], null, [2, 2]])).toBe('M0.0,0.0M2.0,2.0');
+    const p = monotonePath([[0, 10], [10, 0], [20, 10]]);
+    expect(p.startsWith('M0.0,10.0C')).toBe(true);
+    expect(p.endsWith('20.0,10.0')).toBe(true);
+  });
+});

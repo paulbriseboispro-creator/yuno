@@ -351,6 +351,7 @@ const money: AdminDict = {
   'adm.mon.v3k.registry': ['Invoices issued', 'Factures émises', 'Facturas emitidas'],
   'adm.mon.v3k.issued': ['{n} issued', '{n} émises', '{n} emitidas'],
   'adm.mon.v3c.noMove': ['No MRR and no movement this month.', 'Ni MRR ni mouvement ce mois-ci.', 'Ni MRR ni movimiento este mes.'],
+  'adm.mon.v3k.noCosts': ['No cost entered for {m} yet: the margin is simply Yuno’s revenue. Click a cell in the table below to enter one.', 'Aucun coût saisi pour {m} : la marge est simplement le revenu de Yuno. Cliquez une case du tableau ci-dessous pour en saisir un.', 'Ningún coste introducido para {m}: el margen es simplemente el ingreso de Yuno. Pulsa una casilla de la tabla para introducir uno.'],
 };
 
 export default money;

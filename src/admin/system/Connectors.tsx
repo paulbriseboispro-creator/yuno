@@ -28,7 +28,7 @@ export default function Connectors() {
 }
 
 function ShotgunTab() {
-  const { t, lang } = useAdminT();
+  const { t, lang, label } = useAdminT();
   const { includeDemo } = useAdminFilters();
   const p = usePlatformSync(includeDemo);
   const acc = useAdminAccounts();
@@ -75,7 +75,7 @@ function ShotgunTab() {
           )}
         </Block>
         <Block title={t('adm.sys.cn.imports')}>
-          <RankBars emptyText={t('adm.sys.cn.noImports')} items={imports.map((r) => ({ key: r.status, label: r.status, value: r.n, display: fmtNum(r.n, lang) }))} />
+          <RankBars emptyText={t('adm.sys.cn.noImports')} items={imports.map((r) => ({ key: r.status, label: label(r.status), value: r.n, display: fmtNum(r.n, lang) }))} />
         </Block>
       </div>
     </div>

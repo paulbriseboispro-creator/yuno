@@ -10,13 +10,13 @@
  */
 import { useMemo, useRef, useState } from 'react';
 import { HoverTip } from './Tip';
-import { allIntegers, linear, monotonePath, nearestIndex, niceTicks, toWeeks, useWidth } from './core';
+import { allIntegers, linear, monotonePath, nearestIndex, niceTicks, shouldWeekly, toWeeks, useWidth } from './core';
 import { useHoverIndex } from './Sync';
 
 export interface HeroPoint { x: string; v: number | null; prev?: number | null }
 
 export function HeroChart({
-  data: daily, formatX, formatV, formatTick, height = 220, selection, onSelect, labels, annotate = true, bucket = 'day', weekOf,
+  data: daily, formatX, formatV, formatTick, height = 220, selection, onSelect, labels, annotate = true, bucket = 'auto', weekOf,
 }: {
   data: HeroPoint[];
   /** Étiquette d'axe et d'info-bulle d'un point. */
@@ -31,7 +31,8 @@ export function HeroChart({
   onSelect?: (r: [number, number] | null) => void;
   labels: { cur: string; prev?: string; peak: string };
   annotate?: boolean;
-  bucket?: 'day' | 'week';
+  /** `auto` (défaut) : par semaine quand la série jour par jour ne dirait rien (`shouldWeekly`). */
+  bucket?: 'day' | 'week' | 'auto';
   /** Titre de l'info-bulle d'une semaine (« semaine du 3 nov. »). */
   weekOf?: (x: string) => string;
 }) {
@@ -40,7 +41,7 @@ export function HeroChart({
   const [drag, setDrag] = useState<[number, number] | null>(null);
   const dragging = useRef(false);
 
-  const weekly = bucket === 'week';
+  const weekly = bucket === 'week' || (bucket === 'auto' && shouldWeekly(daily.map((d) => d.v)));
   const data = useMemo<HeroPoint[]>(() => (weekly ? toWeeks(daily) : daily), [daily, weekly]);
   const select = weekly ? undefined : onSelect;
   const n = data.length;

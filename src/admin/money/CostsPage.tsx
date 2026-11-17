@@ -14,7 +14,7 @@
  */
 import { useMemo, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import { Block, ErrorState, Hero, Page, ReasonDialog, Tabs, cellTint, useAdminFilters, useAdminT, useTab, type Step, Status, Waterfall } from '@/admin/ui';
+import { Block, ErrorState, Hero, Page, ReasonDialog, Tabs, cellTint, useAdminFilters, useAdminT, useTab, type Step, Status, Waterfall, EmptyLine } from '@/admin/ui';
 import { fmtDate, fmtEur, fmtNum } from '@/lib/adminFormat';
 import { COST_ITEMS, margin, moneyLabelKey, monthCosts, yunoRevenue } from './terms';
 import { INVOICES_PAGE_SIZE, useCostActions, useCosts, useInvoices, useMoneyIssues, type CostsMonth } from './data';
@@ -105,7 +105,7 @@ function MarginTab() {
         current={sel?.margin}
         previous={rows && sel ? rows[rows.indexOf(sel) + 1]?.margin ?? null : undefined}
         sentence={sentence}
-        chart={sel ? <div className="max-w-[640px]"><Waterfall steps={steps} /></div> : null}
+        chart={!sel ? null : sel.costs > 0 ? <div className="max-w-[640px]"><Waterfall steps={steps} /></div> : <EmptyLine>{t('adm.mon.v3k.noCosts', { m: fmtMonth(sel.m, lang) })}</EmptyLine>}
         note={t('adm.mon.cost.manualNote')}
         aside={sel && (
           <Block title={t('adm.mon.v3k.sourcesTitle')}>

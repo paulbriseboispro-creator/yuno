@@ -5,7 +5,7 @@
  */
 import { useMemo } from 'react';
 import { HoverTip } from './Tip';
-import { allIntegers, linear, monotonePath, nearestIndex, niceTicks, useWidth } from './core';
+import { allIntegers, linear, monotonePath, nearestIndex, niceTicks, shouldWeekly, useWidth } from './core';
 import { useHoverIndex } from './Sync';
 
 // ── Plusieurs lignes étiquetées ──────────────────────────────────────────────
@@ -23,14 +23,29 @@ const STROKE: Record<NonNullable<LineSeries['role']>, { c: string; w: number; da
   ref: { c: 'var(--a-prev)', w: 1.5, dash: '4 4' },
 };
 
-export function LinesChart({ xs, series, formatX, formatV, formatTick, height = 220 }: {
+export function LinesChart({ xs: xsDaily, series: seriesDaily, formatX, formatV, formatTick, height = 220, weekOf }: {
   xs: string[];
   series: LineSeries[];
   formatX: (x: string) => string;
   formatV: (v: number) => string;
   formatTick?: (v: number) => string;
   height?: number;
+  /** Titre de l'info-bulle quand la série passe par semaine. */
+  weekOf?: (x: string) => string;
 }) {
+  // Une série quotidienne à jours vides ou à petit comptage se lit par semaine (même règle que le héros).
+  const main = seriesDaily.find((s) => s.role === 'main') ?? seriesDaily[0];
+  const weekly = !!main && shouldWeekly(main.values);
+  const { xs, series } = useMemo(() => {
+    if (!weekly) return { xs: xsDaily, series: seriesDaily };
+    const starts: number[] = [];
+    for (let end = xsDaily.length; end > 0; end -= 7) starts.unshift(Math.max(0, end - 7));
+    const bounds = starts.map((a, i) => [a, starts[i + 1] ?? xsDaily.length] as const);
+    return {
+      xs: bounds.map(([a]) => xsDaily[a]),
+      series: seriesDaily.map((s) => ({ ...s, values: bounds.map(([a, b]) => { const c = s.values.slice(a, b); return c.every((v) => v == null) ? null : c.reduce((t: number, v) => t + (v ?? 0), 0); }) })),
+    };
+  }, [weekly, xsDaily, seriesDaily]);
   const [ref, width] = useWidth<HTMLDivElement>();
   const { index, setIndex } = useHoverIndex();
   const n = xs.length;
@@ -91,7 +106,7 @@ export function LinesChart({ xs, series, formatX, formatV, formatTick, height = 
         </svg>
       )}
       {hi != null && W > 0 && (
-        <HoverTip x={sx(hi)} width={W} title={formatX(xs[hi])}
+        <HoverTip x={sx(hi)} width={W} title={weekly && weekOf ? weekOf(xs[hi]) : formatX(xs[hi])}
           rows={series.map((s) => ({ label: s.label, value: s.values[hi] == null ? '—' : formatV(s.values[hi] ?? 0), color: STROKE[s.role ?? 'ink'].c, strong: s.role === 'main' }))} />
       )}
     </div>

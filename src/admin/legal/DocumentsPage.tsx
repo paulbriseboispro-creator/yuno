@@ -10,6 +10,7 @@
 import { ExternalLink } from 'lucide-react';
 import { Block, Page, useAdminT, EmptyLine, Ledger, Status } from '@/admin/ui';
 import { LEGAL_VERSIONS } from '@/lib/legal';
+import { fmtDate } from '@/lib/adminFormat';
 import { SourceNote } from './ui';
 
 /** Document → page publique (`/legal/:section`, src/lib/legal.ts). */
@@ -43,7 +44,7 @@ const INTERNAL = [
 ];
 
 export default function DocumentsPage() {
-  const { t } = useAdminT();
+  const { t, lang } = useAdminT();
   const docs = Object.entries(LEGAL_VERSIONS).map(([doc, version]) => ({ doc, version, page: PUBLIC_PAGE[doc] ?? null }));
   const out = SUBPROCESSORS.filter((s) => s.outsideEu).length;
 
@@ -55,7 +56,7 @@ export default function DocumentsPage() {
           {docs.map((d) => (
             <div key={d.doc} className="grid grid-cols-1 items-center gap-x-4 px-1 py-2.5 md:grid-cols-[minmax(0,1.3fr)_70px_minmax(0,1.2fr)_minmax(0,1fr)]">
               <span className="a-t1 text-[13.5px] font-medium">{t(`adm.lg2.doc.${d.doc}`)}</span>
-              <span className="a-mono a-t2 text-[12px]">v{d.version}</span>
+              <span className="a-t2 whitespace-nowrap text-[12px]">{/^\d{4}-\d{2}-\d{2}$/.test(d.version) ? t('adm.lg3.dc.versionOf', { d: fmtDate(d.version, lang) }) : d.version}</span>
               <span className="a-t2 text-[12.5px]">{t(`adm.lg2.dc.who.${d.doc}`)}</span>
               {d.page ? <a className="a-t1 a-focus inline-flex items-center gap-1 rounded text-[12.5px] underline-offset-2 hover:underline" href={d.page} target="_blank" rel="noreferrer">{d.page}<ExternalLink className="h-3 w-3" /></a> : <span className="a-t3">—</span>}
             </div>

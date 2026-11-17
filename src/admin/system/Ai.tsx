@@ -61,7 +61,7 @@ export default function Ai() {
           )}
         </Block>
         <Block title={t('adm.sys.ai.byAssistant')} meta={t('adm.sys3.ai.byCost')}>
-          <RankBars emptyText={t('adm.sys.ai.noCalls')} items={assistants.slice(0, 8).map((r): Rank => ({ key: r.assistant, label: r.assistant, value: r.cost_usd, display: fmtUsd(r.cost_usd, lang),
+          <RankBars emptyText={t('adm.sys.ai.noCalls')} items={assistants.slice(0, 8).map((r): Rank => ({ key: r.assistant, label: t(`adm.ai.a.${r.assistant}`), value: r.cost_usd, display: fmtUsd(r.cost_usd, lang),
             sub: `${fmtNum(r.n, lang)} · ${fmtMs(r.avg_latency_ms, lang)}${r.errors > 0 ? ` · ${fmtNum(r.errors, lang)} ${t('adm.sys.ai.errCount').toLowerCase()}` : ''}` }))} />
         </Block>
       </div>
@@ -73,7 +73,7 @@ export default function Ai() {
         <DataTable data={d?.recent_errors} loading={q.isLoading} pageSize={10} getRowId={(r) => String(r.id)} empty={{ title: t('adm.sys.ai.noErrors') }}
           columns={[
             { accessorKey: 'at', header: t('adm.sys.col.date'), cell: (c) => fmtDate(c.getValue<string>(), lang, 'datetime') },
-            { accessorKey: 'assistant', header: t('adm.sys.ai.assistant') },
+            { accessorKey: 'assistant', header: t('adm.sys.ai.assistant'), cell: (c) => t(`adm.ai.a.${c.getValue<string>()}`) },
             { accessorKey: 'status', header: t('adm.sys.col.action'), cell: (c) => <Status strong tone="negative">{c.getValue<string>()}</Status> },
             { accessorKey: 'error', header: t('adm.sys.col.detail'), cell: (c) => <code className="a-t3 text-[12px]">{c.getValue<string | null>() ?? '—'}</code> },
           ] as ColumnDef<AiUsage['recent_errors'][number], unknown>[]} />

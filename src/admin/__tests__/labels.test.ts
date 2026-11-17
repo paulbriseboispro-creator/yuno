@@ -39,6 +39,11 @@ describe('pluriels', () => {
     const bad = Object.entries(ADMIN_DICT).filter(([, v]) => (v as readonly string[]).some((x) => /\((s|e|es|x)\)|·e\b|·s\b/.test(x)));
     expect(bad.map(([k]) => k)).toEqual([]);
   });
+  it('aucun nom technique dans un texte de l’admin', () => {
+    const tech = /\b[A-Z]{2,}_[A-Z_]{2,}\b|\b[a-z]{2,}_[a-z_]{2,}\b|\bRPC\b|\bSQL\b|\bwebhook|\bedge\b|src\/|docs\/|\.tsx?\b|\bGate\b/;
+    const bad = Object.entries(ADMIN_DICT).filter(([k, v]) => !k.startsWith('adm.system.gpm.') && k !== 'adm.engine.varsHint' && (v as readonly string[]).some((x) => tech.test(x)));
+    expect(bad.map(([k]) => k)).toEqual([]);
+  });
 });
 
 import { cleanText } from '../ui/i18n';

@@ -198,3 +198,17 @@ export function weekdayInitials(lang: string): string[] {
   const f = new Intl.DateTimeFormat(lang, { weekday: 'narrow' });
   return Array.from({ length: 7 }, (_, i) => f.format(new Date(Date.UTC(2024, 0, 1 + i, 12))));
 }
+
+/**
+ * Faut-il lire une série quotidienne par semaine ? Oui quand elle a au moins
+ * trois semaines et que plus de 40 % de ses jours sont vides, ou que c'est un
+ * petit comptage (entiers, moins de 2 par jour en moyenne) : tracée jour par
+ * jour, elle ne dessinerait que des dents de scie.
+ */
+export function shouldWeekly(values: Array<number | null | undefined>): boolean {
+  const known = values.filter((v): v is number => v != null && Number.isFinite(v));
+  if (known.length < 21) return false;
+  const zeros = known.filter((v) => v === 0).length / known.length;
+  const mean = known.reduce((a, v) => a + v, 0) / known.length;
+  return zeros > 0.4 || (known.every(Number.isInteger) && mean < 2);
+}

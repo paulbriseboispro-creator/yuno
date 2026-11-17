@@ -12,6 +12,7 @@ import { useMemo } from 'react';
 import { Block, BulletBar, DataTable, ErrorState, Hero, HeroChart, HoverSync, RankBars, StatStrip, useAdminFilters, useAdminT, type ColumnDef, DenseRows, Fold, Status } from '@/admin/ui';
 import { fmtAxisDay, fmtDate, fmtMs, fmtNum, fmtPct, fmtRelative, fmtTokens, fmtUsd } from '@/lib/adminFormat';
 import { useAiUsage, useMcpUsage, type AiUsage, type McpUsage } from './data';
+import { humanizeRaw } from '../ui/i18n';
 
 type Recent = AiUsage['recent'][number];
 const ERROR_REF = 2; // %
@@ -106,7 +107,7 @@ export default function ProductAi() {
         {d && d.top_tools.length > 0 && (
           <Fold title={t('adm.ai.topTools')} hint={n(d.top_tools.length)}>
             <RankBars emptyText={t('adm.ai.emptyTitle')} items={[...d.top_tools].sort((a, b) => b.n - a.n).slice(0, 12).map((x) => ({
-              key: `${x.assistant}-${x.tool}`, label: <code className="text-[12px]">{x.tool}</code>, value: x.n, display: n(x.n), sub: label('adm.ai.a', x.assistant),
+              key: `${x.assistant}-${x.tool}`, label: humanizeRaw(x.tool), value: x.n, display: n(x.n), sub: label('adm.ai.a', x.assistant),
             }))} />
           </Fold>
         )}
@@ -175,7 +176,7 @@ function McpSection({ data, loading, failed }: { data: McpUsage | undefined; loa
           ]} />
           <div className="grid grid-cols-1 gap-10 lg:grid-cols-3">
             <section className="flex flex-col gap-2"><span className="a-kicker">{t('adm.mcp.byTool')}</span>
-              <RankBars emptyText={t('adm.mcp.empty')} items={[...data.by_tool].sort((a, b) => b.n - a.n).slice(0, 8).map((x) => ({ key: x.tool, label: <code className="text-[12px]">{x.tool}</code>, value: x.n, display: n(x.n), sub: x.errors > 0 ? t('adm.pil.v3i.toolErr', { n: n(x.errors) }) : undefined }))} /></section>
+              <RankBars emptyText={t('adm.mcp.empty')} items={[...data.by_tool].sort((a, b) => b.n - a.n).slice(0, 8).map((x) => ({ key: x.tool, label: humanizeRaw(x.tool), value: x.n, display: n(x.n), sub: x.errors > 0 ? t('adm.pil.v3i.toolErr', { n: n(x.errors) }) : undefined }))} /></section>
             <section className="flex flex-col gap-2"><span className="a-kicker">{t('adm.mcp.byClient')}</span>
               <RankBars emptyText={t('adm.mcp.empty')} items={[...data.by_client].sort((a, b) => b.calls - a.calls).slice(0, 8).map((x) => ({ key: x.client, label: x.client, value: x.calls, display: n(x.calls), sub: t('adm.pil.v3i.conns', { n: n(x.connections) }) }))} /></section>
             <section className="flex flex-col gap-2"><span className="a-kicker">{t('adm.mcp.bySpace')}</span>

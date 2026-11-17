@@ -203,7 +203,7 @@ const dict: AdminDict = {
   'adm.lg2.cs.note': ['A consent only counts through the register of each product; Yuno CRM and Yuno Tickets never share one. The do-not-contact list is never emptied.', 'Un accord ne vaut que par le registre de chaque produit ; Yuno CRM et Yuno Tickets n’en partagent jamais. Le repoussoir ne se vide jamais.', 'Un consentimiento solo vale por el registro de cada producto; Yuno CRM y Yuno Tickets nunca lo comparten. La lista de exclusión nunca se vacía.'],
   // ── Conditions ──
   'adm.lg2.tm.title': ['Has every account accepted the current terms?', 'Chaque compte a-t-il accepté les conditions en vigueur ?', '¿Ha aceptado cada cuenta las condiciones vigentes?'],
-  'adm.lg2.tm.sub': ['Tickets: pro terms and confidentiality. CRM: CRM terms and data processing agreement. Versions in force come from LEGAL_VERSIONS.', 'Billetterie : conditions pro et confidentialité. CRM : conditions CRM et accord de sous-traitance. Les versions en vigueur viennent de LEGAL_VERSIONS.', 'Tickets: condiciones pro y confidencialidad. CRM: condiciones CRM y acuerdo de encargo. Las versiones vigentes vienen de LEGAL_VERSIONS.'],
+  'adm.lg2.tm.sub': ['Tickets: pro terms and confidentiality. CRM: CRM terms and data processing agreement. Each text has its version in force on the site.', 'Billetterie : conditions pro et confidentialité. CRM : conditions CRM et accord de sous-traitance. Chaque texte a sa version en vigueur sur le site.', 'Tickets: condiciones pro y confidencialidad. CRM: condiciones CRM y acuerdo de encargo. Cada texto tiene su versión vigente en el sitio.'],
   'adm.lg2.tm.k.pros': ['Open pro accounts', 'Comptes pros ouverts', 'Cuentas pro abiertas'],
   'adm.lg2.tm.k.missing': ['Missing an acceptance', 'Sans acceptation à jour', 'Sin aceptación al día'],
   'adm.lg2.tm.k.buyers': ['Buyer acceptances', 'Acceptations acheteurs', 'Aceptaciones de compradores'],
@@ -231,8 +231,7 @@ const dict: AdminDict = {
   'adm.lg2.tm.ctx.table': ['VIP table', 'Table VIP', 'Mesa VIP'],
   'adm.lg2.tm.ctx.guest_list': ['Guest list', 'Guest list', 'Guest list'],
   'adm.lg2.tm.ctx.other': ['Other', 'Autre', 'Otra'],
-  'adm.lg2.tm.note': ['Changing a text substantially means raising its version in LEGAL_VERSIONS: the Console then asks again (LegalConsentGate, CrmLegalGate).', 'Changer un texte de façon importante, c’est monter sa version dans LEGAL_VERSIONS : la Console redemande alors l’accord (LegalConsentGate, CrmLegalGate).', 'Cambiar un texto de forma importante es subir su versión en LEGAL_VERSIONS: la Console vuelve a pedir la aceptación (LegalConsentGate, CrmLegalGate).'],
-
+  'adm.lg2.tm.note': ['Changing a text substantially means publishing a new version: the Console then asks every pro to accept it again.', 'Changer un texte de façon importante, c’est publier une nouvelle version : la Console redemande alors l’accord à chaque pro.', 'Cambiar un texto de forma importante es publicar una nueva versión: la Console vuelve a pedir la aceptación a cada profesional.'],
   // ── Vendeurs ──
   'adm.lg2.sl.title': ['Is every seller’s file complete?', 'Le dossier de chaque vendeur est-il complet ?', '¿Está completo el expediente de cada vendedor?'],
   'adm.lg2.sl.sub': ['Every pro who takes payments: legal identity, VAT, Stripe, invoices and sales of the year. A tracking table, not a declaration.', 'Chaque pro qui encaisse : identité légale, TVA, Stripe, factures et ventes de l’année. Un tableau de suivi, pas une déclaration.', 'Cada pro que cobra: identidad legal, IVA, Stripe, facturas y ventas del año. Una tabla de seguimiento, no una declaración.'],
@@ -564,6 +563,7 @@ const dict: AdminDict = {
   // ── v3 ──
   'adm.lg3.ov.and': ['and', 'et', 'y'],
   'adm.lg3.ov.andMore': ['and {n} more', 'et {n} autres', 'y {n} más'],
+  'adm.lg3.dc.versionOf': ['version of {d}', 'version du {d}', 'versión del {d}'],
 };
 
 export default dict;
