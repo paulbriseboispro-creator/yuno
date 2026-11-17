@@ -5,6 +5,7 @@
  *   /admin/login            connexion (mot de passe + 2FA)
  *   /admin                  Aujourd'hui            src/admin/today
  *   /admin/pilot/*          Pilotage               src/admin/pilotage
+ *   /admin/madrid/*         Madrid (marketplace)   src/admin/madrid
  *   /admin/pros/*           Pros                   src/admin/pros
  *   /admin/clients/*        Clients                src/admin/clients
  *   /admin/money/*          Argent                 src/admin/money
@@ -31,6 +32,7 @@ import { ADMIN_ROOT } from './nav';
 const AdminLogin = lazyWithRetry(() => import('./shell/AdminLogin'));
 const TodayRoutes = lazyWithRetry(() => import('./today/routes'));
 const PilotageRoutes = lazyWithRetry(() => import('./pilotage/routes'));
+const MadridRoutes = lazyWithRetry(() => import('./madrid/routes'));
 const ProsRoutes = lazyWithRetry(() => import('./pros/routes'));
 const ClientsRoutes = lazyWithRetry(() => import('./clients/routes'));
 const MoneyRoutes = lazyWithRetry(() => import('./money/routes'));
@@ -51,6 +53,7 @@ function Rubrics() {
         <Route index element={<TodayRoutes />} />
         <Route path="today/*" element={<TodayRoutes />} />
         <Route path="pilot/*" element={<PilotageRoutes />} />
+        <Route path="madrid/*" element={<MadridRoutes />} />
         <Route path="pros/*" element={<ProsRoutes />} />
         <Route path="clients/*" element={<ClientsRoutes />} />
         <Route path="money/*" element={<MoneyRoutes />} />
