@@ -18,6 +18,7 @@ import {
 } from '@tanstack/react-table';
 import { ArrowDown, ArrowUp, ChevronsUpDown, Search } from 'lucide-react';
 import { useAdminT } from './i18n';
+import { useListKeys } from './keys';
 import { fmtNum } from '@/lib/adminFormat';
 import { EmptyState, ErrorState } from './EmptyState';
 
@@ -58,11 +59,13 @@ export interface DataTableProps<T> {
    * à filtrer garde son cadre.
    */
   bare?: boolean;
+  /** La ligne montrée dans l'aperçu : active j / k / entrée dans l'ordre affiché (exige onRowClick et getRowId). */
+  selectedId?: string | null;
 }
 
 export function DataTable<T>({
   data, columns, loading, error, onRetry, searchable, searchPlaceholder, pageSize = 25,
-  initialSort = [], onRowClick, rowHref, empty, toolbar, getRowId, initialSearch, bare: bareIn,
+  initialSort = [], onRowClick, rowHref, empty, toolbar, getRowId, initialSearch, bare: bareIn, selectedId,
 }: DataTableProps<T>) {
   const bare = bareIn ?? !(searchable || toolbar);
   const { t, lang: language } = useAdminT();
@@ -90,6 +93,11 @@ export function DataTable<T>({
     if (onRowClick) onRowClick(row.original);
     else if (rowHref) { const href = rowHref(row.original); if (href) navigate(href); }
   };
+
+  // Liste avec aperçu : j / k / entrée dans l'ordre affiché (le clavier commun des listes).
+  const visible = table.getRowModel().rows;
+  const keyOn = selectedId !== undefined && !!onRowClick && !!getRowId;
+  useListKeys(keyOn ? visible : [], (r: Row<T>) => r.id, selectedId ?? null, (id: string) => { const r = visible.find((x) => x.id === id); if (r && onRowClick) onRowClick(r.original); }, (r: Row<T>) => { if (onRowClick) onRowClick(r.original); });
 
   const filtered = table.getFilteredRowModel().rows.length;
   const { pageIndex, pageSize: size } = table.getState().pagination;
@@ -138,7 +146,7 @@ export function DataTable<T>({
           </thead>
           <tbody>
             {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} data-clickable={clickable} onClick={clickable ? () => open(row) : undefined}
+              <tr key={row.id} data-clickable={clickable} data-row-id={row.id} className={selectedId != null && row.id === selectedId ? 'a-row-active' : undefined} onClick={clickable ? () => open(row) : undefined}
                 tabIndex={clickable ? 0 : undefined}
                 onKeyDown={clickable ? (e) => { if (e.key === 'Enter') open(row); } : undefined}>
                 {row.getVisibleCells().map((cell) => {

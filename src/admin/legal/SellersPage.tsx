@@ -73,7 +73,7 @@ export default function SellersPage() {
       <SplitView
         list={(
           <DataTable data={rows} columns={columns} loading={q.isLoading} error={q.isError ? q.error : undefined} onRetry={() => void q.refetch()}
-            searchable initialSearch={searchParams.get('q')} getRowId={(r) => r.key} onRowClick={(r) => setPickedKey(r.key)} initialSort={[{ id: 'file', desc: true }]}
+            searchable initialSearch={searchParams.get('q')} getRowId={(r) => r.key} onRowClick={(r) => setPickedKey(r.key)} selectedId={picked?.key ?? null} initialSort={[{ id: 'file', desc: true }]}
             empty={{ title: t('adm.lg2.sl.empty') }} />
         )}
         panel={picked ? <SellerPanel s={picked} year={year} /> : <EmptyLine>{t('adm.lg3.sl.pick')}</EmptyLine>} />
