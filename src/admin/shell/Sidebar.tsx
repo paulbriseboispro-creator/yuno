@@ -14,13 +14,36 @@ const RUBRIC_ICON: Record<AdminRubric['icon'], LucideIcon> = {
   Inbox, LineChart, Building2, Users, Coins, Megaphone, Scale, Server,
 };
 
-export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
+export function Sidebar({ onNavigate, rail }: { onNavigate?: () => void; rail?: boolean }) {
   const { t } = useAdminT();
   const { pathname } = useLocation();
   const { rubric: current, entry } = activeEntry(pathname);
   const badges = useNavBadges();
   // Une rubrique ouverte à la main reste ouverte ; celle de l'adresse l'est toujours.
   const [opened, setOpened] = useState<Set<string>>(() => new Set());
+
+  // Barre repliée : une icône par rubrique, son nom au survol, un point s'il y a à faire.
+  if (rail) {
+    return (
+      <nav aria-label={t('adm.shell.menu')} className="flex flex-col items-center gap-1 py-2">
+        {ADMIN_NAV.map((r) => {
+          const Icon = RUBRIC_ICON[r.icon];
+          const here = r.id === current.id;
+          const visible = r.entries.filter((e) => !e.hidden);
+          const n = visible.reduce((s, e) => s + (e.badge ? badges[e.badge] ?? 0 : 0), 0);
+          return (
+            <Link key={r.id} to={visible[0]?.path ?? r.base} title={t(rubricLabelKey(r.id))} aria-label={t(rubricLabelKey(r.id))}
+              aria-current={here ? 'page' : undefined}
+              className="a-focus relative grid h-9 w-9 place-items-center rounded-md hover:bg-[var(--a-hover)]"
+              style={{ background: here ? 'var(--a-accent-soft)' : undefined }}>
+              <Icon className="h-4 w-4" style={{ color: here ? 'var(--a-accent)' : 'var(--a-text-2)' }} />
+              {n > 0 && <span aria-hidden className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full" style={{ background: 'var(--a-accent)' }} />}
+            </Link>
+          );
+        })}
+      </nav>
+    );
+  }
 
   return (
     <nav aria-label={t('adm.shell.menu')} className="flex flex-col gap-0.5 px-2 py-2">

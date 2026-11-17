@@ -12,6 +12,7 @@ import { useAdminScope } from '@/components/admin/AdminScope';
 import { useProTheme, originOf } from '@/lib/proTheme';
 import { activeEntry, entryLabelKey, rubricLabelKey } from '../nav';
 import { useAdminT } from '../ui/i18n';
+import { PulseBar } from './Pulse';
 
 export function Breadcrumbs() {
   const { t } = useAdminT();
@@ -75,6 +76,7 @@ export function Topbar({ onMenu, onSearch }: { onMenu: () => void; onSearch: () 
       {/* Les classes d'affichage vivent sur un conteneur : `.a-btn` (plus spécifique) écraserait `hidden`. */}
       <div className="lg:hidden"><button type="button" className="a-btn a-btn--ghost a-btn--icon" onClick={onMenu} aria-label={t('adm.shell.menu')}><Menu className="h-4 w-4" /></button></div>
       <div className="min-w-0 flex-1"><Breadcrumbs /></div>
+      <PulseBar />
       <div className="hidden md:block">
         <button type="button" onClick={onSearch} className="a-btn a-btn--sm w-[220px] justify-start" style={{ color: 'var(--a-text-3)' }}>
           <Search className="h-3.5 w-3.5" />
