@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Card, useAdminT } from '@/admin/ui';
+import { Block, useAdminT } from '@/admin/ui';
 import { COMMS_KEY } from './data';
 import { rpc } from '../system/data';
 import { Field } from '@/admin/ui';
@@ -34,9 +34,10 @@ export function SettingsGroup({ title, hint, fields, settings, hintPrefix }: {
     onError: (e: Error) => toast.error(e.message),
   });
   return (
-    <Card title={title}
-      actions={<button type="button" className="a-btn a-btn--primary a-btn--sm" disabled={dirty.length === 0 || save.isPending} onClick={() => save.mutate()}>{save.isPending ? t('adm.ui.working') : t('adm.engine.save')}</button>}>
-      {hint && <p className="a-t2 mb-4 max-w-[70ch] text-[13px]">{hint}</p>}
+    <Block title={title} meta={(
+      <button type="button" className="a-btn a-btn--primary a-btn--sm" disabled={dirty.length === 0 || save.isPending} onClick={() => save.mutate()}>{save.isPending ? t('adm.ui.working') : t('adm.engine.save')}</button>
+    )}>
+      {hint && <p className="a-t2 max-w-[70ch] text-[13px]">{hint}</p>}
       <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
         {fields.map((f) => (
           <Field key={f} label={t(`adm.engine.set.${f}`)} hint={t(`${hintPrefix}.${f}`)}>
@@ -45,7 +46,6 @@ export function SettingsGroup({ title, hint, fields, settings, hintPrefix }: {
           </Field>
         ))}
       </div>
-    </Card>
+    </Block>
   );
 }
-
