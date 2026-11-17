@@ -8,18 +8,17 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useMemo, useState, type ReactNode } from 'react';
-import { Block, BulletBar, CalendarHeat, DataTable, Hero, HeroChart, Page, useAdminFilters, useAdminT, type ColumnDef } from '@/admin/ui';
+import { Block, BulletBar, CalendarHeat, DataTable, Hero, HeroChart, Page, useAdminFilters, useAdminT, type ColumnDef, EmptyLine, Fold, Ledger, LedgerRow, MiniBar, StackedShare, Status, type Tone } from '@/admin/ui';
 import ContactImportDialog from '@/components/contacts/ContactImportDialog';
 import { fmtAxisDay, fmtCompact, fmtDate, fmtNum, fmtPct } from '@/lib/adminFormat';
 import { relativeDelta } from '../context/period';
 import { rpc } from '../system/data';
-import { Cutoff, Disclosure, Ledger, LedgerRow, MiniBar, ShareBar, StateMark, type Tone3 } from '../legal/parts';
 import {
   COMMS_KEY, useEmailCampaigns, useMarketingOverview, usePushCampaigns, useSmsCampaigns,
   type MarketingOverview,
 } from './data';
 
-const STATUS_TONE: Record<string, Tone3> = { draft: 'none', scheduled: 'none', sending: 'todo', sent: 'ok', paused: 'todo', failed: 'late', cancelled: 'none' };
+const STATUS_TONE: Record<string, Tone> = { draft: 'neutral', scheduled: 'neutral', sending: 'warning', sent: 'positive', paused: 'warning', failed: 'negative', cancelled: 'neutral' };
 const DAY = 86_400_000;
 const MIN_SENT = 30;
 
@@ -135,8 +134,8 @@ export default function Campaigns() {
             <Block title={t('adm.comms.cp3.base')} meta={t('adm.comms.cp3.baseMeta')}>
               {ov.isLoading ? <div className="a-skel h-20 w-full" /> : (
                 <div className="flex flex-col gap-6">
-                  <div className="flex flex-col gap-2"><span className="a-kicker">{t('adm.comms.cp.tab.email')}</span><ShareBar emptyText={t('adm.comms.cp3.baseEmpty')} parts={shareParts('email')} /></div>
-                  <div className="flex flex-col gap-2"><span className="a-kicker">{t('adm.comms.cp.tab.sms')}</span><ShareBar emptyText={t('adm.comms.cp3.baseEmpty')} parts={shareParts('sms')} /></div>
+                  <div className="flex flex-col gap-2"><span className="a-kicker">{t('adm.comms.cp.tab.email')}</span><StackedShare legend="inline" emptyText={t('adm.comms.cp3.baseEmpty')} parts={shareParts('email')} /></div>
+                  <div className="flex flex-col gap-2"><span className="a-kicker">{t('adm.comms.cp.tab.sms')}</span><StackedShare legend="inline" emptyText={t('adm.comms.cp3.baseEmpty')} parts={shareParts('sms')} /></div>
                   <p className="a-t3 text-[12px]">{t('adm.comms.cp.k.emailHint')}</p>
                 </div>
               )}
@@ -150,7 +149,7 @@ export default function Campaigns() {
         )} />
 
       <Block title={t('adm.comms.cp3.rhythm')} meta={t('adm.comms.cp3.rhythmMeta')}>
-        {loading ? <div className="a-skel h-24 w-full" /> : sends.length === 0 ? <Cutoff>{t('adm.comms.cp3.rhythmNone')}</Cutoff> : (
+        {loading ? <div className="a-skel h-24 w-full" /> : sends.length === 0 ? <EmptyLine>{t('adm.comms.cp3.rhythmNone')}</EmptyLine> : (
           <CalendarHeat days={heat} weekdays={['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((x) => x)} fmt={(d, v) => `${fmtDate(`${d}T12:00:00Z`, lang)} · ${fmtNum(v, lang)}`} />
         )}
       </Block>
@@ -159,7 +158,7 @@ export default function Campaigns() {
         {(limit) => em.slice(0, limit).map((r) => (
           <LedgerRow key={r.id} onClick={() => navigate(r.status === 'draft' ? `/admin/comms/email/${r.id}/edit` : `/admin/comms/email/${r.id}/report`)}
             className="grid-cols-1 md:grid-cols-[110px_minmax(0,1.5fr)_90px_minmax(0,1fr)_90px]">
-            <StateMark tone={STATUS_TONE[r.status] ?? 'none'}>{stLabel(r.status)}</StateMark>
+            <Status strong tone={STATUS_TONE[r.status] ?? 'neutral'}>{stLabel(r.status)}</Status>
             <div className="flex min-w-0 flex-col"><span className="a-t1 truncate text-[13.5px] font-medium">{r.name}</span><span className="a-t3 truncate text-[12px]">{r.subject}</span></div>
             <span className="a-num a-t2 text-[12.5px]">{fmtNum(r.recipients_count, lang)}</span>
             <MiniBar value={r.recipients_count >= MIN_SENT ? (r.clicks_count * 100) / r.recipients_count : null} max={emMax} display={fmtPct((r.clicks_count * 100) / Math.max(1, r.recipients_count), 1, lang)} />
@@ -170,10 +169,10 @@ export default function Campaigns() {
       <ChannelBlock title={t('adm.comms.cp.tab.sms')} count={sm.length} loading={sms.isLoading} empty={t('adm.comms.cp.emptySms')} emptyBody={t('adm.comms.cp.emptyBody')}>
         {(limit) => sm.slice(0, limit).map((r) => (
           <LedgerRow key={r.id} onClick={() => navigate(`/admin/comms/sms/${r.id}`)} className="grid-cols-1 md:grid-cols-[110px_minmax(0,1.5fr)_90px_minmax(0,1fr)_90px]">
-            <StateMark tone={STATUS_TONE[r.status] ?? 'none'}>{stLabel(r.status)}</StateMark>
+            <Status strong tone={STATUS_TONE[r.status] ?? 'neutral'}>{stLabel(r.status)}</Status>
             <span className="a-t1 truncate text-[13.5px] font-medium">{r.name || t('adm.comms.cp.c.untitled')}</span>
             <span className="a-num a-t2 text-[12.5px]">{fmtNum(r.sent_count ?? 0, lang)}</span>
-            <MiniBar value={r.sent_count && r.sent_count >= MIN_SENT ? ((r.delivered_count ?? 0) * 100) / r.sent_count : null} max={smMax} tone={(r.failed_count ?? 0) > 0 ? 'todo' : 'none'}
+            <MiniBar value={r.sent_count && r.sent_count >= MIN_SENT ? ((r.delivered_count ?? 0) * 100) / r.sent_count : null} max={smMax} tone={(r.failed_count ?? 0) > 0 ? 'warning' : 'neutral'}
               display={r.sent_count ? fmtPct(((r.delivered_count ?? 0) * 100) / r.sent_count, 0, lang) : '—'} />
             <span className="a-mono a-t3 text-[11px]">{when(r.sent_at ?? r.scheduled_at ?? r.created_at)}</span>
           </LedgerRow>
@@ -182,7 +181,7 @@ export default function Campaigns() {
       <ChannelBlock title={t('adm.comms.cp.tab.push')} count={pu.length} loading={push.isLoading} empty={t('adm.comms.cp.emptyPush')} emptyBody={t('adm.comms.cp.emptyBody')}>
         {(limit) => pu.slice(0, limit).map((r) => (
           <LedgerRow key={r.id} onClick={() => navigate('/admin/comms/push')} className="grid-cols-1 md:grid-cols-[110px_minmax(0,1.5fr)_90px_minmax(0,1fr)_90px]">
-            <StateMark tone={STATUS_TONE[r.status ?? 'sent'] ?? 'none'}>{stLabel(r.status ?? 'sent')}</StateMark>
+            <Status strong tone={STATUS_TONE[r.status ?? 'sent'] ?? 'neutral'}>{stLabel(r.status ?? 'sent')}</Status>
             <div className="flex min-w-0 flex-col"><span className="a-t1 truncate text-[13.5px] font-medium">{r.title}</span><span className="a-t3 text-[12px]">{r.segment}</span></div>
             <span className="a-num a-t2 text-[12.5px]">{fmtNum(r.sent_count, lang)}</span>
             <MiniBar value={r.targeted_count ? (r.sent_count * 100) / r.targeted_count : null} max={100} display={r.targeted_count ? fmtPct((r.sent_count * 100) / r.targeted_count, 0, lang) : '—'} />
@@ -191,12 +190,12 @@ export default function Campaigns() {
         ))}
       </ChannelBlock>
 
-      <Disclosure title={t('adm.comms.cp.tab.lists')} hint={o ? fmtNum(o.imports.length, lang) : undefined}>
+      <Fold title={t('adm.comms.cp.tab.lists')} hint={o ? fmtNum(o.imports.length, lang) : undefined}>
         <DataTable data={o?.imports} columns={listCols} loading={ov.isLoading} error={ov.error} onRetry={() => void ov.refetch()} getRowId={(r) => r.id}
           initialSort={[{ id: 'created_at', desc: true }]} empty={{ title: t('adm.comms.cp.emptyLists'), body: t('adm.comms.cp.emptyListsBody') }} />
-      </Disclosure>
+      </Fold>
       {o?.quota && (
-        <Disclosure title={t('adm.comms.cp.quota')}>
+        <Fold title={t('adm.comms.cp.quota')}>
           <div className="grid grid-cols-1 gap-x-10 gap-y-5 md:grid-cols-3">
             {([
               ['quotaMonth', o.quota.used, o.quota.free],
@@ -207,7 +206,7 @@ export default function Campaigns() {
             ))}
           </div>
           <p className="a-t3 text-[12.5px]">{t('pm.quotaHint')}</p>
-        </Disclosure>
+        </Fold>
       )}
       <ContactImportDialog open={importOpen} onClose={() => setImportOpen(false)} scope={{ kind: 'platform' }} onChanged={() => void qc.invalidateQueries({ queryKey: COMMS_KEY })} />
     </Page>
@@ -223,7 +222,7 @@ function ChannelBlock({ title, count, loading, empty, emptyBody, children }: {
   const shown = all ? count : Math.min(8, count);
   return (
     <Block title={title} meta={String(count)}>
-      {loading ? <div className="a-skel h-20 w-full" /> : count === 0 ? <Cutoff>{empty} {emptyBody}</Cutoff> : (
+      {loading ? <div className="a-skel h-20 w-full" /> : count === 0 ? <EmptyLine>{empty} {emptyBody}</EmptyLine> : (
         <>
           <Ledger>{children(shown)}</Ledger>
           {count > 8 && <button type="button" className="a-btn a-btn--sm self-start" onClick={() => setAll((v) => !v)}>{all ? t('adm.comms.cp3.less') : t('adm.comms.cp3.more', { n: count - 8 })}</button>}

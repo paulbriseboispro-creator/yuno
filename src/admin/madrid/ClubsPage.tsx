@@ -10,13 +10,11 @@
  */
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  Block, CalendarHeat, DataTable, ErrorState, Hero, RankBars, Spark, StackedShare, cellTint, useAdminFilters, type ColumnDef,
-} from '@/admin/ui';
+import { Block, CalendarHeat, DataTable, ErrorState, Hero, RankBars, Spark, StackedShare, cellTint, useAdminFilters, type ColumnDef, Columns, Note } from '@/admin/ui';
 import { fmtNum } from '@/lib/adminFormat';
 import { useMadridOffer, useMadridTraffic, type MadridEvent } from './data';
 import { isoDowIndex, linkClass, shareOf } from './rules';
-import { Columns, DatedList, MadridPage, Rule } from './shared';
+import { DatedList, MadridPage } from './shared';
 import { useMadridFmt } from './fmt';
 
 export default function ClubsPage() {
@@ -83,7 +81,7 @@ export default function ClubsPage() {
         <Block title={t('adm.mad.cl.dowTitle')} meta={t('adm.mad.cl.dowMeta')}>
           {!d ? <div className="a-skel h-28 w-full" /> : (
             <>
-              <Columns values={wd.map((w) => w.exits)} labels={weekdayLabels} format={(v) => exitsN(v)} emptyText={t('adm.mad.cl.dowEmpty')} />
+              <Columns highlight="max" items={wd.map((w, i) => ({ key: String(i), x: weekdayLabels[i] ?? '', value: w.exits, display: exitsN(w.exits) }))} emptyText={t('adm.mad.cl.dowEmpty')} />
               <table className="w-full text-[12.5px]">
                 <thead><tr className="a-kicker"><th className="text-left font-normal" />{wd.map((w) => <th key={w.dow} className="text-right font-normal">{weekdayLabels[isoDowIndex(w.dow)]}</th>)}</tr></thead>
                 <tbody>
@@ -118,7 +116,7 @@ export default function ClubsPage() {
         <DataTable data={d?.events} columns={eventCols} loading={!d} pageSize={15} searchable searchPlaceholder={t('adm.mad.e.search')}
           getRowId={(r) => r.key} initialSort={[{ id: 'exits', desc: true }]}
           empty={{ title: t('adm.mad.e.empty') }} />
-        <Rule>{t('adm.mad.e.rule')}</Rule>
+        <Note>{t('adm.mad.e.rule')}</Note>
       </Block>
 
       <Block title={t('adm.mad.cl.blockedTitle')} meta={offerS ? t('adm.mad.cl.blockedMeta', { n: n(offerS.blocked_total) }) : undefined}>

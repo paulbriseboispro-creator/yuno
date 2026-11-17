@@ -5,8 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { Badge, CalendarHeat, DataTable, Page, ReasonDialog, Status, useAdminFilters, useAdminT, type ColumnDef, type Tone } from '@/admin/ui';
-import { Chip } from '../pros/v3';
+import { Badge, CalendarHeat, DataTable, Page, ReasonDialog, Status, useAdminFilters, useAdminT, type ColumnDef, type Tone, Chip } from '@/admin/ui';
 import { fmtDate, fmtNum } from '@/lib/adminFormat';
 import { canAdminRepublish, discoveryBlockers } from '@/lib/adminEventDiscovery';
 

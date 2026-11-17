@@ -62,29 +62,39 @@ export interface Stat {
   loading?: boolean;
 }
 
-/** Une bande de chiffres sans boîtes : filets verticaux, libellé mono, valeur 20 px. */
-export function StatStrip({ items }: { items: Stat[] }) {
-  return (
-    <div className="a-strip grid grid-cols-2 border-y sm:grid-cols-3" style={{ gridTemplateColumns: undefined }} data-n={items.length}>
-      {items.map((s) => {
-        const body = (
-          <div className="flex h-full flex-col gap-1.5 px-4 py-3">
-            <span className="a-kicker truncate" title={s.hint}>{s.label}</span>
-            {s.loading ? <div className="a-skel h-6 w-20" /> : <span className="a-stat-value">{s.value}</span>}
-            <div className="flex items-center gap-3">
-              {!s.loading && s.previous !== undefined && <DeltaBadge current={s.current} previous={s.previous} invert={s.invert} />}
-              {s.spark && !s.loading && <div className="min-w-0 flex-1"><Spark data={s.spark} kind={s.sparkKind} height={18} baseline={false} /></div>}
-            </div>
-          </div>
-        );
-        return (
-          <div key={s.key} className="a-strip-cell min-w-0">
-            {s.to ? <Link to={s.to} className="a-focus block h-full no-underline hover:bg-[var(--a-hover)]">{body}</Link> : body}
-          </div>
-        );
-      })}
+/** Une case de bande : libellé mono, valeur 20 px, écart, mini-courbe, lien facultatif. */
+export function StatCell({ label, value, hint, to, loading, current, previous, invert, spark, sparkKind }: Omit<Stat, 'key'>) {
+  const body = (
+    <div className="flex h-full flex-col gap-1.5 px-4 py-3">
+      <span className="a-kicker truncate" title={hint}>{label}</span>
+      {loading ? <div className="a-skel h-6 w-20" /> : <span className="a-stat-value">{value}</span>}
+      {(previous !== undefined || spark) && !loading && (
+        <div className="flex items-center gap-3">
+          {previous !== undefined && <DeltaBadge current={current} previous={previous} invert={invert} />}
+          {spark && <div className="min-w-0 flex-1"><Spark data={spark} kind={sparkKind} height={18} baseline={false} /></div>}
+        </div>
+      )}
     </div>
   );
+  return (
+    <div className="a-strip-cell min-w-0">
+      {to ? <Link to={to} className="a-focus block h-full no-underline hover:bg-[var(--a-hover)]">{body}</Link> : body}
+    </div>
+  );
+}
+
+/** Une bande de chiffres sans boîtes : filets verticaux entre les cases. */
+export function StatStrip({ items }: { items: Stat[] }) {
+  return (
+    <div className="a-strip grid grid-cols-2 border-y sm:grid-cols-3" data-n={items.length}>
+      {items.map(({ key, ...s }) => <StatCell key={key} {...s} />)}
+    </div>
+  );
+}
+
+/** La même bande, écrite en enfants (`<StatRow><StatCell …/></StatRow>`). */
+export function StatRow({ children }: { children: ReactNode }) {
+  return <div className="flex flex-wrap border-y [&>*]:min-w-[8.5rem] [&>*]:flex-1 [&>*+*]:border-l">{children}</div>;
 }
 
 export interface Multiple {

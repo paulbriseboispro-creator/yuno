@@ -8,8 +8,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { Block, Switch, useAdminT } from '@/admin/ui';
-import { Cutoff, Ledger, MiniBar } from '../legal/parts';
+import { Block, Switch, useAdminT, EmptyLine, Ledger, MiniBar } from '@/admin/ui';
 import { fmtDate, fmtNum, fmtPct } from '@/lib/adminFormat';
 
 interface KeyStats { notification_key: string; sent_total: number; failed_total: number; clicked_total: number; sent_30d: number; failed_30d: number; clicked_30d: number; last_sent_at: string | null }
@@ -104,7 +103,7 @@ export function NotificationRegistry() {
 
   return (
     <div className="flex flex-col gap-8">
-      <Cutoff>{t('adm.engine.systemIntro')}</Cutoff>
+      <EmptyLine>{t('adm.engine.systemIntro')}</EmptyLine>
       {(['transactional', 'reminder', 'engagement', 'marketing'] as SysCategory[]).map((cat) => {
         const rows: Row[] = SYSTEM_CATALOG.filter((c) => c.category === cat)
           .map(({ key, dormant }) => ({ key, dormant: !!dormant, on: enabled[key] !== false, s: stats[key] }));

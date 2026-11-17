@@ -51,13 +51,14 @@ export function Hero({ kicker, sentence, value, current, previous, invert, chart
 }
 
 /** Un titre de bloc sans boîte : texte, puis un filet sur toute la largeur. */
-export function Block({ title, meta, children, className }: { title?: ReactNode; meta?: ReactNode; children: ReactNode; className?: string }) {
+export function Block({ title, meta, actions, children, className }: { title?: ReactNode; meta?: ReactNode; actions?: ReactNode; children?: ReactNode; className?: string }) {
   return (
     <section className={`flex min-w-0 flex-col gap-4 ${className ?? ''}`}>
-      {(title || meta) && (
-        <div className="flex items-baseline gap-3 border-b pb-2">
+      {(title || meta || actions) && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b pb-2">
           {title && <h2 className="a-t1 text-[14px] font-semibold">{title}</h2>}
           {meta && <span className="a-mono a-t3 ml-auto text-[11px]">{meta}</span>}
+          {actions && <div className={`${meta ? '' : 'ml-auto'} flex items-center gap-2`}>{actions}</div>}
         </div>
       )}
       {children}

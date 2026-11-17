@@ -8,11 +8,10 @@
  * `admin_legal_overview`. Rien ici n'est un avis juridique.
  */
 import { useMemo } from 'react';
-import { Block, ErrorState, Page, useAdminT } from '@/admin/ui';
+import { Block, ErrorState, Page, useAdminT, EmptyLine, DeadlineBar, elapsedShare, GoTo, Ledger, LedgerRow, Status, useNow, Verdict } from '@/admin/ui';
 import { fmtNum } from '@/lib/adminFormat';
 import { useLegalOverview } from './data';
-import { obligations, type Obligation } from './rules';
-import { Cutoff, DeadlineBar, elapsedShare, GoTo, Ledger, LedgerRow, StateMark, useNow, Verdict } from './parts';
+import { obligations, type Obligation, stateTone } from './rules';
 import { SourceNote } from './ui';
 
 const ORDER = { late: 0, todo: 1, ok: 2 } as const;
@@ -43,7 +42,7 @@ export default function OverviewPage() {
     const label = inc
       ? (left <= 0 ? t('adm.lg2.in.overdue') : t('adm.lg2.in.left', { h: Math.floor(left / 3_600_000) }))
       : (left < 0 ? t('adm.lg2.late', { n: Math.ceil(-left / 86_400_000) }) : t('adm.lg2.daysLeft', { n: Math.floor(left / 86_400_000) }));
-    return <DeadlineBar share={elapsedShare(to - span, to, now)} tone={ob.state} label={label} right={t(`adm.lg3.ov.span.${ob.id}`)} />;
+    return <DeadlineBar share={elapsedShare(to - span, to, now)} tone={stateTone(ob.state)} label={label} right={t(`adm.lg3.ov.span.${ob.id}`)} />;
   };
 
   if (q.isError && !o) return <Page title={t('adm.lg2.ov.title')}><ErrorState onRetry={() => void q.refetch()} /></Page>;
@@ -53,7 +52,7 @@ export default function OverviewPage() {
       {!o ? (
         <div className="flex flex-col gap-3"><div className="a-skel h-10 w-[28rem] max-w-full" /><div className="a-skel h-4 w-96 max-w-full" /></div>
       ) : (
-        <Verdict tone={late.length ? 'late' : todo.length ? 'todo' : 'ok'} kicker={t('adm.lg3.ov.kicker')} headline={headline} sub={t('adm.lg3.ov.sub')} />
+        <Verdict tone={late.length ? 'negative' : todo.length ? 'warning' : 'positive'} kicker={t('adm.lg3.ov.kicker')} headline={headline} sub={t('adm.lg3.ov.sub')} />
       )}
 
       <Block title={t('adm.lg2.ov.list')} meta={o ? t('adm.lg3.ov.metaCount', { n: rows.length }) : undefined}>
@@ -63,7 +62,7 @@ export default function OverviewPage() {
           <Ledger>
             {rows.map((r) => (
               <LedgerRow key={r.id} to={r.path} className="grid-cols-1 md:grid-cols-[120px_minmax(0,1.5fr)_minmax(180px,1fr)_auto]">
-                <StateMark tone={r.state}>{t(`adm.lg2.state.${r.state}`)}</StateMark>
+                <Status strong tone={stateTone(r.state)}>{t(`adm.lg2.state.${r.state}`)}</Status>
                 <div className="flex min-w-0 flex-col">
                   <span className="a-t1 text-[14px] font-medium">{t(`adm.lg2.ob.${r.id}`)}</span>
                   <span className="a-t2 text-[12.5px] leading-snug">
@@ -78,7 +77,7 @@ export default function OverviewPage() {
         )}
       </Block>
 
-      {o && todo.length === 0 && <Cutoff>{t('adm.lg3.ov.quiet')}</Cutoff>}
+      {o && todo.length === 0 && <EmptyLine>{t('adm.lg3.ov.quiet')}</EmptyLine>}
       <SourceNote jurist>{t('adm.lg2.ov.note')}</SourceNote>
     </Page>
   );

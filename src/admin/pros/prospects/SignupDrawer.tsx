@@ -8,13 +8,12 @@
  */
 import { Link } from 'react-router-dom';
 import { Mail, MessageCircle, Phone } from 'lucide-react';
-import { Badge, Drawer, KeyValue, Status, Timeline, useAdminT, type KeyValueItem, type TimelineItem } from '@/admin/ui';
+import { Badge, Drawer, KeyValue, Status, Timeline, useAdminT, type KeyValueItem, type TimelineItem, Block } from '@/admin/ui';
 import { fmtDate, fmtNum, fmtPlural } from '@/lib/adminFormat';
 import { whatsappUrl } from '@/lib/yunoLinks';
 import { KNOWN_TOOLS } from '@/lib/proSignup';
 import { KNOWN_DEVICES, alertChannels, journeyResult, personPhones, sourceText, type SignupPerson } from '@/lib/proSignupPeople';
 import { accountHref, accountKey } from '../accounts';
-import { Panel } from '../v3';
 
 const SIZE_LABEL: Record<string, string> = {
   lt300: '< 300', '300_800': '300–800', '800_1500': '800–1 500', gt1500: '1 500+',
@@ -106,7 +105,7 @@ export function SignupDrawer({ person: p, onClose }: { person: SignupPerson | nu
         <KeyValue items={facts.filter((f) => f.value)} />
 
         {acc && (
-          <Panel title={t('adm.signups.progress')}>
+          <Block title={t('adm.signups.progress')}>
             <div className="flex flex-wrap gap-1.5">
               {([['console', !!acc.console_opened_at], ['night', acc.events > 0], ['pay', acc.payments], ['live', acc.live]] as const).map(([k, ok]) => (
                 <Badge key={k} tone={ok ? 'positive' : 'neutral'}>
@@ -114,10 +113,10 @@ export function SignupDrawer({ person: p, onClose }: { person: SignupPerson | nu
                 </Badge>
               ))}
             </div>
-          </Panel>
+          </Block>
         )}
 
-        {p.admin_notes && <Panel title={t('adm.signups.notes')}><p className="a-t2 whitespace-pre-wrap text-[13px]">{p.admin_notes}</p></Panel>}
+        {p.admin_notes && <Block title={t('adm.signups.notes')}><p className="a-t2 whitespace-pre-wrap text-[13px]">{p.admin_notes}</p></Block>}
 
         {alerts.length > 0 && <section className="flex flex-col gap-2"><h3 className="a-t1 text-[14px] font-semibold">{t('adm.signups.alertsTitle')}</h3><Timeline items={alerts} /></section>}
 

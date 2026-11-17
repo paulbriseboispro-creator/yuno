@@ -12,11 +12,4 @@ export const GO_KEYS: Array<{ key: string; to: string; rubric: string }> = [
   { key: 's', to: '/admin/system', rubric: 'system' },
 ];
 
-/** Vrai quand la touche est tapée dans un champ (on n'intercepte rien). */
-export function isTyping(target: EventTarget | null): boolean {
-  const el = target as HTMLElement | null;
-  if (!el) return false;
-  const tag = el.tagName;
-  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable || !!el.closest?.('[role="dialog"]');
-}
-
+export { isTyping } from '../ui/keys';

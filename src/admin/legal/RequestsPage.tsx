@@ -10,12 +10,11 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
-import { Badge, Block, Checkbox, DataTable, Drawer, ErrorState, Page, ReasonDialog, Status, useAdminT, type ColumnDef } from '@/admin/ui';
+import { Badge, Block, Checkbox, DataTable, Drawer, ErrorState, Page, ReasonDialog, Status, useAdminT, type ColumnDef, EmptyLine, DeadlineBar, Fold, elapsedShare, Ledger, LedgerRow, useNow, Verdict } from '@/admin/ui';
 import { fmtDate, fmtNum } from '@/lib/adminFormat';
 import { usePrivacyRequests, usePrivacyRequestSave, type PrivacyRequest, type RequestKind, type RequestStatus } from './data';
-import { daysUntil, personHref, proHref, requestDeadline, requestState } from './rules';
+import { daysUntil, personHref, proHref, requestDeadline, requestState, stateTone } from './rules';
 import { SourceNote } from './ui';
-import { Cutoff, DeadlineBar, Disclosure, elapsedShare, Ledger, LedgerRow, StateMark, useNow, Verdict } from './parts';
 import { Field, Select } from '@/admin/ui';
 import { fromLocalInput, toLocalInput } from './format';
 
@@ -56,11 +55,11 @@ export default function RequestsPage() {
       {q.isError && !q.data ? <ErrorState onRetry={() => void q.refetch()} /> : !q.data ? (
         <div className="flex flex-col gap-3"><div className="a-skel h-10 w-[26rem] max-w-full" /><div className="a-skel h-4 w-80 max-w-full" /></div>
       ) : (
-        <Verdict tone={overdue.length ? 'late' : open.length ? 'todo' : 'ok'} kicker={t('adm.lg3.rq.kicker')} headline={headline} sub={t('adm.lg3.rq.sub')} />
+        <Verdict tone={overdue.length ? 'negative' : open.length ? 'warning' : 'positive'} kicker={t('adm.lg3.rq.kicker')} headline={headline} sub={t('adm.lg3.rq.sub')} />
       )}
 
       <Block title={t('adm.lg3.rq.open')} meta={q.data ? t('adm.lg3.rq.sortedBy') : undefined}>
-        {!q.data ? <div className="a-skel h-24 w-full" /> : open.length === 0 ? <Cutoff>{t('adm.lg2.rq.emptyOpen')}</Cutoff> : (
+        {!q.data ? <div className="a-skel h-24 w-full" /> : open.length === 0 ? <EmptyLine>{t('adm.lg2.rq.emptyOpen')}</EmptyLine> : (
           <Ledger>
             {open.map((r) => {
               const st = requestState(r, now);
@@ -71,7 +70,7 @@ export default function RequestsPage() {
               const label = d == null ? t('adm.lg3.ov.noDeadline') : d < 0 ? t('adm.lg2.late', { n: -d }) : t('adm.lg2.daysLeft', { n: d });
               return (
                 <LedgerRow key={r.id} onClick={() => setEditing(r)} className="grid-cols-1 md:grid-cols-[120px_minmax(0,1.3fr)_minmax(200px,1fr)]">
-                  <StateMark tone={st}>{t(`adm.lg2.state.${st}`)}</StateMark>
+                  <Status strong tone={stateTone(st)}>{t(`adm.lg2.state.${st}`)}</Status>
                   <div className="flex min-w-0 flex-col">
                     <span className="a-t1 truncate text-[14px] font-medium">{t(`adm.lg2.rq.kind.${r.kind}`)} <span className="a-t3 font-normal">· {r.email ?? t('adm.lg2.rq.noEmail')}</span></span>
                     <span className="a-t3 text-[12px]">
@@ -80,7 +79,7 @@ export default function RequestsPage() {
                       {(r.extension_months ?? 0) > 0 && <> · <b className="a-t2 font-medium">{t('adm.lg3.rq.extended', { n: r.extension_months ?? 0 })}</b>{r.extension_reason ? ` : ${r.extension_reason}` : ''}</>}
                     </span>
                   </div>
-                  <DeadlineBar share={Number.isNaN(to) ? 0 : elapsedShare(from, to, now)} tone={st} label={label}
+                  <DeadlineBar share={Number.isNaN(to) ? 0 : elapsedShare(from, to, now)} tone={stateTone(st)} label={label}
                     right={r.deadline ? fmtDate(r.deadline, lang, 'short') : undefined}
                     mark={(r.extension_months ?? 0) > 0 && !Number.isNaN(to) ? elapsedShare(from, to, base) : undefined} />
                 </LedgerRow>
@@ -90,13 +89,13 @@ export default function RequestsPage() {
         )}
       </Block>
 
-      <Disclosure title={t('adm.lg3.rq.closed')} hint={fmtNum(closed.length, lang)}>
+      <Fold title={t('adm.lg3.rq.closed')} hint={fmtNum(closed.length, lang)}>
         <DataTable data={closed} columns={closedCols} loading={q.isLoading} getRowId={(r) => r.id} onRowClick={(r) => setEditing(r)} pageSize={10} empty={{ title: t('adm.lg2.rq.empty') }} />
-      </Disclosure>
-      <Disclosure title={t('adm.lg3.rq.auto')} hint={fmtNum(auto.length, lang)}>
-        <Cutoff>{t('adm.lg3.rq.autoSub')}</Cutoff>
+      </Fold>
+      <Fold title={t('adm.lg3.rq.auto')} hint={fmtNum(auto.length, lang)}>
+        <EmptyLine>{t('adm.lg3.rq.autoSub')}</EmptyLine>
         <DataTable data={auto} columns={closedCols} loading={q.isLoading} getRowId={(r) => r.id} onRowClick={(r) => setEditing(r)} pageSize={10} searchable searchPlaceholder={t('adm.lg2.rq.search')} empty={{ title: t('adm.lg2.rq.empty') }} />
-      </Disclosure>
+      </Fold>
       <SourceNote jurist>{t('adm.lg2.rq.note')}</SourceNote>
       {editing && <RequestDrawer request={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
     </Page>

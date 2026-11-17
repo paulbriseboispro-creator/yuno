@@ -14,21 +14,26 @@ export { Tabs, type TabItem } from './Tabs';
 export { useTab } from './useTab';
 export { Dialog, ReasonDialog, Drawer, MIN_REASON_LENGTH } from './Overlay';
 export { EmptyState, ErrorState } from './EmptyState';
-export { Field, Switch, SwitchRow, Checkbox, Segmented, NumberInput, Select, FilterSelect, Fold } from './Form';
+export { Field, Switch, SwitchRow, Checkbox, Segmented, NumberInput, Select, FilterSelect, Fold, Chip, Chips } from './Form';
 export { KeyValue, Timeline, type KeyValueItem, type TimelineItem } from './Details';
 export { useAdminT, fill } from './i18n';
 export { useAdminPortal } from './portal';
 export { useAdminFilters, type AdminFilters } from '../context/useAdminFilters';
 export { ADMIN_PERIODS, periodRange, relativeDelta, type AdminPeriod, type PeriodRange } from '../context/period';
 // v3 : dessins sur mesure, héros, bandes de stats, mises en page de traitement.
-export { useWidth, niceTicks, tintOf, intensity, cellTint } from './viz/core';
+export { useWidth, niceTicks, tintOf, intensity, cellTint, biggestDrop, elapsedShare, stepInk, useNow, TONE_FILL } from './viz/core';
+export { isTyping, useListKeys, stepIndex } from './keys';
 export { HoverSync, useHoverIndex } from './viz/Sync';
 export { HeroChart, type HeroPoint } from './viz/HeroChart';
-export { HoverTip, type TipRow } from './viz/Tip';
+export { HoverTip, useTip, type TipRow } from './viz/Tip';
 export { Hero, Block } from './viz/Hero';
-export { Spark, StatStrip, SmallMultiples, type Stat, type Multiple } from './viz/Multiples';
+export { Spark, StatStrip, StatRow, StatCell, SmallMultiples, type Stat, type Multiple } from './viz/Multiples';
 export {
   StackedShare, Waterfall, RankBars, BulletBar, UptimeBars, FunnelSteps, CohortGrid, CalendarHeat,
   type Part, type Step, type Rank, type Uptime, type FunnelStepV2,
 } from './viz/Shapes';
 export { SplitView, DrillDrawer } from './viz/Split';
+export { Columns, PairBars, MiniBar, TinyBars, CapacityBar, Level, Complete, DeadlineBar, Countdown, SegmentBar, type Column, type Segment } from './viz/Bars';
+export { LinesChart, type LineSeries } from './viz/Lines';
+export { Verdict, Steps } from './viz/State';
+export { Spine, Ledger, LedgerRow, GoTo, DenseRows, EmptyLine, Note, type SpineItem } from './viz/Lists';

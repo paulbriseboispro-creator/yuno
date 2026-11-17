@@ -11,14 +11,11 @@
  * Pilier boissons en pause : la réponse « boisson » du quiz de goûts n'est pas montrée.
  */
 import { Link } from 'react-router-dom';
-import {
-  Block, BulletBar, ErrorState, RankBars, StatStrip, useAdminFilters, useAdminT,
-} from '@/admin/ui';
+import { Block, BulletBar, ErrorState, RankBars, StatStrip, useAdminFilters, useAdminT, DenseRows, Fold, Status } from '@/admin/ui';
 import { fmtDate, fmtNum, fmtPct, fmtRelative } from '@/lib/adminFormat';
 import { MIN_SAMPLE } from '@/lib/metrics';
 import { useProductInsights, type KV } from './data';
 import { proHref } from './format';
-import { DenseRows, Folded, Pill } from './v3';
 
 const secs = (n: number | null): string => (n == null ? '—' : n >= 60 ? `${Math.round(n / 60)} min` : `${Math.round(n)} s`);
 
@@ -107,7 +104,7 @@ export default function ProductSignals() {
       </Block>
 
       <div className="flex flex-col gap-6">
-        <Folded title={t('adm.product.favorites')} hint={t('adm.product.favoritesHint')}>
+        <Fold title={t('adm.product.favorites')} hint={t('adm.product.favoritesHint')}>
           <div className="grid grid-cols-1 gap-10 lg:grid-cols-3">
             <MiniRank title={t('adm.product.topFavEvents')} items={d.favorites.top_events.map((e) => ({ key: e.id, label: e.title, value: e.n, sub: fmtDate(e.start_at, lang, 'day') }))} />
             <MiniRank title={t('adm.product.topFavVenues')} items={d.favorites.top_venues.map((v) => ({ key: v.id, label: v.name, value: v.n, sub: v.city ?? undefined, to: proHref(`venue:${v.id}`) }))} />
@@ -117,23 +114,23 @@ export default function ProductSignals() {
             {d.favorites.by_type.map((f) => t('adm.pil.v3p.favType', { type: tr('adm.product.fav', f.type), p: n(f.period), all: n(f.total) })).join(' · ') || t('adm.product.noSignal')}
             {d.follows.by_subject.length > 0 ? <><br />{d.follows.by_subject.map((f) => `${tr('adm.product.sub', f.subject)} +${n(f.follows)} / −${n(f.unfollows)}`).join(' · ')}</> : null}
           </p>
-        </Folded>
+        </Fold>
 
-        <Folded title={t('adm.product.autoPush')} hint={t('adm.pil.v3p.pushHint', { n: n(d.notifications.auto_push.length) })}>
+        <Fold title={t('adm.product.autoPush')} hint={t('adm.pil.v3p.pushHint', { n: n(d.notifications.auto_push.length) })}>
           <DenseRows empty={t('adm.product.noSignal')} rows={[...d.notifications.auto_push].sort((a, b) => b.sent - a.sent).map((p) => ({
             key: p.key,
             main: <code className="text-[12px]">{p.key}</code>,
             cells: [n(p.sent), n(p.clicked), p.sent >= MIN_SAMPLE ? fmtPct(p.ctr, 1, lang) : '—'],
-            flag: p.failed > 0 ? <Pill tone="negative">{t('adm.pil.v3p.failed', { n: n(p.failed) })}</Pill> : null,
+            flag: p.failed > 0 ? <Status tone="negative">{t('adm.pil.v3p.failed', { n: n(p.failed) })}</Status> : null,
           }))} head={[t('adm.product.col.sent'), t('adm.product.col.clicked'), t('adm.product.col.ctr')]} />
           <p className="a-t2 mt-3 text-[13px]">
             {t('adm.product.discoveryLine', { s: n(d.notifications.discovery_sent), o: n(d.notifications.discovery_opened), x: n(d.notifications.discovery_opt_out) })} ·{' '}
             {t('adm.product.newsletterLine', { i: n(d.notifications.newsletter_opt_in), o: n(d.notifications.newsletter_opt_out_period) })}{' '}
             <Link to="/admin/comms/engine" className="underline">{t('adm.product.seeAll')}</Link>
           </p>
-        </Folded>
+        </Fold>
 
-        <Folded title={t('adm.pl.sig.assistants')} hint={t('adm.pil.v3p.questionsHint', { a: n(d.ai_questions.length), b: n(d.pro_questions.length) })}>
+        <Fold title={t('adm.pl.sig.assistants')} hint={t('adm.pil.v3p.questionsHint', { a: n(d.ai_questions.length), b: n(d.pro_questions.length) })}>
           <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
             <QuestionList title={t('adm.product.aiQuestions')} rows={d.ai_questions.map((x, i) => ({ key: String(i), at: x.at, q: x.q, tag: x.lang ? x.lang.toUpperCase() : '', bad: x.status !== 'ok' }))} />
             <QuestionList title={t('adm.product.proQuestions')} rows={d.pro_questions.map((x, i) => ({ key: String(i), at: x.at, q: x.q, tag: tr('adm.ai.a', x.assistant), bad: x.status !== 'ok' }))} />
@@ -141,23 +138,23 @@ export default function ProductSignals() {
           {d.links_interest.length > 0 && (
             <div className="mt-6"><MiniRank title={t('adm.product.linksInterest')} items={d.links_interest.map((l) => ({ key: l.target, label: l.target, value: l.n }))} /></div>
           )}
-        </Folded>
+        </Fold>
 
-        <Folded title={t('adm.product.feedback')} hint={t('adm.product.feedbackOpen', { n: n(d.feedback.open) })}>
+        <Fold title={t('adm.product.feedback')} hint={t('adm.product.feedbackOpen', { n: n(d.feedback.open) })}>
           <ul className="flex flex-col">
             {d.feedback.recent.length === 0 ? <li className="a-t2 text-[13px]">{t('adm.product.noSignal')}</li> : d.feedback.recent.map((f) => (
               <li key={f.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b py-2">
                 <Link to="/admin/today/feedback" className="a-t1 min-w-0 flex-1 truncate text-[13px] no-underline hover:underline">{f.title}</Link>
                 <span className="a-t3 text-[12px]">{[f.venue, f.reporter, f.category].filter(Boolean).join(' · ')}</span>
-                <Pill tone={f.status === 'open' ? (f.priority === 'critical' || f.priority === 'high' ? 'negative' : 'warning') : f.status === 'resolved' || f.status === 'closed' ? 'positive' : 'neutral'}>{f.status}</Pill>
+                <Status tone={f.status === 'open' ? (f.priority === 'critical' || f.priority === 'high' ? 'negative' : 'warning') : f.status === 'resolved' || f.status === 'closed' ? 'positive' : 'neutral'}>{f.status}</Status>
                 <span className="a-mono a-t3 w-24 text-right text-[11px]">{fmtRelative(f.at, lang)}</span>
               </li>
             ))}
           </ul>
           <p className="a-t2 mt-3 text-[13px]">{t('adm.pil.v3p.incidents', { i: n(d.feedback.incidents), c: n(d.feedback.email_complaints) })}</p>
-        </Folded>
+        </Fold>
 
-        <Folded title={t('adm.pl.sig.taste')} hint={t('adm.product.tasteN', { n: n(d.taste.profiles) })}>
+        <Fold title={t('adm.pl.sig.taste')} hint={t('adm.product.tasteN', { n: n(d.taste.profiles) })}>
           <div className="grid grid-cols-1 gap-x-10 gap-y-8 md:grid-cols-2 xl:grid-cols-3">
             <MiniRank title={t('adm.product.taste.genres')} items={kv(d.taste.genres)} />
             <MiniRank title={t('adm.product.taste.night_type')} items={kv(d.taste.night_type)} />
@@ -172,7 +169,7 @@ export default function ProductSignals() {
             <MiniRank title={t('adm.product.aud.session_countries')} items={kv(d.audience.session_countries)} />
             <MiniRank title={t('adm.product.aud.session_devices')} items={kv(d.audience.session_devices)} />
           </div>
-        </Folded>
+        </Fold>
       </div>
     </div>
   );
@@ -203,7 +200,7 @@ function QuestionList({ title, rows }: { title: string; rows: Array<{ key: strin
           {rows.slice(0, 12).map((r) => (
             <li key={r.key} className="flex items-baseline gap-3 border-b py-1.5">
               <span className="a-t1 min-w-0 flex-1 text-[13px]">{r.q}</span>
-              {r.bad && <Pill tone="negative">{t('adm.pil.v3p.error')}</Pill>}
+              {r.bad && <Status tone="negative">{t('adm.pil.v3p.error')}</Status>}
               <span className="a-mono a-t3 flex-none text-[11px]">{r.tag ? `${r.tag} · ` : ''}{fmtRelative(r.at, lang)}</span>
             </li>
           ))}

@@ -19,12 +19,11 @@ import { Clock, MessageCircle, Plus } from 'lucide-react';
 import { rpc } from '@/crm/lib/rpc';
 import type { AdminPipeline, Prospect, ProspectStage } from '@/crm/admin/data';
 import { fmtDate, fmtEur, fmtNum, fmtRelative } from '@/lib/adminFormat';
-import { Badge, Checkbox, DataTable, Dialog, Drawer, EmptyState, ErrorState, Section, Status, useAdminFilters, useAdminT, type ColumnDef } from '@/admin/ui';
+import { Badge, Checkbox, DataTable, Dialog, Drawer, EmptyState, ErrorState, Section, Status, useAdminFilters, useAdminT, type ColumnDef, Block, StatCell, StatRow } from '@/admin/ui';
 import { Field } from '@/admin/ui';
 import { Segmented } from '@/admin/ui';
 import { accountHref } from '../accounts';
 import { PROS_QK } from '../data';
-import { Panel, Stat, StatRow } from '../v3';
 
 const STAGES = ['prospect', 'contacted', 'demo', 'trial', 'paid'] as const;
 type Col = (typeof STAGES)[number];
@@ -94,9 +93,9 @@ function Board({ d, onOpen }: { d: AdminPipeline; onOpen: (p: Prospect) => void 
           const accounts = accountsIn(d, s);
           const n = cards.length + accounts.length;
           return (
-            <Panel key={s} padded={false} className="min-h-[320px]"
+            <Block key={s} className="min-h-[320px]"
               title={<span className="inline-flex items-center gap-2">{t(`adm.pros.pl.s.${s}`)}<span className="a-t3 a-num font-normal">{fmtNum(n, lang)}</span></span>}
-              footer={t('adm.pros.pl.proba', { p: Math.round(STAGE_PROBA[s] * 100), w: fmtEur(n * STAGE_PROBA[s] * d.price, lang, { cents: false }) })}>
+              meta={t('adm.pros.pl.proba', { p: Math.round(STAGE_PROBA[s] * 100), w: fmtEur(n * STAGE_PROBA[s] * d.price, lang, { cents: false }) })}>
               <div className="flex flex-col gap-2 p-2">
                 {cards.map((p) => {
                   const late = !!p.next_at && new Date(p.next_at).getTime() < Date.now() - 86_400_000;
@@ -128,7 +127,7 @@ function Board({ d, onOpen }: { d: AdminPipeline; onOpen: (p: Prospect) => void 
                 ))}
                 {n === 0 && <p className="a-t3 px-1 py-2 text-[12.5px]">{t(manual ? 'adm.pros.pl.emptyManual' : 'adm.pros.pl.emptyAccounts')}</p>}
               </div>
-            </Panel>
+            </Block>
           );
         })}
       </div>
@@ -155,10 +154,10 @@ function Forecast({ d }: { d: AdminPipeline }) {
   return (
     <div className="flex flex-col gap-6">
       <StatRow>
-        <Stat label={t('adm.pros.pl.k.open')} value={`+${fmtEur(open, lang, { cents: false })}`} hint={t('adm.pros.pl.k.openHint')} />
-        <Stat label={t('adm.pros.pl.k.paid')} value={fmtEur(paid?.w ?? 0, lang, { cents: false })} hint={t('adm.pros.pl.k.paidHint')} />
-        <Stat label={t('adm.pros.pl.k.trial')} value={fmtNum(rows.find((r) => r.s === 'trial')?.cnt ?? 0, lang)} />
-        <Stat label={t('adm.pros.pl.k.price')} value={fmtEur(d.price, lang)} hint={t('adm.pros.pl.k.priceHint')} />
+        <StatCell label={t('adm.pros.pl.k.open')} value={`+${fmtEur(open, lang, { cents: false })}`} hint={t('adm.pros.pl.k.openHint')} />
+        <StatCell label={t('adm.pros.pl.k.paid')} value={fmtEur(paid?.w ?? 0, lang, { cents: false })} hint={t('adm.pros.pl.k.paidHint')} />
+        <StatCell label={t('adm.pros.pl.k.trial')} value={fmtNum(rows.find((r) => r.s === 'trial')?.cnt ?? 0, lang)} />
+        <StatCell label={t('adm.pros.pl.k.price')} value={fmtEur(d.price, lang)} hint={t('adm.pros.pl.k.priceHint')} />
       </StatRow>
       <Section title={t('adm.pros.pl.f.title')} description={t('adm.pros.pl.f.sub')}>
         <DataTable data={rows} columns={columns} getRowId={(r) => r.s} />
@@ -184,7 +183,7 @@ function Lost({ d, onOpen }: { d: AdminPipeline; onOpen: (p: Prospect) => void }
   ];
   return (
     <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-      <Panel title={t('adm.pros.pl.l.why')}>
+      <Block title={t('adm.pros.pl.l.why')}>
         {reasons.length === 0 ? <EmptyState title={t('adm.pros.pl.l.none')} /> : (
           <div className="flex flex-col gap-2.5">
             {reasons.map(([r, c]) => (
@@ -196,7 +195,7 @@ function Lost({ d, onOpen }: { d: AdminPipeline; onOpen: (p: Prospect) => void }
             ))}
           </div>
         )}
-      </Panel>
+      </Block>
       <Section title={t('adm.pros.pl.l.last')}>
         <DataTable data={lost} columns={columns} getRowId={(p) => p.id} onRowClick={onOpen} initialSort={[{ id: 'at', desc: true }]} empty={{ title: t('adm.pros.pl.l.none') }} />
       </Section>

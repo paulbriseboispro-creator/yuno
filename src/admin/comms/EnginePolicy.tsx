@@ -4,11 +4,10 @@
  * message permis), la file et les messages retenus en une phrase, puis les
  * champs qui les règlent. Même RPC qu'avant (`admin_set_push_engine_settings`).
  */
-import { Block, useAdminT } from '@/admin/ui';
+import { Block, useAdminT, EmptyLine, Fold, Level } from '@/admin/ui';
 import { fmtNum, fmtRelative } from '@/lib/adminFormat';
 import type { EngineOverview } from './data';
 import { SettingsGroup } from './SettingsGroup';
-import { Cutoff, Disclosure, Scale5 } from '../legal/parts';
 
 const POLICY_GROUPS: { id: string; fields: readonly string[] }[] = [
   { id: 'quiet', fields: ['quiet_start', 'quiet_end'] },
@@ -26,12 +25,12 @@ export default function EnginePolicy({ data }: { data: EngineOverview }) {
   return (
     <div className="flex flex-col gap-8">
       <Block title={t('adm.comms.en3.caps')} meta={t('adm.comms.en3.capsMeta')}>
-        <Cutoff>{t('adm.comms.en.pg.capsHint')}</Cutoff>
+        <EmptyLine>{t('adm.comms.en.pg.capsHint')}</EmptyLine>
         <ul className="grid grid-cols-1 gap-x-10 gap-y-3 md:grid-cols-2">
           {CAPS.map((k) => (
             <li key={k} className="flex items-center gap-3">
               <span className="a-t2 min-w-0 flex-1 text-[13px]">{t(`adm.engine.set.${k}`)}</span>
-              <Scale5 level={data.settings?.[k] ?? 0} max={max} label={`${t(`adm.engine.set.${k}`)} ${data.settings?.[k] ?? 0}`} />
+              <Level level={data.settings?.[k] ?? 0} max={max} label={`${t(`adm.engine.set.${k}`)} ${data.settings?.[k] ?? 0}`} />
               <span className="a-num a-t1 w-5 text-right text-[13px] font-medium">{fmtNum(data.settings?.[k] ?? 0, lang)}</span>
             </li>
           ))}
@@ -48,12 +47,12 @@ export default function EnginePolicy({ data }: { data: EngineOverview }) {
         </p>
       </Block>
 
-      <Disclosure title={t('adm.comms.en3.edit')} hint={t('adm.comms.en3.editHint')}>
+      <Fold title={t('adm.comms.en3.edit')} hint={t('adm.comms.en3.editHint')}>
         {POLICY_GROUPS.map((g) => (
           <SettingsGroup key={g.id} title={t(`adm.comms.en.pg.${g.id}`)} hint={t(`adm.comms.en.pg.${g.id}Hint`)}
             fields={g.fields} settings={data.settings} hintPrefix="adm.comms.en.pol" />
         ))}
-      </Disclosure>
+      </Fold>
     </div>
   );
 }

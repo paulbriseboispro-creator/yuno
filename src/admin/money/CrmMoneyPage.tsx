@@ -11,10 +11,7 @@
  * Source de l'historique et des listes : crm_admin_money (formules inchangées).
  */
 import { useMemo } from 'react';
-import {
-  Block, BulletBar, DataTable, ErrorState, Hero, HeroChart, HoverSync, Page, Waterfall, cellTint, useAdminFilters, useAdminT,
-  type ColumnDef, type Step,
-} from '@/admin/ui';
+import { Block, BulletBar, DataTable, ErrorState, Hero, HeroChart, HoverSync, Page, Waterfall, cellTint, useAdminFilters, useAdminT, type ColumnDef, type Step, Columns, Status } from '@/admin/ui';
 import { fmtAxisDay, fmtDate, fmtEur, fmtNum, fmtRelative } from '@/lib/adminFormat';
 import { moneyLabelKey } from './terms';
 import { useCrmMoney, type CrmMoney } from './data';
@@ -22,7 +19,6 @@ import { usePilotOverview } from '../pilotage/data';
 import { fmtMonth, proHref } from '../pilotage/format';
 import { TextLink } from '../pilotage/links';
 import { monthsSince, mrrBridge } from '../pilotage/rules';
-import { ColumnBars, Pill } from '../pilotage/v3';
 
 type Margin = CrmMoney['margin'][number];
 
@@ -122,7 +118,7 @@ export default function CrmMoneyPage() {
                   <span className="a-mono a-t2 text-right text-[12px]">{age == null ? '—' : age === 0 ? t('adm.mon.v3c.new') : t('adm.mon.v3c.months', { n: n(age) })}</span>
                   <span className="a-mono a-t1 text-right text-[12px]">{eur(s.price)}</span>
                   <span className="a-mono a-t3 text-right text-[11.5px]">{s.next ? fmtDate(s.next, lang) : '—'}</span>
-                  <span className="flex justify-end"><Pill tone={s.late ? 'warning' : 'positive'}>{s.late ? t('adm.mon.v3c.lateOne') : t('adm.mon.v3c.ok')}</Pill></span>
+                  <span className="flex justify-end"><Status tone={s.late ? 'warning' : 'positive'}>{s.late ? t('adm.mon.v3c.lateOne') : t('adm.mon.v3c.ok')}</Status></span>
                 </div>
               );
             })}
@@ -133,7 +129,7 @@ export default function CrmMoneyPage() {
       <div className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <Block title={t('adm.mon.crm.rechargeChart')} meta={d ? t('adm.mon.v3c.weeksMeta', { eur: eur0(d.weeks.reduce((s, w) => s + w.eur, 0)) }) : undefined}>
           {!d ? <div className="a-skel h-32 w-full" /> : (
-            <ColumnBars emptyText={t('adm.mon.crm.noBuys')}
+            <Columns values emptyText={t('adm.mon.crm.noBuys')}
               items={d.weeks.map((w) => ({ key: w.w, x: fmtAxisDay(w.w.slice(0, 10), lang), value: w.eur, display: eur0(w.eur) }))} />
           )}
         </Block>

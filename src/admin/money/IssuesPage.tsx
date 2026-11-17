@@ -15,14 +15,13 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, Check } from 'lucide-react';
-import { ErrorState, Page, ReasonDialog, useAdminFilters, useAdminT, type Tone } from '@/admin/ui';
+import { ErrorState, Page, ReasonDialog, useAdminFilters, useAdminT, type Tone, Status } from '@/admin/ui';
 import { fmtDate, fmtEur, fmtNum, fmtRelative } from '@/lib/adminFormat';
 import { useIssueActions, useMoneyIssues, type MoneyAlert, type TransferIssue } from './data';
 import { issueLink } from './issueLinks';
 import { TextLink } from '../pilotage/links';
 import { proHref } from '../pilotage/format';
 import { DUE_BUCKETS, dueBucket, type DueBucket } from '../pilotage/rules';
-import { Pill } from '../pilotage/v3';
 
 type Pending =
   | { kind: 'alert'; row: MoneyAlert }
@@ -152,7 +151,7 @@ export default function IssuesPage() {
             return (
               <section key={b} className="flex min-w-0 flex-col">
                 <div className="flex items-baseline gap-2 border-b pb-2">
-                  <Pill tone={BUCKET_TONE[b]}><span className="a-kicker" style={{ color: 'inherit' }}>{t(`adm.mon.v3i.b.${b}`)}</span></Pill>
+                  <Status tone={BUCKET_TONE[b]}><span className="a-kicker" style={{ color: 'inherit' }}>{t(`adm.mon.v3i.b.${b}`)}</span></Status>
                   <span className="a-mono a-t3 text-[11px]">{fmtNum(list.length, lang)}</span>
                   {sum > 0 && <span className="a-mono a-t2 ml-auto text-[11.5px]">{fmtEur(sum, lang, { cents: false })}</span>}
                 </div>
@@ -161,7 +160,7 @@ export default function IssuesPage() {
                     {list.map((l) => (
                       <li key={l.key} className="flex flex-col gap-1.5 border-b py-3">
                         <div className="flex items-baseline gap-2">
-                          <Pill tone={l.tone}>{l.tag}</Pill>
+                          <Status tone={l.tone}>{l.tag}</Status>
                           <span className="a-mono a-t3 ml-auto text-[11px]">
                             {l.due && b !== 'now' ? t('adm.mon.v3i.due', { when: fmtDate(l.due, lang) }) : l.since ? t('adm.mon.v3i.since', { when: fmtRelative(l.since, lang) }) : ''}
                           </span>

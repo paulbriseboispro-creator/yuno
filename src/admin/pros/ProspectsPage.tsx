@@ -13,14 +13,13 @@ import { toast } from 'sonner';
 import { ArrowUpRight, Check, Mail, MessageCircle, Phone, Search, StickyNote } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { rpc } from '@/crm/lib/rpc';
-import { Dialog, EmptyState, ErrorState, Hero, Page, SplitView, Status, Tabs, useAdminFilters, useAdminT, useTab } from '@/admin/ui';
+import { Dialog, EmptyState, ErrorState, Hero, Page, SplitView, Status, Tabs, useAdminFilters, useAdminT, useTab, Chip, KeyValue, SegmentBar, Spine, stepInk, useListKeys, type SpineItem } from '@/admin/ui';
 import { fmtDate, fmtNum, fmtRelative } from '@/lib/adminFormat';
 import { useProspects, useProsRefresh } from './data';
 import { accountHref, accountKey, phoneLinks } from './accounts';
 import { Pipeline } from './prospects/Pipeline';
 import { SignupDrawer } from './prospects/SignupDrawer';
 import { personPhones, sourceText, type SignupPerson } from '@/lib/proSignupPeople';
-import { Chip, Facts, SegmentBar, Spine, stepInk, useListKeys, type SpineItem } from './v3';
 
 type Source = 'links' | 'signup' | 'crm';
 interface Prospect {
@@ -235,7 +234,7 @@ function ProspectPreview({ r, onToggle, onNote, onOpen }: { r: Prospect; onToggl
         )}
         <button type="button" className="a-btn a-btn--ghost" onClick={onNote}><StickyNote className="h-3.5 w-3.5" />{t('adm.pros.pr.note')}</button>
       </div>
-      <Facts items={[
+      <KeyValue hideEmpty items={[
         { label: t('adm.pros.ci.contact'), value: r.contact },
         { label: t('adm.pros.f.phone'), value: phones[0]?.pretty ?? r.phone, mono: true },
         { label: t('adm.pros.f.email'), value: r.email },

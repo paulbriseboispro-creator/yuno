@@ -12,14 +12,11 @@
  */
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  Block, BulletBar, ErrorState, RankBars, ReasonDialog, StackedShare, cellTint, useAdminFilters, useAdminT,
-} from '@/admin/ui';
+import { Block, BulletBar, ErrorState, RankBars, ReasonDialog, StackedShare, cellTint, useAdminFilters, useAdminT, Chips, Status } from '@/admin/ui';
 import { fmtNum, fmtPct, fmtRelative } from '@/lib/adminFormat';
 import { MIN_SAMPLE } from '@/lib/metrics';
 import { ADMIN_ROUTES } from '@/crm/admin/adminNav';
 import { rpc, useCrmFeedback, useCrmProduct, type FeatureStatus } from './data';
-import { Chips, Pill } from './v3';
 import type { Tone } from '@/admin/ui';
 
 const STATUSES: FeatureStatus[] = ['new', 'seen', 'planned', 'done'];
@@ -165,7 +162,7 @@ export default function ProductCrm() {
                     <span className="a-t1 text-[13px]">{x.body}</span>
                     <span className="a-t3 truncate text-[12px]">{x.names.slice(0, 3).join(', ')}{x.names.length > 3 ? '…' : ''}</span>
                   </span>
-                  <Pill tone={STATUS_TONE[x.status]}>{t(`adm.crm.fb.st.${x.status}`)}</Pill>
+                  <Status tone={STATUS_TONE[x.status]}>{t(`adm.crm.fb.st.${x.status}`)}</Status>
                   <span className="a-mono a-t3 w-20 flex-none text-right text-[11px]">{fmtRelative(x.last_at, lang)}</span>
                 </button>
               </li>

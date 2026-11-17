@@ -4,6 +4,7 @@
  * Rien ici n'est un avis juridique. Chaque seuil ou obligation cite la source du
  * dépôt qui le porte, ou se dit « à confirmer par un juriste » dans l'écran.
  */
+import type { Tone } from '@/admin/ui/tone';
 export type LegalState = 'ok' | 'todo' | 'late';
 
 /**
@@ -168,4 +169,9 @@ export function proHref(key: string | null | undefined): string | null {
 export function personHref(email: string | null | undefined): string | null {
   const e = (email ?? '').trim().toLowerCase();
   return e ? `/admin/clients/${encodeURIComponent(e)}` : null;
+}
+
+/** Le ton du kit d'un état légal (fait, à faire, en retard). */
+export function stateTone(s: LegalState): Tone {
+  return s === 'late' ? 'negative' : s === 'todo' ? 'warning' : 'positive';
 }

@@ -7,14 +7,13 @@
  *   les crédits des pros repliés. Le registre des notifications unitaires est
  *   dans Système › Interrupteurs.
  */
-import { Block, ErrorState, Hero, HeroChart, Page, StatStrip, useAdminFilters, useAdminT, type Stat } from '@/admin/ui';
+import { Block, ErrorState, Hero, HeroChart, Page, StatStrip, useAdminFilters, useAdminT, type Stat, EmptyLine, Fold } from '@/admin/ui';
 import { fmtAxisDay, fmtCompact, fmtNum, fmtPct } from '@/lib/adminFormat';
 import { tapRate } from '@/lib/pushEngine';
 import { useEngine } from './data';
 import EngineRules from './EngineRules';
 import EnginePolicy from './EnginePolicy';
 import EngineCredits from './EngineCredits';
-import { Cutoff, Disclosure } from '../legal/parts';
 
 export default function Engine() {
   const { t, lang } = useAdminT();
@@ -49,8 +48,8 @@ export default function Engine() {
         note={<>{t('adm.comms.en3.protected')}</>} />
       {d && <StatStrip items={stats} />}
       {d ? <EngineRules data={d} /> : <Block title={t('adm.comms.en3.rules')}><div className="a-skel h-40 w-full" /></Block>}
-      {d ? <EnginePolicy data={d} /> : <Cutoff>{t('adm.comms.en3.loading')}</Cutoff>}
-      <Disclosure title={t('adm.comms.en.tab.credits')} hint={t('adm.comms.en3.creditsHint')}>{d ? <EngineCredits data={d} /> : <div className="a-skel h-24 w-full" />}</Disclosure>
+      {d ? <EnginePolicy data={d} /> : <EmptyLine>{t('adm.comms.en3.loading')}</EmptyLine>}
+      <Fold title={t('adm.comms.en.tab.credits')} hint={t('adm.comms.en3.creditsHint')}>{d ? <EngineCredits data={d} /> : <div className="a-skel h-24 w-full" />}</Fold>
     </Page>
   );
 }

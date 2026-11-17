@@ -5,13 +5,12 @@
  * garde son écran, lu seul par le super admin avant l'appel.
  */
 import { useMemo } from 'react';
-import { Block, BulletBar, ErrorState, Page, RankBars, Spark, StatStrip, Tabs, useAdminFilters, useAdminT, useTab, type Stat } from '@/admin/ui';
+import { Block, BulletBar, ErrorState, Page, RankBars, Spark, StatStrip, Tabs, useAdminFilters, useAdminT, useTab, type Stat, EmptyLine, Ledger, LedgerRow, MiniBar, Status, Verdict, type Tone } from '@/admin/ui';
 import { fmtDate, fmtMs, fmtNum, fmtPct, fmtRelative } from '@/lib/adminFormat';
 import { useAdminAccounts, useAdminScenarios, type AdminScenarioAccount } from '@/crm/admin/data';
 import { ADMIN_ROUTES } from '@/crm/admin/adminNav';
 import type { AdminAccount } from '@/crm/lib/admin';
 import { usePlatformSync } from './data';
-import { Cutoff, Ledger, LedgerRow, MiniBar, StateMark, Verdict, type Tone3 } from '../legal/parts';
 
 /** Plafond du limiteur commun (consume_ticketing_rate) : requêtes par minute. */
 const SHOTGUN_LIMIT = 45;
@@ -39,7 +38,7 @@ function ShotgunTab() {
   const okRate = s && s.runs24 ? ((s.runs24 - s.errors24) / s.runs24) * 100 : null;
   const peak = s ? Math.max(0, ...s.hours.map((h) => h.req)) / 60 : 0;
   const imports = Object.entries(p.data?.imports ?? {}).map(([status, n]) => ({ status, n })).sort((a, b) => b.n - a.n);
-  const tone: Tone3 = !s ? 'none' : bad.length > 0 || s.errors24 > 0 ? 'todo' : 'ok';
+  const tone: Tone = !s ? 'neutral' : bad.length > 0 || s.errors24 > 0 ? 'warning' : 'positive';
 
   return (
     <div className="flex flex-col gap-8">
@@ -50,7 +49,7 @@ function ShotgunTab() {
       )}
 
       <Block title={t('adm.sys.cn.quota')} meta={t('adm.sys3.cn.quotaMeta')}>
-        {p.isLoading ? <div className="a-skel h-24 w-full" /> : !s || s.hours.length === 0 ? <Cutoff>{t('adm.sys3.cn.noHours')}</Cutoff> : (
+        {p.isLoading ? <div className="a-skel h-24 w-full" /> : !s || s.hours.length === 0 ? <EmptyLine>{t('adm.sys3.cn.noHours')}</EmptyLine> : (
           <div className="flex flex-col gap-4">
             <BulletBar value={peak} max={Math.max(SHOTGUN_LIMIT * 1.2, peak)} zones={[SHOTGUN_LIMIT * 0.6, SHOTGUN_LIMIT * 0.85]} target={SHOTGUN_LIMIT} targetLabel={t('adm.sys3.cn.limit', { n: SHOTGUN_LIMIT })}
               label={t('adm.sys3.cn.peak')} display={`${Math.round(peak * 10) / 10} / ${SHOTGUN_LIMIT} ${t('adm.sys3.cn.perMin')}`} />
@@ -63,12 +62,12 @@ function ShotgunTab() {
 
       <div className="grid grid-cols-1 gap-x-12 gap-y-10 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <Block title={t('adm.sys.cn.connections')} meta={fmtNum(connected.length, lang)}>
-          {acc.isError && !acc.data ? <ErrorState onRetry={() => void acc.refetch()} /> : acc.isLoading ? <div className="a-skel h-20 w-full" /> : connected.length === 0 ? <Cutoff>{t('adm.sys.cn.noConns')}</Cutoff> : (
+          {acc.isError && !acc.data ? <ErrorState onRetry={() => void acc.refetch()} /> : acc.isLoading ? <div className="a-skel h-20 w-full" /> : connected.length === 0 ? <EmptyLine>{t('adm.sys.cn.noConns')}</EmptyLine> : (
             <Ledger>
               {connected.map((a: AdminAccount) => (
                 <LedgerRow key={a.id} to={ADMIN_ROUTES.account(a.id)} className="grid-cols-1 md:grid-cols-[minmax(0,1.1fr)_110px_minmax(0,1.2fr)]">
                   <span className="a-t1 truncate text-[13.5px] font-medium">{a.name}</span>
-                  <StateMark tone={a.sync === 'ok' ? 'ok' : 'late'}>{a.sync === 'ok' ? t('adm.sys.cn.ok') : t('adm.sys.cn.error')}</StateMark>
+                  <Status strong tone={a.sync === 'ok' ? 'positive' : 'negative'}>{a.sync === 'ok' ? t('adm.sys.cn.ok') : t('adm.sys.cn.error')}</Status>
                   <span className="a-t3 truncate text-[12px]">{a.sync === 'error' ? a.sync_error ?? '' : a.sync_at ? fmtRelative(a.sync_at, lang) : '—'}</span>
                 </LedgerRow>
               ))}
@@ -102,19 +101,19 @@ function ScenariosTab() {
     <div className="flex flex-col gap-8">
       {q.isError && !d ? <ErrorState onRetry={() => void q.refetch()} /> : !k ? <div className="a-skel h-12 w-full" /> : (
         <>
-          <Verdict tone={k.broken > 0 ? 'late' : k.held_now > 0 ? 'todo' : 'ok'} kicker={t('adm.sys3.cn.scKicker')}
+          <Verdict tone={k.broken > 0 ? 'negative' : k.held_now > 0 ? 'warning' : 'positive'} kicker={t('adm.sys3.cn.scKicker')}
             headline={k.broken > 0 ? t('adm.sys3.cn.scBroken', { n: fmtNum(k.broken, lang) }) : k.active === 0 ? t('adm.sys3.cn.scNone') : t('adm.sys3.cn.scOk', { n: fmtNum(k.active, lang) })}
             sub={t('adm.sys.cn.sc.privacy')} />
           <StatStrip items={stats} />
         </>
       )}
       <Block title={t('adm.sys.cn.sc.accounts')} meta={d ? fmtNum(accounts.length, lang) : undefined}>
-        {q.isLoading ? <div className="a-skel h-20 w-full" /> : accounts.length === 0 ? <Cutoff>{t('adm.sys.cn.sc.none')}</Cutoff> : (
+        {q.isLoading ? <div className="a-skel h-20 w-full" /> : accounts.length === 0 ? <EmptyLine>{t('adm.sys.cn.sc.none')}</EmptyLine> : (
           <Ledger>
             {accounts.map((a) => (
               <LedgerRow key={a.id} to={ADMIN_ROUTES.account(a.id)} className="grid-cols-1 md:grid-cols-[minmax(0,1.2fr)_110px_90px_150px_90px_90px]">
                 <span className="a-t1 truncate text-[13.5px] font-medium">{a.name}</span>
-                <StateMark tone={a.state === 'ok' ? 'ok' : a.state === 'frozen' ? 'late' : 'todo'}>{t(`adm.sys.cn.sc.${a.state}`)}</StateMark>
+                <Status strong tone={a.state === 'ok' ? 'positive' : a.state === 'frozen' ? 'negative' : 'warning'}>{t(`adm.sys.cn.sc.${a.state}`)}</Status>
                 <span className="a-t2 text-[12px]">{t('adm.sys.cn.sc.active')} {a.active}</span>
                 <MiniBar value={a.sent7} max={maxSent} display={String(a.sent7)} />
                 <span className="a-t2 text-[12px]">{t('adm.sys.cn.sc.held')} {a.held_now}</span>

@@ -6,11 +6,9 @@
  *   2. ce que ces personnes font ensuite dans Yuno (app, push, achats) ;
  *   3. les clubs de Madrid qu'on retrouve chez Yuno (client, inscription, prospect).
  */
-import {
-  Block, DataTable, ErrorState, Hero, StatStrip, useAdminFilters, type ColumnDef,
-} from '@/admin/ui';
+import { Block, DataTable, ErrorState, Hero, StatStrip, useAdminFilters, type ColumnDef, Note } from '@/admin/ui';
 import { useMadridOffer, type MadridOffer } from './data';
-import { MadridPage, Rule } from './shared';
+import { MadridPage } from './shared';
 import { useMadridFmt } from './fmt';
 
 type ProRow = MadridOffer['pros'][number];
@@ -57,7 +55,7 @@ export default function YunoPage() {
           { key: 'push', label: t('adm.mad.y.push'), value: y ? n(y.push) : '', loading: !y, hint: t('adm.mad.y.pushRule') },
           { key: 'app', label: t('adm.mad.y.app', { period: t(`adm.mad.per.${period}`) }), value: y ? n(y.app_sessions) : '', loading: !y },
         ]} />
-        <Rule>{t('adm.mad.y.peopleRule')}</Rule>
+        <Note>{t('adm.mad.y.peopleRule')}</Note>
       </Block>
 
       <Block title={t('adm.mad.y.bringsTitle')} meta={t('adm.mad.y.sinceStart')}>
@@ -66,16 +64,16 @@ export default function YunoPage() {
             <div className="flex flex-col gap-1">
               <span className="a-kicker">{t('adm.mad.y.cameBuyers')}</span>
               <span className="a-stat-value">{y.buyers_came ? `${n(y.buyers_came)} · ${eur(y.spend_came)}` : '0'}</span>
-              <Rule>{t('adm.mad.y.feesLine', { fees: eur(y.fees_came) })}</Rule>
+              <Note>{t('adm.mad.y.feesLine', { fees: eur(y.fees_came) })}</Note>
             </div>
             <div className="flex flex-col gap-1">
               <span className="a-kicker">{t('adm.mad.y.allBuyers')}</span>
               <span className="a-stat-value">{y.buyers ? `${n(y.buyers)} · ${eur(y.spend)}` : '0'}</span>
-              <Rule>{t('adm.mad.y.allLine', { orders: n(y.orders), fees: eur(y.fees) })}</Rule>
+              <Note>{t('adm.mad.y.allLine', { orders: n(y.orders), fees: eur(y.fees) })}</Note>
             </div>
           </div>
         )}
-        <Rule>{t('adm.mad.y.bringsRule')}</Rule>
+        <Note>{t('adm.mad.y.bringsRule')}</Note>
       </Block>
 
       <Block title={t('adm.mad.y.prosTitle')}>
@@ -86,7 +84,7 @@ export default function YunoPage() {
         )}
         <DataTable data={d?.pros} columns={proCols} loading={!d} pageSize={10}
           empty={{ title: t('adm.mad.y.prosEmpty'), body: t('adm.mad.y.prosEmptyBody') }} />
-        <Rule>{t('adm.mad.y.prosRule')}</Rule>
+        <Note>{t('adm.mad.y.prosRule')}</Note>
       </Block>
 
       <Block title={t('adm.mad.y.limitsTitle')}>

@@ -9,13 +9,12 @@
 import { Link, useSearchParams } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { Download } from 'lucide-react';
-import { BulletBar, DataTable, ErrorState, Page, Segmented, SplitView, useAdminT, type ColumnDef } from '@/admin/ui';
+import { BulletBar, DataTable, ErrorState, Page, Segmented, SplitView, useAdminT, type ColumnDef, Complete, EmptyLine, MiniBar, Verdict } from '@/admin/ui';
 import { downloadBlob } from '@/lib/generateDocuments';
 import { fmtEur, fmtNum } from '@/lib/adminFormat';
 import { useLegalSellers } from './data';
 import { DAC7_MARKERS, dac7Reached, proHref, sellerGaps, sellersCsv, type SellerRow } from './rules';
 import { SourceNote } from './ui';
-import { Complete, Cutoff, MiniBar, Verdict } from './parts';
 import { tOr } from './format';
 
 export default function SellersPage() {
@@ -46,9 +45,9 @@ export default function SellersPage() {
     { id: 'file', accessorFn: (r) => sellerGaps(r).length, header: t('adm.lg2.sl.col.file'), meta: { width: '120px' },
       cell: (c) => <Complete done={checks(c.row.original) - sellerGaps(c.row.original).length} total={checks(c.row.original)} /> },
     { id: 'dac7s', accessorFn: (r) => r.sales, header: t('adm.lg3.sl.dacSales', { n: DAC7_MARKERS.sales }), meta: { width: '150px' },
-      cell: (c) => <MiniBar value={c.row.original.sales} max={DAC7_MARKERS.sales} width={64} tone={c.row.original.sales >= DAC7_MARKERS.sales ? 'todo' : 'none'} display={fmtNum(c.row.original.sales, lang)} /> },
+      cell: (c) => <MiniBar value={c.row.original.sales} max={DAC7_MARKERS.sales} width={64} tone={c.row.original.sales >= DAC7_MARKERS.sales ? 'warning' : 'neutral'} display={fmtNum(c.row.original.sales, lang)} /> },
     { id: 'dac7a', accessorFn: (r) => Number(r.amount), header: t('adm.lg3.sl.dacAmount'), meta: { width: '170px' },
-      cell: (c) => <MiniBar value={Number(c.row.original.amount)} max={DAC7_MARKERS.amount} width={64} tone={Number(c.row.original.amount) >= DAC7_MARKERS.amount ? 'todo' : 'none'} display={fmtEur(Number(c.row.original.amount), lang, { cents: false })} /> },
+      cell: (c) => <MiniBar value={Number(c.row.original.amount)} max={DAC7_MARKERS.amount} width={64} tone={Number(c.row.original.amount) >= DAC7_MARKERS.amount ? 'warning' : 'neutral'} display={fmtEur(Number(c.row.original.amount), lang, { cents: false })} /> },
     { id: 'invoices', accessorFn: (r) => r.missing_invoices, header: t('adm.lg2.sl.col.invoices'), meta: { align: 'right' },
       cell: (c) => { const r = c.row.original; return r.missing_invoices > 0 ? <span className="whitespace-nowrap font-medium" style={{ color: 'var(--a-neg)' }}>{t('adm.lg2.sl.missingInv', { n: r.missing_invoices })}</span> : <span className="a-t3">—</span>; } },
   ];
@@ -64,9 +63,9 @@ export default function SellersPage() {
       {q.isError && !q.data ? <ErrorState onRetry={() => void q.refetch()} /> : q.isLoading ? (
         <div className="flex flex-col gap-3"><div className="a-skel h-10 w-[26rem] max-w-full" /><div className="a-skel h-4 w-80 max-w-full" /></div>
       ) : rows.length === 0 ? (
-        <Verdict tone="none" kicker={t('adm.lg3.sl.kicker', { y: year })} headline={t('adm.lg3.sl.headNone', { y: year })} sub={t('adm.lg2.sl.empty')} />
+        <Verdict tone="neutral" kicker={t('adm.lg3.sl.kicker', { y: year })} headline={t('adm.lg3.sl.headNone', { y: year })} sub={t('adm.lg2.sl.empty')} />
       ) : (
-        <Verdict tone={incomplete === 0 ? 'ok' : 'todo'} kicker={t('adm.lg3.sl.kicker', { y: year })}
+        <Verdict tone={incomplete === 0 ? 'positive' : 'warning'} kicker={t('adm.lg3.sl.kicker', { y: year })}
           headline={incomplete === 0 ? t('adm.lg3.sl.headOk', { n: rows.length }) : t(incomplete === 1 ? 'adm.lg3.sl.headOne' : 'adm.lg3.sl.head', { n: incomplete, total: rows.length })}
           sub={t('adm.lg3.sl.sub', { sales: fmtNum(sales, lang), amount: fmtEur(amount, lang), marker, noInvoice })} />
       )}
@@ -77,7 +76,7 @@ export default function SellersPage() {
             searchable initialSearch={searchParams.get('q')} getRowId={(r) => r.key} onRowClick={(r) => setPickedKey(r.key)} initialSort={[{ id: 'file', desc: true }]}
             empty={{ title: t('adm.lg2.sl.empty') }} />
         )}
-        panel={picked ? <SellerPanel s={picked} year={year} /> : <Cutoff>{t('adm.lg3.sl.pick')}</Cutoff>} />
+        panel={picked ? <SellerPanel s={picked} year={year} /> : <EmptyLine>{t('adm.lg3.sl.pick')}</EmptyLine>} />
       <SourceNote jurist>{t('adm.lg2.sl.note', { s: DAC7_MARKERS.sales, a: fmtEur(DAC7_MARKERS.amount, lang) })}</SourceNote>
     </Page>
   );

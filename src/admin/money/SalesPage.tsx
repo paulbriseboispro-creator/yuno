@@ -14,15 +14,11 @@
  */
 import { useMemo } from 'react';
 import { Download } from 'lucide-react';
-import {
-  Block, BulletBar, ErrorState, Hero, HoverSync, Page, RankBars, StatStrip, Waterfall, useAdminFilters, useAdminT,
-  type Step,
-} from '@/admin/ui';
+import { Block, BulletBar, ErrorState, Hero, HoverSync, Page, RankBars, StatStrip, Waterfall, useAdminFilters, useAdminT, type Step, LinesChart } from '@/admin/ui';
 import { fmtAxisDay, fmtCompact, fmtDate, fmtEur, fmtNum, fmtPct } from '@/lib/adminFormat';
 import { moneyHintKey, moneyLabelKey, takeRate } from './terms';
 import { useGuestlistCount, usePlatformAnalytics } from './data';
 import { proHref } from '../pilotage/format';
-import { LinesChart } from '../pilotage/v3';
 import { isFlatZero } from '../pilotage/rules';
 import { toCsv, downloadCsv } from './csv';
 

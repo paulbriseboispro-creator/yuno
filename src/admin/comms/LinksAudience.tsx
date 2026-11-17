@@ -5,10 +5,9 @@
  * la provenance et les soirées en barres triées. Le détail (pays, langues,
  * appareils, campagnes, villes) reste replié.
  */
-import { Block, Hero, HeroChart, RankBars, StatStrip, useAdminFilters, useAdminT, type Rank, type Stat } from '@/admin/ui';
+import { Block, Hero, HeroChart, RankBars, StatStrip, useAdminFilters, useAdminT, type Rank, type Stat, EmptyLine, Fold } from '@/admin/ui';
 import { fmtAxisDay, fmtCompact, fmtNum, fmtPct } from '@/lib/adminFormat';
 import { useLinksAnalytics } from './data';
-import { Cutoff, Disclosure } from '../legal/parts';
 
 const TARGETS = new Set(['app_store', 'web_app', 'instagram', 'tiktok', 'whatsapp', 'share', 'featured_all', 'pro_signup', 'event']);
 interface KV { k: string; n: number }
@@ -50,7 +49,7 @@ export default function LinksAudience() {
     <>
       <Hero kicker={t('adm.comms.ln3.kicker')} loading={cur.isLoading} value={fmtNum(tt?.visitors ?? 0, lang)} current={tt?.visitors} previous={p?.totals.visitors}
         sentence={sentence}
-        chart={cur.isLoading ? <div className="a-skel h-[200px] w-full" /> : empty ? <Cutoff>{t('adminLinks.emptyBody')}</Cutoff> : (
+        chart={cur.isLoading ? <div className="a-skel h-[200px] w-full" /> : empty ? <EmptyLine>{t('adminLinks.emptyBody')}</EmptyLine> : (
           <HeroChart data={points} height={200} formatX={fmtX} formatV={(v) => fmtNum(v, lang)} formatTick={(v) => fmtCompact(v, lang)}
             labels={{ cur: t('adminLinks.kVisitors'), prev: t('adm.comms.cp3.prev'), peak: t('adm.comms.cp3.peak') }} />
         )} />
@@ -68,7 +67,7 @@ export default function LinksAudience() {
         <RankBars emptyText={t('adminLinks.noClicks')} items={[...(s?.events ?? [])].sort((a, b) => b.clicks - a.clicks).slice(0, 8).map((r) => ({ key: r.event_id, label: r.title || r.event_id, value: r.clicks, display: fmtNum(r.clicks, lang) }))} />
       </Block>
 
-      <Disclosure title={t('adm.comms.ln.a.more')}>
+      <Fold title={t('adm.comms.ln.a.more')}>
         <div className="grid grid-cols-1 gap-x-10 gap-y-8 md:grid-cols-2 xl:grid-cols-3">
           {([
             [t('adminLinks.countriesTitle'), s?.countries, (k: string) => k],
@@ -84,7 +83,7 @@ export default function LinksAudience() {
             </div>
           ))}
         </div>
-      </Disclosure>
+      </Fold>
     </>
   );
 }

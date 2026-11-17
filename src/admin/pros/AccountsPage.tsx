@@ -14,7 +14,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowUpRight, MessageCircle, Phone, Plus, Search } from 'lucide-react';
-import { Badge, Hero, SplitView, Status, Page, useAdminT, useAdminFilters, EmptyState, ErrorState } from '@/admin/ui';
+import { Badge, Hero, SplitView, Status, Page, useAdminT, useAdminFilters, EmptyState, ErrorState, Chip, KeyValue, PairBars, SegmentBar, stepInk, useListKeys, type Segment, MiniBar } from '@/admin/ui';
 import { fmtDate, fmtEur, fmtNum, fmtRelative } from '@/lib/adminFormat';
 import {
   DEFAULT_FILTERS, LIFECYCLE, LIFECYCLE_TONE, accountHref, accountKpis, citiesOf, matchesFilters, phoneLinks,
@@ -23,7 +23,6 @@ import {
 import { useAccount, useAccounts } from './data';
 import { CrmViews, type CrmView } from './CrmViews';
 import { AccountGestures } from './gestures';
-import { Chip, Facts, Meter, PairBars, SegmentBar, stepInk, useListKeys, type Segment } from './v3';
 import { LIFE_ORDER, accountStory, lifecycleCounts } from './story';
 import { AccountSentence } from './account/Sentence';
 
@@ -215,7 +214,7 @@ function AccountList({ rows, loading, selected, onSelect, onOpen, sort, onSort, 
                   <span className="a-num a-t1 w-8 text-right text-[12.5px]">{fmtNum(r.sales_period, lang)}</span>
                 </span>
                 <span className="a-num a-t1 hidden text-right text-[12.5px] md:block">{r.revenue_period == null ? <span className="a-t3">—</span> : r.revenue_period === 0 ? <span className="a-t3">0 €</span> : fmtEur(r.revenue_period, lang, { cents: false })}</span>
-                <span className="hidden md:block">{r.crm ? <Meter value={r.crm.health} width={34} title={t('adm.pros.k.crmHealthHint')} /> : <span className="a-t3 text-[12px]">—</span>}</span>
+                <span className="hidden md:block">{r.crm ? <MiniBar value={r.crm.health} max={100} width={34} tone={r.crm.health != null && r.crm.health < 40 ? 'warning' : 'neutral'} display={r.crm.health == null ? undefined : Math.round(r.crm.health)} label={t('adm.pros.k.crmHealthHint')} /> : <span className="a-t3 text-[12px]">—</span>}</span>
                 <span className="a-mono a-t3 whitespace-nowrap text-right text-[11px]">{r.last_seen ? fmtRelative(r.last_seen, lang) : t('adm.pros.never')}</span>
               </button>
             </li>
@@ -267,12 +266,12 @@ function AccountPreview({ row }: { row: AccountRow | null }) {
         ))}
       </div>
 
-      <Facts items={[
+      <KeyValue hideEmpty items={[
         { label: t('adm.pros.card.owner'), value: row.owner_name || row.owner_email },
         { label: t('adm.pros.f.email'), value: row.owner_email ? <a className="hover:underline" href={`mailto:${row.owner_email}`}>{row.owner_email}</a> : null },
         { label: t('adm.pros.f.phone'), value: row.owner_phone, mono: true },
         { label: 'Stripe', value: row.type === 'agency' && !row.stripe_ready ? null : <Status tone={row.stripe_ready ? 'positive' : 'neutral'}>{t(row.stripe_ready ? 'adm.pros.stripe.ready' : 'adm.pros.stripe.no')}</Status> },
-        { label: 'CRM', value: row.crm ? <span className="inline-flex items-center gap-2">{t(`adm.pros.crm.${row.crm.state}`)}<Meter value={row.crm.health} width={40} /></span> : null },
+        { label: 'CRM', value: row.crm ? <span className="inline-flex items-center gap-2">{t(`adm.pros.crm.${row.crm.state}`)}<MiniBar value={row.crm.health} max={100} width={40} tone={row.crm.health != null && row.crm.health < 40 ? 'warning' : 'neutral'} display={row.crm.health == null ? undefined : Math.round(row.crm.health)} /></span> : null },
         { label: t('adm.pros.f.created'), value: fmtDate(row.created_at, lang) },
         { label: t('adm.pros.f.lastLogin'), value: row.last_login ? fmtRelative(row.last_login, lang) : t('adm.pros.never') },
         { label: t('adm.pros.f.tags'), value: row.tags.length ? row.tags.join(', ') : null },

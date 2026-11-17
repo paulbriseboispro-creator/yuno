@@ -7,13 +7,12 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
-import { Block, Dialog, Page, useAdminT } from '@/admin/ui';
+import { Block, Dialog, Page, useAdminT, EmptyLine, Ledger, Status, Verdict } from '@/admin/ui';
 import { fmtRelative } from '@/lib/adminFormat';
 import { useAdminPricing } from '@/crm/admin/data';
 import { NotificationRegistry } from './NotificationRegistry';
 import { useReasonAction } from '../comms/reason';
 import { rpc, useAppSettings, useSwitchLog } from './data';
-import { Cutoff, Ledger, StateMark, Verdict } from '../legal/parts';
 
 const CHANNELS = ['email', 'sms', 'whatsapp', 'instagram'] as const;
 
@@ -28,7 +27,7 @@ function SwitchRow({ title, cuts, on, onLabel, offLabel, actionLabel, danger, on
         <p className="a-t2 mt-0.5 max-w-[70ch] text-[13px] leading-relaxed">{cuts}</p>
         {extra}
       </div>
-      <StateMark tone={on ? 'ok' : 'none'}>{on ? onLabel : offLabel}</StateMark>
+      <Status strong tone={on ? 'positive' : 'neutral'}>{on ? onLabel : offLabel}</Status>
       <span className="a-t3 text-[12px]">{last ?? ''}</span>
       <button type="button" className={`a-btn a-btn--sm ${danger ? 'a-btn--danger' : ''}`} onClick={onAction}>{actionLabel}</button>
     </div>
@@ -102,7 +101,7 @@ export default function Switches() {
   return (
     <Page title={t('adm.sys.sw.title')} subtitle={t('adm.sys.sw.sub')}>
       {!s ? <div className="a-skel h-10 w-[24rem] max-w-full" /> : (
-        <Verdict tone={platformOn ? 'ok' : 'late'} kicker={t('adm.sys3.sw.kicker')}
+        <Verdict tone={platformOn ? 'positive' : 'negative'} kicker={t('adm.sys3.sw.kicker')}
           headline={platformOn ? t('adm.sys3.sw.allOn') : s.maintenance_mode && s.payments_disabled ? t('adm.sys3.sw.both') : s.maintenance_mode ? t('adm.sys3.sw.maint') : t('adm.sys3.sw.pay')}
           sub={t('adm.sys3.sw.sub')} />
       )}
@@ -137,11 +136,11 @@ export default function Switches() {
       </Block>
 
       <Block title={t('adm.sys.sw.log')} meta={t('adm.sys3.sw.logMeta')}>
-        {(log.data ?? []).length === 0 ? <Cutoff>{t('adm.sys.sw.logNone')}</Cutoff> : (
+        {(log.data ?? []).length === 0 ? <EmptyLine>{t('adm.sys.sw.logNone')}</EmptyLine> : (
           <Ledger>
             {log.data!.map((r) => (
               <div key={r.id} className="grid grid-cols-1 items-baseline gap-x-4 px-1 py-2.5 text-[13px] md:grid-cols-[150px_minmax(0,1fr)_110px]">
-                <StateMark tone={r.metadata?.enabled ? 'todo' : 'ok'}>{r.entity_id === 'maintenance_mode' ? t('adm.sys.sw.maint.title') : t('adm.sys.sw.pay.title')}</StateMark>
+                <Status strong tone={r.metadata?.enabled ? 'warning' : 'positive'}>{r.entity_id === 'maintenance_mode' ? t('adm.sys.sw.maint.title') : t('adm.sys.sw.pay.title')}</Status>
                 <span className="a-t1 min-w-0">{r.metadata?.reason ?? '—'}</span>
                 <span className="a-mono a-t3 text-[11px]">{fmtRelative(r.created_at, lang)}</span>
               </div>

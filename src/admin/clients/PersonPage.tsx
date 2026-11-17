@@ -8,12 +8,8 @@ import { Link, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  Badge, DataTable, EmptyState, ErrorState, KeyValue, Page, RankBars, StatStrip, Status, Tabs, useAdminT, useTab,
-  type ColumnDef, type Tone,
-} from '@/admin/ui';
+import { Badge, DataTable, EmptyState, ErrorState, KeyValue, Page, RankBars, StatStrip, Status, Tabs, useAdminT, useTab, type ColumnDef, type Tone, Block as Card, Spine, type SpineItem } from '@/admin/ui';
 import { fmtDate, fmtEur, fmtNum, fmtRelative } from '@/lib/adminFormat';
-import { Facts, Panel as Card, Spine, type SpineItem } from '../pros/v3';
 import { rpc, personName, type Person, type Purchase } from './data';
 import { parsePersonKey } from './personKey';
 import { orderHref } from '../money/orderLink';
@@ -99,7 +95,7 @@ export default function PersonPage() {
         </div>
         <aside className="flex min-w-0 flex-col gap-7 xl:sticky xl:top-[64px] xl:self-start xl:border-l xl:pl-8">
           <ConsentGlance p={p} />
-          <Facts title={t('adm.cl.p.identity')} items={[
+          <KeyValue hideEmpty title={t('adm.cl.p.identity')} items={[
             { label: t('adm.cl.p.id.email'), value: p.email },
             { label: t('adm.cl.p.id.phone'), value: idn?.phone, mono: true },
             { label: t('adm.cl.p.id.city'), value: idn?.city },

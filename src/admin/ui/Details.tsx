@@ -11,10 +11,13 @@ import { toneColor, type Tone } from './tone';
 
 export interface KeyValueItem { label: ReactNode; value: ReactNode; mono?: boolean }
 
-export function KeyValue({ items, columns = 1 }: { items: KeyValueItem[]; columns?: 1 | 2 }) {
-  return (
+/** Des paires libellé / valeur ; `hideEmpty` retire les valeurs absentes (un rail de faits). */
+export function KeyValue({ items, columns = 1, title, hideEmpty }: { items: KeyValueItem[]; columns?: 1 | 2; title?: ReactNode; hideEmpty?: boolean }) {
+  const shown = hideEmpty ? items.filter((x) => x.value != null && x.value !== '' && x.value !== false) : items;
+  if (hideEmpty && shown.length === 0) return null;
+  const list = (
     <dl className={columns === 2 ? 'grid grid-cols-1 gap-x-8 sm:grid-cols-2' : 'flex flex-col'}>
-      {items.map((it, i) => (
+      {shown.map((it, i) => (
         <div key={i} className="flex min-w-0 items-baseline gap-4 border-b py-2 last:border-b-0">
           <dt className="a-t2 w-[38%] flex-none text-[12.5px]">{it.label}</dt>
           <dd className={`a-t1 min-w-0 flex-1 break-words text-[13px] ${it.mono ? 'a-mono' : ''}`}>{it.value ?? '—'}</dd>
@@ -22,6 +25,8 @@ export function KeyValue({ items, columns = 1 }: { items: KeyValueItem[]; column
       ))}
     </dl>
   );
+  if (!title) return list;
+  return <section className="flex flex-col gap-1"><h3 className="a-kicker mb-1">{title}</h3>{list}</section>;
 }
 
 export interface TimelineItem {

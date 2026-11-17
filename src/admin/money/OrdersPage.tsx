@@ -14,9 +14,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { RotateCcw, Search, X } from 'lucide-react';
-import {
-  ErrorState, KeyValue, Page, ReasonDialog, SplitView, useAdminFilters, useAdminT, type Tone,
-} from '@/admin/ui';
+import { ErrorState, KeyValue, Page, ReasonDialog, SplitView, useAdminFilters, useAdminT, type Tone, Chips, Status } from '@/admin/ui';
 import { supabase } from '@/integrations/supabase/client';
 import { fmtDate, fmtEur, fmtNum, fmtPct } from '@/lib/adminFormat';
 import { isTyping } from '../shell/keys';
@@ -24,7 +22,6 @@ import { ORDERS_PAGE_SIZE, refundSale, useOrders, type OrderKind, type OrderRow 
 import { parseOpen } from './orderLink';
 import { TextLink } from '../pilotage/links';
 import { personHref } from '../pilotage/format';
-import { Chips, Pill } from '../pilotage/v3';
 import { shareOrNull } from '../pilotage/rules';
 
 const STATUS_TONE: Record<string, Tone> = {
@@ -131,7 +128,7 @@ export default function OrdersPage() {
                         <span className="a-t1 truncate">{r.full_name || r.user_email || '—'}</span>
                         <span className="a-t2 truncate">{r.event_title ?? '—'}{(r.host_name ?? r.venue_name) && <span className="a-t3"> · {r.host_name ?? r.venue_name}</span>}</span>
                         <span className="a-mono a-t1 truncate text-right text-[12px]">{isGuest ? (r.part_label ?? '—') : fmtEur(r.amount, lang)}</span>
-                        <span className="flex justify-end"><Pill tone={STATUS_TONE[r.status] ?? 'neutral'}>{statusLabel(t, r.status)}</Pill></span>
+                        <span className="flex justify-end"><Status tone={STATUS_TONE[r.status] ?? 'neutral'}>{statusLabel(t, r.status)}</Status></span>
                       </button>
                     </li>
                   );
@@ -246,7 +243,7 @@ function OrderPanel({ open, row, onClose, onRefund }: { open: NonNullable<Return
   return (
     <PanelShell title={title} sub={det.row.event_title} onClose={onClose}>
       <div className="flex flex-wrap items-center gap-3">
-        <Pill tone={STATUS_TONE[det.row.status] ?? 'neutral'}>{statusLabel(t, det.row.status)}</Pill>
+        <Status tone={STATUS_TONE[det.row.status] ?? 'neutral'}>{statusLabel(t, det.row.status)}</Status>
         <span className="a-mono a-t3 text-[11px]">{fmtDate(det.row.created_at, lang, 'datetime')}</span>
       </div>
       <div className="flex flex-col gap-1">
@@ -291,7 +288,7 @@ function GuestPanel({ row, onClose }: { row: OrderRow; onClose: () => void }) {
   return (
     <PanelShell title={t('adm.mon.ord.tab.guestlist')} sub={row.event_title} onClose={onClose}>
       <div className="flex flex-wrap items-center gap-3">
-        <Pill tone={STATUS_TONE[row.status] ?? 'neutral'}>{statusLabel(t, row.status)}</Pill>
+        <Status tone={STATUS_TONE[row.status] ?? 'neutral'}>{statusLabel(t, row.status)}</Status>
         <span className="a-mono a-t3 text-[11px]">{fmtDate(row.created_at, lang, 'datetime')}</span>
       </div>
       <div className="flex flex-col gap-1">

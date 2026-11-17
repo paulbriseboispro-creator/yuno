@@ -3,8 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowUpRight, Download, Search } from 'lucide-react';
-import { EmptyState, ErrorState, Page, SplitView, cellTint, useAdminT } from '@/admin/ui';
-import { Chip, Facts, useListKeys } from '../pros/v3';
+import { EmptyState, ErrorState, Page, SplitView, cellTint, useAdminT, Chip, KeyValue, useListKeys } from '@/admin/ui';
 import { fmtDate, fmtEur, fmtNum } from '@/lib/adminFormat';
 import { rpc, personName, PILLAR_KEYS, SEGMENT_KEYS, TIER_KEYS, type CustomerList, type CustomerRow, type Person } from './data';
 import { personHref } from './personKey';
@@ -224,7 +223,7 @@ function PersonPreview({ email }: { email: string }) {
           ))}
         </div>
       )}
-      <Facts items={[
+      <KeyValue hideEmpty items={[
         { label: t('adm.cl.p.id.phone'), value: idn?.phone, mono: true },
         { label: t('adm.cl.p.id.city'), value: idn?.city },
         { label: t('adm.cl.p.kpi.first'), value: st ? fmtDate(st.first_at, lang) : null },

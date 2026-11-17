@@ -8,10 +8,9 @@
  * recopie d'abord dans le texte public : l'écran ne fait que le refléter.
  */
 import { ExternalLink } from 'lucide-react';
-import { Block, Page, useAdminT } from '@/admin/ui';
+import { Block, Page, useAdminT, EmptyLine, Ledger, Status } from '@/admin/ui';
 import { LEGAL_VERSIONS } from '@/lib/legal';
 import { SourceNote } from './ui';
-import { Cutoff, Ledger, StateMark } from './parts';
 
 /** Document → page publique (`/legal/:section`, src/lib/legal.ts). */
 const PUBLIC_PAGE: Record<string, string> = {
@@ -51,7 +50,7 @@ export default function DocumentsPage() {
   return (
     <Page title={t('adm.lg2.dc.title')} subtitle={t('adm.lg2.dc.sub')}>
       <Block title={t('adm.lg2.dc.texts')} meta={t('adm.lg3.dc.textsMeta', { n: docs.length })}>
-        <Cutoff>{t('adm.lg2.dc.textsSub')}</Cutoff>
+        <EmptyLine>{t('adm.lg2.dc.textsSub')}</EmptyLine>
         <Ledger>
           {docs.map((d) => (
             <div key={d.doc} className="grid grid-cols-1 items-center gap-x-4 px-1 py-2.5 md:grid-cols-[minmax(0,1.3fr)_70px_minmax(0,1.2fr)_minmax(0,1fr)]">
@@ -65,14 +64,14 @@ export default function DocumentsPage() {
       </Block>
 
       <Block title={t('adm.lg2.dc.subs')} meta={t('adm.lg3.dc.subsMeta', { n: SUBPROCESSORS.length, o: out })}>
-        <Cutoff>{t('adm.lg2.dc.subsSub')}</Cutoff>
+        <EmptyLine>{t('adm.lg2.dc.subsSub')}</EmptyLine>
         <Ledger>
           {SUBPROCESSORS.map((s) => (
             <div key={s.name} className="grid grid-cols-1 items-center gap-x-4 px-1 py-2.5 md:grid-cols-[130px_minmax(0,1.2fr)_minmax(0,1fr)_150px]">
               <span className="a-t1 text-[13.5px] font-medium">{s.name}</span>
               <span className="a-t2 text-[12.5px]">{t(`adm.lg2.dc.use.${s.use}`)}</span>
               <span className="a-t3 text-[12px]">{s.products.map((p) => t(`adm.lg2.product.${p}`)).join(' · ')}</span>
-              <StateMark tone={s.outsideEu ? 'todo' : 'ok'}>{s.outsideEu ? t('adm.lg2.dc.outEu') : t('adm.lg2.dc.inEu')}</StateMark>
+              <Status strong tone={s.outsideEu ? 'warning' : 'positive'}>{s.outsideEu ? t('adm.lg2.dc.outEu') : t('adm.lg2.dc.inEu')}</Status>
             </div>
           ))}
         </Ledger>

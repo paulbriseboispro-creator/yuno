@@ -8,13 +8,11 @@
  *   5. les cohortes de visiteurs par semaine d'arrivée (mesure avec consentement).
  */
 import { useMemo } from 'react';
-import {
-  Block, CohortGrid, ErrorState, Hero, HeroChart, HoverSync, RankBars, StackedShare, useAdminFilters,
-} from '@/admin/ui';
+import { Block, CohortGrid, ErrorState, Hero, HeroChart, HoverSync, RankBars, StackedShare, useAdminFilters, Columns, Note } from '@/admin/ui';
 import { fmtAxisDay } from '@/lib/adminFormat';
 import { useMadridTraffic } from './data';
 import { MIN_BASE, localVsForeign, shareOf } from './rules';
-import { Columns, MadridPage, Rule } from './shared';
+import { MadridPage } from './shared';
 import { useMadridFmt } from './fmt';
 
 function regionName(code: string, lang: string): string {
@@ -75,7 +73,7 @@ export default function AudiencePage() {
                   { key: 'app', label: t('adm.mad.au.app'), value: d.app_web.app, display: n(d.app_web.app) },
                   { key: 'web', label: t('adm.mad.au.web'), value: d.app_web.web, display: n(d.app_web.web) },
                 ]} />
-                <Rule>{t('adm.mad.au.signedIn', { n: n(d.app_web.signed_in) })}</Rule>
+                <Note>{t('adm.mad.au.signedIn', { n: n(d.app_web.signed_in) })}</Note>
               </Block>
               <Block title={t('adm.mad.au.where')}>
                 <StackedShare fmtShare={pct} emptyText={t('adm.mad.au.noVisit')} parts={[
@@ -83,7 +81,7 @@ export default function AudiencePage() {
                   { key: 'abroad', label: t('adm.mad.au.abroad'), value: lf.foreign, display: n(lf.foreign) },
                   { key: 'unk', label: t('adm.mad.au.unknownCountry'), value: lf.unknown, display: n(lf.unknown) },
                 ]} />
-                <Rule>{t('adm.mad.au.whereRule')}</Rule>
+                <Note>{t('adm.mad.au.whereRule')}</Note>
               </Block>
             </>
           )} />
@@ -97,7 +95,7 @@ export default function AudiencePage() {
             sub: exitsN(s.exits),
           }))} />
         )}
-        <Rule>{t('adm.mad.au.srcRule')}</Rule>
+        <Note>{t('adm.mad.au.srcRule')}</Note>
       </Block>
 
       <div className="grid grid-cols-1 gap-x-10 gap-y-8 lg:grid-cols-2">
@@ -108,7 +106,7 @@ export default function AudiencePage() {
                 { key: 'new', label: t('adm.mad.au.new'), value: ret.base - ret.back, display: n(ret.base - ret.back) },
                 { key: 'back', label: t('adm.mad.au.backLabel'), value: ret.back, display: n(ret.back) },
               ]} />
-              <Rule>{t('adm.mad.au.newBackRule', { multi: n(ret.multi), rate: rate(ret.back, ret.base) })}</Rule>
+              <Note>{t('adm.mad.au.newBackRule', { multi: n(ret.multi), rate: rate(ret.back, ret.base) })}</Note>
             </>
           )}
         </Block>
@@ -129,8 +127,8 @@ export default function AudiencePage() {
         <Block title={t('adm.mad.au.whenTitle')} meta={t('adm.mad.au.whenMeta')}>
           {!d ? <div className="a-skel h-28 w-full" /> : (
             <div className="flex flex-col gap-5">
-              <Columns values={hours} labels={hourLabels} format={(v) => t('adm.mad.au.visitsN', { n: n(v) })} emptyText={t('adm.mad.au.noVisit')} height={72} />
-              <Columns values={d.visit_days} labels={dowLabels} format={(v) => t('adm.mad.au.visitsN', { n: n(v) })} emptyText={t('adm.mad.au.noVisit')} height={56} />
+              <Columns highlight="max" items={hours.map((v, i) => ({ key: String(i), x: hourLabels[i] ?? '', value: v, display: t('adm.mad.au.visitsN', { n: n(v) }) }))} emptyText={t('adm.mad.au.noVisit')} height={72} />
+              <Columns highlight="max" items={d.visit_days.map((v, i) => ({ key: String(i), x: dowLabels[i] ?? '', value: v, display: t('adm.mad.au.visitsN', { n: n(v) }) }))} emptyText={t('adm.mad.au.noVisit')} height={56} />
             </div>
           )}
         </Block>
@@ -145,7 +143,7 @@ export default function AudiencePage() {
               cells: c.cells.map((v) => (v == null || c.size < MIN_BASE ? null : v / c.size)),
             }))} />
         )}
-        <Rule>{t('adm.mad.au.cohortRule')}</Rule>
+        <Note>{t('adm.mad.au.cohortRule')}</Note>
       </Block>
     </MadridPage>
   );

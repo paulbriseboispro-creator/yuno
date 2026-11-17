@@ -6,36 +6,59 @@
  *   RankBars      classement (barres horizontales triées)
  *   BulletBar     une valeur contre un repère et des zones (Few)
  *   UptimeBars    santé d'un service, un trait par jour (Statuspage)
- *   FunnelSteps   étapes, la perte écrite entre deux étapes
+ *   FunnelSteps   étapes, la perte écrite entre deux étapes, la plus grosse marquée
  *   CohortGrid    triangle de cohortes teinté
  *   CalendarHeat  activité par jour, semaines en colonnes
  */
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { intensity, tintOf } from './core';
+import type { Tone } from '../tone';
+import { biggestDrop, intensity, tintOf } from './core';
+import { useTip } from './Tip';
 
 const SERIES = ['var(--a-chart-1)', 'var(--a-chart-2)', 'var(--a-chart-3)', 'var(--a-chart-4)', 'var(--a-chart-5)'];
 
 // ── Composition ──────────────────────────────────────────────────────────────
-export interface Part { key: string; label: string; value: number; display: string }
+export interface Part {
+  key: string;
+  label: string;
+  value: number;
+  display: string;
+  /** Un sens plutôt qu'une série : fort (encre), doux, effacé, alerte. Sans ton : les couleurs de séries. */
+  tone?: 'strong' | 'soft' | 'muted' | 'alert';
+}
 
-export function StackedShare({ parts, emptyText, fmtShare }: { parts: Part[]; emptyText: string; fmtShare: (share: number) => string }) {
+const PART_TONE = { strong: 'var(--a-text)', soft: 'var(--a-text-3)', muted: 'var(--a-prev)', alert: 'var(--a-neg-soft)' } as const;
+
+/** Une barre à 100 %, chaque part écrite sous la barre (étiquetage direct, pas de légende à décoder). */
+export function StackedShare({ parts, emptyText, fmtShare, legend = 'list' }: {
+  parts: Part[];
+  emptyText: ReactNode;
+  /** Part en pourcentage à droite de chaque ligne ; rendre '' sous le seuil d'échantillon. */
+  fmtShare?: (share: number) => string;
+  /** `list` : une part par ligne ; `inline` : les parts côte à côte sous la barre. */
+  legend?: 'list' | 'inline';
+}) {
+  const tip = useTip();
   const total = parts.reduce((s, p) => s + Math.max(0, p.value), 0);
   if (total <= 0) return <p className="a-t3 text-[13px]">{emptyText}</p>;
+  const color = (p: Part, i: number) => (p.tone ? PART_TONE[p.tone] : SERIES[i % SERIES.length]);
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex h-3 w-full gap-[2px] overflow-hidden rounded-[3px]" role="img" aria-label={parts.map((p) => `${p.label} ${p.display}`).join(', ')}>
-        {parts.filter((p) => p.value > 0).map((p, i) => (
-          <div key={p.key} title={`${p.label} · ${p.display}`} style={{ flexGrow: p.value, flexBasis: 0, background: SERIES[i % SERIES.length], minWidth: 3 }} />
-        ))}
+      <div ref={tip.ref} className="relative flex h-3 w-full gap-[2px] rounded-[3px]" role="img" aria-label={parts.map((p) => `${p.label} ${p.display}`).join(', ')}>
+        {parts.map((p, i) => (p.value > 0 ? (
+          <div key={p.key} className="first:rounded-l-[3px] last:rounded-r-[3px]" {...tip.on(p.label, [{ label: fmtShare?.(p.value / total) ?? '', value: p.display, color: color(p, i), strong: true }])}
+            style={{ flexGrow: p.value, flexBasis: 0, background: color(p, i), minWidth: 3 }} />
+        ) : null))}
+        {tip.node}
       </div>
-      <ul className="flex flex-col gap-1.5">
+      <ul className={legend === 'inline' ? 'flex flex-wrap gap-x-6 gap-y-1' : 'flex flex-col gap-1.5'}>
         {parts.map((p, i) => (
-          <li key={p.key} className="flex items-center gap-2 text-[13px]">
-            <span aria-hidden className="h-2 w-2 flex-none rounded-[2px]" style={{ background: SERIES[i % SERIES.length], opacity: p.value > 0 ? 1 : 0.3 }} />
-            <span className="a-t2 min-w-0 flex-1 truncate">{p.label}</span>
+          <li key={p.key} className={legend === 'inline' ? 'flex items-baseline gap-2 text-[12.5px]' : 'flex items-center gap-2 text-[13px]'}>
+            <span aria-hidden className="h-2 w-2 flex-none self-center rounded-[2px]" style={{ background: color(p, i), opacity: p.value > 0 ? 1 : 0.3 }} />
+            <span className={`a-t2 ${legend === 'list' ? 'min-w-0 flex-1 truncate' : ''}`}>{p.label}</span>
             <span className="a-num a-t1 font-medium">{p.display}</span>
-            <span className="a-mono a-t3 w-12 text-right text-[11px]">{fmtShare(total > 0 ? p.value / total : 0)}</span>
+            {fmtShare && legend === 'list' && <span className="a-mono a-t3 w-12 text-right text-[11px]">{fmtShare(p.value / total)}</span>}
           </li>
         ))}
       </ul>
@@ -55,6 +78,7 @@ export interface Step {
   unknown?: string;
 }
 
+/** Les totaux peuvent passer sous zéro (une marge négative) : l'axe zéro est alors tracé. */
 export function Waterfall({ steps }: { steps: Step[] }) {
   let run = 0;
   const bars = steps.map((s) => {
@@ -62,28 +86,30 @@ export function Waterfall({ steps }: { steps: Step[] }) {
     if (s.unknown) return { s, from: run, to: run };
     const from = run; run += s.value; return { s, from, to: run };
   });
-  const max = Math.max(1, ...bars.map((b) => Math.max(b.from, b.to)));
+  const lo = Math.min(0, ...bars.map((b) => Math.min(b.from, b.to)));
+  const hi = Math.max(0, ...bars.map((b) => Math.max(b.from, b.to)));
+  const span = Math.max(1e-9, hi - lo);
+  const pos = (v: number) => ((v - lo) / span) * 100;
   return (
-    <ul className="flex flex-col gap-2">
-      {bars.map(({ s, from, to }) => {
-        const a = Math.min(from, to) / max * 100, b = Math.abs(to - from) / max * 100;
-        return (
-          <li key={s.key} className="grid grid-cols-[minmax(0,11rem)_minmax(0,1fr)_auto] items-center gap-3 text-[13px]">
-            <span className={`truncate ${s.total ? 'a-t1 font-medium' : 'a-t2'}`}>{s.label}</span>
-            {s.unknown ? (
-              <span className="a-t3 col-span-2 text-right text-[11.5px]">{s.unknown}</span>
-            ) : (
-              <>
-                <div className="relative h-4">
-                  <div className="absolute inset-y-0 rounded-[2px]" title={`${s.label} · ${s.display}`}
-                    style={{ left: `${a}%`, width: `max(2px, ${b}%)`, background: s.total ? 'var(--a-chart-1)' : s.value < 0 ? 'var(--a-prev)' : 'color-mix(in srgb, var(--a-chart-1) 45%, transparent)' }} />
-                </div>
-                <span className={`a-num text-right ${s.total ? 'a-t1 font-semibold' : 'a-t2'}`}>{s.display}</span>
-              </>
-            )}
-          </li>
-        );
-      })}
+    <ul className="flex flex-col gap-2" aria-label={steps.map((x) => `${x.label} ${x.unknown ?? x.display}`).join(', ')}>
+      {bars.map(({ s, from, to }) => (
+        <li key={s.key} className="grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)_auto] items-center gap-3 text-[13px] sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_auto]">
+          <span className={`truncate ${s.total ? 'a-t1 font-medium' : 'a-t2'}`}>{s.label}</span>
+          {s.unknown ? (
+            <span className="a-t3 col-span-2 text-right text-[11.5px]">{s.unknown}</span>
+          ) : (
+            <>
+              <div className="relative h-4" aria-hidden>
+                {lo < 0 && <div className="absolute inset-y-[-3px] w-px" style={{ left: `${pos(0)}%`, background: 'var(--a-text-3)' }} />}
+                <div className="absolute inset-y-0 rounded-[2px]"
+                  style={{ left: `${pos(Math.min(from, to))}%`, width: `max(2px, ${(Math.abs(to - from) / span) * 100}%)`,
+                    background: s.total ? (to < 0 ? 'var(--a-neg-soft)' : 'var(--a-chart-1)') : s.value < 0 ? 'var(--a-prev)' : 'color-mix(in srgb, var(--a-chart-1) 45%, transparent)' }} />
+              </div>
+              <span className={`a-num text-right ${s.total ? 'a-t1 font-semibold' : 'a-t2'}`}>{s.display}</span>
+            </>
+          )}
+        </li>
+      ))}
     </ul>
   );
 }
@@ -138,36 +164,81 @@ export function BulletBar({ value, target, zones, max, label, display, targetLab
 // ── Disponibilité ────────────────────────────────────────────────────────────
 export type Uptime = 'ok' | 'warn' | 'down' | 'none';
 
-export function UptimeBars({ days, label, summary }: { days: Array<{ d: string; state: Uptime; note?: string }>; label: ReactNode; summary?: ReactNode }) {
+export function UptimeBars({ days, label, summary, stateLabel }: {
+  days: Array<{ d: string; state: Uptime; note?: string }>;
+  label: ReactNode;
+  summary?: ReactNode;
+  /** Le mot d'un état dans l'info-bulle (« en panne »). */
+  stateLabel?: (s: Uptime) => string;
+}) {
+  const tip = useTip();
   const color: Record<Uptime, string> = { ok: 'var(--a-pos)', warn: 'var(--a-warn)', down: 'var(--a-neg-soft)', none: 'var(--a-grid)' };
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline gap-2 text-[13px]"><span className="a-t1 flex-1">{label}</span>{summary && <span className="a-mono a-t3 text-[11px]">{summary}</span>}</div>
-      <div className="flex h-7 gap-[2px]">
-        {days.map((x) => <div key={x.d} className="flex-1 rounded-[2px] hover:opacity-70" title={`${x.d}${x.note ? ` · ${x.note}` : ''}`} style={{ background: color[x.state] }} />)}
+      <div ref={tip.ref} className="relative flex h-7 gap-[2px]" role="img" aria-label={`${typeof summary === 'string' ? summary : ''}`}>
+        {days.map((x) => <div key={x.d} className="flex-1 rounded-[2px] hover:opacity-70" {...tip.on(x.d, [{ label: x.note ?? '', value: stateLabel?.(x.state) ?? x.state, color: color[x.state], strong: true }])} style={{ background: color[x.state] }} />)}
+        {tip.node}
       </div>
     </div>
   );
 }
 
 // ── Entonnoir ────────────────────────────────────────────────────────────────
-export interface FunnelStepV2 { key: string; label: string; value: number; display: string }
+export interface FunnelStepV2 {
+  key: string;
+  label: string;
+  value: number;
+  display: string;
+  /** D'où vient ce chiffre, en une ligne (source de la mesure). */
+  source?: string;
+}
 
-export function FunnelSteps({ steps, fmtShare, lossLabel }: { steps: FunnelStepV2[]; fmtShare: (r: number) => string; lossLabel: (lost: string, share: string) => string }) {
-  const top = Math.max(1, steps[0]?.value ?? 1);
+/**
+ * Étapes, la perte ÉCRITE entre deux étapes, la plus grosse marquée (en
+ * personnes). Une première étape plus de 5 fois plus grande que la suivante
+ * sort de l'échelle (barre coupée), les nombres restent exacts.
+ */
+export function FunnelSteps({ steps, lostText, lossLabel, fmtShare, worstLabel, offScaleLabel }: {
+  steps: FunnelStepV2[];
+  /** La perte avant l'étape `i`, en phrase (« 12 n'ont pas créé de compte »). */
+  lostText?: (i: number, lost: number) => string;
+  /** Repli : « −12 · 30 % » à partir du nombre et de la part. */
+  lossLabel?: (lost: string, share: string) => string;
+  fmtShare?: (r: number) => string;
+  worstLabel?: string;
+  offScaleLabel?: string;
+}) {
+  const offScale = steps.length > 2 && (steps[1]?.value ?? 0) > 0 && steps[0].value > steps[1].value * 5;
+  const top = Math.max(1, ...steps.slice(offScale ? 1 : 0).map((s) => s.value));
+  const worst = biggestDrop(steps.map((s) => s.value));
+  const lossOf = (i: number, lost: number, prev: number) =>
+    lostText ? lostText(i, lost) : lossLabel ? lossLabel(String(lost), fmtShare && prev > 0 ? fmtShare(lost / prev) : '') : `−${lost}`;
   return (
-    <ol className="grid gap-px" style={{ gridTemplateColumns: `repeat(${Math.max(1, steps.length)}, minmax(0, 1fr))` }}>
+    <ol className="grid grid-cols-2 gap-y-6 sm:grid-cols-3 xl:[grid-template-columns:repeat(var(--n),minmax(0,1fr))]" style={{ ['--n' as string]: Math.max(1, steps.length) }}>
       {steps.map((s, i) => {
         const prev = i > 0 ? steps[i - 1].value : null;
         const lost = prev != null ? Math.max(0, prev - s.value) : 0;
+        const isWorst = worst === i && !!worstLabel;
+        const cut = offScale && i === 0;
         return (
-          <li key={s.key} className="flex min-w-0 flex-col gap-2 pr-3">
+          <li key={s.key} className="flex min-w-0 flex-col gap-2 border-l px-4 first:border-l-0 first:pl-0">
             <span className="a-kicker truncate">{s.label}</span>
             <span className="a-stat-value">{s.display}</span>
-            <div className="h-16 rounded-[2px]" style={{ background: 'var(--a-grid)', display: 'flex', alignItems: 'flex-end' }}>
-              <div className="w-full rounded-[2px]" style={{ height: `${Math.max(2, (s.value / top) * 100)}%`, background: i === steps.length - 1 ? 'var(--a-chart-1)' : 'color-mix(in srgb, var(--a-chart-1) 50%, transparent)' }} />
+            <div className="relative flex h-16 items-end border-b" aria-hidden>
+              <div className="w-full rounded-t-[2px]" style={{
+                height: s.value > 0 ? `${cut ? 100 : Math.max(3, (s.value / top) * 100)}%` : 0,
+                background: i === steps.length - 1 ? 'var(--a-chart-1)' : 'color-mix(in srgb, var(--a-text) 26%, transparent)',
+              }} />
+              {cut && <div className="absolute inset-x-0 top-[38%] h-[5px]" style={{ background: 'var(--a-bg)', transform: 'skewY(-6deg)' }} />}
             </div>
-            <span className="a-mono a-t3 h-4 text-[11px]">{prev != null && prev > 0 ? lossLabel(String(lost), fmtShare(lost / prev)) : ''}</span>
+            {cut && offScaleLabel && <span className="a-mono a-t3 -mt-1 text-[10.5px]">{offScaleLabel}</span>}
+            <span className="min-h-[2.4em] text-[12px] leading-snug" style={{ color: isWorst ? 'var(--a-accent-text)' : 'var(--a-text-2)' }}>
+              {prev != null && lost > 0 ? (
+                <>{isWorst && <span className="a-mono mr-1 block text-[10.5px] font-semibold uppercase tracking-[0.04em]">{worstLabel}</span>}{lossOf(i, lost, prev)}</>
+              ) : prev != null ? '—' : ''}
+            </span>
+            {s.source && <span className="a-t3 text-[11.5px] leading-snug">{s.source}</span>}
           </li>
         );
       })}
@@ -212,24 +283,26 @@ export function CalendarHeat({ days, fmt, weekdays }: {
   /** Initiales lundi → dimanche. */
   weekdays: string[];
 }) {
+  const tip = useTip();
   const max = Math.max(0, ...days.map((x) => x.v));
   const first = days[0] ? (new Date(`${days[0].d}T12:00:00Z`).getUTCDay() + 6) % 7 : 0;
   const cells: Array<{ d: string; v: number } | null> = [...Array(first).fill(null), ...days];
   const weeks: Array<typeof cells> = [];
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
   return (
-    <div className="flex gap-2">
+    <div ref={tip.ref} className="relative flex gap-2">
       <div className="a-mono a-t3 flex flex-col gap-[3px] text-[10px]">{weekdays.map((w, i) => <span key={i} className="h-3 leading-3">{i % 2 === 0 ? w : ''}</span>)}</div>
       <div className="flex gap-[3px] overflow-x-auto">
         {weeks.map((w, i) => (
           <div key={i} className="flex flex-col gap-[3px]">
             {Array.from({ length: 7 }, (_, j) => w[j]).map((c, j) => (
-              <span key={j} className="h-3 w-3 rounded-[2px]" title={c ? fmt(c.d, c.v) : undefined}
+              <span key={j} className="h-3 w-3 rounded-[2px]" {...(c ? tip.on('', [{ label: '', value: fmt(c.d, c.v), strong: true }]) : {})}
                 style={{ background: c ? (c.v > 0 ? tintOf(intensity(c.v, max)) : 'var(--a-grid)') : 'transparent', outline: c && c.v > 0 && c.v === max ? '1px solid var(--a-chart-1)' : undefined }} />
             ))}
           </div>
         ))}
       </div>
+      {tip.node}
     </div>
   );
 }

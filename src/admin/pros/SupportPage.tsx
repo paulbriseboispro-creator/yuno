@@ -9,13 +9,12 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { Badge, DataTable, Hero, Page, ReasonDialog, Status, Tabs, useAdminT, useTab, type ColumnDef } from '@/admin/ui';
+import { Badge, DataTable, Hero, Page, ReasonDialog, Status, Tabs, useAdminT, useTab, type ColumnDef, Spine, type SpineItem } from '@/admin/ui';
 import { fmtDate, fmtNum, fmtRelative } from '@/lib/adminFormat';
 import { accountHref } from './accounts';
 import { Field } from '@/admin/ui';
 import { ProductBadges } from './bits';
 import { useProsRefresh, useSupportOverview, type SupportGrant } from './data';
-import { Spine, type SpineItem } from './v3';
 
 const isOpen = (g: SupportGrant) => !g.revoked_at && (!g.expires_at || new Date(g.expires_at) > new Date());
 

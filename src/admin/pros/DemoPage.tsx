@@ -14,14 +14,13 @@ import { useSearchParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { DEMO_ACCOUNTS } from '@/lib/demoSession';
 import { fmtDate, fmtNum, fmtPct, fmtRelative } from '@/lib/adminFormat';
-import { Checkbox, DataTable, FunnelSteps, Hero, Page, Status, Tabs, useAdminT, useTab, type ColumnDef } from '@/admin/ui';
+import { Checkbox, DataTable, FunnelSteps, Hero, Page, Status, Tabs, useAdminT, useTab, type ColumnDef, Spine, type SpineItem } from '@/admin/ui';
 import { ProductBadges } from './bits';
 import { isLive, signupStage, useDemo, type DemoRow } from './demo/data';
 import { LinkDrawer } from './demo/LinkDrawer';
 import { NewDemoDialog, type DemoProduct } from './demo/NewDemoDialog';
 import { Showcases } from './demo/Showcases';
 import { STATE_TONE } from './demo/state';
-import { Spine, type SpineItem } from './v3';
 
 export default function DemoPage() {
   const { t, lang } = useAdminT();

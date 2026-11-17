@@ -11,12 +11,11 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
-import { Block, Checkbox, Drawer, ErrorState, KeyValue, Page, ReasonDialog, Section, Timeline, useAdminT } from '@/admin/ui';
+import { Block, Checkbox, Drawer, ErrorState, KeyValue, Page, ReasonDialog, Section, Timeline, useAdminT, Countdown, EmptyLine, Ledger, LedgerRow, Status, Steps, useNow, Verdict, type Tone } from '@/admin/ui';
 import { fmtDate, fmtNum } from '@/lib/adminFormat';
 import { prepareIncidentPros, useIncidentSave, useLegalAccounts, useLegalIncidents, type Incident } from './data';
-import { hoursUntil, proHref, type LegalState } from './rules';
+import { hoursUntil, proHref, type LegalState, stateTone } from './rules';
 import { SourceNote } from './ui';
-import { Countdown, Cutoff, Ledger, LedgerRow, StateMark, Steps, useNow, Verdict, type Tone3 } from './parts';
 import { Field, Segmented } from '@/admin/ui';
 import { fromLocalInput, toLocalInput } from './format';
 
@@ -39,7 +38,7 @@ export default function IncidentsPage() {
   const lead = openList.find((i) => !i.cnil_notified_at) ?? openList[0] ?? null;
   const late = list.filter((i) => incidentState(i, now) === 'late');
 
-  const rowState = (i: Incident): Tone3 => incidentState(i, now);
+  const rowState = (i: Incident): Tone => stateTone(incidentState(i, now));
   const cnilLabel = (i: Incident) => {
     if (i.closed_at) return t('adm.lg2.in.closed');
     if (i.cnil_notified_at) return t('adm.lg2.in.cnilDone');
@@ -53,7 +52,7 @@ export default function IncidentsPage() {
       {q.isError && !q.data ? <ErrorState onRetry={() => void q.refetch()} /> : !q.data ? (
         <div className="flex flex-col gap-3"><div className="a-skel h-10 w-[26rem] max-w-full" /><div className="a-skel h-16 w-72" /></div>
       ) : !lead ? (
-        <Verdict tone="ok" kicker={t('adm.lg3.in.kicker')} headline={t('adm.lg2.in.none')} sub={t('adm.lg3.in.noneSub', { n: list.length })} />
+        <Verdict tone="positive" kicker={t('adm.lg3.in.kicker')} headline={t('adm.lg2.in.none')} sub={t('adm.lg3.in.noneSub', { n: list.length })} />
       ) : (
         <section className="grid grid-cols-1 gap-x-12 gap-y-8 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
           <Countdown label={t('adm.lg3.in.cnilClock')} hours={hoursUntil(lead.deadline, now) ?? 0} total={72} tone={rowState(lead)}
@@ -76,13 +75,13 @@ export default function IncidentsPage() {
       )}
 
       <Block title={t('adm.lg3.in.register')} meta={q.data ? t('adm.lg3.in.registerMeta', { n: list.length, l: late.length }) : undefined}>
-        {!q.data ? <div className="a-skel h-20 w-full" /> : list.length === 0 ? <Cutoff>{t('adm.lg2.in.noneBody')}</Cutoff> : (
+        {!q.data ? <div className="a-skel h-20 w-full" /> : list.length === 0 ? <EmptyLine>{t('adm.lg2.in.noneBody')}</EmptyLine> : (
           <Ledger>
             {list.map((i) => {
               const st = incidentState(i, now);
               return (
                 <LedgerRow key={i.id} onClick={() => setOpen(i)} selected={i.id === lead?.id} className="grid-cols-1 md:grid-cols-[120px_minmax(0,1.6fr)_minmax(0,1fr)_130px]">
-                  <StateMark tone={st}>{t(`adm.lg2.state.${st}`)}</StateMark>
+                  <Status strong tone={stateTone(st)}>{t(`adm.lg2.state.${st}`)}</Status>
                   <div className="flex min-w-0 flex-col"><span className="a-t1 line-clamp-1 text-[13.5px] font-medium">{i.nature}</span>
                     <span className="a-t3 text-[12px]">{fmtDate(i.discovered_at, lang, 'datetime')} · {t(`adm.lg2.in.product.${i.product}`)}</span></div>
                   <span className="a-t2 text-[12.5px]">{t('adm.lg3.in.accounts', { n: i.accounts.length })}</span>

@@ -3,10 +3,9 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Pin, PinOff, Trash2 } from 'lucide-react';
 import { rpc } from '@/crm/lib/rpc';
-import { Badge, Checkbox, EmptyState, Grid, KeyValue, Section, Status, Timeline, useAdminT } from '@/admin/ui';
+import { Badge, Checkbox, EmptyState, Grid, KeyValue, Section, Status, Timeline, useAdminT, Block } from '@/admin/ui';
 import { fmtDate, fmtRelative } from '@/lib/adminFormat';
 import { useProsRefresh, type AccountCard } from '../data';
-import { Panel } from '../v3';
 
 export function TeamTab({ card }: { card: AccountCard }) {
   const { t, lang } = useAdminT();
@@ -58,7 +57,7 @@ export function SupportLegalTab({ card }: { card: AccountCard }) {
   return (
     <div className="flex flex-col gap-6">
       <Grid cols={2} className="gap-x-10 gap-y-8">
-        <Panel title={t('adm.pros.sl.support')}>
+        <Block title={t('adm.pros.sl.support')}>
           <Timeline
             empty={t('adm.pros.sl.noSupport')}
             items={[
@@ -75,8 +74,8 @@ export function SupportLegalTab({ card }: { card: AccountCard }) {
                 body: s.ended_at ? t('adm.pros.sl.ended', { at: fmtDate(s.ended_at, lang, 'datetime') }) : undefined,
               })),
             ].sort((a, b) => b.at.localeCompare(a.at))} />
-        </Panel>
-        <Panel title={t('adm.pros.sl.feedback')}>
+        </Block>
+        <Block title={t('adm.pros.sl.feedback')}>
           {card.feedback.length + card.requests.length + card.nps.length === 0
             ? <EmptyState title={t('adm.pros.sl.noFeedback')} />
             : (
@@ -104,11 +103,11 @@ export function SupportLegalTab({ card }: { card: AccountCard }) {
                 ))}
               </ul>
             )}
-        </Panel>
+        </Block>
       </Grid>
 
       <Grid cols={2} className="gap-x-10 gap-y-8">
-        <Panel title={t('adm.pros.sl.legal')}>
+        <Block title={t('adm.pros.sl.legal')}>
           {legal && Object.values(legal).some(Boolean) ? (
             <KeyValue items={[
               { label: t('adm.pros.sl.legalName'), value: legal.legal_name ?? '—' },
@@ -119,8 +118,8 @@ export function SupportLegalTab({ card }: { card: AccountCard }) {
               { label: t('adm.pros.f.address'), value: legal.legal_address ?? '—' },
             ]} />
           ) : <EmptyState title={t('adm.pros.sl.noLegal')} />}
-        </Panel>
-        <Panel title={t('adm.pros.sl.acceptances')}>
+        </Block>
+        <Block title={t('adm.pros.sl.acceptances')}>
           {card.legal_acceptances.length === 0 ? <EmptyState title={t('adm.pros.sl.noAcceptances')} /> : (
             <ul className="flex flex-col gap-1.5 text-[13px]">
               {card.legal_acceptances.map((a, i) => (
@@ -132,10 +131,10 @@ export function SupportLegalTab({ card }: { card: AccountCard }) {
               ))}
             </ul>
           )}
-        </Panel>
+        </Block>
       </Grid>
 
-      <Panel title={t('adm.pros.sl.sending')}>
+      <Block title={t('adm.pros.sl.sending')}>
         {!sending ? <EmptyState title={t('adm.pros.sl.noSending')} /> : (
           <>
             <KeyValue columns={2} items={[
@@ -151,7 +150,7 @@ export function SupportLegalTab({ card }: { card: AccountCard }) {
             )}
           </>
         )}
-      </Panel>
+      </Block>
     </div>
   );
 }
@@ -172,7 +171,7 @@ export function JournalTab({ card }: { card: AccountCard }) {
   return (
     <div className="flex flex-col gap-6">
       <Grid cols={2} className="gap-x-10 gap-y-8">
-        <Panel title={t('adm.pros.j.notes')}>
+        <Block title={t('adm.pros.j.notes')}>
           <div className="flex flex-col gap-2">
             <textarea className="a-input" rows={3} value={body} onChange={(e) => setBody(e.target.value)} placeholder={t('adm.pros.j.notePh')} />
             <div className="flex items-center gap-3">
@@ -208,8 +207,8 @@ export function JournalTab({ card }: { card: AccountCard }) {
               <p className="a-t1 whitespace-pre-wrap text-[13px]">{card.crm_note}</p>
             </div>
           )}
-        </Panel>
-        <Panel title={t('adm.pros.j.tags')}>
+        </Block>
+        <Block title={t('adm.pros.j.tags')}>
           <div className="flex flex-col gap-2">
             <input className="a-input" value={tags} onChange={(e) => setTags(e.target.value)} placeholder={t('adm.pros.j.tagsPh')} />
             <div className="flex items-center gap-2">
@@ -220,7 +219,7 @@ export function JournalTab({ card }: { card: AccountCard }) {
               </button>
             </div>
           </div>
-        </Panel>
+        </Block>
       </Grid>
 
       <Section title={t('adm.pros.j.audit')} description={t('adm.pros.j.auditSub')}>

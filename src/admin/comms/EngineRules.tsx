@@ -7,14 +7,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Badge, Block, Drawer, KeyValue, Tabs, useAdminT } from '@/admin/ui';
+import { Badge, Block, Drawer, KeyValue, Tabs, useAdminT, EmptyLine, Ledger, LedgerRow, MiniBar, Status } from '@/admin/ui';
 import { fmtDate, fmtEur, fmtNum, fmtPct } from '@/lib/adminFormat';
 import { ENGINE_RULES, tapRate } from '@/lib/pushEngine';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
 import { COMMS_KEY, useRuleTemplates, type EngineOverview, type RuleStats, type RuleTemplate } from './data';
 import { rpc } from '../system/data';
 import { Field, SwitchRow } from '@/admin/ui';
-import { Cutoff, Ledger, LedgerRow, MiniBar, StateMark } from '../legal/parts';
 
 const ORDER = new Map(ENGINE_RULES.map((r, i) => [r.key as string, i]));
 
@@ -30,8 +29,8 @@ export default function EngineRules({ data }: { data: EngineOverview }) {
 
   return (
     <Block title={t('adm.comms.en3.rules')} meta={t('adm.comms.en3.rulesMeta')}>
-      <Cutoff>{t('adm.comms.en.r.intro')}</Cutoff>
-      {rows.length === 0 ? <Cutoff>{t('adm.comms.en.r.empty')}</Cutoff> : (
+      <EmptyLine>{t('adm.comms.en.r.intro')}</EmptyLine>
+      {rows.length === 0 ? <EmptyLine>{t('adm.comms.en.r.empty')}</EmptyLine> : (
         <Ledger>
           <div className="a-mono a-t3 hidden grid-cols-[90px_minmax(0,1.6fr)_150px_150px_130px_90px] gap-x-4 px-1 py-2 text-[10.5px] uppercase tracking-wide lg:grid">
             <span>{t('adm.comms.en.r.state')}</span><span>{t('adm.comms.en.r.rule')}</span><span>{t('adm.comms.en.k.sent')}</span><span>{t('adm.comms.en.k.opened')}</span><span>{t('adm.comms.en.k.buyers')}</span><span>{t('adm.comms.en.r.last')}</span>
@@ -40,7 +39,7 @@ export default function EngineRules({ data }: { data: EngineOverview }) {
             const rate = tapRate(r.taps, r.sent);
             return (
               <LedgerRow key={r.key} onClick={() => setOpenKey(r.key)} className="grid-cols-1 lg:grid-cols-[90px_minmax(0,1.6fr)_150px_150px_130px_90px]">
-                <StateMark tone={r.enabled ? 'ok' : 'none'}>{r.enabled ? t('adm.comms.en.r.on') : t('adm.comms.en.r.off')}</StateMark>
+                <Status strong tone={r.enabled ? 'positive' : 'neutral'}>{r.enabled ? t('adm.comms.en.r.on') : t('adm.comms.en.r.off')}</Status>
                 <div className="min-w-0"><div className="a-t1 truncate text-[13.5px] font-medium">{t(`adm.engine.rule.${r.key}.name`)}</div><div className="a-t3 truncate text-[12px]">{t(`adm.engine.rule.${r.key}.desc`)}</div></div>
                 <MiniBar value={r.sent} max={maxSent} display={fmtNum(r.sent, lang)} />
                 <MiniBar value={rate} max={maxRate} display={rate == null ? '—' : fmtPct(rate)} />

@@ -9,13 +9,9 @@
  * 8 s de réponse) sont des repères de lecture, pas des seuils d'alerte.
  */
 import { useMemo } from 'react';
-import {
-  Block, BulletBar, DataTable, ErrorState, Hero, HeroChart, HoverSync, RankBars, StatStrip, useAdminFilters, useAdminT,
-  type ColumnDef,
-} from '@/admin/ui';
+import { Block, BulletBar, DataTable, ErrorState, Hero, HeroChart, HoverSync, RankBars, StatStrip, useAdminFilters, useAdminT, type ColumnDef, DenseRows, Fold, Status } from '@/admin/ui';
 import { fmtAxisDay, fmtDate, fmtMs, fmtNum, fmtPct, fmtRelative, fmtTokens, fmtUsd } from '@/lib/adminFormat';
 import { useAiUsage, useMcpUsage, type AiUsage, type McpUsage } from './data';
-import { DenseRows, Folded, Pill } from './v3';
 
 type Recent = AiUsage['recent'][number];
 const ERROR_REF = 2; // %
@@ -102,31 +98,31 @@ export default function ProductAi() {
 
       <div className="flex flex-col gap-6">
         {d && (
-          <Folded title={t('adm.ai.byModel')} hint={t('adm.pil.v3i.models', { n: n(d.by_model.length) })}>
+          <Fold title={t('adm.ai.byModel')} hint={t('adm.pil.v3i.models', { n: n(d.by_model.length) })}>
             <DenseRows empty={t('adm.ai.emptyTitle')} head={[t('adm.ai.col.calls'), t('adm.ai.col.tokens'), t('adm.ai.col.cost')]}
               rows={[...d.by_model].sort((a, b) => b.cost_usd - a.cost_usd).map((m) => ({ key: m.model, main: <code className="text-[12px]">{m.model}</code>, cells: [n(m.n), fmtTokens(m.tokens, lang), usd(m.cost_usd)] }))} />
-          </Folded>
+          </Fold>
         )}
         {d && d.top_tools.length > 0 && (
-          <Folded title={t('adm.ai.topTools')} hint={n(d.top_tools.length)}>
+          <Fold title={t('adm.ai.topTools')} hint={n(d.top_tools.length)}>
             <RankBars emptyText={t('adm.ai.emptyTitle')} items={[...d.top_tools].sort((a, b) => b.n - a.n).slice(0, 12).map((x) => ({
               key: `${x.assistant}-${x.tool}`, label: <code className="text-[12px]">{x.tool}</code>, value: x.n, display: n(x.n), sub: label('adm.ai.a', x.assistant),
             }))} />
-          </Folded>
+          </Fold>
         )}
         {d && d.recent_errors.length > 0 && (
-          <Folded title={t('adm.ai.recentErrors')} hint={n(d.recent_errors.length)}>
+          <Fold title={t('adm.ai.recentErrors')} hint={n(d.recent_errors.length)}>
             <ul className="flex flex-col">
               {d.recent_errors.map((e) => (
                 <li key={e.id} className="flex flex-wrap items-baseline gap-x-3 border-b py-1.5 text-[13px]">
-                  <Pill tone="negative">{label('adm.ai.status', e.status)}</Pill>
+                  <Status tone="negative">{label('adm.ai.status', e.status)}</Status>
                   <span className="a-t2">{label('adm.ai.a', e.assistant)}</span>
                   <span className="a-t3 min-w-0 flex-1 truncate">{e.error ?? '—'}</span>
                   <span className="a-mono a-t3 text-[11px]">{fmtDate(e.at, lang, 'datetime')}</span>
                 </li>
               ))}
             </ul>
-          </Folded>
+          </Fold>
         )}
       </div>
 
@@ -149,7 +145,7 @@ function RecentTable({ rows, loading, label }: { rows: Recent[] | undefined; loa
         </span>
       </span>
     ) },
-    { accessorKey: 'status', header: t('adm.pl.sig.status'), cell: ({ row }) => <Pill tone={row.original.status === 'ok' ? 'positive' : 'negative'}>{label('adm.ai.status', row.original.status)}</Pill> },
+    { accessorKey: 'status', header: t('adm.pl.sig.status'), cell: ({ row }) => <Status tone={row.original.status === 'ok' ? 'positive' : 'negative'}>{label('adm.ai.status', row.original.status)}</Status> },
     { accessorKey: 'cost_usd', header: t('adm.ai.col.cost'), meta: { align: 'right' }, cell: (c) => <span className="a-mono text-[12px]">{fmtUsd(c.getValue<number>(), lang)}</span> },
     { accessorKey: 'at', header: t('adm.pl.sig.date'), meta: { align: 'right' }, cell: (c) => <span className="a-mono a-t3 text-[11.5px]" title={fmtDate(c.getValue<string>(), lang, 'datetime')}>{fmtRelative(c.getValue<string>(), lang)}</span> },
   ];

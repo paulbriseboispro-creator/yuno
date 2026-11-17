@@ -7,12 +7,11 @@
  * adresse : texte exact, date, source, par produit. Lecture seule.
  */
 import { useState, type FormEvent } from 'react';
-import { Badge, Block, DataTable, Page, StatStrip, Timeline, useAdminT, type ColumnDef, type Stat } from '@/admin/ui';
+import { Badge, Block, DataTable, Page, StatStrip, Timeline, useAdminT, type ColumnDef, type Stat, EmptyLine, Fold, Ledger, LedgerRow, StackedShare, Status } from '@/admin/ui';
 import { fmtDate, fmtNum, fmtPct } from '@/lib/adminFormat';
 import { useLegalConsents, type ImportRow, type ProductConsents } from './data';
 import { proHref } from './rules';
 import { SourceNote } from './ui';
-import { Cutoff, Disclosure, Ledger, LedgerRow, ShareBar, StateMark } from './parts';
 import { tOr } from './format';
 
 type Prod = 'tickets' | 'crm' | 'platform';
@@ -93,17 +92,17 @@ export default function ConsentsPage() {
 
       {email && (
         <Block title={t('adm.lg2.cs.proofOf', { e: proof?.email ?? email })}>
-          {q.isLoading && !proof ? <div className="a-skel h-24 w-full" /> : !proof ? <Cutoff>{t('adm.lg2.cs.noProof')}</Cutoff> : (
+          {q.isLoading && !proof ? <div className="a-skel h-24 w-full" /> : !proof ? <EmptyLine>{t('adm.lg2.cs.noProof')}</EmptyLine> : (
             <div className="grid grid-cols-1 gap-x-10 gap-y-8 lg:grid-cols-2">
               <div className="min-w-0"><Timeline items={proofItems} empty={t('adm.lg2.cs.noProof')} /></div>
               <div className="min-w-0">
                 <span className="a-kicker">{t('adm.lg2.cs.registry')}</span>
-                {proof.subscriptions.length === 0 ? <div className="mt-2"><Cutoff>{t('adm.lg2.cs.notInRegistry')}</Cutoff></div> : (
+                {proof.subscriptions.length === 0 ? <div className="mt-2"><EmptyLine>{t('adm.lg2.cs.notInRegistry')}</EmptyLine></div> : (
                   <Ledger className="mt-2">
                     {proof.subscriptions.map((s, i) => (
                       <LedgerRow key={i} className="grid-cols-[minmax(0,1fr)_auto_auto]">
                         <span className="a-t1 min-w-0 truncate text-[13px]">{s.name ?? t('adm.lg2.product.platform')} <span className="a-t3">· {t(`adm.lg2.product.${s.product}`)}{s.from_import ? ` · ${t('adm.lg2.cs.fromFile')}` : ''}</span></span>
-                        <StateMark tone={s.opted_in ? 'ok' : 'late'}>{s.opted_in ? t('adm.lg2.cs.optedIn') : t('adm.lg2.cs.optedOut')}</StateMark>
+                        <Status strong tone={s.opted_in ? 'positive' : 'negative'}>{s.opted_in ? t('adm.lg2.cs.optedIn') : t('adm.lg2.cs.optedOut')}</Status>
                         <span className="a-mono a-t3 text-[11px]">{fmtDate(s.recorded_at, lang, 'short')}</span>
                       </LedgerRow>
                     ))}
@@ -122,16 +121,16 @@ export default function ConsentsPage() {
             <div className="grid grid-cols-1 gap-x-10 gap-y-7 lg:grid-cols-2">
               <div className="flex flex-col gap-2.5">
                 <span className="a-kicker">{t('adm.lg3.cs.mail')}</span>
-                <ShareBar emptyText={t('adm.lg3.cs.noMail')} parts={[
-                  { key: 'ok', label: t('adm.lg3.cs.reachable'), value: mail.ok, display: fmtNum(mail.ok, lang), tone: 'strong' },
+                <StackedShare legend="inline" emptyText={t('adm.lg3.cs.noMail')} parts={[
+                  { key: 'positive', label: t('adm.lg3.cs.reachable'), value: mail.ok, display: fmtNum(mail.ok, lang), tone: 'strong' },
                   { key: 'out', label: t('adm.lg3.cs.unsub'), value: mail.out, display: fmtNum(mail.out, lang), tone: 'soft' },
                   { key: 'sup', label: t('adm.lg3.cs.suppressed'), value: mail.sup, display: fmtNum(mail.sup, lang), tone: 'alert' },
                 ]} />
               </div>
               <div className="flex flex-col gap-2.5">
                 <span className="a-kicker">{t('adm.lg3.cs.sms')}</span>
-                <ShareBar emptyText={t('adm.lg3.cs.noSms')} parts={[
-                  { key: 'ok', label: t('adm.lg3.cs.reachable'), value: sms.ok, display: fmtNum(sms.ok, lang), tone: 'strong' },
+                <StackedShare legend="inline" emptyText={t('adm.lg3.cs.noSms')} parts={[
+                  { key: 'positive', label: t('adm.lg3.cs.reachable'), value: sms.ok, display: fmtNum(sms.ok, lang), tone: 'strong' },
                   { key: 'stop', label: t('adm.lg3.cs.stop'), value: sms.stop, display: fmtNum(sms.stop, lang), tone: 'alert' },
                 ]} />
               </div>
@@ -141,15 +140,15 @@ export default function ConsentsPage() {
         )}
       </Block>
 
-      <Disclosure title={t('adm.lg2.cs.byProduct')} hint={t('adm.lg2.cs.byProductSub')} defaultOpen>
+      <Fold title={t('adm.lg2.cs.byProduct')} hint={t('adm.lg2.cs.byProductSub')} defaultOpen>
         <DataTable data={productRows} columns={pcols} loading={q.isLoading} error={q.isError ? q.error : undefined} onRetry={() => void q.refetch()} getRowId={(r) => r.prod} />
-      </Disclosure>
+      </Fold>
 
-      <Disclosure title={t('adm.lg2.cs.imports')} hint={d ? fmtNum(d.imports.length, lang) : undefined}>
-        <Cutoff>{t('adm.lg2.cs.importsSub')}</Cutoff>
+      <Fold title={t('adm.lg2.cs.imports')} hint={d ? fmtNum(d.imports.length, lang) : undefined}>
+        <EmptyLine>{t('adm.lg2.cs.importsSub')}</EmptyLine>
         <DataTable data={d?.imports} columns={icols} loading={q.isLoading} error={q.isError ? q.error : undefined} onRetry={() => void q.refetch()}
           searchable getRowId={(r) => `${r.channel}:${r.id}`} rowHref={(r) => proHref(r.key)} empty={{ title: t('adm.lg2.cs.noImports') }} />
-      </Disclosure>
+      </Fold>
 
       <SourceNote>{t('adm.lg2.cs.note')}</SourceNote>
     </Page>

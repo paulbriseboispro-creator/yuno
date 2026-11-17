@@ -12,13 +12,9 @@
  * sur le web), admin_buyers_stats, admin_cockpit (installations).
  */
 import { useMemo } from 'react';
-import {
-  Block, ErrorState, Hero, HeroChart, HoverSync, Page, RankBars, SmallMultiples, StatStrip, useAdminFilters, useAdminT,
-  type Multiple,
-} from '@/admin/ui';
+import { Block, ErrorState, Hero, HeroChart, HoverSync, Page, RankBars, SmallMultiples, StatStrip, useAdminFilters, useAdminT, type Multiple, FunnelSteps, Fold } from '@/admin/ui';
 import { fmtAxisDay, fmtNum, fmtPct } from '@/lib/adminFormat';
 import { useBuyers, useInstalls, useTraffic } from './data';
-import { FlowFunnel, Folded } from './v3';
 import { shareOrNull } from './rules';
 
 const FUNNEL = ['sessions', 'event_views', 'checkouts', 'purchases'] as const;
@@ -102,7 +98,7 @@ export default function AudiencePage() {
 
       <Block title={t('adm.pil.aud.funnel')} meta={conv == null ? t('adm.pil.aud.funnelNote') : t('adm.pil.v3u.convMeta', { pct: fmtPct(conv * 100, 1, lang) })}>
         {!cur ? <div className="a-skel h-40 w-full" /> : cur.funnel.sessions === 0 ? <p className="a-t2 text-[13px]">{t('adm.pil.v3u.noFunnel')}</p> : (
-          <FlowFunnel steps={steps} worstLabel={t('adm.pil.v3u.leak')} offScaleLabel={t('adm.pil.v3a.offScale')}
+          <FunnelSteps steps={steps} worstLabel={t('adm.pil.v3u.leak')} offScaleLabel={t('adm.pil.v3a.offScale')}
             lostText={(i, lost) => t(`adm.pil.v3u.lost.${FUNNEL_LABEL[FUNNEL[i]]}${lost === 1 ? 'One' : ''}`, { n: n(lost) })} />
         )}
       </Block>
@@ -134,7 +130,7 @@ export default function AudiencePage() {
         </p>
       </Block>
 
-      <Folded title={t('adm.pil.v3u.whereTitle')} hint={cur ? t('adm.pil.v3u.whereHint', { c: n(cur.countries.length), d: n(cur.devices.length) }) : undefined}>
+      <Fold title={t('adm.pil.v3u.whereTitle')} hint={cur ? t('adm.pil.v3u.whereHint', { c: n(cur.countries.length), d: n(cur.devices.length) }) : undefined}>
         {cur && (
           <div className="grid grid-cols-1 gap-10 lg:grid-cols-3">
             <section className="flex flex-col gap-2"><span className="a-kicker">{t('adm.pil.aud.country')}</span>
@@ -146,7 +142,7 @@ export default function AudiencePage() {
           </div>
         )}
         <p className="a-t3 mt-3 text-[12px]">{t('adm.pil.v3u.langNote')}</p>
-      </Folded>
+      </Fold>
     </Page>
   );
 }

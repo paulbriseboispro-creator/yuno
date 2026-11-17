@@ -6,11 +6,10 @@
  */
 import { useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { Badge, Block, Drawer, ErrorState, Page, ReasonDialog, useAdminT } from '@/admin/ui';
+import { Badge, Block, Drawer, ErrorState, Page, ReasonDialog, useAdminT, Fold, Ledger, LedgerRow, Verdict } from '@/admin/ui';
 import { fmtDate } from '@/lib/adminFormat';
 import { useContentReportSave, useContentReports, type ContentReport } from './data';
 import { SourceNote } from './ui';
-import { Disclosure, Ledger, LedgerRow, Verdict } from './parts';
 import { Field, Select } from '@/admin/ui';
 import { fromLocalInput, toLocalInput } from './format';
 
@@ -45,15 +44,15 @@ export default function ReportsPage() {
       {q.isError && !q.data ? <ErrorState onRetry={() => void q.refetch()} /> : !q.data ? (
         <div className="flex flex-col gap-3"><div className="a-skel h-10 w-[24rem] max-w-full" /></div>
       ) : (
-        <Verdict tone={pending.length ? 'todo' : 'ok'} kicker={t('adm.lg3.rp.kicker')}
+        <Verdict tone={pending.length ? 'warning' : 'positive'} kicker={t('adm.lg3.rp.kicker')}
           headline={list.length === 0 ? t('adm.lg2.rp.none') : pending.length === 0 ? t('adm.lg3.rp.headOk', { n: list.length }) : t(pending.length === 1 ? 'adm.lg3.rp.headOne' : 'adm.lg3.rp.head', { n: pending.length })}
           sub={list.length === 0 ? t('adm.lg3.rp.noneSub') : t('adm.lg3.rp.sub', { sent, n: decided.length })} />
       )}
       {pending.length > 0 && <Block title={t('adm.lg3.rp.waiting')} meta={t('adm.lg3.rp.oldest')}><Ledger>{pending.map(row)}</Ledger></Block>}
       {decided.length > 0 && (
-        <Disclosure title={t('adm.lg3.rp.decided')} hint={String(decided.length)} defaultOpen={pending.length === 0}>
+        <Fold title={t('adm.lg3.rp.decided')} hint={String(decided.length)} defaultOpen={pending.length === 0}>
           <Ledger>{decided.map(row)}</Ledger>
-        </Disclosure>
+        </Fold>
       )}
       <SourceNote jurist>{t('adm.lg2.rp.note')}</SourceNote>
       {open && <ReportDrawer report={open === 'new' ? null : open} onClose={() => setOpen(null)} />}

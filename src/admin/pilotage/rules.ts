@@ -7,20 +7,8 @@
  */
 import { MIN_SAMPLE } from '@/lib/metrics';
 
-/**
- * Index de l'étape (destination) qui perd le plus de monde par rapport à la
- * précédente. En personnes, jamais en pourcentage : sur de petits volumes, un
- * taux de perte ment. `null` quand aucune étape ne perd personne.
- */
-export function biggestDrop(values: readonly number[]): number | null {
-  let best: number | null = null;
-  let bestLost = 0;
-  for (let i = 1; i < values.length; i += 1) {
-    const lost = Math.max(0, (values[i - 1] ?? 0) - (values[i] ?? 0));
-    if (lost > bestLost) { bestLost = lost; best = i; }
-  }
-  return best;
-}
+/** Index de l'étape qui perd le plus de monde : la règle vit dans le kit. */
+export { biggestDrop } from '@/admin/ui/viz/core';
 
 /** Part d'un total, `null` sous MIN_SAMPLE (aucun pourcentage sur une petite base). */
 export function shareOrNull(part: number, base: number, min = MIN_SAMPLE): number | null {

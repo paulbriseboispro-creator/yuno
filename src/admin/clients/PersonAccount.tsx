@@ -4,8 +4,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { Badge, EmptyState, KeyValue, ReasonDialog, Status, useAdminT } from '@/admin/ui';
-import { Panel as Card } from '../pros/v3';
+import { Badge, EmptyState, KeyValue, ReasonDialog, Status, useAdminT, Block as Card } from '@/admin/ui';
 import { fmtDate } from '@/lib/adminFormat';
 import { rpc, type Person } from './data';
 

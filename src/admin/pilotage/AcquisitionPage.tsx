@@ -15,14 +15,11 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight } from 'lucide-react';
-import {
-  Block, BulletBar, ErrorState, Hero, HeroChart, HoverSync, Page, RankBars, cellTint, useAdminFilters, useAdminT,
-} from '@/admin/ui';
+import { Block, BulletBar, ErrorState, Hero, HeroChart, HoverSync, Page, RankBars, cellTint, useAdminFilters, useAdminT, FunnelSteps, Fold } from '@/admin/ui';
 import { fmtAxisDay, fmtNum, fmtPct } from '@/lib/adminFormat';
 import { sourceRows } from '@/lib/proSignupPeople';
 import { useAcquisition, type ProductSteps } from './data';
 import AcquisitionLanding from './AcquisitionLanding';
-import { FlowFunnel, Folded } from './v3';
 import { shareOrNull } from './rules';
 
 const STEPS = ['visits', 'opened', 'created', 'configured', 'first', 'paying'] as const;
@@ -79,7 +76,7 @@ export default function AcquisitionPage() {
       <Block title={t('adm.pil.v3a.funnelTitle')} meta={d ? t('adm.pil.acq.robots', { n: n(d.robots) }) : undefined}>
         {!d ? <div className="a-skel h-48 w-full" /> : (
           <>
-            <FlowFunnel steps={steps} worstLabel={t('adm.pil.v3a.worst')} offScaleLabel={t('adm.pil.v3a.offScale')}
+            <FunnelSteps steps={steps} worstLabel={t('adm.pil.v3a.worst')} offScaleLabel={t('adm.pil.v3a.offScale')}
               lostText={(i, lost) => t(`adm.pil.v3a.lost.${STEPS[i]}${lost === 1 ? 'One' : ''}`, { n: n(lost) })} />
             <p className="a-t3 text-[12px]">{t('adm.pil.acq.funnelNote')}</p>
           </>
@@ -149,9 +146,9 @@ export default function AcquisitionPage() {
         )}
       </Block>
 
-      <Folded title={t('adm.pil.acq.landing')} hint={t('adm.pil.acq.landingSub')}>
+      <Fold title={t('adm.pil.acq.landing')} hint={t('adm.pil.acq.landingSub')}>
         <AcquisitionLanding days={range.days} />
-      </Folded>
+      </Fold>
     </Page>
   );
 }

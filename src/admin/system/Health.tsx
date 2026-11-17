@@ -11,9 +11,8 @@
  */
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Block, BulletBar, DataTable, ErrorState, Page, RankBars, UptimeBars, useAdminFilters, useAdminT, type ColumnDef, type Uptime } from '@/admin/ui';
+import { Block, BulletBar, DataTable, ErrorState, Page, RankBars, UptimeBars, useAdminFilters, useAdminT, type ColumnDef, type Uptime, EmptyLine, Fold, Ledger, LedgerRow, Status, TinyBars, Verdict, type Tone } from '@/admin/ui';
 import { fmtDate, fmtMs, fmtNum, fmtPct, fmtRelative } from '@/lib/adminFormat';
-import { Cutoff, Disclosure, Ledger, LedgerRow, StateMark, TinyBars, Verdict, type Tone3 } from '../legal/parts';
 import { usePlatformSync, useReleaseHealth, type Health, type HealthCron } from './data';
 
 const BAD_ACTIONS = new Set(['app_crash', 'update_fail', 'webview_javascript_error']);
@@ -53,29 +52,29 @@ export default function SystemHealth() {
   const maint = h?.settings.maintenance_mode ?? false;
 
   // Le verdict : le plus grave d'abord (paiements coupés, maintenance, tâches en échec, apps qui plantent, synchros).
-  const verdict = ((): { tone: Tone3; key: string } => {
-    if (payOff) return { tone: 'late', key: 'pay' };
-    if (maint) return { tone: 'late', key: 'maint' };
-    if (failingCrons > 0) return { tone: 'todo', key: 'crons' };
-    if (crashes > 0) return { tone: 'todo', key: 'apps' };
-    if (syncErr > 0) return { tone: 'todo', key: 'sync' };
-    return { tone: 'ok', key: 'ok' };
+  const verdict = ((): { tone: Tone; key: string } => {
+    if (payOff) return { tone: 'negative', key: 'pay' };
+    if (maint) return { tone: 'negative', key: 'maint' };
+    if (failingCrons > 0) return { tone: 'warning', key: 'crons' };
+    if (crashes > 0) return { tone: 'warning', key: 'apps' };
+    if (syncErr > 0) return { tone: 'warning', key: 'sync' };
+    return { tone: 'positive', key: 'positive' };
   })();
 
   const appsHistory = h ? history(h.crash_log, (e) => BAD_ACTIONS.has((e as Health['crash_log'][number]).action), now) : [];
   const cronHistory = h ? history(h.cron_failures, () => true, now) : [];
 
-  type Service = { id: string; label: string; tone: Tone3; word: string; line: string; hist?: ReturnType<typeof history>; histLabel?: string; to?: string };
+  type Service = { id: string; label: string; tone: Tone; word: string; line: string; hist?: ReturnType<typeof history>; histLabel?: string; to?: string };
   const services: Service[] = !h ? [] : [
-    { id: 'pay', label: t('adm.sys3.h.svc.pay'), tone: payOff || maint ? 'late' : 'ok', word: payOff ? t('adm.sys.h.payOff') : maint ? t('adm.sys.h.maint') : t('adm.sys.h.payOn'),
+    { id: 'pay', label: t('adm.sys3.h.svc.pay'), tone: payOff || maint ? 'negative' : 'positive', word: payOff ? t('adm.sys.h.payOff') : maint ? t('adm.sys.h.maint') : t('adm.sys.h.payOn'),
       line: h.settings.settings_updated_at ? t('adm.sys3.h.payLine', { t: fmtRelative(h.settings.settings_updated_at, lang) }) : t('adm.sys3.h.payNoChange'), to: '/admin/system/switches' },
-    { id: 'apps', label: t('adm.sys.h.st.apps'), tone: crashes > 0 ? 'late' : dlFail > 10 ? 'todo' : 'ok',
+    { id: 'apps', label: t('adm.sys.h.st.apps'), tone: crashes > 0 ? 'negative' : dlFail > 10 ? 'warning' : 'positive',
       word: crashes > 0 ? t('adm.sys3.h.crashes', { n: crashes }) : t('adm.sys3.h.noCrash'), line: t('adm.sys.h.st.appsSub', { n: fmtNum(dlFail, lang) }), hist: appsHistory, histLabel: t('adm.sys3.h.histApps') },
-    { id: 'crons', label: t('adm.sys.h.st.crons'), tone: failingCrons > 0 ? 'todo' : 'ok',
+    { id: 'crons', label: t('adm.sys.h.st.crons'), tone: failingCrons > 0 ? 'warning' : 'positive',
       word: failingCrons > 0 ? t('adm.sys3.h.failing', { n: failingCrons }) : t('adm.sys3.h.allRun'), line: t('adm.sys.h.st.cronsSub', { n: fmtNum(h.crons.length, lang) }), hist: cronHistory, histLabel: t('adm.sys3.h.histCrons') },
-    { id: 'db', label: t('adm.sys.h.st.db'), tone: h.database.size_mb >= DB_QUOTA_MB * 0.9 ? 'late' : h.database.size_mb >= DB_QUOTA_MB * 0.7 ? 'todo' : 'ok',
+    { id: 'db', label: t('adm.sys.h.st.db'), tone: h.database.size_mb >= DB_QUOTA_MB * 0.9 ? 'negative' : h.database.size_mb >= DB_QUOTA_MB * 0.7 ? 'warning' : 'positive',
       word: `${fmtNum(h.database.size_mb, lang)} / ${fmtNum(DB_QUOTA_MB, lang)} MB`, line: t('adm.sys.h.st.dbSub', { n: fmtNum(h.database.migrations, lang) }) },
-    { id: 'sync', label: t('adm.sys.h.st.sync'), tone: !s ? 'none' : syncErr > 0 ? 'todo' : 'ok',
+    { id: 'sync', label: t('adm.sys.h.st.sync'), tone: !s ? 'neutral' : syncErr > 0 ? 'warning' : 'positive',
       word: !s ? '…' : s.runs24 ? fmtPct(((s.runs24 - syncErr) / s.runs24) * 100, 1, lang) : t('adm.sys3.h.noRun'), line: s ? t('adm.sys.h.st.syncSub', { n: fmtNum(syncErr, lang), r: fmtNum(s.runs24, lang) }) : '', to: '/admin/system/connectors' },
   ];
 
@@ -93,7 +92,7 @@ export default function SystemHealth() {
           <Ledger>
             {services.map((sv) => (
               <LedgerRow key={sv.id} to={sv.to} className="grid-cols-1 lg:grid-cols-[190px_minmax(0,0.9fr)_minmax(0,1.3fr)] py-3.5">
-                <div className="flex flex-col"><span className="a-t1 text-[14px] font-medium">{sv.label}</span><StateMark tone={sv.tone}>{sv.word}</StateMark></div>
+                <div className="flex flex-col"><span className="a-t1 text-[14px] font-medium">{sv.label}</span><Status strong tone={sv.tone}>{sv.word}</Status></div>
                 <span className="a-t2 text-[12.5px] leading-snug">{sv.line}</span>
                 {sv.hist ? <UptimeBars days={sv.hist} label={<span className="a-t3 text-[11.5px]">{sv.histLabel}</span>} /> : <span className="a-t3 text-[12px]">{t('adm.sys3.h.noHistory')}</span>}
               </LedgerRow>
@@ -129,7 +128,7 @@ export default function SystemHealth() {
 
       <Block title={t('adm.sys.h.apps.title')} meta={t('adm.sys.h.apps.sub')}>
         <span id="sys-apps" />
-        {!h ? <div className="a-skel h-24 w-full" /> : h.apps.length === 0 ? <Cutoff>{t('adm.sys3.h.noApps')}</Cutoff> : (
+        {!h ? <div className="a-skel h-24 w-full" /> : h.apps.length === 0 ? <EmptyLine>{t('adm.sys3.h.noApps')}</EmptyLine> : (
           <Ledger>
             {h.apps.map((app) => (
               <div key={app.app_id} className="grid grid-cols-1 items-start gap-x-6 gap-y-1 px-1 py-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1.2fr)]">
@@ -145,15 +144,15 @@ export default function SystemHealth() {
           </Ledger>
         )}
       </Block>
-      <Disclosure title={t('adm.sys.h.apps.crashLog')} hint={h ? fmtNum(h.crash_log.length, lang) : undefined}>
+      <Fold title={t('adm.sys.h.apps.crashLog')} hint={h ? fmtNum(h.crash_log.length, lang) : undefined}>
         <DataTable data={h?.crash_log} loading={q.isLoading} pageSize={8} getRowId={(_, i) => String(i)} empty={{ title: t('adm.sys.h.apps.crashNone') }}
           columns={[
             { accessorKey: 'at', header: t('adm.sys.col.date'), cell: (c) => fmtDate(c.getValue<string>(), lang, 'datetime') },
-            { accessorKey: 'action', header: t('adm.sys.col.action'), cell: (c) => <StateMark tone={BAD_ACTIONS.has(c.getValue<string>()) ? 'late' : 'todo'}>{c.getValue<string>()}</StateMark> },
+            { accessorKey: 'action', header: t('adm.sys.col.action'), cell: (c) => <Status strong tone={BAD_ACTIONS.has(c.getValue<string>()) ? 'negative' : 'warning'}>{c.getValue<string>()}</Status> },
             { accessorKey: 'version', header: t('adm.sys.col.version'), cell: (c) => c.getValue<string | null>() ?? '—' },
           ] as ColumnDef<Health['crash_log'][number], unknown>[]} />
-      </Disclosure>
-      <Disclosure title={t('adm.sys.h.apps.bundles')} hint={h ? fmtNum(h.recent_bundles.length, lang) : undefined}>
+      </Fold>
+      <Fold title={t('adm.sys.h.apps.bundles')} hint={h ? fmtNum(h.recent_bundles.length, lang) : undefined}>
         <DataTable data={h?.recent_bundles} loading={q.isLoading} pageSize={8} getRowId={(_, i) => String(i)} empty={{ title: t('adm.sys.h.apps.bundleNone') }}
           columns={[
             { accessorKey: 'at', header: t('adm.sys.col.date'), cell: (c) => fmtDate(c.getValue<string>(), lang, 'datetime') },
@@ -161,13 +160,13 @@ export default function SystemHealth() {
             { accessorKey: 'version', header: t('adm.sys.col.version'), cell: ({ row }) => <span>{row.original.version}{!row.original.active && <span className="a-t3"> · {t('adm.sys.inactive')}</span>}</span> },
             { accessorKey: 'size_mb', header: t('adm.sys.col.size'), meta: { align: 'right' }, cell: (c) => (c.getValue<number | null>() ? `${c.getValue<number>()} MB` : '—') },
           ] as ColumnDef<Health['recent_bundles'][number], unknown>[]} />
-      </Disclosure>
+      </Fold>
 
       <Block title={t('adm.sys.h.sync.title')} meta={t('adm.sys.h.sync.sub')}>
         <span id="sys-sync" />
         {sync.isLoading ? <div className="a-skel h-12 w-full" /> : s ? (
           <p className="a-hero-sentence max-w-[68ch]">{t('adm.sys3.h.syncSentence', { c: fmtNum(s.conns, lang), r: fmtNum(s.runs24, lang), e: fmtNum(s.errors24, lang), p: s.duration.p50 == null ? '—' : fmtMs(s.duration.p50 * 1000, lang) })}</p>
-        ) : <Cutoff>{t('adm.sys.h.sync.none')}</Cutoff>}
+        ) : <EmptyLine>{t('adm.sys.h.sync.none')}</EmptyLine>}
         <div><Link to="/admin/system/connectors" className="a-btn a-btn--sm">{t('adm.sys.h.sync.go')}</Link></div>
       </Block>
 
@@ -204,16 +203,16 @@ function CronsBlock({ health, loading }: { health: Health | undefined; loading: 
   return (
     <Block title={t('adm.sys.h.crons.title')} meta={t('adm.sys3.h.cronsMeta')}>
       <span id="sys-crons" />
-      <Cutoff>{t('adm.sys.h.crons.sub')}</Cutoff>
+      <EmptyLine>{t('adm.sys.h.crons.sub')}</EmptyLine>
       {failures.length > 0 && (
         <ul className="flex flex-col gap-1.5 text-[13px]">
           {failures.map((f, i) => (
-            <li key={i} className="flex items-baseline gap-3"><StateMark tone="late">{f.status}</StateMark><b className="a-t1 font-medium">{f.name}</b><code className="a-t3 min-w-0 flex-1 truncate text-[12px]">{f.message ?? ''}</code><span className="a-mono a-t3 text-[11px]">{fmtRelative(f.at, lang)}</span></li>
+            <li key={i} className="flex items-baseline gap-3"><Status strong tone="negative">{f.status}</Status><b className="a-t1 font-medium">{f.name}</b><code className="a-t3 min-w-0 flex-1 truncate text-[12px]">{f.message ?? ''}</code><span className="a-mono a-t3 text-[11px]">{fmtRelative(f.at, lang)}</span></li>
           ))}
         </ul>
       )}
       {(health?.crons.length ?? 0) > 12 && <input className="a-input max-w-[260px]" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('adm.sys3.h.filterCrons')} aria-label={t('adm.sys3.h.filterCrons')} />}
-      {loading ? <div className="a-skel h-24 w-full" /> : rows.length === 0 ? <Cutoff>{t('adm.sys.h.crons.none')}</Cutoff> : (
+      {loading ? <div className="a-skel h-24 w-full" /> : rows.length === 0 ? <EmptyLine>{t('adm.sys.h.crons.none')}</EmptyLine> : (
         <Ledger>
           {shown.map((c: HealthCron) => (
             <LedgerRow key={c.name} className="grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_110px_110px_90px]">
@@ -222,10 +221,10 @@ function CronsBlock({ health, loading }: { health: Health | undefined; loading: 
                 <span className="a-mono a-t3 truncate text-[11px]">{c.schedule}</span>
               </div>
               {c.last_status
-                ? <StateMark tone={c.last_status === 'succeeded' ? 'ok' : 'late'}>{c.last_start ? fmtRelative(c.last_start, lang) : c.last_status}</StateMark>
+                ? <Status strong tone={c.last_status === 'succeeded' ? 'positive' : 'negative'}>{c.last_start ? fmtRelative(c.last_start, lang) : c.last_status}</Status>
                 : <span className="a-t3 text-[12px]">{t('adm.sys.h.crons.never')}</span>}
               <span className="a-mono a-t2 text-[11.5px]">{fmtMs(c.last_ms, lang)}{maxMs > 0 && c.last_ms != null && c.last_ms >= maxMs * 0.8 && c.last_ms > 1000 ? ' ↑' : ''}</span>
-              <TinyBars data={failuresBy.get(c.name) ?? new Array<number>(7).fill(0)} max={Math.max(1, ...(failuresBy.get(c.name) ?? [0]))} tone="late" label={t('adm.sys3.h.failBars')} />
+              <TinyBars data={failuresBy.get(c.name) ?? new Array<number>(7).fill(0)} max={Math.max(1, ...(failuresBy.get(c.name) ?? [0]))} tone="negative" label={t('adm.sys3.h.failBars')} />
               <span className="a-num text-right text-[12.5px]" style={c.fails_7d > 0 ? { color: 'var(--a-neg)', fontWeight: 600 } : undefined}>{c.fails_7d > 0 ? t('adm.sys3.h.fails7', { n: fmtNum(c.fails_7d, lang) }) : <span className="a-t3">0</span>}</span>
             </LedgerRow>
           ))}

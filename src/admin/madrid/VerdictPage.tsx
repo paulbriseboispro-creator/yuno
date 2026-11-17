@@ -11,14 +11,11 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Pencil } from 'lucide-react';
-import {
-  Block, DataTable, Dialog, ErrorState, Field, FunnelSteps, Hero, HeroChart, HoverSync, cellTint,
-  useAdminFilters, type ColumnDef,
-} from '@/admin/ui';
+import { Block, DataTable, Dialog, ErrorState, Field, FunnelSteps, Hero, HeroChart, HoverSync, cellTint, useAdminFilters, type ColumnDef, Note } from '@/admin/ui';
 import { fmtAxisDay } from '@/lib/adminFormat';
 import { useMadridTraffic, useSetMadridInput, type MadridMonth } from './data';
 import { costPer, linkClass, madridVerdict } from './rules';
-import { MadridPage, Rule } from './shared';
+import { MadridPage } from './shared';
 import { useMadridFmt } from './fmt';
 
 export default function VerdictPage() {
@@ -104,7 +101,7 @@ export default function VerdictPage() {
                 <dt className="a-t2">{t('adm.mad.returning')}</dt><dd className="a-num a-t1 text-right">{rate(d.v28.returning.back, d.v28.returning.base)}</dd>
                 <dt className="a-t2">{t('adm.mad.accounts')}</dt><dd className="a-num a-t1 text-right">{n(d.v28.accounts.cur)} <span className="a-t3">/ {n(d.v28.accounts.prev)}</span></dd>
               </dl>
-              <Rule>{t('adm.mad.v.fourWeeksRule')}</Rule>
+              <Note>{t('adm.mad.v.fourWeeksRule')}</Note>
             </Block>
           )} />
       </HoverSync>
@@ -125,15 +122,15 @@ export default function VerdictPage() {
             <div className="flex min-w-0 flex-col gap-2 lg:border-l lg:pl-6">
               <span className="a-kicker">{t('adm.mad.f.sales')}</span>
               <span className="a-stat-value">{reported && reported.rows > 0 ? n(reported.tickets) : t('adm.mad.notMeasured')}</span>
-              <Rule>{reported && reported.rows > 0 ? t('adm.mad.f.salesDeclared', { rows: n(reported.rows) }) : t('adm.mad.f.salesNone')}</Rule>
+              <Note>{reported && reported.rows > 0 ? t('adm.mad.f.salesDeclared', { rows: n(reported.rows) }) : t('adm.mad.f.salesNone')}</Note>
             </div>
           </div>
         )}
         {d && (
-          <Rule>
+          <Note>
             {t('adm.mad.f.rule', { exits: n(d.funnel.exits), people: n(d.funnel.exit_people) })}{' '}
             {t('adm.mad.f.robots', { robots: n(d.kpis.robots.cur), sessions: n(d.kpis.robots.sessions) })}
-          </Rule>
+          </Note>
         )}
       </Block>
 
@@ -143,22 +140,22 @@ export default function VerdictPage() {
             <div className="flex flex-col gap-1">
               <span className="a-kicker">{t('adm.mad.c.brings')}</span>
               <span className="a-stat-value">{reported && reported.rows > 0 ? eur(reported.commission) : t('adm.mad.notMeasured')}</span>
-              <Rule>{reported && reported.rows > 0 ? t('adm.mad.c.bringsDeclared', { paid: eur(reported.commission_paid) }) : t('adm.mad.c.bringsNone')}</Rule>
+              <Note>{reported && reported.rows > 0 ? t('adm.mad.c.bringsDeclared', { paid: eur(reported.commission_paid) }) : t('adm.mad.c.bringsNone')}</Note>
             </div>
             <div className="flex flex-col gap-1">
               <span className="a-kicker">{t('adm.mad.c.costs')}</span>
               <span className="a-stat-value">{cost.months ? eur(cost.cost) : t('adm.mad.notFilled')}</span>
-              <Rule>{cost.months ? t('adm.mad.c.costsFilled', { months: n(cost.months), hours: n(cost.hours) }) : t('adm.mad.c.costsNone')}</Rule>
+              <Note>{cost.months ? t('adm.mad.c.costsFilled', { months: n(cost.months), hours: n(cost.hours) }) : t('adm.mad.c.costsNone')}</Note>
             </div>
             <div className="flex flex-col gap-1">
               <span className="a-kicker">{t('adm.mad.c.perExit')}</span>
               <span className="a-stat-value">{cost.perExit == null ? '—' : eur(cost.perExit)}</span>
-              <Rule>{cost.perAccount == null ? t('adm.mad.c.perAccountNone') : t('adm.mad.c.perAccount', { v: eur(cost.perAccount) })}</Rule>
+              <Note>{cost.perAccount == null ? t('adm.mad.c.perAccountNone') : t('adm.mad.c.perAccount', { v: eur(cost.perAccount) })}</Note>
             </div>
           </div>
         )}
         <DataTable data={d ? months : undefined} columns={monthCols} loading={!d} pageSize={12} getRowId={(r) => r.m} />
-        <Rule>{t('adm.mad.c.yunoLink')} <Link to="/admin/madrid/yuno" className={linkClass}>{t('adm.nav2.madrid.yuno')}</Link>.</Rule>
+        <Note>{t('adm.mad.c.yunoLink')} <Link to="/admin/madrid/yuno" className={linkClass}>{t('adm.nav2.madrid.yuno')}</Link>.</Note>
       </Block>
 
       {editing && <MonthDialog month={editing} onClose={() => setEditing(null)} />}

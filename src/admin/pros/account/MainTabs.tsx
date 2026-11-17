@@ -12,16 +12,12 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, MessageCircle, Phone } from 'lucide-react';
-import {
-  Badge, Block, CalendarHeat, Chart, DataTable, EmptyState, Hero, HeroChart, HoverSync, StatStrip, Status,
-  cellTint, useAdminT, type ColumnDef, type Stat as StripStat,
-} from '@/admin/ui';
+import { Badge, Block, CalendarHeat, Chart, DataTable, EmptyState, Hero, HeroChart, HoverSync, StatStrip, Status, cellTint, useAdminT, type ColumnDef, type Stat as StripStat, KeyValue, Spine, type SpineItem } from '@/admin/ui';
 import { fmtCompact, fmtDate, fmtEur, fmtNum, fmtRelative } from '@/lib/adminFormat';
 import type { AccountCard, EventRow } from '../data';
 import { YesNo } from '../bits';
 import { phoneLinks } from '../accounts';
 import { accountStory, firstSaleMonth, monthlySeries, nightsByDay } from '../story';
-import { Facts, Spine, type SpineItem } from '../v3';
 import { AccountSentence } from './Sentence';
 
 const FAMILY_COLOR: Record<string, string> = {
@@ -166,7 +162,7 @@ function AccountRail({ card, onTab }: { card: AccountCard; onTab: (v: string) =>
       )}
 
       <div className="flex flex-col gap-3">
-        <Facts title={t('adm.pros.card.owner')} items={o ? [
+        <KeyValue hideEmpty title={t('adm.pros.card.owner')} items={o ? [
           { label: t('adm.pros.f.name'), value: o.name },
           { label: t('adm.pros.f.email'), value: o.email ? <a className="hover:underline" href={`mailto:${o.email}`}>{o.email}</a> : null },
           { label: t('adm.pros.f.phone'), value: o.phone, mono: true },
@@ -182,7 +178,7 @@ function AccountRail({ card, onTab }: { card: AccountCard; onTab: (v: string) =>
         )}
       </div>
 
-      <Facts title={t('adm.pros.card.account')} items={[
+      <KeyValue hideEmpty title={t('adm.pros.card.account')} items={[
         { label: t('adm.pros.f.created'), value: id.created_at ? fmtDate(String(id.created_at), lang) : null },
         { label: 'Stripe', value: stripe ? <Status tone={stripe.charges ? 'positive' : stripe.account ? 'warning' : 'neutral'}>{t(stripe.charges ? 'adm.pros.stripe.ready' : stripe.account ? 'adm.pros.stripe.pending' : 'adm.pros.stripe.no')}</Status> : null },
         { label: t('adm.pros.f.payouts'), value: stripe?.account ? <YesNo v={stripe.payouts} /> : null },
@@ -194,13 +190,13 @@ function AccountRail({ card, onTab }: { card: AccountCard; onTab: (v: string) =>
         { label: t('adm.pros.f.tags'), value: card.tags.length ? <span className="flex flex-wrap gap-1">{card.tags.map((x) => <Badge key={x}>{x}</Badge>)}</span> : null },
       ]} />
 
-      <Facts title={t('adm.pros.tab.team')} items={[
+      <KeyValue hideEmpty title={t('adm.pros.tab.team')} items={[
         { label: t('adm.pros.v3.teamSize'), value: <button type="button" className="a-t1 border-0 bg-transparent p-0 underline-offset-2 hover:underline" onClick={() => onTab('team')}>{fmtNum(card.team.length + (o ? 1 : 0), lang)}</button> },
         ...card.team.slice(0, 4).map((m) => ({ label: m.role, value: m.name ?? m.email })),
       ]} />
 
       {legal && (
-        <Facts title={t('adm.pros.sl.legal')} items={[
+        <KeyValue hideEmpty title={t('adm.pros.sl.legal')} items={[
           { label: t('adm.pros.sl.legalName'), value: legal.legal_name },
           { label: 'SIRET', value: legal.siret, mono: true },
           { label: t('adm.pros.sl.vat'), value: legal.vat_number, mono: true },

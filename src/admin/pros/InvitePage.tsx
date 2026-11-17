@@ -16,7 +16,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Copy } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { Badge, BulletBar, Checkbox, DataTable, Page, Section, Status, useAdminT, type ColumnDef } from '@/admin/ui';
+import { Badge, BulletBar, Checkbox, DataTable, Page, Section, Status, useAdminT, type ColumnDef, Block } from '@/admin/ui';
 import { useAdminInvites } from '@/crm/admin/inviteData';
 import { fmtDate, fmtNum, fmtRelative } from '@/lib/adminFormat';
 import { Field } from '@/admin/ui';
@@ -24,7 +24,6 @@ import { accountHref, venueIdFromName, type AccountType } from './accounts';
 import { useInvitations, useProsRefresh, type PendingInvite } from './data';
 import { CrmInviteForm } from './invite/CrmInviteForm';
 import { INVITE_TONE, InviteDrawer } from './invite/InviteDrawer';
-import { Panel } from './v3';
 
 type Product = 'tickets' | 'crm' | 'founder';
 const TYPES: AccountType[] = ['club', 'organizer', 'association', 'agency'];
@@ -172,7 +171,7 @@ function ClubForm() {
   };
   return (
     <Section title={t('adm.pros.inv.clubTitle')} description={t('adm.pros.inv.clubSub')}>
-      <Panel>
+      <Block>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label={t('adm.pros.f.name')} hint={id ? t('adm.pros.inv.clubId', { id }) : undefined}><input className="a-input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
           <Field label={t('adm.pros.f.city')}><input className="a-input" value={f.city} onChange={(e) => setF({ ...f, city: e.target.value })} /></Field>
@@ -184,7 +183,7 @@ function ClubForm() {
           {created && <Link className="a-btn" to={accountHref(`venue:${created}`)}>{t('adm.pros.inv.openCard')}</Link>}
           {link && <CopyLink url={link} />}
         </div>
-      </Panel>
+      </Block>
     </Section>
   );
 }
@@ -208,14 +207,14 @@ function OrganizerForm({ association }: { association: boolean }) {
   };
   return (
     <Section title={t(association ? 'adm.pros.inv.assocTitle' : 'adm.pros.inv.orgTitle')} description={t(association ? 'adm.pros.inv.assocSub' : 'adm.pros.inv.orgSub')}>
-      <Panel>
+      <Block>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label={t('adm.pros.inv.orgName')}><input className="a-input" value={org} onChange={(e) => setOrg(e.target.value)} /></Field>
           <Field label={t('adm.pros.f.email')}><input className="a-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
         </div>
         <Checkbox checked={help} onChange={setHelp}>{t('adm.pros.inv.offerHelp')}</Checkbox>
         <div className="mt-4"><button type="button" className="a-btn a-btn--primary" disabled={busy} onClick={() => void submit()}>{t(busy ? 'adm.ui.working' : 'adm.pros.inv.send')}</button></div>
-      </Panel>
+      </Block>
     </Section>
   );
 }
@@ -238,7 +237,7 @@ function AgencyForm() {
   };
   return (
     <Section title={t('adm.pros.inv.agencyTitle')} description={t('adm.pros.inv.agencySub')}>
-      <Panel>
+      <Block>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label={t('adm.pros.f.name')}><input className="a-input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></Field>
           <Field label={t('adm.pros.f.email')}><input className="a-input" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></Field>
@@ -249,7 +248,7 @@ function AgencyForm() {
           <button type="button" className="a-btn a-btn--primary" disabled={busy} onClick={() => void submit()}>{t(busy ? 'adm.ui.working' : 'adm.pros.inv.send')}</button>
           {link && <CopyLink url={link} />}
         </div>
-      </Panel>
+      </Block>
     </Section>
   );
 }

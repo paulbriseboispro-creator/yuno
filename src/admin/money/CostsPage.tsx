@@ -14,9 +14,7 @@
  */
 import { useMemo, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import {
-  Block, ErrorState, Hero, Page, ReasonDialog, Tabs, cellTint, useAdminFilters, useAdminT, useTab, type Step,
-} from '@/admin/ui';
+import { Block, ErrorState, Hero, Page, ReasonDialog, Tabs, cellTint, useAdminFilters, useAdminT, useTab, type Step, Status, Waterfall } from '@/admin/ui';
 import { fmtDate, fmtEur, fmtNum } from '@/lib/adminFormat';
 import { COST_ITEMS, margin, moneyLabelKey, monthCosts, yunoRevenue } from './terms';
 import { INVOICES_PAGE_SIZE, useCostActions, useCosts, useInvoices, useMoneyIssues, type CostsMonth } from './data';
@@ -24,7 +22,6 @@ import { usePilotOverview } from '../pilotage/data';
 import { fmtMonth, proHref } from '../pilotage/format';
 import { TextLink } from '../pilotage/links';
 import { orderHref } from './orderLink';
-import { Pill, SignedWaterfall } from '../pilotage/v3';
 
 interface MarginRow { m: string; revenue: number; costs: number; margin: number; aiFromAuto: boolean; month: CostsMonth | null }
 
@@ -107,7 +104,7 @@ function MarginTab() {
         current={sel?.margin}
         previous={rows && sel ? rows[rows.indexOf(sel) + 1]?.margin ?? null : undefined}
         sentence={sentence}
-        chart={sel ? <div className="max-w-[640px]"><SignedWaterfall steps={steps} /></div> : null}
+        chart={sel ? <div className="max-w-[640px]"><Waterfall steps={steps} /></div> : null}
         note={t('adm.mon.cost.manualNote')}
         aside={sel && (
           <Block title={t('adm.mon.v3k.sourcesTitle')}>
@@ -117,7 +114,7 @@ function MarginTab() {
                 return (
                   <li key={i} className="flex items-baseline gap-2 border-b py-1.5 text-[13px]">
                     <span className="a-t2 flex-1">{itemLabel(i)}</span>
-                    <Pill tone={a.auto ? 'neutral' : a.line ? 'positive' : 'warning'}>{a.auto ? t('adm.mon.v3k.auto') : a.line ? t('adm.mon.v3k.manual') : t('adm.mon.v3k.missing')}</Pill>
+                    <Status tone={a.auto ? 'neutral' : a.line ? 'positive' : 'warning'}>{a.auto ? t('adm.mon.v3k.auto') : a.line ? t('adm.mon.v3k.manual') : t('adm.mon.v3k.missing')}</Status>
                   </li>
                 );
               })}
@@ -240,7 +237,7 @@ function InvoicesTab() {
           <ul className="flex flex-col">
             {failed.map((a) => (
               <li key={a.id} className="flex items-baseline gap-3 border-b py-2 text-[13px]">
-                <Pill tone="negative">{t('adm.mon.v3k.failed')}</Pill>
+                <Status tone="negative">{t('adm.mon.v3k.failed')}</Status>
                 <span className="a-t1">{a.title}</span>
                 <span className="a-t3 min-w-0 flex-1 truncate">{a.message}</span>
                 <span className="a-mono a-t3 text-[11px]">{fmtDate(a.at, lang, 'datetime')}</span>

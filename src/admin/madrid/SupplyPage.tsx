@@ -8,12 +8,10 @@
  * Rien ne vérifie qu'un lien posé marche encore : un lien « mort » n'est pas testé.
  */
 import { useMemo } from 'react';
-import {
-  Block, DataTable, ErrorState, Hero, UptimeBars, cellTint, useAdminFilters, type ColumnDef, type Uptime,
-} from '@/admin/ui';
+import { Block, DataTable, ErrorState, Hero, UptimeBars, cellTint, useAdminFilters, type ColumnDef, type Uptime, Note } from '@/admin/ui';
 import { fmtRelative } from '@/lib/adminFormat';
 import { useMadridOffer, type MadridOffer } from './data';
-import { DatedList, MadridPage, Rule } from './shared';
+import { DatedList, MadridPage } from './shared';
 import { useMadridFmt } from './fmt';
 
 type ClubRow = MadridOffer['supply']['clubs'][number];
@@ -90,7 +88,7 @@ export default function SupplyPage() {
             )}
           </>
         )}
-        <Rule>{t('adm.mad.s.syncRule')}</Rule>
+        <Note>{t('adm.mad.s.syncRule')}</Note>
       </Block>
 
       <div className="grid grid-cols-1 gap-x-10 gap-y-8 lg:grid-cols-2">
@@ -115,7 +113,7 @@ export default function SupplyPage() {
               ))}
             </ul>
           )}
-          {s && s.inactive_templates > 0 && <Rule>{t('adm.mad.s.inactive', { templates: n(s.inactive_templates), drafts: n(s.inactive_drafts) })}</Rule>}
+          {s && s.inactive_templates > 0 && <Note>{t('adm.mad.s.inactive', { templates: n(s.inactive_templates), drafts: n(s.inactive_drafts) })}</Note>}
         </Block>
       </div>
     </MadridPage>

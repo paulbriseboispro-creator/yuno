@@ -8,13 +8,12 @@
  */
 import { useSearchParams } from 'react-router-dom';
 import { useMemo } from 'react';
-import { Badge, Block, BulletBar, DataTable, ErrorState, Page, useAdminT, type ColumnDef } from '@/admin/ui';
+import { Badge, Block, BulletBar, DataTable, ErrorState, Page, useAdminT, type ColumnDef, EmptyLine, Fold, GoTo, Ledger, LedgerRow, Verdict } from '@/admin/ui';
 import { LEGAL_VERSIONS } from '@/lib/legal';
 import { fmtDate, fmtNum } from '@/lib/adminFormat';
 import { useLegalTerms, type TermsPayload } from './data';
 import { proHref } from './rules';
 import { SourceNote } from './ui';
-import { Cutoff, Disclosure, GoTo, Ledger, LedgerRow, Verdict } from './parts';
 import { tOr } from './format';
 
 type ProRow = TermsPayload['pros'][number];
@@ -64,7 +63,7 @@ export default function TermsPage() {
     const ok = need.filter((p) => p.docs[doc]?.v === versions[doc]);
     return { doc, need: need.length, ok: ok.length };
   }).filter((x) => x.need > 0);
-  const tone = !d ? 'none' : missing.length === 0 ? 'ok' : 'todo';
+  const tone = !d ? 'neutral' : missing.length === 0 ? 'positive' : 'warning';
   const emails = missing.filter((p) => p.email && !p.is_demo).map((p) => p.email as string);
 
   return (
@@ -77,7 +76,7 @@ export default function TermsPage() {
       )}
 
       <Block title={t('adm.lg3.tm.byDoc')} meta={t('adm.lg3.tm.byDocMeta')}>
-        {!d ? <div className="a-skel h-24 w-full" /> : perDoc.length === 0 ? <Cutoff>{t('adm.lg3.tm.noPros')}</Cutoff> : (
+        {!d ? <div className="a-skel h-24 w-full" /> : perDoc.length === 0 ? <EmptyLine>{t('adm.lg3.tm.noPros')}</EmptyLine> : (
           <div className="grid grid-cols-1 gap-x-10 gap-y-6 md:grid-cols-2">
             {perDoc.map((x) => (
               <BulletBar key={x.doc} value={x.ok} max={x.need} target={x.need} targetLabel={t('adm.lg3.tm.everyone')}
@@ -89,7 +88,7 @@ export default function TermsPage() {
       </Block>
 
       <Block title={t('adm.lg3.tm.missing')} meta={d ? fmtNum(missing.length, lang) : undefined}>
-        {!d ? <div className="a-skel h-24 w-full" /> : missing.length === 0 ? <Cutoff>{t('adm.lg2.tm.allUpToDate')}</Cutoff> : (
+        {!d ? <div className="a-skel h-24 w-full" /> : missing.length === 0 ? <EmptyLine>{t('adm.lg2.tm.allUpToDate')}</EmptyLine> : (
           <>
             <div className="flex flex-wrap items-center gap-2">
               <button type="button" className="a-btn a-btn--sm" disabled={emails.length === 0} onClick={() => void navigator.clipboard?.writeText(emails.join(', '))}>{t('adm.lg3.tm.copy', { n: emails.length })}</button>
@@ -111,18 +110,18 @@ export default function TermsPage() {
         )}
       </Block>
 
-      <Disclosure title={t('adm.lg3.tm.allAccounts')} hint={d ? fmtNum(pros.length, lang) : undefined}>
+      <Fold title={t('adm.lg3.tm.allAccounts')} hint={d ? fmtNum(pros.length, lang) : undefined}>
         <DataTable data={pros} columns={pcols} loading={q.isLoading} error={q.isError ? q.error : undefined}
           onRetry={() => void q.refetch()} searchable initialSearch={searchParams.get('q')} getRowId={(r) => r.key} rowHref={(r) => proHref(r.key)}
           empty={{ title: t('adm.lg2.empty') }} />
-      </Disclosure>
-      <Disclosure title={t('adm.lg2.tm.docs')} hint={t('adm.lg2.tm.docsSub')}>
+      </Fold>
+      <Fold title={t('adm.lg2.tm.docs')} hint={t('adm.lg2.tm.docsSub')}>
         <DataTable data={d?.docs} columns={dcols} loading={q.isLoading} getRowId={(r) => `${r.doc}:${r.version}`} pageSize={20} />
-      </Disclosure>
-      <Disclosure title={t('adm.lg2.tm.buyers')} hint={d ? t('adm.lg3.tm.buyersHint', { n: fmtNum(d.buyers.total, lang), p: fmtNum(d.buyers.period, lang) }) : undefined}>
-        <Cutoff>{t('adm.lg2.tm.buyersSub')}</Cutoff>
+      </Fold>
+      <Fold title={t('adm.lg2.tm.buyers')} hint={d ? t('adm.lg3.tm.buyersHint', { n: fmtNum(d.buyers.total, lang), p: fmtNum(d.buyers.period, lang) }) : undefined}>
+        <EmptyLine>{t('adm.lg2.tm.buyersSub')}</EmptyLine>
         <DataTable data={d?.buyers.by} columns={bcols} loading={q.isLoading} getRowId={(r) => `${r.context}:${r.version}`} />
-      </Disclosure>
+      </Fold>
       <SourceNote>{t('adm.lg2.tm.note')}</SourceNote>
     </Page>
   );

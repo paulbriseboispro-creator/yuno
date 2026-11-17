@@ -104,7 +104,7 @@ export function FilterSelect<V extends string>({ value, options, onChange, label
   );
 }
 
-/** Une section repliée : un `<details>` natif (clavier et lecteur d'écran gratuits). */
+/** Une section repliée, sans boîte : un filet, un chevron, le titre (un `<details>` natif : clavier et lecteur d'écran gratuits). */
 export function Fold({ title, hint, children, defaultOpen = false }: {
   title: ReactNode;
   /** Une ligne grise à droite du titre (« 12 lignes », « 3 en attente »). */
@@ -113,13 +113,39 @@ export function Fold({ title, hint, children, defaultOpen = false }: {
   defaultOpen?: boolean;
 }) {
   return (
-    <details className="a-card group" open={defaultOpen}>
-      <summary className="a-focus flex min-h-[44px] cursor-pointer list-none items-center gap-2 rounded-[12px] px-4 py-2.5 [&::-webkit-details-marker]:hidden">
+    <details className="group border-t pt-2" open={defaultOpen}>
+      <summary className="a-focus flex min-h-[40px] cursor-pointer list-none items-center gap-2 rounded-md py-1 [&::-webkit-details-marker]:hidden">
         <ChevronRight className="a-t3 h-4 w-4 flex-none transition-transform group-open:rotate-90" />
         <span className="a-t1 min-w-0 flex-1 truncate text-[14px] font-semibold">{title}</span>
-        {hint && <span className="a-t3 flex-none text-[12px]">{hint}</span>}
+        {hint && <span className="a-mono a-t3 flex-none text-[11px]">{hint}</span>}
       </summary>
-      <div className="flex flex-col gap-4 border-t p-4">{children}</div>
+      <div className="flex flex-col gap-4 pt-3">{children}</div>
     </details>
+  );
+}
+
+/** Une puce de filtre qui s'allume et s'éteint (choisie = encre inversée). */
+export function Chip({ on, onClick, children, count }: { on: boolean; onClick: () => void; children: ReactNode; count?: number | null }) {
+  return (
+    <button type="button" aria-pressed={on} onClick={onClick}
+      className="a-focus inline-flex h-7 items-center gap-1.5 rounded-full border px-3 font-[inherit] text-[12.5px]"
+      style={{ cursor: 'pointer', background: on ? 'var(--a-text)' : 'transparent', color: on ? 'var(--a-bg)' : 'var(--a-text-2)', borderColor: on ? 'var(--a-text)' : 'var(--a-border)' }}>
+      {children}
+      {count != null && <span className="a-mono text-[11px]" style={{ opacity: 0.7 }}>{count}</span>}
+    </button>
+  );
+}
+
+/** Des puces de filtre, un seul choix, avec leur nombre. */
+export function Chips<V extends string>({ value, options, onChange, label }: {
+  value: V;
+  options: Array<{ value: V; label: ReactNode; count?: number | null }>;
+  onChange: (v: V) => void;
+  label: string;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5" role="group" aria-label={label}>
+      {options.map((o) => <Chip key={o.value} on={o.value === value} onClick={() => onChange(o.value)} count={o.count}>{o.label}</Chip>)}
+    </div>
   );
 }

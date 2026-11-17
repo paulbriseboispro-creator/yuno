@@ -5,10 +5,9 @@
  */
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Block, BulletBar, DataTable, ErrorState, Hero, HeroChart, Page, RankBars, StatStrip, useAdminFilters, useAdminT, type ColumnDef, type Rank, type Stat } from '@/admin/ui';
+import { Block, BulletBar, DataTable, ErrorState, Hero, HeroChart, Page, RankBars, StatStrip, useAdminFilters, useAdminT, type ColumnDef, type Rank, type Stat, EmptyLine, Fold, Status } from '@/admin/ui';
 import { fmtAxisDay, fmtDate, fmtMs, fmtNum, fmtPct, fmtTokens, fmtUsd } from '@/lib/adminFormat';
 import { rpc } from './data';
-import { Cutoff, Disclosure, StateMark } from '../legal/parts';
 
 interface AiUsage {
   totals: { events: number; errors: number; error_rate: number; cost_usd: number; tokens: number; p95_latency_ms: number; prev_events: number; prev_cost_usd: number; prev_tokens: number };
@@ -53,7 +52,7 @@ export default function Ai() {
 
       <div className="grid grid-cols-1 gap-x-12 gap-y-10 lg:grid-cols-2">
         <Block title={t('adm.sys.ai.k.errors')} meta={t('adm.sys3.ai.errMeta')}>
-          {!tt ? <div className="a-skel h-12 w-full" /> : errRate == null ? <Cutoff>{t('adm.sys.ai.noCalls')}</Cutoff> : (
+          {!tt ? <div className="a-skel h-12 w-full" /> : errRate == null ? <EmptyLine>{t('adm.sys.ai.noCalls')}</EmptyLine> : (
             <>
               <BulletBar value={errRate} max={maxErr} zones={[1, 3]} target={3} targetLabel={t('adm.sys3.ai.alertAt', { v: '3 %' })}
                 label={t('adm.sys.ai.k.errors')} display={fmtPct(errRate, 1, lang)} />
@@ -70,15 +69,15 @@ export default function Ai() {
         <RankBars emptyText={t('adm.sys.ai.noCalls')} items={models.slice(0, 8).map((r): Rank => ({ key: r.model, label: <code className="text-[12px]">{r.model}</code>, value: r.cost_usd, display: fmtUsd(r.cost_usd, lang), sub: fmtNum(r.n, lang) }))} />
       </Block>
 
-      <Disclosure title={t('adm.sys.ai.recentErrors')} hint={d ? fmtNum(d.recent_errors.length, lang) : undefined}>
+      <Fold title={t('adm.sys.ai.recentErrors')} hint={d ? fmtNum(d.recent_errors.length, lang) : undefined}>
         <DataTable data={d?.recent_errors} loading={q.isLoading} pageSize={10} getRowId={(r) => String(r.id)} empty={{ title: t('adm.sys.ai.noErrors') }}
           columns={[
             { accessorKey: 'at', header: t('adm.sys.col.date'), cell: (c) => fmtDate(c.getValue<string>(), lang, 'datetime') },
             { accessorKey: 'assistant', header: t('adm.sys.ai.assistant') },
-            { accessorKey: 'status', header: t('adm.sys.col.action'), cell: (c) => <StateMark tone="late">{c.getValue<string>()}</StateMark> },
+            { accessorKey: 'status', header: t('adm.sys.col.action'), cell: (c) => <Status strong tone="negative">{c.getValue<string>()}</Status> },
             { accessorKey: 'error', header: t('adm.sys.col.detail'), cell: (c) => <code className="a-t3 text-[12px]">{c.getValue<string | null>() ?? '—'}</code> },
           ] as ColumnDef<AiUsage['recent_errors'][number], unknown>[]} />
-      </Disclosure>
+      </Fold>
     </Page>
   );
 }

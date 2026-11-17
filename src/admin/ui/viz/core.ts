@@ -89,3 +89,47 @@ export function cellTint(v: number | null | undefined, max: number): string | un
   const k = intensity(v, max);
   return k > 0 ? `color-mix(in srgb, var(--a-text) ${Math.round(3 + k * 13)}%, transparent)` : undefined;
 }
+
+/**
+ * Index de l'étape qui perd le plus de monde par rapport à la précédente. En
+ * personnes, jamais en pourcentage : sur de petits volumes, un taux ment.
+ * `null` quand aucune étape ne perd personne.
+ */
+export function biggestDrop(values: readonly number[]): number | null {
+  let best: number | null = null;
+  let bestLost = 0;
+  for (let i = 1; i < values.length; i += 1) {
+    const lost = Math.max(0, (values[i - 1] ?? 0) - (values[i] ?? 0));
+    if (lost > bestLost) { bestLost = lost; best = i; }
+  }
+  return best;
+}
+
+/** Part d'un délai écoulée, bornée à [0, 1]. Une durée nulle ou une date illisible = 0. */
+export function elapsedShare(from: number, to: number, now: number): number {
+  const span = to - from;
+  if (!Number.isFinite(span) || span <= 0) return 0;
+  return Math.max(0, Math.min(1, (now - from) / span));
+}
+
+/** Teinte d'encre neutre pour un rang d'étape (0..n-1), de 10 à 30 %. */
+export function stepInk(i: number, n: number): string {
+  const k = n <= 1 ? 1 : i / (n - 1);
+  return `color-mix(in srgb, var(--a-text) ${Math.round(10 + k * 20)}%, transparent)`;
+}
+
+/** Remplissage d'une barre selon le ton (le rouge vif reste l'attention, le retard est l'aplat bordeaux). */
+export const TONE_FILL = {
+  neutral: 'var(--a-text-2)',
+  accent: 'var(--a-chart-1)',
+  positive: 'var(--a-pos)',
+  warning: 'var(--a-warn)',
+  negative: 'var(--a-neg-soft)',
+} as const;
+
+/** L'heure courante, rafraîchie (échéances qui se vident). */
+export function useNow(everyMs = 60_000): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const id = window.setInterval(() => setNow(Date.now()), everyMs); return () => window.clearInterval(id); }, [everyMs]);
+  return now;
+}
