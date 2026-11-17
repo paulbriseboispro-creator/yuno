@@ -564,6 +564,10 @@ const dict: AdminDict = {
   'adm.lg3.au.none': ['No action in this period with these filters.', 'Aucun geste sur cette période avec ces filtres.', 'Ninguna acción en este período con estos filtros.'],
   'adm.lg3.au.sentence': ['{n} actions in the period: {a} by the super admin, {s} through assisted access, {g} by the agent.', '{n} gestes sur la période : {a} par le super admin, {s} en accès assisté, {g} par l’agent.', '{n} acciones en el período: {a} del super admin, {s} por acceso asistido, {g} del agente.'],
   'adm.lg3.au.dayCount': ['{n} action(s)', '{n} geste(s)', '{n} acción(es)'],
+
+  // ── v3 ──
+  'adm.lg3.ov.and': ['and', 'et', 'y'],
+  'adm.lg3.ov.andMore': ['and {n} more', 'et {n} autres', 'y {n} más'],
 };
 
 export default dict;

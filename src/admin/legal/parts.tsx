@@ -34,7 +34,7 @@ export function Verdict({ tone, kicker, headline, sub, actions }: { tone: Tone3;
     <section className="flex flex-col gap-3 pb-2">
       <span className="a-kicker">{kicker}</span>
       <div className="flex items-start gap-3">
-        <span aria-hidden className="mt-[14px] h-3 w-3 flex-none rounded-full" style={{ background: DOT[tone] }} />
+        <span aria-hidden className="mt-[14px] h-3 w-3 flex-none rounded-full" style={{ background: tone === 'late' ? 'var(--a-neg)' : DOT[tone] }} />
         <h2 className="a-t1 text-[28px] font-semibold leading-[1.18] tracking-[-0.03em] md:text-[32px]" style={{ textWrap: 'balance', maxWidth: '36ch' }}>{headline}</h2>
       </div>
       {sub && <p className="a-hero-sentence max-w-[68ch]">{sub}</p>}
