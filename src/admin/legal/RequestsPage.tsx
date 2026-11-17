@@ -10,11 +10,12 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus } from 'lucide-react';
-import { Badge, Checkbox, DataTable, Drawer, Kpi, KpiRow, Page, ReasonDialog, Section, Status, Tabs, useAdminT, useTab, type ColumnDef } from '@/admin/ui';
+import { Badge, Block, Checkbox, DataTable, Drawer, ErrorState, Page, ReasonDialog, Status, useAdminT, type ColumnDef } from '@/admin/ui';
 import { fmtDate, fmtNum } from '@/lib/adminFormat';
 import { usePrivacyRequests, usePrivacyRequestSave, type PrivacyRequest, type RequestKind, type RequestStatus } from './data';
 import { daysUntil, personHref, proHref, requestDeadline, requestState } from './rules';
-import { SourceNote, StateBadge } from './ui';
+import { SourceNote } from './ui';
+import { Cutoff, DeadlineBar, Disclosure, elapsedShare, Ledger, LedgerRow, StateMark, useNow, Verdict } from './parts';
 import { Field, Select } from '@/admin/ui';
 import { fromLocalInput, toLocalInput } from './format';
 
@@ -25,66 +26,77 @@ const CHANNELS = ['email', 'form', 'phone', 'mail', 'other'] as const;
 export default function RequestsPage() {
   const { t, lang } = useAdminT();
   const q = usePrivacyRequests();
+  const now = useNow();
   const [editing, setEditing] = useState<PrivacyRequest | 'new' | null>(null);
   const manual = useMemo(() => q.data?.manual ?? [], [q.data]);
   const auto = useMemo(() => q.data?.auto ?? [], [q.data]);
-  const open = manual.filter((r) => !r.closed);
-  const overdue = open.filter((r) => requestState(r) === 'late');
-  const next = open.map((r) => r.deadline).filter(Boolean).sort()[0] ?? null;
+  // La frise : les demandes ouvertes, la plus pressée en haut (échéance croissante).
+  const open = useMemo(() => manual.filter((r) => !r.closed).sort((a, b) => (a.deadline ?? '9').localeCompare(b.deadline ?? '9')), [manual]);
+  const closed = useMemo(() => manual.filter((r) => r.closed).sort((a, b) => b.received_at.localeCompare(a.received_at)), [manual]);
+  const overdue = open.filter((r) => requestState(r, now) === 'late');
+  const nearest = open[0]?.deadline ?? null;
+  const nearestDays = nearest ? daysUntil(nearest, now) : null;
 
-  const tabs = [
-    { value: 'open', label: t('adm.lg2.rq.tab.open'), count: open.length },
-    { value: 'all', label: t('adm.lg2.rq.tab.all'), count: manual.length + auto.length },
-    { value: 'auto', label: t('adm.lg2.rq.tab.auto'), count: auto.length },
-  ];
-  const [tab, setTab] = useTab(tabs);
-  const rows = tab === 'open' ? open : tab === 'auto' ? auto : [...manual, ...auto].sort((a, b) => b.received_at.localeCompare(a.received_at));
+  const headline = !q.data ? '' : open.length === 0 ? t('adm.lg3.rq.headNone')
+    : overdue.length ? t(overdue.length === 1 ? 'adm.lg3.rq.headLateOne' : 'adm.lg3.rq.headLate', { n: open.length, l: overdue.length })
+      : t(open.length === 1 ? 'adm.lg3.rq.headOne' : 'adm.lg3.rq.head', { n: open.length, d: Math.max(0, nearestDays ?? 0) });
 
-  const columns: ColumnDef<PrivacyRequest, unknown>[] = [
-    { id: 'state', accessorFn: (r) => requestState(r), header: t('adm.lg2.col.state'), meta: { width: '120px' },
-      cell: (c) => <StateBadge state={requestState(c.row.original)} /> },
+  const closedCols: ColumnDef<PrivacyRequest, unknown>[] = [
     { accessorKey: 'received_at', header: t('adm.lg2.rq.col.received'), meta: { width: '120px' }, cell: (c) => fmtDate(c.getValue<string>(), lang, 'short') },
     { accessorKey: 'kind', header: t('adm.lg2.rq.col.kind'), cell: (c) => t(`adm.lg2.rq.kind.${c.getValue<string>()}`) },
-    { id: 'who', accessorFn: (r) => r.email ?? r.account_name ?? '', header: t('adm.lg2.rq.col.who'),
-      cell: (c) => {
-        const r = c.row.original;
-        return (
-          <div className="flex min-w-0 flex-col py-1.5">
-            <span className="a-t1 truncate">{r.email ?? <span className="a-t3">{t('adm.lg2.rq.noEmail')}</span>}</span>
-            {r.account_name && <span className="a-t3 truncate text-[12px]">{r.account_name}</span>}
-          </div>
-        );
-      } },
+    { id: 'who', accessorFn: (r) => r.email ?? r.account_name ?? '', header: t('adm.lg2.rq.col.who'), cell: (c) => <span className="a-t1">{c.getValue<string>() || '—'}</span> },
     { accessorKey: 'source', header: t('adm.lg2.rq.col.source'),
       cell: (c) => (c.row.original.auto ? <Badge tone="accent">{t(`adm.lg2.rq.src.${c.getValue<string>()}`)}</Badge> : <Badge>{t('adm.lg2.rq.src.manual')}</Badge>) },
     { accessorKey: 'status', header: t('adm.lg2.rq.col.status'), cell: (c) => <Status tone={c.row.original.closed ? 'positive' : 'warning'}>{t(`adm.lg2.rq.status.${c.getValue<string>()}`)}</Status> },
-    { accessorKey: 'deadline', header: t('adm.lg2.rq.col.deadline'), meta: { width: '150px' },
-      cell: (c) => {
-        const r = c.row.original;
-        if (r.auto || r.closed || !r.deadline) return <span className="a-t3">—</span>;
-        const d = daysUntil(r.deadline);
-        return <span className="whitespace-nowrap" style={{ color: d != null && d < 0 ? 'var(--a-neg)' : d != null && d <= 7 ? 'var(--a-warn)' : undefined }}>
-          {fmtDate(r.deadline, lang, 'short')} · {d != null && d < 0 ? t('adm.lg2.late', { n: -d }) : t('adm.lg2.daysLeft', { n: d ?? 0 })}
-        </span>;
-      } },
   ];
 
   return (
     <Page title={t('adm.lg2.rq.title')} subtitle={t('adm.lg2.rq.sub')}
       actions={<button type="button" className="a-btn a-btn--primary" onClick={() => setEditing('new')}><Plus className="h-4 w-4" />{t('adm.lg2.rq.new')}</button>}>
-      <KpiRow>
-        <Kpi label={t('adm.lg2.rq.k.open')} loading={q.isLoading} value={fmtNum(open.length, lang)} />
-        <Kpi label={t('adm.lg2.rq.k.overdue')} loading={q.isLoading} value={fmtNum(overdue.length, lang)} />
-        <Kpi label={t('adm.lg2.rq.k.next')} loading={q.isLoading} value={next ? fmtDate(next, lang, 'short') : '—'} />
-        <Kpi label={t('adm.lg2.rq.k.auto')} loading={q.isLoading} value={fmtNum(auto.length, lang)} to="/admin/legal/requests?tab=auto" />
-      </KpiRow>
-      <Section>
-        <Tabs items={tabs} value={tab} onChange={setTab} />
-        <DataTable data={rows} columns={columns} loading={q.isLoading} error={q.isError ? q.error : undefined} onRetry={() => void q.refetch()}
-          searchable searchPlaceholder={t('adm.lg2.rq.search')} getRowId={(r) => r.id}
-          onRowClick={(r) => setEditing(r)}
-          empty={{ title: tab === 'open' ? t('adm.lg2.rq.emptyOpen') : t('adm.lg2.rq.empty') }} />
-      </Section>
+      {q.isError && !q.data ? <ErrorState onRetry={() => void q.refetch()} /> : !q.data ? (
+        <div className="flex flex-col gap-3"><div className="a-skel h-10 w-[26rem] max-w-full" /><div className="a-skel h-4 w-80 max-w-full" /></div>
+      ) : (
+        <Verdict tone={overdue.length ? 'late' : open.length ? 'todo' : 'ok'} kicker={t('adm.lg3.rq.kicker')} headline={headline} sub={t('adm.lg3.rq.sub')} />
+      )}
+
+      <Block title={t('adm.lg3.rq.open')} meta={q.data ? t('adm.lg3.rq.sortedBy') : undefined}>
+        {!q.data ? <div className="a-skel h-24 w-full" /> : open.length === 0 ? <Cutoff>{t('adm.lg2.rq.emptyOpen')}</Cutoff> : (
+          <Ledger>
+            {open.map((r) => {
+              const st = requestState(r, now);
+              const to = r.deadline ? new Date(r.deadline).getTime() : NaN;
+              const from = new Date(r.received_at).getTime();
+              const base = requestDeadline(r.received_at, 0).getTime();
+              const d = r.deadline ? daysUntil(r.deadline, now) : null;
+              const label = d == null ? t('adm.lg3.ov.noDeadline') : d < 0 ? t('adm.lg2.late', { n: -d }) : t('adm.lg2.daysLeft', { n: d });
+              return (
+                <LedgerRow key={r.id} onClick={() => setEditing(r)} className="grid-cols-1 md:grid-cols-[120px_minmax(0,1.3fr)_minmax(200px,1fr)]">
+                  <StateMark tone={st}>{t(`adm.lg2.state.${st}`)}</StateMark>
+                  <div className="flex min-w-0 flex-col">
+                    <span className="a-t1 truncate text-[14px] font-medium">{t(`adm.lg2.rq.kind.${r.kind}`)} <span className="a-t3 font-normal">· {r.email ?? t('adm.lg2.rq.noEmail')}</span></span>
+                    <span className="a-t3 text-[12px]">
+                      {t('adm.lg3.rq.receivedOn', { date: fmtDate(r.received_at, lang, 'short') })}
+                      {!r.identity_verified && <> · {t('adm.lg3.rq.unverified')}</>}
+                      {(r.extension_months ?? 0) > 0 && <> · <b className="a-t2 font-medium">{t('adm.lg3.rq.extended', { n: r.extension_months ?? 0 })}</b>{r.extension_reason ? ` : ${r.extension_reason}` : ''}</>}
+                    </span>
+                  </div>
+                  <DeadlineBar share={Number.isNaN(to) ? 0 : elapsedShare(from, to, now)} tone={st} label={label}
+                    right={r.deadline ? fmtDate(r.deadline, lang, 'short') : undefined}
+                    mark={(r.extension_months ?? 0) > 0 && !Number.isNaN(to) ? elapsedShare(from, to, base) : undefined} />
+                </LedgerRow>
+              );
+            })}
+          </Ledger>
+        )}
+      </Block>
+
+      <Disclosure title={t('adm.lg3.rq.closed')} hint={fmtNum(closed.length, lang)}>
+        <DataTable data={closed} columns={closedCols} loading={q.isLoading} getRowId={(r) => r.id} onRowClick={(r) => setEditing(r)} pageSize={10} empty={{ title: t('adm.lg2.rq.empty') }} />
+      </Disclosure>
+      <Disclosure title={t('adm.lg3.rq.auto')} hint={fmtNum(auto.length, lang)}>
+        <Cutoff>{t('adm.lg3.rq.autoSub')}</Cutoff>
+        <DataTable data={auto} columns={closedCols} loading={q.isLoading} getRowId={(r) => r.id} onRowClick={(r) => setEditing(r)} pageSize={10} searchable searchPlaceholder={t('adm.lg2.rq.search')} empty={{ title: t('adm.lg2.rq.empty') }} />
+      </Disclosure>
       <SourceNote jurist>{t('adm.lg2.rq.note')}</SourceNote>
       {editing && <RequestDrawer request={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
     </Page>

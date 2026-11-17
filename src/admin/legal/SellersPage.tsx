@@ -6,16 +6,16 @@
  * l'année encaissées par son compte Stripe, avec les repères DAC7 (30 ventes,
  * 2 000 €). Seuils et statut de Yuno à confirmer par un juriste.
  */
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { Download } from 'lucide-react';
-import { Badge, DataTable, Kpi, KpiRow, Page, Section, Status, useAdminT, type ColumnDef } from '@/admin/ui';
+import { BulletBar, DataTable, ErrorState, Page, Segmented, SplitView, useAdminT, type ColumnDef } from '@/admin/ui';
 import { downloadBlob } from '@/lib/generateDocuments';
 import { fmtEur, fmtNum } from '@/lib/adminFormat';
 import { useLegalSellers } from './data';
 import { DAC7_MARKERS, dac7Reached, proHref, sellerGaps, sellersCsv, type SellerRow } from './rules';
 import { SourceNote } from './ui';
-import { Segmented } from '@/admin/ui';
+import { Complete, Cutoff, MiniBar, Verdict } from './parts';
 import { tOr } from './format';
 
 export default function SellersPage() {
@@ -36,32 +36,24 @@ export default function SellersPage() {
     downloadBlob(blob, `yuno-vendeurs-${year}.csv`);
   };
 
+  const [pickedKey, setPickedKey] = useState<string | null>(null);
+  const picked = rows.find((r) => r.key === pickedKey) ?? rows.find((r) => sellerGaps(r).length > 0) ?? rows[0] ?? null;
+  const checks = (r: SellerRow) => (r.kind === 'club' ? 4 : 5);
+
   const columns: ColumnDef<SellerRow, unknown>[] = [
     { accessorKey: 'name', header: t('adm.lg2.col.account'),
       cell: (c) => { const r = c.row.original; return <div className="flex min-w-0 flex-col py-1.5"><span className="a-t1 truncate font-medium">{r.name}{r.is_demo && <span className="a-t3"> · {t('adm.lg2.demo')}</span>}</span><span className="a-t3 text-[12px]">{t(`adm.lg2.kind.${r.kind}`)}</span></div>; } },
-    { id: 'identity', accessorFn: (r) => r.legal_name ?? '', header: t('adm.lg2.sl.col.identity'),
-      cell: (c) => { const r = c.row.original; return <div className="flex min-w-0 flex-col py-1.5"><span className={r.legal_name ? 'a-t1 truncate' : 'a-t3'}>{r.legal_name ?? t('adm.lg2.sl.noLegalName')}</span><span className="a-t3 a-mono truncate text-[12px]">{r.siret ? `SIRET ${r.siret}` : r.rna ? `RNA ${r.rna}` : t('adm.lg2.sl.noId')}</span></div>; } },
-    { id: 'vat', accessorFn: (r) => r.vat_rate, header: t('adm.lg2.sl.col.vat'),
-      cell: (c) => { const r = c.row.original; return <div className="flex flex-col py-1.5"><span className="a-t1">{r.vat_rate} %</span><span className="a-t3 whitespace-nowrap text-[12px]">{r.vat_regime ? tOr(t, `adm.lg2.sl.regime.${r.vat_regime}`, r.vat_regime) : t('adm.lg2.sl.regime.unset')}</span></div>; } },
-    { id: 'stripe', accessorFn: (r) => (r.charges ? 2 : 0) + (r.payouts ? 1 : 0), header: t('adm.lg2.sl.col.stripe'),
-      cell: (c) => { const r = c.row.original;
-        return !r.stripe_account ? <Status tone="neutral">{t('adm.lg2.sl.noStripe')}</Status>
-          : <div className="flex flex-col gap-0.5 py-1.5">
-            <Status tone={r.charges ? 'positive' : 'warning'}>{r.charges ? t('adm.lg2.sl.charges') : t('adm.lg2.sl.noCharges')}</Status>
-            <Status tone={r.payouts ? 'positive' : 'warning'}>{r.payouts ? t('adm.lg2.sl.payouts') : t('adm.lg2.sl.noPayouts')}</Status>
-          </div>; } },
-    { accessorKey: 'sales', header: t('adm.lg2.sl.col.sales'), meta: { align: 'right' }, cell: (c) => fmtNum(c.getValue<number>(), lang) },
-    { accessorKey: 'amount', header: t('adm.lg2.sl.col.amount'), meta: { align: 'right' }, cell: (c) => fmtEur(Number(c.getValue<number>()), lang) },
+    { id: 'file', accessorFn: (r) => sellerGaps(r).length, header: t('adm.lg2.sl.col.file'), meta: { width: '120px' },
+      cell: (c) => <Complete done={checks(c.row.original) - sellerGaps(c.row.original).length} total={checks(c.row.original)} /> },
+    { id: 'dac7s', accessorFn: (r) => r.sales, header: t('adm.lg3.sl.dacSales', { n: DAC7_MARKERS.sales }), meta: { width: '150px' },
+      cell: (c) => <MiniBar value={c.row.original.sales} max={DAC7_MARKERS.sales} width={64} tone={c.row.original.sales >= DAC7_MARKERS.sales ? 'todo' : 'none'} display={fmtNum(c.row.original.sales, lang)} /> },
+    { id: 'dac7a', accessorFn: (r) => Number(r.amount), header: t('adm.lg3.sl.dacAmount'), meta: { width: '170px' },
+      cell: (c) => <MiniBar value={Number(c.row.original.amount)} max={DAC7_MARKERS.amount} width={64} tone={Number(c.row.original.amount) >= DAC7_MARKERS.amount ? 'todo' : 'none'} display={fmtEur(Number(c.row.original.amount), lang, { cents: false })} /> },
     { id: 'invoices', accessorFn: (r) => r.missing_invoices, header: t('adm.lg2.sl.col.invoices'), meta: { align: 'right' },
-      cell: (c) => { const r = c.row.original; return <span className="whitespace-nowrap">{fmtNum(r.invoices_issued, lang)}{r.missing_invoices > 0 && <span style={{ color: 'var(--a-neg)' }}> · {t('adm.lg2.sl.missingInv', { n: r.missing_invoices })}</span>}</span>; } },
-    { id: 'dac7', accessorFn: (r) => (dac7Reached(r) ? 1 : 0), header: t('adm.lg2.sl.col.dac7'),
-      cell: (c) => (dac7Reached(c.row.original) ? <Badge tone="warning">{t('adm.lg2.sl.reached')}</Badge> : <span className="a-t3">{t('adm.lg2.sl.under')}</span>) },
-    { id: 'file', accessorFn: (r) => sellerGaps(r).length, header: t('adm.lg2.sl.col.file'),
-      cell: (c) => { const g = sellerGaps(c.row.original);
-        return g.length === 0 ? <Badge tone="positive">{t('adm.lg2.sl.complete')}</Badge>
-          : <span title={g.map((x) => t(`adm.lg2.sl.gap.${x}`)).join(', ')}><Badge tone="negative">{g.length === 1 ? t(`adm.lg2.sl.gap.${g[0]}`) : t('adm.lg2.sl.gaps', { n: g.length })}</Badge></span>; } },
+      cell: (c) => { const r = c.row.original; return r.missing_invoices > 0 ? <span className="whitespace-nowrap font-medium" style={{ color: 'var(--a-neg)' }}>{t('adm.lg2.sl.missingInv', { n: r.missing_invoices })}</span> : <span className="a-t3">—</span>; } },
   ];
 
+  const incomplete = rows.length - complete;
   return (
     <Page title={t('adm.lg2.sl.title')} subtitle={t('adm.lg2.sl.sub')}
       actions={<>
@@ -69,19 +61,73 @@ export default function SellersPage() {
           options={[thisYear - 2, thisYear - 1, thisYear].map((y) => ({ value: String(y), label: String(y) }))} />
         <button type="button" className="a-btn" onClick={exportCsv} disabled={rows.length === 0}><Download className="h-4 w-4" />{t('adm.lg2.sl.export')}</button>
       </>}>
-      <KpiRow>
-        <Kpi label={t('adm.lg2.sl.k.sellers')} loading={q.isLoading} value={fmtNum(rows.length, lang)} />
-        <Kpi label={t('adm.lg2.sl.k.complete')} loading={q.isLoading} value={`${fmtNum(complete, lang)} / ${fmtNum(rows.length, lang)}`} />
-        <Kpi label={t('adm.lg2.sl.k.sales', { y: year })} loading={q.isLoading} value={fmtNum(sales, lang)} />
-        <Kpi label={t('adm.lg2.sl.k.amount', { y: year })} loading={q.isLoading} value={fmtEur(amount, lang)} hint={t('adm.lg2.sl.k.amountHint')} />
-        <Kpi label={t('adm.lg2.sl.k.marker')} loading={q.isLoading} value={fmtNum(marker, lang)} hint={t('adm.lg2.sl.k.markerHint', { s: DAC7_MARKERS.sales, a: fmtEur(DAC7_MARKERS.amount, lang) })} />
-        <Kpi label={t('adm.lg2.sl.k.noInvoice')} loading={q.isLoading} value={fmtNum(noInvoice, lang)} invert />
-      </KpiRow>
-      <Section title={t('adm.lg2.sl.list')} description={t('adm.lg2.sl.listSub')}>
-        <DataTable data={rows} columns={columns} loading={q.isLoading} error={q.isError ? q.error : undefined} onRetry={() => void q.refetch()}
-          searchable initialSearch={searchParams.get('q')} getRowId={(r) => r.key} rowHref={(r) => proHref(r.key)} empty={{ title: t('adm.lg2.sl.empty') }} />
-      </Section>
+      {q.isError && !q.data ? <ErrorState onRetry={() => void q.refetch()} /> : q.isLoading ? (
+        <div className="flex flex-col gap-3"><div className="a-skel h-10 w-[26rem] max-w-full" /><div className="a-skel h-4 w-80 max-w-full" /></div>
+      ) : rows.length === 0 ? (
+        <Verdict tone="none" kicker={t('adm.lg3.sl.kicker', { y: year })} headline={t('adm.lg3.sl.headNone', { y: year })} sub={t('adm.lg2.sl.empty')} />
+      ) : (
+        <Verdict tone={incomplete === 0 ? 'ok' : 'todo'} kicker={t('adm.lg3.sl.kicker', { y: year })}
+          headline={incomplete === 0 ? t('adm.lg3.sl.headOk', { n: rows.length }) : t(incomplete === 1 ? 'adm.lg3.sl.headOne' : 'adm.lg3.sl.head', { n: incomplete, total: rows.length })}
+          sub={t('adm.lg3.sl.sub', { sales: fmtNum(sales, lang), amount: fmtEur(amount, lang), marker, noInvoice })} />
+      )}
+
+      <SplitView
+        list={(
+          <DataTable data={rows} columns={columns} loading={q.isLoading} error={q.isError ? q.error : undefined} onRetry={() => void q.refetch()}
+            searchable initialSearch={searchParams.get('q')} getRowId={(r) => r.key} onRowClick={(r) => setPickedKey(r.key)} initialSort={[{ id: 'file', desc: true }]}
+            empty={{ title: t('adm.lg2.sl.empty') }} />
+        )}
+        panel={picked ? <SellerPanel s={picked} year={year} /> : <Cutoff>{t('adm.lg3.sl.pick')}</Cutoff>} />
       <SourceNote jurist>{t('adm.lg2.sl.note', { s: DAC7_MARKERS.sales, a: fmtEur(DAC7_MARKERS.amount, lang) })}</SourceNote>
     </Page>
+  );
+}
+
+/** L'aperçu d'un vendeur : le dossier champ par champ, les deux repères DAC7 en bullets, Stripe, factures. */
+function SellerPanel({ s, year }: { s: SellerRow; year: number }) {
+  const { t, lang } = useAdminT();
+  const gaps = sellerGaps(s);
+  const href = proHref(s.key);
+  const fields: Array<[string, string | null]> = [
+    ['legal_name', s.legal_name], ['id', s.siret ? `SIRET ${s.siret}` : s.rna ? `RNA ${s.rna}` : null], ['address', s.legal_address],
+    ...(s.kind !== 'club' ? [['vat', s.vat_regime ? tOr(t, `adm.lg2.sl.regime.${s.vat_regime}`, s.vat_regime) : null] as [string, string | null]] : []),
+  ];
+  return (
+    <div className="flex flex-col gap-6 border-l pl-6">
+      <div className="flex flex-col gap-1">
+        <span className="a-kicker">{t(`adm.lg2.kind.${s.kind}`)}</span>
+        <h3 className="a-t1 text-[20px] font-semibold tracking-[-0.02em]">{s.name}{s.is_demo && <span className="a-t3 text-[14px] font-normal"> · {t('adm.lg2.demo')}</span>}</h3>
+        <span className="a-t2 text-[12.5px]">{s.email ?? '—'}</span>
+      </div>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2"><span className="a-kicker">{t('adm.lg2.sl.col.file')}</span><Complete done={(s.kind === 'club' ? 4 : 5) - gaps.length} total={s.kind === 'club' ? 4 : 5} /></div>
+        <ul className="flex flex-col divide-y border-y text-[13px]">
+          {fields.map(([k, v]) => (
+            <li key={k} className="flex items-baseline gap-3 py-1.5">
+              <span className="a-t2 w-[7.5rem] flex-none text-[12.5px]">{t(`adm.lg2.sl.gap.${k}`)}</span>
+              {v ? <span className="a-t1 min-w-0 break-words">{v}</span> : <span className="font-medium" style={{ color: 'var(--a-warn)' }}>{t('adm.lg3.sl.missing')}</span>}
+            </li>
+          ))}
+          <li className="flex items-baseline gap-3 py-1.5">
+            <span className="a-t2 w-[7.5rem] flex-none text-[12.5px]">{t('adm.lg2.sl.col.stripe')}</span>
+            <span className="a-t1">{!s.stripe_account ? t('adm.lg2.sl.noStripe') : `${s.charges ? t('adm.lg2.sl.charges') : t('adm.lg2.sl.noCharges')} · ${s.payouts ? t('adm.lg2.sl.payouts') : t('adm.lg2.sl.noPayouts')}`}</span>
+          </li>
+        </ul>
+      </div>
+      <div className="flex flex-col gap-4">
+        <span className="a-kicker">{t('adm.lg3.sl.dacTitle', { y: year })}</span>
+        <BulletBar value={s.sales} max={Math.max(DAC7_MARKERS.sales * 1.5, s.sales)} target={DAC7_MARKERS.sales} targetLabel={t('adm.lg3.sl.marker')}
+          label={t('adm.lg2.sl.col.sales')} display={`${fmtNum(s.sales, lang)} / ${DAC7_MARKERS.sales}`} />
+        <BulletBar value={Number(s.amount)} max={Math.max(DAC7_MARKERS.amount * 1.5, Number(s.amount))} target={DAC7_MARKERS.amount} targetLabel={t('adm.lg3.sl.marker')}
+          label={t('adm.lg2.sl.col.amount')} display={`${fmtEur(Number(s.amount), lang, { cents: false })} / ${fmtEur(DAC7_MARKERS.amount, lang, { cents: false })}`} />
+        <p className="a-t3 text-[12px] leading-relaxed">{dac7Reached(s) ? t('adm.lg3.sl.reached') : t('adm.lg3.sl.under')} <strong className="a-t2">{t('adm.lg2.jurist')}</strong></p>
+      </div>
+      <div className="flex items-baseline gap-3 text-[13px]">
+        <span className="a-t2">{t('adm.lg2.sl.col.invoices')}</span>
+        <span className="a-num a-t1">{fmtNum(s.invoices_issued, lang)}</span>
+        {s.missing_invoices > 0 && <span className="font-medium" style={{ color: 'var(--a-neg)' }}>{t('adm.lg2.sl.missingInv', { n: s.missing_invoices })}</span>}
+      </div>
+      {href && <Link to={href} className="a-btn a-btn--sm self-start">{t('adm.lg2.openPro')}</Link>}
+    </div>
   );
 }

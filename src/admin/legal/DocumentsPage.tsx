@@ -8,9 +8,10 @@
  * recopie d'abord dans le texte public : l'écran ne fait que le refléter.
  */
 import { ExternalLink } from 'lucide-react';
-import { Badge, Card, DataTable, Grid, Page, Section, useAdminT, type ColumnDef } from '@/admin/ui';
+import { Block, Page, useAdminT } from '@/admin/ui';
 import { LEGAL_VERSIONS } from '@/lib/legal';
 import { SourceNote } from './ui';
+import { Cutoff, Ledger, StateMark } from './parts';
 
 /** Document → page publique (`/legal/:section`, src/lib/legal.ts). */
 const PUBLIC_PAGE: Record<string, string> = {
@@ -45,48 +46,51 @@ const INTERNAL = [
 export default function DocumentsPage() {
   const { t } = useAdminT();
   const docs = Object.entries(LEGAL_VERSIONS).map(([doc, version]) => ({ doc, version, page: PUBLIC_PAGE[doc] ?? null }));
-
-  const dcols: ColumnDef<(typeof docs)[number], unknown>[] = [
-    { accessorKey: 'doc', header: t('adm.lg2.tm.col.doc'), cell: (c) => <span className="a-t1 font-medium">{t(`adm.lg2.doc.${c.getValue<string>()}`)}</span> },
-    { accessorKey: 'version', header: t('adm.lg2.tm.col.version'), cell: (c) => <span className="a-mono">{c.getValue<string>()}</span> },
-    { id: 'who', accessorFn: (r) => r.doc, header: t('adm.lg2.dc.col.who'), cell: (c) => t(`adm.lg2.dc.who.${c.getValue<string>()}`) },
-    { accessorKey: 'page', header: t('adm.lg2.dc.col.page'),
-      cell: (c) => (c.getValue<string | null>()
-        ? <a className="a-t1 inline-flex items-center gap-1 underline-offset-2 hover:underline" href={c.getValue<string>()} target="_blank" rel="noreferrer">{c.getValue<string>()}<ExternalLink className="h-3 w-3" /></a>
-        : <span className="a-t3">—</span>) },
-  ];
-  const scols: ColumnDef<(typeof SUBPROCESSORS)[number], unknown>[] = [
-    { accessorKey: 'name', header: t('adm.lg2.dc.col.name'), cell: (c) => <span className="a-t1 font-medium">{c.getValue<string>()}</span> },
-    { accessorKey: 'use', header: t('adm.lg2.dc.col.use'), cell: (c) => t(`adm.lg2.dc.use.${c.getValue<string>()}`) },
-    { id: 'products', accessorFn: (r) => r.products.join(','), header: t('adm.lg2.col.products'),
-      cell: (c) => <span className="flex gap-1">{c.row.original.products.map((p) => <Badge key={p}>{t(`adm.lg2.product.${p}`)}</Badge>)}</span> },
-    { accessorKey: 'outsideEu', header: t('adm.lg2.dc.col.eu'),
-      cell: (c) => (c.getValue<boolean>() ? <Badge tone="warning">{t('adm.lg2.dc.outEu')}</Badge> : <Badge tone="positive">{t('adm.lg2.dc.inEu')}</Badge>) },
-  ];
+  const out = SUBPROCESSORS.filter((s) => s.outsideEu).length;
 
   return (
     <Page title={t('adm.lg2.dc.title')} subtitle={t('adm.lg2.dc.sub')}>
-      <Section title={t('adm.lg2.dc.texts')} description={t('adm.lg2.dc.textsSub')}>
-        <DataTable data={docs} columns={dcols} getRowId={(r) => r.doc} pageSize={20} />
-      </Section>
-      <Section title={t('adm.lg2.dc.subs')} description={t('adm.lg2.dc.subsSub')}>
-        <DataTable data={SUBPROCESSORS} columns={scols} getRowId={(r) => r.name} pageSize={20} />
-      </Section>
-      <Grid cols={2}>
-        <Card title={t('adm.lg2.dc.other')}>
+      <Block title={t('adm.lg2.dc.texts')} meta={t('adm.lg3.dc.textsMeta', { n: docs.length })}>
+        <Cutoff>{t('adm.lg2.dc.textsSub')}</Cutoff>
+        <Ledger>
+          {docs.map((d) => (
+            <div key={d.doc} className="grid grid-cols-1 items-center gap-x-4 px-1 py-2.5 md:grid-cols-[minmax(0,1.3fr)_70px_minmax(0,1.2fr)_minmax(0,1fr)]">
+              <span className="a-t1 text-[13.5px] font-medium">{t(`adm.lg2.doc.${d.doc}`)}</span>
+              <span className="a-mono a-t2 text-[12px]">v{d.version}</span>
+              <span className="a-t2 text-[12.5px]">{t(`adm.lg2.dc.who.${d.doc}`)}</span>
+              {d.page ? <a className="a-t1 a-focus inline-flex items-center gap-1 rounded text-[12.5px] underline-offset-2 hover:underline" href={d.page} target="_blank" rel="noreferrer">{d.page}<ExternalLink className="h-3 w-3" /></a> : <span className="a-t3">—</span>}
+            </div>
+          ))}
+        </Ledger>
+      </Block>
+
+      <Block title={t('adm.lg2.dc.subs')} meta={t('adm.lg3.dc.subsMeta', { n: SUBPROCESSORS.length, o: out })}>
+        <Cutoff>{t('adm.lg2.dc.subsSub')}</Cutoff>
+        <Ledger>
+          {SUBPROCESSORS.map((s) => (
+            <div key={s.name} className="grid grid-cols-1 items-center gap-x-4 px-1 py-2.5 md:grid-cols-[130px_minmax(0,1.2fr)_minmax(0,1fr)_150px]">
+              <span className="a-t1 text-[13.5px] font-medium">{s.name}</span>
+              <span className="a-t2 text-[12.5px]">{t(`adm.lg2.dc.use.${s.use}`)}</span>
+              <span className="a-t3 text-[12px]">{s.products.map((p) => t(`adm.lg2.product.${p}`)).join(' · ')}</span>
+              <StateMark tone={s.outsideEu ? 'todo' : 'ok'}>{s.outsideEu ? t('adm.lg2.dc.outEu') : t('adm.lg2.dc.inEu')}</StateMark>
+            </div>
+          ))}
+        </Ledger>
+      </Block>
+
+      <div className="grid grid-cols-1 gap-x-12 gap-y-8 lg:grid-cols-2">
+        <Block title={t('adm.lg2.dc.other')}>
           <ul className="flex flex-col gap-2 text-[13px]">
             {[['/legal/mentions-legales', 'mentions'], ['/legal/cookies', 'cookies'], ['/legal/cgv-crm', 'cgvCrm']].map(([href, k]) => (
               <li key={href}><a className="a-t1 inline-flex items-center gap-1 underline-offset-2 hover:underline" href={href} target="_blank" rel="noreferrer">{t(`adm.lg2.dc.page.${k}`)}<ExternalLink className="h-3 w-3" /></a></li>
             ))}
           </ul>
-        </Card>
-        <Card title={t('adm.lg2.dc.internal')}>
-          <ul className="flex flex-col gap-1.5">
-            {INTERNAL.map((p) => <li key={p} className="a-mono a-t2 text-[12px]">{p}</li>)}
-          </ul>
-          <p className="a-t3 mt-3 text-[12px]">{t('adm.lg2.dc.internalSub')}</p>
-        </Card>
-      </Grid>
+        </Block>
+        <Block title={t('adm.lg2.dc.internal')}>
+          <ul className="flex flex-col gap-1.5">{INTERNAL.map((p) => <li key={p} className="a-mono a-t2 text-[12px]">{p}</li>)}</ul>
+          <p className="a-t3 text-[12px]">{t('adm.lg2.dc.internalSub')}</p>
+        </Block>
+      </div>
       <SourceNote>{t('adm.lg2.dc.note')}</SourceNote>
     </Page>
   );

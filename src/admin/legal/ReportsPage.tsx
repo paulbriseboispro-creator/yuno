@@ -6,10 +6,11 @@
  */
 import { useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { Badge, DataTable, Drawer, Kpi, KpiRow, Page, ReasonDialog, Section, useAdminT, type ColumnDef } from '@/admin/ui';
-import { fmtDate, fmtNum } from '@/lib/adminFormat';
+import { Badge, Block, Drawer, ErrorState, Page, ReasonDialog, useAdminT } from '@/admin/ui';
+import { fmtDate } from '@/lib/adminFormat';
 import { useContentReportSave, useContentReports, type ContentReport } from './data';
 import { SourceNote } from './ui';
+import { Disclosure, Ledger, LedgerRow, Verdict } from './parts';
 import { Field, Select } from '@/admin/ui';
 import { fromLocalInput, toLocalInput } from './format';
 
@@ -22,33 +23,38 @@ export default function ReportsPage() {
   const q = useContentReports();
   const [open, setOpen] = useState<ContentReport | 'new' | null>(null);
   const list = useMemo(() => q.data?.reports ?? [], [q.data]);
-  const pending = list.filter((r) => r.decision === 'pending').length;
+  const pending = useMemo(() => list.filter((r) => r.decision === 'pending').sort((a, b) => a.received_at.localeCompare(b.received_at)), [list]);
+  const decided = useMemo(() => list.filter((r) => r.decision !== 'pending').sort((a, b) => b.received_at.localeCompare(a.received_at)), [list]);
   const sent = list.filter((r) => r.statement_sent_at).length;
-  const decided = list.length - pending;
 
-  const columns: ColumnDef<ContentReport, unknown>[] = [
-    { accessorKey: 'received_at', header: t('adm.lg2.rp.col.received'), meta: { width: '120px' }, cell: (c) => fmtDate(c.getValue<string>(), lang, 'short') },
-    { accessorKey: 'object_kind', header: t('adm.lg2.rp.col.object'),
-      cell: (c) => { const r = c.row.original; return <div className="flex min-w-0 flex-col py-1.5"><span className="a-t1">{t(`adm.lg2.rp.kind.${r.object_kind}`)}</span><span className="a-t3 truncate text-[12px]">{r.object_label ?? r.object_ref ?? '—'}</span></div>; } },
-    { accessorKey: 'reason', header: t('adm.lg2.rp.col.reason'), cell: (c) => <span className="line-clamp-2">{c.getValue<string>()}</span> },
-    { id: 'reporter', accessorFn: (r) => r.reporter_name ?? r.reporter_email ?? '', header: t('adm.lg2.rp.col.reporter'), cell: (c) => c.getValue<string>() || <span className="a-t3">—</span> },
-    { accessorKey: 'decision', header: t('adm.lg2.rp.col.decision'), cell: (c) => <Badge tone={DECISION_TONE[c.row.original.decision]}>{t(`adm.lg2.rp.decision.${c.getValue<string>()}`)}</Badge> },
-    { accessorKey: 'statement_sent_at', header: t('adm.lg2.rp.col.statement'), cell: (c) => (c.getValue<string | null>() ? fmtDate(c.getValue<string>(), lang, 'short') : <span className="a-t3">—</span>) },
-  ];
+  const row = (r: ContentReport) => (
+    <LedgerRow key={r.id} onClick={() => setOpen(r)} className="grid-cols-1 md:grid-cols-[120px_minmax(0,1.5fr)_minmax(0,1.2fr)_110px]">
+      <Badge tone={DECISION_TONE[r.decision]}>{t(`adm.lg2.rp.decision.${r.decision}`)}</Badge>
+      <div className="flex min-w-0 flex-col">
+        <span className="a-t1 truncate text-[13.5px] font-medium">{t(`adm.lg2.rp.kind.${r.object_kind}`)} <span className="a-t3 font-normal">· {r.object_label ?? r.object_ref ?? '—'}</span></span>
+        <span className="a-t2 line-clamp-1 text-[12.5px]">{r.reason}</span>
+      </div>
+      <span className="a-t3 truncate text-[12px]">{r.reporter_name ?? r.reporter_email ?? '—'}</span>
+      <span className="a-mono a-t3 text-[11px]">{fmtDate(r.received_at, lang, 'short')}</span>
+    </LedgerRow>
+  );
 
   return (
     <Page title={t('adm.lg2.rp.title')} subtitle={t('adm.lg2.rp.sub')}
       actions={<button type="button" className="a-btn a-btn--primary" onClick={() => setOpen('new')}><Plus className="h-4 w-4" />{t('adm.lg2.rp.new')}</button>}>
-      <KpiRow>
-        <Kpi label={t('adm.lg2.rp.k.pending')} loading={q.isLoading} value={fmtNum(pending, lang)} />
-        <Kpi label={t('adm.lg2.rp.k.decided')} loading={q.isLoading} value={fmtNum(decided, lang)} />
-        <Kpi label={t('adm.lg2.rp.k.sent')} loading={q.isLoading} value={fmtNum(sent, lang)} />
-        <Kpi label={t('adm.lg2.rp.k.total')} loading={q.isLoading} value={fmtNum(list.length, lang)} />
-      </KpiRow>
-      <Section>
-        <DataTable data={list} columns={columns} loading={q.isLoading} error={q.isError ? q.error : undefined} onRetry={() => void q.refetch()}
-          searchable getRowId={(r) => r.id} onRowClick={(r) => setOpen(r)} empty={{ title: t('adm.lg2.rp.none') }} />
-      </Section>
+      {q.isError && !q.data ? <ErrorState onRetry={() => void q.refetch()} /> : !q.data ? (
+        <div className="flex flex-col gap-3"><div className="a-skel h-10 w-[24rem] max-w-full" /></div>
+      ) : (
+        <Verdict tone={pending.length ? 'todo' : 'ok'} kicker={t('adm.lg3.rp.kicker')}
+          headline={list.length === 0 ? t('adm.lg2.rp.none') : pending.length === 0 ? t('adm.lg3.rp.headOk', { n: list.length }) : t(pending.length === 1 ? 'adm.lg3.rp.headOne' : 'adm.lg3.rp.head', { n: pending.length })}
+          sub={list.length === 0 ? t('adm.lg3.rp.noneSub') : t('adm.lg3.rp.sub', { sent, n: decided.length })} />
+      )}
+      {pending.length > 0 && <Block title={t('adm.lg3.rp.waiting')} meta={t('adm.lg3.rp.oldest')}><Ledger>{pending.map(row)}</Ledger></Block>}
+      {decided.length > 0 && (
+        <Disclosure title={t('adm.lg3.rp.decided')} hint={String(decided.length)} defaultOpen={pending.length === 0}>
+          <Ledger>{decided.map(row)}</Ledger>
+        </Disclosure>
+      )}
       <SourceNote jurist>{t('adm.lg2.rp.note')}</SourceNote>
       {open && <ReportDrawer report={open === 'new' ? null : open} onClose={() => setOpen(null)} />}
     </Page>
