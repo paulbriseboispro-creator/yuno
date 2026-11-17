@@ -138,7 +138,7 @@ export default function DemoPage() {
         ) : (
           <DataTable data={rows} columns={columns} loading={q.isLoading} error={q.error} onRetry={() => void q.refetch()} searchable
             searchPlaceholder={t('adm.pros.dl.search')} getRowId={(r) => r.id} initialSort={[{ id: 'at', desc: true }]}
-            onRowClick={(r) => setParam('open', r.id)} toolbar={toolbar}
+            onRowClick={(r) => setParam('open', r.id)} toolbar={toolbar} selectedId={opened?.id ?? null}
             empty={{ title: t(all ? 'adm.pros.dl.empty' : 'adm.pros.dl.emptyLive'), action: <button type="button" className="a-btn a-btn--sm" onClick={() => setNewOpen(true)}>{t('adm.pros.dl.new')}</button> }} />
         )}
       </div>

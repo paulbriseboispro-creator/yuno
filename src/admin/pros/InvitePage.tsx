@@ -296,7 +296,7 @@ function InvitationsList({ onOpen }: { onOpen: (r: PendingInvite) => void }) {
       actions={<Checkbox checked={all} onChange={setAll}>{t('adm.pros.inv.showAll')}</Checkbox>}>
       <DataTable data={rows} columns={columns} loading={q.isLoading} error={q.error} onRetry={() => void q.refetch()} searchable
         getRowId={(r) => `${r.source}:${r.id}`} initialSort={[{ id: 'at', desc: true }]} empty={{ title: t('adm.pros.inv.empty') }}
-        onRowClick={onOpen} />
+        onRowClick={onOpen} selectedId={opened ? openKey : null} />
       {opened && <InviteDrawer key={openKey ?? ''} row={opened} onClose={close} />}
     </Section>
   );

@@ -127,10 +127,9 @@ export default function Deliverability() {
         </div>
       </Block>
 
-      <div className="grid grid-cols-1 gap-x-12 gap-y-10 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
         <Block title={t('adm.comms.dl.capacity')} meta={q ? t('adm.comms.dl.resets', { d: fmtDate(q.resets_on, lang) }) : undefined}>
           {!q ? <EmptyLine>{t('adm.comms.dl.capEmpty')}</EmptyLine> : (
-            <div className="flex flex-col gap-5">
+            <div className="grid grid-cols-1 gap-x-10 gap-y-5 md:grid-cols-2">
               {[
                 { l: t('adm.comms.dl.cap.pool'), u: q.pool_used, c: q.pool_cap, h: t('adm.comms.dl.cap.poolHint') },
                 { l: t('adm.comms.dl.cap.day'), u: q.day_used, c: q.day_cap },
@@ -142,18 +141,18 @@ export default function Deliverability() {
                   {r.h && <span className="a-t3 text-[12px]">{r.h}</span>}
                 </div>
               ))}
-              <p className="a-t3 text-[12px]">{t('adm.comms.dl.cap.transactional')} : <b className="a-t2 font-medium">{fmtNum(health.data?.email.transactional_month ?? 0, lang)}</b></p>
+              <p className="a-t3 self-end text-[12px]">{t('adm.comms.dl.cap.transactional')} : <b className="a-t2 font-medium">{fmtNum(health.data?.email.transactional_month ?? 0, lang)}</b></p>
             </div>
           )}
         </Block>
-        <Block title={t('adm.comms.dl.curve')} meta={t('adm.comms.dl3.sameAxis')}>
-          {deliv.isLoading ? <div className="a-skel h-40 w-full" /> : days.length === 0 ? <EmptyLine>{t('adm.comms.dl.curveEmpty')}</EmptyLine> : (
-            <HoverSync><SmallMultiples items={multiples} xLabels={xLabels} columns={2} height={52} /></HoverSync>
-          )}
-        </Block>
-      </div>
 
       <SendersBlock rows={rows} loading={senders.isLoading} ask={ask} />
+      <Fold title={t('adm.comms.dl.curve')} hint={days.length ? t('adm.comms.dl3.curveHint', { n: fmtNum(sent30, lang) }) : undefined}>
+        <EmptyLine>{t('adm.comms.dl3.curveNote')}</EmptyLine>
+        {deliv.isLoading ? <div className="a-skel h-40 w-full" /> : days.length === 0 ? <EmptyLine>{t('adm.comms.dl.curveEmpty')}</EmptyLine> : (
+          <HoverSync><SmallMultiples items={multiples} xLabels={xLabels} columns={2} height={52} /></HoverSync>
+        )}
+      </Fold>
       <WatchBlock />
 
       <Fold title={t('adm.comms.dl.tab.gmail')} hint={t('adm.comms.dl3.gmailHint')}><GmailPart ask={ask} /></Fold>
@@ -187,10 +186,12 @@ function SendersBlock({ rows, loading, ask }: { rows: Sender[]; loading: boolean
   });
   const list = useMemo(() => rows.filter((s) => !filter || s.name.toLowerCase().includes(filter.toLowerCase())).sort((a, b) => b.sent - a.sent), [rows, filter]);
   const max = Math.max(0, ...rows.map((s) => s.sent));
+  const frozenN = rows.filter(isFrozen).length;
   const pc = (a: number, b: number, d = 1) => (b >= MIN_SENT ? fmtPct((a * 100) / b, d, lang) : '—');
   return (
-    <Block title={t('adm.comms.dl.s.title')} meta={t('adm.comms.dl3.sendersMeta')}>
-      <EmptyLine>{t('adm.comms.dl.s.sub')}</EmptyLine>
+    <Fold title={t('adm.comms.dl.s.title')} defaultOpen={!!sp.get('q') || frozenN > 0}
+      hint={rows.length ? t(frozenN > 0 ? 'adm.comms.dl3.sendersHintFrozen' : 'adm.comms.dl3.sendersHint', { n: fmtNum(rows.length, lang), f: fmtNum(frozenN, lang) }) : undefined}>
+      <EmptyLine>{t('adm.comms.dl.s.sub')} {t('adm.comms.dl3.sendersOrder')}</EmptyLine>
       {rows.length > 8 && <input className="a-input max-w-[280px]" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('adm.comms.dl3.filter')} aria-label={t('adm.comms.dl3.filter')} />}
       {loading ? <div className="a-skel h-24 w-full" /> : list.length === 0 ? <EmptyLine>{t('adm.comms.dl.s.none')}</EmptyLine> : (
         <Ledger>
@@ -217,7 +218,7 @@ function SendersBlock({ rows, loading, ask }: { rows: Sender[]; loading: boolean
           ))}
         </Ledger>
       )}
-    </Block>
+    </Fold>
   );
 }
 
@@ -228,7 +229,7 @@ function WatchBlock() {
   const live = (w.data?.senders ?? []).filter((x) => new Date(x.until).getTime() > Date.now());
   const waves = (w.data?.waves ?? []).slice(0, 6);
   return (
-    <Block title={t('adm.comms.dl.g.watch')} meta={w.data ? t('adm.comms.dl3.watchMeta', { n: live.length, w: waves.length }) : undefined}>
+    <Fold title={t('adm.comms.dl.g.watch')} defaultOpen={live.length > 0} hint={w.data ? t('adm.comms.dl3.watchMeta', { n: live.length, w: waves.length }) : undefined}>
       {w.isLoading ? <div className="a-skel h-12 w-full" /> : live.length === 0 && waves.length === 0 ? <EmptyLine>{t('adm.comms.dl.g.watchNone')}</EmptyLine> : (
         <Ledger>
           {live.map((x) => (
@@ -246,7 +247,7 @@ function WatchBlock() {
           ))}
         </Ledger>
       )}
-    </Block>
+    </Fold>
   );
 }
 
