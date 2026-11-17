@@ -5,7 +5,7 @@
  */
 import { useMemo, useRef, useState } from 'react';
 import { HoverTip } from './Tip';
-import { linear, linePath, nearestIndex, niceTicks, useWidth } from './core';
+import { allIntegers, linear, linePath, nearestIndex, niceTicks, useWidth } from './core';
 import { useHoverIndex } from './Sync';
 
 export interface HeroPoint { x: string; v: number | null; prev?: number | null }
@@ -35,7 +35,8 @@ export function HeroChart({
   const n = data.length;
   const hasPrev = data.some((d) => d.prev != null);
   const max = useMemo(() => Math.max(0, ...data.map((d) => Math.max(d.v ?? 0, d.prev ?? 0))), [data]);
-  const ticks = niceTicks(max, 4);
+  const integer = useMemo(() => allIntegers(data.flatMap((d) => [d.v, d.prev])), [data]);
+  const ticks = niceTicks(max, 4, integer);
   const top = ticks[ticks.length - 1] || 1;
   const tick = formatTick ?? formatV;
   const left = Math.min(72, Math.max(36, ...ticks.map((t) => tick(t).length * 7 + 10)));
@@ -125,7 +126,11 @@ export function HeroChart({
             const last = [...data].reverse().findIndex((d) => d.prev != null);
             if (last < 0 || !labels.prev || !data.some((d) => (d.prev ?? 0) > 0)) return null;
             const i = n - 1 - last;
-            return <text x={x1} y={sy(data[i].prev ?? 0) + 14} textAnchor="end" className="a-viz-tick">{labels.prev}</text>;
+            // De l'autre côté de la courbe en cours, pour ne jamais la chevaucher.
+            const yp = sy(data[i].prev ?? 0);
+            const yc = data[i].v == null ? yp + 100 : sy(data[i].v ?? 0);
+            const below = yc < yp || yp < pad.t + 14;
+            return <text x={x1} y={below ? Math.min(height - pad.b - 4, yp + 14) : yp - 8} textAnchor="end" className="a-viz-tick">{labels.prev}</text>;
           })()}
           {hi != null && (
             <g pointerEvents="none">

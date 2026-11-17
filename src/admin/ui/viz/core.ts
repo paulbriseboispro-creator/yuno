@@ -28,16 +28,27 @@ export function linear(d0: number, d1: number, r0: number, r1: number) {
   return (v: number) => (span === 0 ? (r0 + r1) / 2 : r0 + ((v - d0) / span) * (r1 - r0));
 }
 
-/** Graduations rondes (1, 2, 5 × 10ⁿ) couvrant [0, max]. */
-export function niceTicks(max: number, count = 4): number[] {
+/**
+ * Graduations rondes (1, 2, 2,5, 5 × 10ⁿ) couvrant [0, max]. `integer` : des
+ * comptes (personnes, billets) n'ont que des graduations entières, sinon un
+ * maximum de 1 donnait « 0 ; 0,25 ; 0,5 … », lus « 0, 0, 1, 1 » une fois arrondis.
+ */
+export function niceTicks(max: number, count = 4, integer = false): number[] {
   if (!Number.isFinite(max) || max <= 0) return [0];
   const raw = max / count;
   const pow = 10 ** Math.floor(Math.log10(raw));
-  const step = [1, 2, 2.5, 5, 10].map((m) => m * pow).find((s) => s >= raw) ?? raw;
+  const mults = integer ? [1, 2, 5, 10] : [1, 2, 2.5, 5, 10];
+  let step = mults.map((m) => m * pow).find((s) => s >= raw) ?? raw;
+  if (integer) step = Math.max(1, Math.round(step));
   const top = Math.ceil(max / step) * step;
   const out: number[] = [];
   for (let v = 0; v <= top + step / 2; v += step) out.push(Math.round(v * 1e6) / 1e6);
   return out;
+}
+
+/** Vrai quand toutes les valeurs connues sont entières (des comptes, pas des montants). */
+export function allIntegers(values: Array<number | null | undefined>): boolean {
+  return values.every((v) => v == null || Number.isInteger(v));
 }
 
 /** Chemin d'une ligne brisée (les `null` coupent la ligne). */
@@ -45,7 +56,7 @@ export function linePath(pts: Array<[number, number] | null>): string {
   let d = '';
   let pen = false;
   for (const p of pts) {
-    if (!p) { pen = false; continue; }
+    if (!p || !Number.isFinite(p[0]) || !Number.isFinite(p[1])) { pen = false; continue; }
     d += `${pen ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`;
     pen = true;
   }
@@ -54,7 +65,7 @@ export function linePath(pts: Array<[number, number] | null>): string {
 
 /** Le plus proche index pour une abscisse, sur `n` points répartis de x0 à x1. */
 export function nearestIndex(x: number, n: number, x0: number, x1: number): number {
-  if (n <= 1) return 0;
+  if (n <= 1 || !Number.isFinite(x) || x1 === x0) return 0;
   const i = Math.round(((x - x0) / (x1 - x0)) * (n - 1));
   return Math.max(0, Math.min(n - 1, i));
 }

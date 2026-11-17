@@ -5,7 +5,7 @@
  */
 import { useMemo } from 'react';
 import { HoverTip } from './Tip';
-import { linear, linePath, nearestIndex, niceTicks, useWidth } from './core';
+import { allIntegers, linear, linePath, nearestIndex, niceTicks, useWidth } from './core';
 import { useHoverIndex } from './Sync';
 
 // ── Plusieurs lignes étiquetées ──────────────────────────────────────────────
@@ -35,7 +35,7 @@ export function LinesChart({ xs, series, formatX, formatV, formatTick, height = 
   const { index, setIndex } = useHoverIndex();
   const n = xs.length;
   const max = useMemo(() => Math.max(0, ...series.flatMap((s) => s.values.map((v) => v ?? 0))), [series]);
-  const ticks = niceTicks(max, 4);
+  const ticks = niceTicks(max, 4, allIntegers(series.flatMap((s) => s.values)));
   const top = ticks[ticks.length - 1] || 1;
   const tick = formatTick ?? formatV;
   const labelW = Math.min(110, Math.max(...series.map((s) => s.label.length * 6.4 + 10), 40));

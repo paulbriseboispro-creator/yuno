@@ -16,7 +16,8 @@ import type { Tone } from '../tone';
 import { biggestDrop, intensity, tintOf } from './core';
 import { useTip } from './Tip';
 
-const SERIES = ['var(--a-chart-1)', 'var(--a-chart-2)', 'var(--a-chart-3)', 'var(--a-chart-4)', 'var(--a-chart-5)'];
+// Le rouge (chart-1) n'est que l'attention : une composition prend les autres teintes.
+const SERIES = ['var(--a-chart-2)', 'var(--a-chart-3)', 'var(--a-chart-4)', 'var(--a-chart-5)', 'var(--a-text-3)'];
 
 // ── Composition ──────────────────────────────────────────────────────────────
 export interface Part {
@@ -129,7 +130,7 @@ export function RankBars({ items, max: maxIn, emptyText }: { items: Rank[]; max?
             <div className="min-w-0">
               <div className="flex items-baseline gap-2"><span className="a-t1 truncate text-[13px]">{r.label}</span>{r.sub && <span className="a-t3 truncate text-[12px]">{r.sub}</span>}</div>
               <div className="mt-1 h-1.5 rounded-full" style={{ background: 'var(--a-grid)' }}>
-                <div className="h-full rounded-full" style={{ width: `${Math.max(1.5, (r.value / max) * 100)}%`, background: i === 0 ? 'var(--a-chart-1)' : 'color-mix(in srgb, var(--a-chart-1) 55%, transparent)' }} />
+                <div className="h-full rounded-full" style={{ width: `${Math.max(1.5, (r.value / max) * 100)}%`, background: i === 0 ? 'var(--a-text-2)' : 'color-mix(in srgb, var(--a-text) 26%, transparent)' }} />
               </div>
             </div>
             <span className="a-num a-t1 text-[13px] font-medium">{r.display}</span>
