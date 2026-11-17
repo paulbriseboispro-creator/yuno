@@ -404,6 +404,7 @@ const dict: AdminDict = {
     '{templates} séries de clubs inactifs sont encore allumées et créent des brouillons ({drafts} à venir) : les éteindre.',
     '{templates} series de clubs inactivos siguen encendidas y crean borradores ({drafts} próximos): apagarlas.',
   ],
+  'adm.mad.y.buyersSpent': ['{n} {c|buyer|buyers}, {e}', '{n} {c|acheteur|acheteurs}, {e}', '{n} {c|comprador|compradores}, {e}'],
 };
 
 export default dict;

@@ -63,12 +63,12 @@ export default function YunoPage() {
           <div className="grid grid-cols-1 gap-x-10 gap-y-4 md:grid-cols-2">
             <div className="flex flex-col gap-1">
               <span className="a-kicker">{t('adm.mad.y.cameBuyers')}</span>
-              <span className="a-stat-value">{y.buyers_came ? `${n(y.buyers_came)} · ${eur(y.spend_came)}` : '0'}</span>
+              <span className="a-stat-value">{y.buyers_came ? t('adm.mad.y.buyersSpent', { n: n(y.buyers_came), c: y.buyers_came, e: eur(y.spend_came) }) : '0'}</span>
               <Note>{t('adm.mad.y.feesLine', { fees: eur(y.fees_came) })}</Note>
             </div>
             <div className="flex flex-col gap-1">
               <span className="a-kicker">{t('adm.mad.y.allBuyers')}</span>
-              <span className="a-stat-value">{y.buyers ? `${n(y.buyers)} · ${eur(y.spend)}` : '0'}</span>
+              <span className="a-stat-value">{y.buyers ? t('adm.mad.y.buyersSpent', { n: n(y.buyers), c: y.buyers, e: eur(y.spend) }) : '0'}</span>
               <Note>{t('adm.mad.y.allLine', { orders: n(y.orders), fees: eur(y.fees) })}</Note>
             </div>
           </div>

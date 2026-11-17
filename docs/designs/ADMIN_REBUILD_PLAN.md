@@ -625,6 +625,69 @@ Captures claire et sombre des écrans réécrits : `docs/designs/admin-rebuild/1
   chiffres ouvrent leur page par lien) ; Vendeurs (Légal) n'a pas le clavier des
   listes (tableau trié) ; quelques textes gardent « (s) » au lieu d'un accord.
 
+### Notes de design par page (17/11, grille de `ADMIN_DESIGN_SYSTEM.md`)
+
+Notées sur captures du banc (clair, sombre, 375 px, données riches ET pauvres) et
+sur le contrôle automatique des 46 pages (débordement, titre, graphique sans
+résumé, erreurs de rendu, motifs de jargon : **zéro partout** après la passe).
+**Limite assumée : pas sur des données de prod rejouées** (lecture de la prod
+refusée dans la session d'intégration), sauf Madrid (réponses réelles du 17/11).
+« Avant » = la page à la revue de la session principale (jargon, « (s) », formes
+vides ou illisibles) ; « Après » = cette passe. 29 pages sur 47 à 9.
+
+| Page | Avant | Après | Ce qui la sépare encore de 9 (ou de 10) |
+|---|---|---|---|
+| Aujourd'hui › À traiter | 8 | 9 | — |
+| Aujourd'hui › Alertes | 5 | 9 | — |
+| Aujourd'hui › Support et retours | 5 | 9 | — |
+| Pilotage › Vue d'ensemble | 8 | 9 | — |
+| Pilotage › Acquisition | 5 | 9 | — |
+| Pilotage › Rétention | 8 | 8.5 | Grille de cohortes dense, pas de clavier dans la liste des pros à risque. |
+| Pilotage › Audience | 7 | 9 | — |
+| Pilotage › Produit | 7 | 8 | Pas de héros ni de graphique : des listes juxtaposées ; noms d'outils de l'IA seulement mis en mots. |
+| Madrid › Verdict | 7 | 9 | — |
+| Madrid › Clubs et soirées | 8 | 8.5 | « Sorties par nuit » : petit calendrier presque vide. |
+| Madrid › Audience | 8 | 9 | — |
+| Madrid › Effet sur Yuno | 7 | 8.5 | Beaucoup de chiffres à zéro en ligne, peu de hiérarchie. |
+| Madrid › Santé de l'offre | 8 | 9 | — |
+| Pros › Tous les comptes | 6 | 9 | — |
+| Pros › Fiche d'un compte | 5 | 9 | — |
+| Pros › Prospects | 8 | 9 | — |
+| Pros › Inviter | 8 | 8.5 | Formulaire long ; le chiffre en tête n'est qu'un compte de places. |
+| Pros › Démo | 8 | 8.5 | Données de banc vides : jugée surtout sur ses états vides. |
+| Pros › Accès assisté | 7 | 8.5 | Journal en mots, mais liste et journal ne partagent pas le clavier commun. |
+| Clients › Vue d'ensemble | 5 | 9 | — |
+| Clients › Tous les clients | 8 | 9 | — |
+| Clients › Soirées | 8 | 8 | Banc vide : seuls les états vides ont été vus. |
+| Clients › Annuaire | 8 | 8 | Banc vide : seuls les états vides ont été vus. |
+| Clients › Fiche d'une personne | 6 | 9 | — |
+| Argent › Ventes | 6 | 8.5 | Au banc, « billets vendus 0 » à côté de 558 transactions : à vérifier sur la prod. |
+| Argent › Commandes | 8 | 9 | — |
+| Argent › À régler | 7 | 9 | — |
+| Argent › Abonnements et Yunits | 8 | 9 | — |
+| Argent › Coûts et marge | 5 | 9 | — |
+| Communication › Campagnes | 7 | 8.5 | « Rythme d'envoi » : calendrier presque vide tant qu'il y a peu d'envois. |
+| Communication › Notifications automatiques | 8 | 8.5 | Tableau des règles dense ; variables de modèle visibles (voulues). |
+| Communication › Délivrabilité | 6 | 8.5 | Page longue : l'essentiel ne tient pas en un écran. |
+| Communication › Page bio | 8 | 9 | — |
+| Légal › Vue d'ensemble | 6 | 9 | — |
+| Légal › Demandes RGPD | 7 | 9 | — |
+| Légal › Consentements | 6 | 8.5 | Tableau par produit dense ; jugé sur données d'exemple écrites dans cette passe. |
+| Légal › Conditions | 5 | 9 | — |
+| Légal › Vendeurs | 8 | 8.5 | Liste en tableau trié : pas de clavier j / k. |
+| Légal › Incidents | 8 | 9 | — |
+| Légal › Signalements | 8 | 9 | — |
+| Légal › Documents | 6 | 9 | — |
+| Légal › Journal | 7 | 8.5 | Filtres en champs libres ; aucune donnée au banc. |
+| Système › Santé technique | 5 | 9 | — |
+| Système › Interrupteurs | 8 | 9 | — |
+| Système › Offre et tarifs | 7 | 8 | Écran de réglage dense, sans phrase-réponse en tête. |
+| Système › Connecteurs | 6 | 8.5 | Graphique de requêtes par heure peu expliqué. |
+| Système › IA | 7 | 9 | — |
+
+Aucune page à 10 : il manque pour cela la vérification sur données de prod
+rejouées, et la lecture d'un écran de bout en bout par Paul.
+
 ### Visites et Madrid : la correction à faire en base (17/11, non appliquée)
 
 Constat de la rubrique Madrid (`docs/designs/ADMIN_MADRID.md` § 6) : sur 30 jours,
