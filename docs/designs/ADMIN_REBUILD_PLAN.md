@@ -688,6 +688,44 @@ vides ou illisibles) ; « Après » = cette passe. 29 pages sur 47 à 9.
 Aucune page à 10 : il manque pour cela la vérification sur données de prod
 rejouées, et la lecture d'un écran de bout en bout par Paul.
 
+### Rejeu sur données de prod (18/11)
+
+Les 46 pages rejouées avec les réponses réelles de la prod (66 lectures fournies par
+la session principale, hors dépôt, branchées par chemin absolu sur le banc) : aucune
+erreur de rendu, aucun débordement, un seul mot technique (`signup_research`,
+traduit). Pages remontées à 9 sur ces données :
+
+| Page | Note banc | Note réelle | Ce qui a changé |
+|---|---|---|---|
+| Pilotage › Produit | 8 | 9 | Héros : pages vues, puis visites d'une soirée → billets → entrées à la porte. |
+| Système › Offre et tarifs | 8 | 9 | Phrase-réponse en tête : palier en vigueur et ce qui le fera changer. |
+| Argent › Ventes | 8.5 | 9 | « 0 billet » était un trou du banc : 574 billets sur la prod. |
+| Communication › Délivrabilité | 8.5 | 9 | Verdict, seuils et capacité en un écran ; courbe, comptes, surveillance repliés (ouverts d'office si un compte est sous garde). |
+| Légal › Vendeurs | 8.5 | 9 (banc) | j / k / entrée dans l'ordre affiché, ligne ouverte surlignée ; lecture réelle non fournie. |
+
+34 pages sur 47 à 9. Restent sous 9, et pourquoi :
+
+- **Jugées sans données réelles** (lectures non fournies, notées sur le banc) :
+  Légal (Vue d'ensemble, Consentements, Conditions, Vendeurs, Incidents, Signalements,
+  Journal, Demandes RGPD), Système › Santé technique, Argent › Abonnements et Yunits,
+  Pilotage › Produit (partie CRM), Notifications automatiques, Clients › Soirées et
+  Annuaire (lecture directe de tables). Lectures à rejouer, avec les arguments du front :
+  `admin_orders_list` (p_kind tickets / tables / guestlist, p_limit 25),
+  `admin_legal_overview`, `admin_legal_terms`, `admin_legal_consents`,
+  `admin_legal_sellers {p_year 2026}`, `admin_legal_incidents`, `admin_legal_audit`,
+  `admin_privacy_requests`, `admin_content_reports`, `admin_release_health`,
+  `crm_admin_platform / money / product / feedback / pipeline / targets / landing /
+  activity / lifecycle`, `get_auto_push_stats`, `demo_event_ids`.
+- **Pilotage › Rétention (8.5)** : grille de cohortes dense ; la liste des pros à risque
+  mène à la fiche (pas d'aperçu, donc pas de j / k : volontaire).
+- **Madrid › Clubs et soirées (8.5)**, **Communication › Campagnes (8.5)** : calendriers
+  presque vides tant que l'activité est faible ; à revoir quand il y aura du volume.
+- **Madrid › Effet sur Yuno (8.5)** : beaucoup de zéros en ligne, peu de hiérarchie.
+- **Pros › Inviter, Démo (8.5)** : j / k ajoutés ; formulaire d'invitation long.
+- **Pros › Accès assisté (8.5)** : la liste mène à la fiche du pro (pas d'aperçu).
+- **Légal › Consentements, Journal ; Système › Connecteurs (8.5)** : tableau dense,
+  filtres en champs libres, graphique de requêtes par heure peu expliqué.
+
 ### Visites et Madrid : la correction à faire en base (17/11, non appliquée)
 
 Constat de la rubrique Madrid (`docs/designs/ADMIN_MADRID.md` § 6) : sur 30 jours,
