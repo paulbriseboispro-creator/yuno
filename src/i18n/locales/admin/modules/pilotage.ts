@@ -340,6 +340,8 @@ const pilotage: AdminDict = {
   'adm.pil.v3u.lost.checkoutOne': ['1 saw a night without opening checkout', '1 a vu une soirée sans ouvrir le paiement', '1 vio una noche sin abrir el pago'],
   'adm.pil.v3u.lost.purchaseOne': ['1 opened checkout without buying', '1 a ouvert le paiement sans acheter', '1 abrió el pago sin comprar'],
   'adm.pil.v3i.noHealth': ['No call over the period: no error rate or response time to read.', 'Aucun appel sur la période : ni taux d’erreur ni temps de réponse à lire.', 'Ninguna llamada en el periodo: ni tasa de error ni tiempo de respuesta.'],
+  'adm.pil.madridNote': ['These visits still include the Madrid marketplace pages and their robots (about 12 % of sessions over 30 days). A database fix is planned.', 'Ces visites comptent encore les pages de la marketplace de Madrid et leurs robots (environ 12 % des sessions sur 30 jours). Une correction en base est prévue.', 'Estas visitas aún incluyen las páginas del marketplace de Madrid y sus robots (cerca del 12 % de las sesiones en 30 días). Hay una corrección prevista en la base.'],
+  'adm.pil.madridNote.link': ['See Madrid', 'Voir Madrid', 'Ver Madrid'],
 };
 
 export default pilotage;

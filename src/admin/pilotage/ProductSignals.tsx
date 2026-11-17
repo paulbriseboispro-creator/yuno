@@ -10,6 +10,7 @@
  * Lecture : admin_product_insights (une RPC, démo selon l'interrupteur).
  * Pilier boissons en pause : la réponse « boisson » du quiz de goûts n'est pas montrée.
  */
+import { MadridVisitsNote } from './MadridVisitsNote';
 import { Link } from 'react-router-dom';
 import { Block, BulletBar, ErrorState, RankBars, StatStrip, useAdminFilters, useAdminT, DenseRows, Fold, Status } from '@/admin/ui';
 import { fmtDate, fmtNum, fmtPct, fmtRelative } from '@/lib/adminFormat';
@@ -155,6 +156,7 @@ export default function ProductSignals() {
         </Fold>
 
         <Fold title={t('adm.pl.sig.taste')} hint={t('adm.product.tasteN', { n: n(d.taste.profiles) })}>
+          <MadridVisitsNote />
           <div className="grid grid-cols-1 gap-x-10 gap-y-8 md:grid-cols-2 xl:grid-cols-3">
             <MiniRank title={t('adm.product.taste.genres')} items={kv(d.taste.genres)} />
             <MiniRank title={t('adm.product.taste.night_type')} items={kv(d.taste.night_type)} />

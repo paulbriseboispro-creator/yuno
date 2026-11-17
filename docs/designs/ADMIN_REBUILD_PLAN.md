@@ -597,6 +597,29 @@ l'intégration :
 Captures claire et sombre des écrans réécrits : `docs/designs/admin-rebuild/14-*`
 à `22-*`.
 
+### Visites et Madrid : la correction à faire en base (17/11, non appliquée)
+
+Constat de la rubrique Madrid (`docs/designs/ADMIN_MADRID.md` § 6) : sur 30 jours,
+956 sessions sur 8 201 (12 %) ont vu une page de la marketplace de Madrid, dont 839
+robots. Trois lectures les comptent comme des visites de Yuno, parce qu'elles lisent
+`platform_sessions` / `platform_page_views` sans filtre et que `platform_page_group`
+range `/affiliate-event/%` dans `event` et `/affiliate-venue/%` dans `venue` :
+
+| Fonction | Ce qui est pollué | Filtre à ajouter |
+|---|---|---|
+| `get_platform_traffic` (Pilotage › Audience : héros, tunnel, canaux, référents, small multiples) | sessions, visiteurs, pages vues, l'étape « soirée vue » du tunnel | écarter les sessions dont TOUTES les pages sont `/affiliate-event/%`, `/affiliate-venue/%` (marketplace seule) ; écarter partout `public._admin_madrid_is_robot(s.is_native, s.browser, s.country, s.channel)` ; ne compter « soirée vue » que sur `/event/`, `/events/`, `/club/…/event/` |
+| `admin_product_insights` (Pilotage › Produit › pays et appareils des sessions) | `audience.session_countries`, `audience.session_devices` | les deux mêmes filtres sur le CTE des sessions |
+| `admin_cockpit` (bloc `traffic`, s'il est lu par une page) | visites du jour / de la période | les deux mêmes filtres |
+
+Règles de la migration : `_admin_madrid_is_robot` existe déjà (migration
+`20261218180000`) et devient la règle unique d'un robot pour toute la mesure
+plateforme ; chaque fonction repart de `pg_get_functiondef` de la prod ; la démo
+reste filtrée par CTE matérialisé ; mesurer avant / après sur 30 jours (la baisse
+attendue est d'environ 12 % des sessions). Tant qu'elle n'est pas appliquée,
+`src/admin/pilotage/MadridVisitsNote.tsx` le dit sous le héros de Pilotage ›
+Audience et dans Pilotage › Produit (à retirer avec la migration). La barre de pouls
+ne montre que des ventes : elle n'est pas concernée.
+
 ## 8. Conventions pour les lots 1 à 6
 
 1. **Où poser une page** : dans le dossier de SA rubrique,

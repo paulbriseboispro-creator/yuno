@@ -16,6 +16,7 @@ import { Block, ErrorState, Hero, HeroChart, HoverSync, Page, RankBars, SmallMul
 import { fmtAxisDay, fmtNum, fmtPct } from '@/lib/adminFormat';
 import { useBuyers, useInstalls, useTraffic } from './data';
 import { shareOrNull } from './rules';
+import { MadridVisitsNote } from './MadridVisitsNote';
 
 const FUNNEL = ['sessions', 'event_views', 'checkouts', 'purchases'] as const;
 const FUNNEL_LABEL: Record<(typeof FUNNEL)[number], string> = { sessions: 'sessions', event_views: 'event', checkouts: 'checkout', purchases: 'purchase' };
@@ -94,6 +95,7 @@ export default function AudiencePage() {
             </Block>
           )}
         />
+        <MadridVisitsNote />
       </HoverSync>
 
       <Block title={t('adm.pil.aud.funnel')} meta={conv == null ? t('adm.pil.aud.funnelNote') : t('adm.pil.v3u.convMeta', { pct: fmtPct(conv * 100, 1, lang) })}>
