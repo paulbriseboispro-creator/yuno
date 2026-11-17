@@ -52,11 +52,13 @@ export interface DataTableProps<T> {
   getRowId?: (row: T, index: number) => string;
   /** Recherche déjà posée à l'ouverture (lien « voir ce compte » d'une autre page, `?q=`). */
   initialSearch?: string | null;
+  /** Sans boîte : un filet en haut et en bas (un tableau posé dans un Block). */
+  bare?: boolean;
 }
 
 export function DataTable<T>({
   data, columns, loading, error, onRetry, searchable, searchPlaceholder, pageSize = 25,
-  initialSort = [], onRowClick, rowHref, empty, toolbar, getRowId, initialSearch,
+  initialSort = [], onRowClick, rowHref, empty, toolbar, getRowId, initialSearch, bare,
 }: DataTableProps<T>) {
   const { t, lang: language } = useAdminT();
   const navigate = useNavigate();
@@ -151,7 +153,7 @@ export function DataTable<T>({
   }
 
   return (
-    <div className="a-card overflow-hidden">
+    <div className={bare ? 'a-table-bare border-y' : 'a-card overflow-hidden'}>
       {(searchable || toolbar) && (
         <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2.5">
           {searchable && (

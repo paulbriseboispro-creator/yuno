@@ -65,7 +65,7 @@ export default function Push() {
       </section>
       <Block title={t('adminPush.history')} meta={String(rows.length)}>
         <DataTable data={q.data} columns={cols} loading={q.isLoading} error={q.error} onRetry={() => void q.refetch()} searchable getRowId={(r) => r.id}
-          initialSort={[{ id: 'date', desc: true }]} empty={{ title: t('adminPush.noCampaigns') }} />
+          initialSort={[{ id: 'date', desc: true }]} empty={{ title: t('adminPush.noCampaigns') }} bare />
       </Block>
       {open && <NewPush onClose={() => { setOpen(false); if (sp.has('new')) setSp((prev) => { const n = new URLSearchParams(prev); n.delete('new'); return n; }, { replace: true }); }} />}
     </Page>

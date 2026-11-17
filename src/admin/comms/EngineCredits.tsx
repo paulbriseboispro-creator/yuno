@@ -53,7 +53,7 @@ export default function EngineCredits({ data }: { data: EngineOverview }) {
       <SettingsGroup title={t('adm.engine.creditsPolicy')} hint={t('adm.comms.en.cr.policyHint')} fields={CREDIT_FIELDS} settings={data.settings} hintPrefix="adm.comms.en.pol" />
       <Block title={t('adm.engine.accounts')}>
         <DataTable data={q.data} columns={cols} loading={q.isLoading} error={q.error} onRetry={() => void q.refetch()} searchable getRowId={(r) => r.scope}
-          empty={{ title: t('adm.engine.noAccounts') }} />
+          empty={{ title: t('adm.engine.noAccounts') }} bare />
       </Block>
 
       {grant && (

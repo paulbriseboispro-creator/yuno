@@ -150,7 +150,7 @@ export default function CrmMoneyPage() {
       </div>
 
       <Block title={t('adm.mon.crm.margin')} meta={t('adm.mon.crm.marginSub')}>
-        <DataTable data={d?.margin} columns={marginCols} loading={!d} pageSize={10} initialSort={[{ id: 'margin', desc: false }]} getRowId={(r) => r.id} />
+        <DataTable data={d?.margin} columns={marginCols} loading={!d} pageSize={10} initialSort={[{ id: 'margin', desc: false }]} getRowId={(r) => r.id} bare />
       </Block>
     </Page>
   );

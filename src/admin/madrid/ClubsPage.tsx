@@ -115,7 +115,7 @@ export default function ClubsPage() {
       <Block title={t('adm.mad.e.title')} meta={t('adm.mad.e.meta')}>
         <DataTable data={d?.events} columns={eventCols} loading={!d} pageSize={15} searchable searchPlaceholder={t('adm.mad.e.search')}
           getRowId={(r) => r.key} initialSort={[{ id: 'exits', desc: true }]}
-          empty={{ title: t('adm.mad.e.empty') }} />
+          empty={{ title: t('adm.mad.e.empty') }} bare />
         <Note>{t('adm.mad.e.rule')}</Note>
       </Block>
 

@@ -151,7 +151,7 @@ export default function OverviewPage() {
 
       <div className="grid grid-cols-1 gap-10 xl:grid-cols-[minmax(0,1fr)_340px]">
         <Block title={t('adm.pil.ov.monthsTitle')} meta={t('adm.pil.v3.monthsMeta')}>
-          <DataTable data={d ? [...months].reverse() : null} columns={monthColumns} loading={!d} error={q.error} onRetry={() => void q.refetch()} pageSize={12} />
+          <DataTable data={d ? [...months].reverse() : null} columns={monthColumns} loading={!d} error={q.error} onRetry={() => void q.refetch()} pageSize={12} bare />
         </Block>
         <Block title={t('adm.pil.ov.concTitle')}>
           {!conc ? <div className="a-skel h-40 w-full" /> : (
