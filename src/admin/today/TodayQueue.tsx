@@ -6,18 +6,17 @@
  *                  compte, ses faits), et les gestes : action, Traité, Plus tard.
  * Raccourcis de la page : j / k, entrée (action), e (traité), l (plus tard, un jour).
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowUpRight, Check, Clock, RotateCcw } from 'lucide-react';
 import { notifLink, type AppNotif, type FeedConfig } from '@/lib/notifications';
 import { fmtDate, fmtEur, fmtRelative } from '@/lib/adminFormat';
-import { Badge, KeyValue, Status, useAdminT, type KeyValueItem } from '@/admin/ui';
+import { Badge, KeyValue, Status, useAdminT, useListKeys, type KeyValueItem } from '@/admin/ui';
 import type { Tone } from '@/admin/ui';
 import { daysUntil, groupByUrgency, type TodayItem, type Urgency } from './queue';
 import { useMarkItem } from './data';
 import { subjectAccountKey } from './brief';
 import { useAccount } from '../pros/data';
-import { isTyping } from '../shell/keys';
 
 const ADMIN_FEED: FeedConfig = {
   table: 'admin_notifications', filterColumn: 'scope', filterValue: 'platform', basePath: '/admin',
@@ -47,24 +46,20 @@ function useItemTitle() {
   };
 }
 
-/** Sélection au clavier : j / k bougent, entrée agit, e traite, l reporte d'un jour. */
+/** Le clavier commun des listes (j / k / entrée), plus e (traité) et l (plus tard, un jour). */
 export function useQueueKeys(order: TodayItem[], selected: string | null, setSelected: (k: string) => void) {
   const navigate = useNavigate();
   const mark = useMarkItem();
-  useEffect(() => {
-    const on = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target) || order.length === 0) return;
-      const i = Math.max(0, order.findIndex((x) => x.key === selected));
-      const cur = order[i];
-      if (e.key === 'j' || e.key === 'ArrowDown') { e.preventDefault(); setSelected(order[Math.min(order.length - 1, i + 1)].key); }
-      else if (e.key === 'k' || e.key === 'ArrowUp') { e.preventDefault(); setSelected(order[Math.max(0, i - 1)].key); }
-      else if (e.key === 'Enter' && cur) { const h = hrefOf(cur); if (/^https?:/.test(h)) window.open(h, '_blank', 'noopener'); else navigate(h); }
-      else if (e.key === 'e' && cur && !cur.mark) { mark.mutate({ key: cur.key, status: 'done' }); setSelected(order[Math.min(order.length - 1, i + 1)]?.key ?? cur.key); }
-      else if (e.key === 'l' && cur && !cur.mark) { mark.mutate({ key: cur.key, status: 'snoozed', days: 1 }); setSelected(order[Math.min(order.length - 1, i + 1)]?.key ?? cur.key); }
+  const idOf = useCallback((x: TodayItem) => x.key, []);
+  const open = useCallback((x: TodayItem) => { const h = hrefOf(x); if (/^https?:/.test(h)) window.open(h, '_blank', 'noopener'); else navigate(h); }, [navigate]);
+  const extra = useMemo(() => {
+    const next = (i: number) => order[Math.min(order.length - 1, i + 1)]?.key;
+    return {
+      e: (x: TodayItem, i: number) => { if (x.mark) return; mark.mutate({ key: x.key, status: 'done' }); setSelected(next(i) ?? x.key); },
+      l: (x: TodayItem, i: number) => { if (x.mark) return; mark.mutate({ key: x.key, status: 'snoozed', days: 1 }); setSelected(next(i) ?? x.key); },
     };
-    window.addEventListener('keydown', on);
-    return () => window.removeEventListener('keydown', on);
-  }, [order, selected, setSelected, navigate, mark]);
+  }, [order, mark, setSelected]);
+  useListKeys(order, idOf, selected, setSelected, open, extra);
 }
 
 export function QueueList({ items, selected, onSelect }: { items: TodayItem[]; selected: string | null; onSelect: (k: string) => void }) {
@@ -84,7 +79,7 @@ export function QueueList({ items, selected, onSelect }: { items: TodayItem[]; s
               const on = it.key === selected;
               const when = it.due_at ? t('adm.today.due', { when: fmtDate(it.due_at, lang, 'short') }) : it.at ? fmtRelative(it.at, lang) : '';
               return (
-                <li key={it.key} role="option" aria-selected={on}>
+                <li key={it.key} role="option" aria-selected={on} data-row-id={it.key}>
                   <button type="button" onClick={() => onSelect(it.key)}
                     className={`a-focus flex w-full items-center gap-3 border-0 border-b bg-transparent px-2 py-2 text-left font-[inherit] hover:bg-[var(--a-hover)] ${on ? 'a-row-active' : ''}`}
                     style={{ cursor: 'pointer', opacity: it.mark ? 0.55 : 1 }}>

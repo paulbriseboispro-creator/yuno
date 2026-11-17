@@ -10,14 +10,13 @@
  * global. Rembourser passe par `owner-refund` (super admin autorisé, journal
  * d'audit). Le bar (pilier en pause) n'a pas de puce.
  */
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { RotateCcw, Search, X } from 'lucide-react';
-import { ErrorState, KeyValue, Page, ReasonDialog, SplitView, useAdminFilters, useAdminT, type Tone, Chips, Status } from '@/admin/ui';
+import { ErrorState, KeyValue, Page, ReasonDialog, SplitView, useAdminFilters, useAdminT, type Tone, Chips, Status, useListKeys } from '@/admin/ui';
 import { supabase } from '@/integrations/supabase/client';
 import { fmtDate, fmtEur, fmtNum, fmtPct } from '@/lib/adminFormat';
-import { isTyping } from '../shell/keys';
 import { ORDERS_PAGE_SIZE, refundSale, useOrders, type OrderKind, type OrderRow } from './data';
 import { parseOpen } from './orderLink';
 import { TextLink } from '../pilotage/links';
@@ -46,11 +45,11 @@ export default function OrdersPage() {
   useEffect(() => { const h = setTimeout(() => setDebounced(search.trim()), 300); return () => clearTimeout(h); }, [search]);
   useEffect(() => { setPage(0); }, [kind, debounced, status, includeDemo]);
 
-  const setParams = (patch: Record<string, string | null>) => setSp((prev) => {
+  const setParams = useCallback((patch: Record<string, string | null>) => setSp((prev) => {
     const n = new URLSearchParams(prev);
     Object.entries(patch).forEach(([k, v]) => { if (v == null || v === '' || v === 'all' || (k === 'tab' && v === 'tickets')) n.delete(k); else n.set(k, v); });
     return n;
-  }, { replace: true });
+  }, { replace: true }), [setSp]);
 
   const q = useOrders(kind, debounced, status, page, includeDemo);
   const d = q.data;
@@ -66,20 +65,13 @@ export default function OrdersPage() {
   const [amount, setAmount] = useState('');
 
   const statuses = isGuest ? ['all', 'registered', 'entered', 'cancelled'] : ['all', 'paid', 'confirmed', 'pending', 'refunded', 'cancelled'];
-  const choose = (r: OrderRow) => { if (isGuest) { setPicked(r.id); setParams({ open: null }); } else { setPicked(null); setParams({ open: `${openType}:${r.id}` }); } };
+  const choose = useCallback((r: OrderRow) => { if (isGuest) { setPicked(r.id); setParams({ open: null }); } else { setPicked(null); setParams({ open: `${openType}:${r.id}` }); } }, [isGuest, openType, setParams]);
 
-  // j / k dans la liste, Échap ferme l'aperçu.
-  useEffect(() => {
-    const on = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || isTyping(e.target) || rows.length === 0) return;
-      const i = rows.findIndex((r) => r.id === selectedId);
-      if (e.key === 'j' || e.key === 'ArrowDown') { e.preventDefault(); choose(rows[Math.min(rows.length - 1, i + 1)]); }
-      else if (e.key === 'k' || e.key === 'ArrowUp') { e.preventDefault(); choose(rows[Math.max(0, i < 0 ? 0 : i - 1)]); }
-      else if (e.key === 'Escape') { setPicked(null); setParams({ open: null }); }
-    };
-    window.addEventListener('keydown', on);
-    return () => window.removeEventListener('keydown', on);
-  });
+  // Le clavier commun des listes (j / k / entrée), plus Échap qui ferme l'aperçu.
+  const idOf = useCallback((r: OrderRow) => r.id, []);
+  const pick = useCallback((id: string) => { const r = rows.find((x) => x.id === id); if (r) choose(r); }, [rows, choose]);
+  const keys = useMemo(() => ({ Escape: () => { setPicked(null); setParams({ open: null }); } }), [setParams]);
+  useListKeys(rows, idOf, selectedId, pick, choose, keys);
 
   const summary = !d ? null : isGuest ? (
     t('adm.mon.v3o.sumGuest', {
@@ -120,7 +112,7 @@ export default function OrdersPage() {
                 {rows.map((r) => {
                   const on = r.id === selectedId;
                   return (
-                    <li key={r.id} role="option" aria-selected={on}>
+                    <li key={r.id} role="option" aria-selected={on} data-row-id={r.id}>
                       <button type="button" onClick={() => choose(r)}
                         className={`a-focus grid w-full grid-cols-[6.5rem_minmax(0,1.2fr)_minmax(0,1.4fr)_5.5rem_6.5rem] items-center gap-3 border-0 border-b bg-transparent px-2 py-1.5 text-left font-[inherit] text-[13px] hover:bg-[var(--a-hover)] ${on ? 'a-row-active' : ''}`}
                         style={{ cursor: 'pointer' }}>
