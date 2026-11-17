@@ -597,6 +597,34 @@ l'intégration :
 Captures claire et sombre des écrans réécrits : `docs/designs/admin-rebuild/14-*`
 à `22-*`.
 
+### Passe v3, intégration et consolidation (17/11)
+
+- **Réunies** dans `claude/admin-rebuild-integration-024194` : Pros et Clients,
+  reste de Pilotage et Argent, Légal / Communication / Système (v3), et la
+  **neuvième rubrique Madrid** (`src/admin/madrid/`, doc `ADMIN_MADRID.md`, icône
+  repère, raccourci `g d`, migration `20261218180000` appliquée en prod).
+- **Un seul kit** : les formes composées localement (`pros/v3.tsx`,
+  `pilotage/v3.tsx`, `legal/parts.tsx`, `comms/Meter.tsx`, `Columns` / `Rule` de
+  Madrid) sont remontées dans `src/admin/ui` et supprimées des rubriques (liste
+  dans `ADMIN_DESIGN_SYSTEM.md`). Tons d'état ramenés aux cinq du kit
+  (`stateTone`). Clavier des listes unique (`useListKeys`) pour Aujourd'hui,
+  Pros, Prospects, Clients, Commandes.
+- **Corrigé au passage** : graduations en double sur de petits comptes,
+  étiquette « période précédente » sur la courbe, rouge sur des barres qui ne
+  signalent rien, lignes et index cassés par un `NaN`, tableaux en carte sous un
+  titre de section (un tableau sans barre est désormais posé sans boîte),
+  en-tête de page, fil d'activité, tableaux denses et barres d'outils à 375 px.
+- **Vérifié au banc** (46 pages, 375 et 768 px, contrôle automatique de
+  débordement et de résumé des graphiques) : aucune page ne défile en largeur.
+  Madrid rejouée avec les vraies réponses de la prod du 17/11 ; les autres
+  rubriques avec des données d'exemple (riches et pauvres). Captures finales :
+  `docs/designs/admin-rebuild/v3-final-*`.
+- **Reste** : rejouer Pros, Clients, Argent, Communication, Légal, Système avec
+  les vraies réponses de la prod (lecture en prod non autorisée dans la session
+  d'intégration) ; `DrillDrawer` n'est branché que sur Clients (les autres
+  chiffres ouvrent leur page par lien) ; Vendeurs (Légal) n'a pas le clavier des
+  listes (tableau trié) ; quelques textes gardent « (s) » au lieu d'un accord.
+
 ### Visites et Madrid : la correction à faire en base (17/11, non appliquée)
 
 Constat de la rubrique Madrid (`docs/designs/ADMIN_MADRID.md` § 6) : sur 30 jours,
