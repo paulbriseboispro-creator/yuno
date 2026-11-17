@@ -1,105 +1,128 @@
-# Admin Yuno : système de design (17/11/2026)
+# Admin Yuno : système de design v3 (17/11/2026)
 
-Une page de référence pour tout écran de `/admin`. Elle se voit en vrai sur la
-page cachée **`/admin/system/ui`** (toutes les primitives, tous les graphiques).
-Code : `src/admin/ui/` (tokens `--a-*` dans `admin.css`).
+La v2 était propre et monotone : chaque page = six tuiles égales + un graphique
+Recharts + un tableau, dans des cartes bordées. Aucune hiérarchie, aucune forme
+propre à la question. La v3 compose chaque page pour SA question.
+Page vivante : **`/admin/system/ui`** (toutes les primitives, données d'exemple).
+Code : `src/admin/ui/` (tokens `--a-*` dans `admin.css`, dessins SVG dans `viz/`).
 
-## Sources
+## Ce qu'on a lu, et ce qu'on en garde
 
-Radix Colors (échelles à 12 pas, rôle de chaque pas : 1-2 fonds, 3-5 composants,
-6-8 bordures, 9-10 aplats, 11-12 texte) ; Stephen Few (un coup d'œil, haut à
-gauche = le plus important, contexte d'un chiffre = sa comparaison, couleur rare) ;
-IBM Carbon (palette catégorielle courte et ordonnée, statuts réservés, jamais la
-couleur seule) ; Linear / Vercel / Stripe (neutres, un accent, densité de
-tableau, en-tête fin) ; Refactoring UI (hiérarchie par le poids et le gris avant la
-couleur). Palettes de graphiques passées au validateur de la skill `dataviz`
-(bande de luminosité, chroma, écart en vision normale et daltonienne, contraste).
+| Source | Ce qu'on retient |
+|---|---|
+| Stephen Few, *Information Dashboard Design* | Un écran se lit d'un coup d'œil ; le plus important en haut à gauche, en plus grand ; un chiffre sans contexte (comparaison, objectif) ne dit rien ; bullet graph plutôt que jauge ; sparklines pour la tendance ; les erreurs classiques (décoration, couleurs inutiles, contexte absent, tout au même poids). |
+| Edward Tufte | Rapport encre / donnée : retirer bordures, fonds, grilles lourdes ; small multiples sur un même axe ; étiquetage direct plutôt que légende ; sparklines de la taille d'un mot. |
+| Gestalt, attributs préattentifs | Proximité et alignement groupent mieux que des boîtes ; couleur, taille et position se voient avant la lecture : n'en mettre qu'UNE en avant par page. |
+| Bach et al., *Dashboard Design Patterns* (IEEE VIS 2022) | Penser en patrons : abstraction (valeur, tendance, détail), méta (période, référence, filtre), structure (hiérarchie, ouverture du détail), interaction (survol, sélection, navigation). |
+| Stripe Dashboard / Sigma | Une grande valeur, sa courbe juste dessous, la période précédente en gris, la plage qu'on glisse. Des chiffres qui ouvrent leur liste. |
+| Linear | Boîte de traitement : liste dense à gauche, contexte à droite, j / k / e, « ? » pour l'aide ; barre latérale repliable ; rien de décoratif. |
+| Superhuman | Traiter une file au clavier sans quitter l'écran ; l'action principale toujours au même endroit. |
+| Vercel Observability, Datadog, Grafana | Feu d'état = un point + un mot, regroupés dans une barre ; la santé lisible partout, pas sur une seule page. |
+| Statuspage | Disponibilité = 30 barres d'un jour, couleur selon l'état, survol pour le détail. |
+| Amplitude, Mixpanel | Entonnoir en étapes horizontales, la perte écrite entre deux étapes ; cohortes en triangle teinté. |
+| Baremetrics, ChartMogul | MRR en cascade (nouveau, expansion, perte) ; composition d'un revenu en barre à 100 %. |
+| Observable Plot, visx | Dessiner sur mesure en SVG quand une bibliothèque impose sa forme : marques fines, une échelle, étiquettes directes. |
+| skill `dataviz` | Une seule échelle par graphique ; grand chiffre en chiffres proportionnels, colonnes en tabulaires ; réticule qui suit l'axe X ; texte en encre, jamais en couleur de série ; couleurs d'état réservées. |
 
-## Principes
+## Douze règles
 
-1. **Le rouge est le seul accent**, et il est rare : bouton principal, entrée de
-   menu active, anneau de focus, onglet actif, série principale d'un graphique.
-2. **Le rouge ne veut jamais dire « mauvais ».** Un écart négatif s'écrit en encre
-   neutre avec sa flèche vers le bas ; un écart positif en vert sobre. Un état se
-   dit par un mot + une pastille ou un badge : ambre = « à traiter / attention »,
-   aplat bordeaux plein = « en retard / en échec / critique ». Jamais la couleur seule.
-3. **Une page = une question** : en-tête (question, une ligne de sous-titre,
-   période et actions à droite) → 4 à 6 chiffres → le graphique principal → la
-   liste → le détail replié.
-4. **Hiérarchie par le gris et le poids** avant la couleur. Trois niveaux d'encre.
-5. **Clair et sombre soignés pareil** : le sombre a ses propres pas, pas une inversion.
+1. **Un héros par page.** En tête, LA réponse : une phrase calculée, un grand chiffre
+   (56 px, chiffres proportionnels, interlettrage −0,03 em), son graphique collé dessous.
+2. **Tout le reste pèse moins.** Bande de stats sans boîtes (libellé 11 mono, valeur 20,
+   écart, mini-courbe) ou small multiples sur le même axe du temps.
+3. **Moins de boîtes.** Espace, filets fins et titres de section. Une carte seulement
+   pour un objet qu'on manipule (ligne de file, compte, dialogue). Jamais une carte dans une carte.
+4. **La forme suit la question.** Composition = barre à 100 % ; passage d'un total à un
+   autre = cascade ; rétention = triangle teinté ; seuil = bullet ; santé = barres de
+   disponibilité ; activité = calendrier ; classement = barres triées ; mois = cellules teintées.
+5. **Étiqueter directement**, légende seulement au-delà de quatre séries. Annoter ce qui
+   compte (pic, creux). Un repère quand il existe (moyenne, période précédente, objectif).
+6. **Le rouge porte l'attention**, rien d'autre : la courbe du héros, le filet sous le
+   titre, la sélection, le bouton principal. Une baisse s'écrit en encre neutre.
+7. **Deux voix.** Geist Sans pour les phrases, Geist Mono pour les étiquettes de données,
+   unités, dates d'axe et petits chiffres (le ton « instrument »).
+8. **Densité variable.** Dense où l'on scanne (file, tableaux), aéré où l'on lit (héros).
+9. **Tout chiffre ouvre sa liste** dans un tiroir ou sa page filtrée, le filtre écrit en clair.
+10. **Vivant.** Réticule et valeurs alignées au survol ; survol synchronisé entre small
+    multiples ; glisser sur le héros change la période ; transitions ≤ 150 ms ;
+    `prefers-reduced-motion` respecté.
+11. **Clavier.** `g` + lettre pour changer de rubrique, `j / k` dans une liste, `e` traité,
+    `l` plus tard, `entrée` action, `[` replie la barre, `?` l'aide.
+12. **Jamais vide, jamais cassé.** Yuno a de petits volumes : un point seul, des zéros ou
+    un total nul se disent en phrase (« aucune vente cette semaine »), jamais une courbe
+    plate sans un mot, jamais un pourcentage sur une base de deux.
 
-## Tokens (couleur)
+## Tokens
 
-| Rôle | Clair | Sombre |
-|---|---|---|
-| Fond de page / carte / carte imbriquée | `#f9f9f8` / `#ffffff` / `#f4f3f1` | `#111110` / `#191918` / `#222221` |
-| Bordure / forte | `#e7e5e2` / `#d2d0cb` | `#2a2a28` / `#3b3a37` |
-| Encre 1 / 2 / 3 | `#21201c` / `#63635e` / `#6f6d66` (5,2:1) | `#eeeeec` / `#b5b3ad` / `#8f8d86` (5,3:1) |
-| Accent (aplat, texte blanc) | `#d42b38` (blanc 5,0:1) | `#d42b38` |
-| Accent survol / doux / texte | `#c01f2d` / `#feebec` / `#c01f2d` | `#e5484d` / `#3b1219` / `#ff8f8a` (8,0:1) |
-| Positif (texte) | `#218358` (4,5:1) | `#3dd68c` |
-| Attention « à traiter » | ambre `#9a5b00` sur `#fff7c2` (5,0:1) | `#ffca16` sur `#302008` |
-| Critique (badge plein) | blanc sur `#9b1c25` (8,1:1) | `#ffd1d9` sur `#641723` (9,1:1) |
+Ceux de la v2 restent (sable chaud, rouge Radix à 12 pas, états, palette de
+graphiques validée). La v3 ajoute :
 
-Échelle de rouge complète (12 pas, Radix red, pas 9-10 assombris pour porter du
-blanc en AA) : clair `#fffcfc #fff7f7 #feebec #ffdbdc #ffcdce #fdbdbe #f4a9aa
-#eb8e90 #d42b38 #c01f2d #c01f2d #641723` ; sombre `#191111 #201314 #3b1219
-#500f1c #611623 #72232d #8c333a #b54548 #d42b38 #e5484d #ff8f8a #ffd1d9`.
-Neutres : Radix « sand » (gris légèrement chaud).
+| Rôle | Valeur |
+|---|---|
+| Fond sombre | noir chaud `#0e0d0c` (page), `#161514` (panneau) |
+| Fond clair | papier `#faf9f6`, panneau `#ffffff` |
+| Héros | 56 px / 600 / −0,03 em ; phrase 15 px encre 2, chiffres de la phrase en encre 1 |
+| Bande de stats | libellé mono 11 px, valeur 20 px, écart 12 px, filets verticaux |
+| Teinte de cellule | `color-mix(var(--a-accent) N %, transparent)`, N de 0 à 30 selon la valeur |
+| Disponibilité | ok `--a-pos`, incident `--a-warn`, panne `--a-neg-soft`, inconnu `--a-grid` |
 
-## Typographie
+## Primitives (src/admin/ui, dessins dans `viz/`)
 
-Geist Sans / Geist Mono. Cinq tailles : **12** (libellés, en-têtes de tableau,
-notes), **13** (tableaux, boutons, champs), **14** (texte courant), **16** (titre
-de section), **22** (titre de page). Chiffres des tuiles **26 demi-gras
-tabulaires** ; tout nombre en `tabular-nums`. Pas de capitales espacées, sauf les
-en-têtes de tableau (12, gris, sans capitales chez nous).
+`Hero` (phrase, grand chiffre, écart, graphique) · `HeroChart` (SVG : série rouge,
+période précédente en pointillé gris, réticule, annotations pic / creux, plage glissée)
+· `StatStrip` · `SmallMultiples` + `HoverSync` · `Sparkline` · `BulletBar` ·
+`Waterfall` · `StackedShare` · `Heatmap` / `CohortGrid` · `CalendarHeat` · `RankBars`
+· `UptimeBars` · `FunnelSteps` · `SplitView` · `DrillDrawer` · teinte des cellules de
+`DataTable` (`meta.tint`) · repères dans `Chart` (`refs`) · raccourcis globaux et leur
+aide · barre latérale repliable · barre de pouls (paiements, e-mail, tâches, apps,
+ventes du jour) dans l'en-tête, visible partout.
 
-## Grille et espacements
+## Composition par rubrique
 
-Page centrée, **1280 px** max, gouttière 32 px (20 px mobile). Base 4 :
-8 / 12 / 16 / 24 / 32. Entre deux blocs d'une page : 24. Dans une carte : 16.
-Rayons : 6 (contrôles), 8 (boutons, champs), 12 (cartes). Bordures 1 px ; une
-ombre à peine visible en clair, **aucune en sombre**.
+```
+AUJOURD'HUI (boîte de traitement)
+┌ Brief : « 5 décisions, dont 2 urgentes. Hier : 612 € vendus, 2 comptes créés. » ┐
+├ File (groupée par urgence, j/k/e/l) ─────────┬ Contexte de la ligne choisie ────┤
+│ ● Maintenant                                  │ Pourquoi elle est là             │
+│ ● Cette semaine                               │ Le compte : faits clés           │
+│ ● Quand c'est possible                        │ [Action] [Traité] [Plus tard]    │
+├───────────────────────────────────────────────┴──────────────────────────────────┤
+│ La semaine : six small multiples synchronisés                                     │
+│ Fil d'activité en frise compacte                                                  │
+└───────────────────────────────────────────────────────────────────────────────────┘
 
-## Graphiques
+PILOTAGE › VUE D'ENSEMBLE
+┌ Héros : revenu de Yuno, phrase, 56 px, courbe vs période précédente, plage ┐ Composition 100 % ┐
+│                                                                             │ Cascade           │
+├ Cinq small multiples sur les 12 mois (ventes, MRR, pros qui vendent, acheteurs, nouveaux pros) ┤
+├ 12 mois en cellules teintées ─────────────────────┬ Concentration : barres triées ──────────────┤
+```
 
-- Série principale en **rouge** ; période précédente en **gris pointillé** ;
-  séries secondaires, dans cet ordre : bleu `#3358d4` / `#5b7ff0`, sarcelle
-  `#0f9488` / `#19a393`, violet `#7c5cd6` / `#8f72ea` (validés clair et sombre).
-- Une seule échelle par graphique, unité toujours dite (axe ou titre), grille
-  horizontale discrète, axes sans trait, chiffres tabulaires dans l'info-bulle.
-- Une série = pas de légende (le titre la nomme) ; deux ou plus = légende courte.
-- Barres empilées : la série principale en bas ; 2 px d'espace entre segments.
-- Hauteurs constantes : **grand 280**, **moyen 200**, **mini-courbe 32**.
-- Aucune animation (lecture immédiate, captures nettes).
-
-## Composants
-
-- **Tuile chiffre** : libellé 12 gris (2 lignes max), valeur 26, écart en dessous
-  (flèche + %, vert si bon, encre neutre sinon), lien vers la liste.
-  Rangée de 4 à 6 tuiles sur une grille égale (jamais 5 + 2 orphelines).
-- **Tableau** : ligne 40 px, en-tête collant gris, nombres à droite, tri visible,
-  ligne entière cliquable, recherche et filtres AU-DESSUS, compteur en bas.
-- **Badge / pastille** : neutre, accent, positif, attention, critique ; toujours un mot.
-- **Formulaire** (`Form.tsx`) : libellé au-dessus, aide grise dessous ; interrupteur
-  allumé = accent (jamais vert) ; ligne de réglage = titre + description + interrupteur
-  à droite ; cases à l'accent ; boutons segmentés pour 2 à 5 choix ; liste de filtre
-  32 px au-dessus du tableau ; détail replié par `Fold` (un `<details>` natif).
-- **États** : squelettes aux dimensions du contenu ; vide = une phrase + une
-  action ; erreur = une phrase + « Réessayer ». Les mêmes partout.
-- **Coquille** : barre latérale sobre, entrée active = barre rouge + fond doux,
-  badges discrets ; en-tête 48 px ; ⌘K en groupes, résultat actif en surbrillance.
-- Transitions 120 ms maximum, focus visible au clavier, `prefers-reduced-motion`.
+| Rubrique | Composition prévue |
+|---|---|
+| Pilotage › Acquisition | Héros « comptes créés » + FunnelSteps (perte écrite) ; sources en RankBars. |
+| Pilotage › Rétention | Héros « encore actifs à 3 mois » ; CohortGrid ; courbe moyenne en repère. |
+| Pilotage › Audience | Héros « acheteurs » ; CalendarHeat des visites ; villes en RankBars. |
+| Pilotage › Produit | Signaux en StatStrip ; usage par page en RankBars ; IA en barres de coût. |
+| Pros › Tous les comptes | Tableau dense + SplitView (fiche à droite) ; grille récence × ventes. |
+| Pros › Fiche | Héros « ce que ce compte vend », mois teintés, frise des faits. |
+| Pros › Prospects | SplitView comme la file ; pipeline en colonnes ; FunnelSteps. |
+| Clients | Grille récence × fréquence cliquable (segments) ; fiche en SplitView. |
+| Argent › Ventes | Héros « ventes » ; Waterfall ventes → frais → revenu ; jours en CalendarHeat. |
+| Argent › À régler | Boîte de traitement ; délais en BulletBar. |
+| Argent › Yuno CRM | Héros MRR ; cascade du MRR ; Yunits en StackedShare. |
+| Communication | Délivrabilité : BulletBar par seuil (plaintes, rebonds) ; envois en CalendarHeat. |
+| Légal | File d'obligations en SplitView ; échéances en BulletBar de délai. |
+| Système › Santé | UptimeBars par service sur 30 jours ; tâches planifiées en grille d'état. |
 
 ## À faire / à ne pas faire
 
 | À faire | À ne pas faire |
 |---|---|
-| « 4 virements en retard » en badge critique avec le mot | Un chiffre peint en rouge pour dire « attention » |
-| Une baisse de ventes : `↘ -12 %` en gris | Une baisse en rouge (le rouge est l'accent) |
+| Une phrase-réponse au-dessus du grand chiffre | Six tuiles de même poids en tête |
+| Un filet fin et de l'espace entre deux blocs | Une carte bordée autour de chaque bloc |
+| L'étiquette au bout de la barre ou de la courbe | Une légende à décoder pour deux séries |
+| `↘ −12 %` en encre neutre | Une baisse en rouge |
+| Un chiffre qui ouvre sa liste | Un chiffre mort |
+| « Aucune vente cette semaine » | Une courbe plate à zéro sans un mot |
 | Une couleur = une variable `--a-*` | Un hexadécimal dans une page |
-| Le bouton principal en haut à droite, un seul | Trois boutons pleins côte à côte |
-| Unité sur l'axe (« € », « Nombre ») | Deux échelles sur un graphique |
-| 4 ou 6 tuiles égales | 5 tuiles dont une coupée |
