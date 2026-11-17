@@ -1,12 +1,14 @@
 /**
- * Pilotage › Acquisition › page publique de Yuno CRM (crm.yunoapp.eu) : mesure
- * sans cookie (crm_admin_landing). Un visiteur est une empreinte par jour : un
- * même visiteur revenu deux jours compte deux fois, et la note du bas le dit.
+ * Pilotage › Acquisition › page publique de Yuno CRM (crm.yunoapp.eu), v3 :
+ * une bande de quatre chiffres, les visites par jour en barres fines, les
+ * sources en barres triées, la profondeur de lecture section par section.
+ * Mesure sans cookie (crm_admin_landing) : un visiteur est une empreinte par
+ * jour, un même visiteur revenu deux jours compte deux fois, et la note le dit.
  */
-import { Card, Chart, DataTable, EmptyState, ErrorState, Grid, KeyValue, useAdminFilters, useAdminT, type ColumnDef } from '@/admin/ui';
+import { ErrorState, RankBars, Spark, StatStrip, useAdminFilters, useAdminT } from '@/admin/ui';
 import { fmtAxisDay, fmtNum, fmtPct } from '@/lib/adminFormat';
-import { useCrmLanding, type CrmLanding } from './data';
-import { Fold } from '@/admin/ui';
+import { useCrmLanding } from './data';
+import { shareOrNull } from './rules';
 
 /** L'ordre de lecture de la page (src/pages/crm.tsx du dépôt landing). */
 const ORDER = ['hero', 'proof', 'problem', 'night', 'how', 'engine', 'mcp', 'compare', 'features', 'channels', 'pricing', 'faq', 'final'];
@@ -19,14 +21,15 @@ export default function AcquisitionLanding({ days }: { days: number }) {
   const n = (v: number) => fmtNum(v, lang);
 
   if (q.error && !d) return <ErrorState onRetry={() => void q.refetch()} />;
-  if (!d) return <div className="a-skel h-64" />;
-  if (d.visits === 0) return <Card><EmptyState title={t('adm.crm.ln.none')} /></Card>;
+  if (!d) return <div className="a-skel h-48" />;
+  if (d.visits === 0) return <p className="a-t2 text-[13px]">{t('adm.crm.ln.none')}</p>;
 
   const pv = Math.max(1, d.page_views);
   const created = d.sources.reduce((s, x) => s + x.created, 0);
+  const startShare = shareOrNull(d.signup_starts, d.visitor_days);
   const sec = (id: string) => { const k = `adm.crm.ln.s.${id}`; const v = t(k); return v === k ? id : v; };
-  const sections = [...d.sections].sort((a, b) => (ORDER.indexOf(a.section) + 1 || 99) - (ORDER.indexOf(b.section) + 1 || 99))
-    .map((s) => ({ ...s, rate: Math.min(100, (s.n / pv) * 100) }));
+  const sections = [...d.sections].sort((a, b) => (ORDER.indexOf(a.section) + 1 || 99) - (ORDER.indexOf(b.section) + 1 || 99));
+  const series = d.series.map((s) => s.visits);
   const clickLabel = (target: string) => {
     const [k, v] = target.split(':');
     if (k === 'faq') return t('adm.crm.ln.faq', { n: v });
@@ -35,50 +38,48 @@ export default function AcquisitionLanding({ days }: { days: number }) {
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <Grid cols={2}>
-        <Card title={t('adm.crm.ln.series')}>
-          <Chart kind="bar" data={d.series.map((s) => ({ d: s.t.slice(0, 10), visits: s.visits }))} x="d" unit="count" height={200}
-            formatX={(v) => fmtAxisDay(v, lang)} series={[{ key: 'visits', label: t('adm.crm.ln.k.visits') }]} />
-        </Card>
-        <Card title={t('adm.pl.acq.landingKeys')} footer={t('adm.crm.ln.note')}>
-          <KeyValue items={[
-            { label: t('adm.crm.ln.k.visits'), value: `${n(d.visits)} · ${t('adm.crm.ln.k.visitsSub', { days: d.days })}` },
-            { label: t('adm.crm.ln.k.visitors'), value: `${n(d.visitor_days)} · ${t('adm.crm.ln.k.visitorsSub')}` },
-            { label: t('adm.crm.ln.k.starts'), value: `${n(d.signup_starts)} · ${t('adm.crm.ln.k.startsSub', { pct: fmtPct((d.signup_starts / Math.max(1, d.visitor_days)) * 100, 1) })}` },
-            { label: t('adm.crm.ln.k.created'), value: `${n(created)} · ${t('adm.crm.ln.k.createdSub')}` },
-          ]} />
-        </Card>
-      </Grid>
-
-      <DataTable data={d.sources} getRowId={(s) => s.source} initialSort={[{ id: 'visits', desc: true }]} pageSize={10}
-        columns={[
-          { accessorKey: 'source', header: t('adm.crm.ln.h.source'), cell: (c) => (c.getValue<string>() === 'direct' ? t('adm.crm.ln.direct') : c.getValue<string>()) },
-          { accessorKey: 'visits', header: t('adm.crm.ln.h.visits'), meta: { align: 'right' }, cell: (c) => n(c.getValue<number>()) },
-          { accessorKey: 'visitors', header: t('adm.crm.ln.h.visitors'), meta: { align: 'right' }, cell: (c) => n(c.getValue<number>()) },
-          { accessorKey: 'starts', header: t('adm.crm.ln.h.starts'), meta: { align: 'right' }, cell: (c) => n(c.getValue<number>()) },
-          { accessorKey: 'signups', header: t('adm.crm.ln.h.signups'), meta: { align: 'right' }, cell: (c) => n(c.getValue<number>()) },
-          { accessorKey: 'created', header: t('adm.crm.ln.h.created'), meta: { align: 'right' }, cell: (c) => n(c.getValue<number>()) },
-        ] as ColumnDef<CrmLanding['sources'][number], unknown>[]} />
-
-      <Fold title={t('adm.crm.ln.depth')} hint={t('adm.crm.ln.clicks')}>
-        <p className="a-t3 text-[12.5px]">{t('adm.crm.ln.depthSub')}</p>
-        <Grid cols={2}>
-          <DataTable data={sections} getRowId={(s) => s.section} pageSize={15}
-            columns={[
-              { accessorKey: 'section', header: t('adm.crm.ln.depth'), enableSorting: false, cell: (c) => sec(c.getValue<string>()) },
-              { accessorKey: 'rate', header: t('adm.pl.acq.reached'), meta: { align: 'right' }, enableSorting: false, cell: (c) => fmtPct(c.getValue<number>(), 0) },
-            ] as ColumnDef<(typeof sections)[number], unknown>[]} />
-          <DataTable data={d.clicks} getRowId={(c) => `${c.target}${c.section}`} pageSize={10} empty={{ title: t('adm.crm.ln.clicksNone') }}
-            columns={[
-              { accessorKey: 'target', header: t('adm.crm.ln.clicks'), cell: ({ row }) => (
-                <span className="flex flex-col"><span className="a-t1 font-medium">{clickLabel(row.original.target)}</span>
-                  {row.original.section && <span className="a-t3 text-[12px]">{sec(row.original.section)}</span>}</span>
-              ) },
-              { accessorKey: 'n', header: t('adm.pl.sig.clicks'), meta: { align: 'right' }, cell: (c) => n(c.getValue<number>()) },
-            ] as ColumnDef<CrmLanding['clicks'][number], unknown>[]} />
-        </Grid>
-      </Fold>
+    <div className="flex flex-col gap-8">
+      <StatStrip items={[
+        { key: 'visits', label: t('adm.crm.ln.k.visits'), value: n(d.visits), hint: t('adm.crm.ln.k.visitsSub', { days: d.days }) },
+        { key: 'visitors', label: t('adm.crm.ln.k.visitors'), value: n(d.visitor_days), hint: t('adm.crm.ln.k.visitorsSub') },
+        { key: 'starts', label: t('adm.crm.ln.k.starts'), value: startShare == null ? n(d.signup_starts) : `${n(d.signup_starts)} · ${fmtPct(startShare * 100, 1, lang)}` },
+        { key: 'created', label: t('adm.crm.ln.k.created'), value: n(created), hint: t('adm.crm.ln.k.createdSub') },
+      ]} />
+      {series.length > 0 && (
+        <div className="flex flex-col gap-1">
+          <span className="a-kicker">{t('adm.crm.ln.series')}</span>
+          <Spark data={series} kind="bar" height={56} color="var(--a-text-2)" />
+          <div className="a-mono a-t3 flex justify-between text-[11px]">
+            <span>{fmtAxisDay(d.series[0].t.slice(0, 10), lang)}</span><span>{fmtAxisDay(d.series[d.series.length - 1].t.slice(0, 10), lang)}</span>
+          </div>
+        </div>
+      )}
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-3">
+        <section className="flex flex-col gap-3">
+          <span className="a-kicker">{t('adm.crm.ln.sources')}</span>
+          <RankBars emptyText={t('adm.crm.ln.none')}
+            items={[...d.sources].sort((a, b) => b.visits - a.visits).slice(0, 8).map((s) => ({
+              key: s.source, label: s.source === 'direct' ? t('adm.crm.ln.direct') : s.source, value: s.visits,
+              display: n(s.visits), sub: s.created > 0 ? t('adm.pil.v3a.srcCreated', { n: n(s.created) }) : undefined,
+            }))} />
+        </section>
+        <section className="flex flex-col gap-3">
+          <span className="a-kicker">{t('adm.crm.ln.depth')}</span>
+          <RankBars emptyText={t('adm.crm.ln.none')} max={100}
+            items={sections.map((s) => {
+              const r = Math.min(100, (s.n / pv) * 100);
+              return { key: s.section, label: sec(s.section), value: r, display: d.page_views >= 10 ? fmtPct(r, 0, lang) : n(s.n) };
+            })} />
+        </section>
+        <section className="flex flex-col gap-3">
+          <span className="a-kicker">{t('adm.crm.ln.clicks')}</span>
+          <RankBars emptyText={t('adm.crm.ln.clicksNone')}
+            items={[...d.clicks].sort((a, b) => b.n - a.n).slice(0, 8).map((c) => ({
+              key: `${c.target}${c.section ?? ''}`, label: clickLabel(c.target), value: c.n, display: n(c.n), sub: c.section ? sec(c.section) : undefined,
+            }))} />
+        </section>
+      </div>
+      <p className="a-t3 text-[12px]">{t('adm.crm.ln.note')}</p>
     </div>
   );
 }
