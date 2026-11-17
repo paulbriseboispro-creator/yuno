@@ -5270,10 +5270,15 @@ qu'un, sur **yunoapp.eu**. Règles :
   font qu'ASSEMBLER : les calculs restent ceux des RPC existantes
   (`admin_platform_analytics`, `_crm_admin_rows`, `admin_cockpit`,
   `admin_release_health`, `admin_ai_usage`…).
-- **Écrans encore hérités** (dans `SuiteFrame` / `CrmFrame`,
-  `src/admin/shell/frames.tsx`) : liste dans le plan, section 7 « Assemblage ».
-  L'ancien kit `src/components/admin/ui.tsx` et `src/crm/admin/ui.tsx`
-  disparaîtront avec le dernier d'entre eux.
+- **Écrans encore dans un cadre hérité** (`SuiteFrame` / `CrmFrame`,
+  `src/admin/shell/frames.tsx`), parce que partagés avec la Console des pros :
+  Email Studio et recettes, éditeur SMS, rapport du plan de soirée, catalogue
+  boissons (fermé). Les anciens kits (`src/components/admin/ui.tsx`,
+  `src/crm/admin/ui.tsx`) sont supprimés : ne pas les recréer. Formulaires et
+  filtres : `src/admin/ui/Form.tsx` (`Field`, `Switch`, `SwitchRow`, `Checkbox`,
+  `Segmented`, `NumberInput`, `Select`, `FilterSelect`, `Fold`), jamais une
+  copie locale. Inscriptions pro = tiroir d'une ligne de Pros › Prospects
+  (l'écran `/admin/pilot/signups` est supprimé, l'adresse y mène).
 - **i18n** : le super admin est une SECTION à part (`useLocaleSection('admin')`,
   `src/i18n/locales/admin/modules/*.ts`), jamais dans le dictionnaire principal.
 - **Vérifier visuellement** : aucun compte démo n'est super admin, donc un banc

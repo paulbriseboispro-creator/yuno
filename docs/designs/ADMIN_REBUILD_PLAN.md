@@ -557,32 +557,45 @@ hérités redéfinissent leurs variables sur les tokens du kit (`.a-legacy`,
 `.a-crm-legacy` dans `admin.css`). Toutes les alertes réécrite au kit. Captures
 claire et sombre de chaque rubrique dans `docs/designs/admin-rebuild/`.
 
-**Reste hérité après cette passe** (lignes de code de l'écran, à répartir) :
+**Réécritures Pros, Communication, Pilotage / Système (17/11), fusionnées** :
+Pros (Démo, Inviter, pipeline CRM, gestes des anciennes listes sur la fiche),
+Communication (notifications, page bio, campagnes, push), Pilotage › Produit et
+page publique CRM, Système › Offre et tarifs et plan de soirée. Puis, dans
+l'intégration :
 
-| Écran | Adresse | Cadre | Lignes |
-|---|---|---|---|
-| `AdminNotificationAutomations` (registre des notifications unitaires, `SystemTab` seul) | Système › Interrupteurs | Suite | 154 |
-| `AdminProSignups` | `/admin/pilot/signups` (caché) | Suite | 478 |
-| `AdminMarketing` (Email Studio, rapport, modèles, recettes : partagés avec la Console des pros) | `/admin/comms/email/*`, `automations` | Suite (barre de retour au kit) | 43 |
-| `SmsCampaignsPanel` (éditeur SMS, partagé avec la Console des pros) | `/admin/comms/sms` | Suite (entrée au kit) | partagé |
-| `NightPlanReport` (rapport de la Console, dans la page `NightPlan` au kit) | `/admin/system/connectors/plan/*` | CRM | n/a |
-| `AdminDrinkCatalog` | `/admin/system/drinks` (fermé, pilier en pause, aucun menu n'y mène) | Suite | 380 |
+- **Inscriptions pro** : l'écran `AdminProSignups` est supprimé. Le funnel, la
+  courbe et les provenances étaient déjà dans Pilotage › Acquisition ; ce qu'il
+  montrait seul (parcours d'une personne, taille, fréquence et outil déclarés,
+  alertes reçues, avancement du compte, invitation) est le tiroir d'une ligne
+  « Inscription » de Pros › Prospects (`prospects/SignupDrawer.tsx`).
+  `/admin/signups` et `/admin/pilot/signups` ouvrent Prospects filtré
+  (`?src=signup`).
+- **Formulaires et filtres dans le kit** (`src/admin/ui/Form.tsx`) : `Field`,
+  `Switch` (allumé = accent), `SwitchRow`, `Checkbox`, `Segmented`,
+  `NumberInput`, `Select`, `FilterSelect` (32 px, classe `a-input--filter`),
+  `Fold`. Ils remplacent quatre `Field`, deux interrupteurs de couleurs
+  différentes, les `Check` / `Seg` de Pros, ceux de Légal, et les `<details>`
+  et listes de filtre stylés à la main. Graphiques moyens à 200 px partout.
+- **Plus rien sur l'ancien kit** : registre des notifications unitaires
+  (Système › Interrupteurs, `NotificationRegistry`) en tableaux du kit,
+  produits d'un compte (`pros/AccountProducts.tsx`) en tiroir.
+  `src/components/admin/ui.tsx`, `src/crm/admin/ui.tsx` et `forms.tsx` sont
+  supprimés ; la Console des pros n'en importait aucun.
+- Le panneau SMS qui « plantait au banc » : la fonction simulée rendait une
+  liste là où `get_sms_contacts_overview` rend toujours un objet (`COALESCE`
+  sur `imports` et `events`) ; défaut du banc, pas du code.
 
-Réécrits au kit dans la passe Pilotage / Système / Argent (17/11) : Produit
-(Signaux, IA, CRM), page publique CRM d'Acquisition, Offre et tarifs (quatre
-onglets), plan de soirée (titre et états ; le rapport reste celui de la Console,
-dans son cadre CRM), Abonnements de la Suite (supprimé : fonction coupée, adresse
-redirigée vers Argent › CRM).
+**Reste dans un cadre hérité** (volontairement : partagé avec la Console des pros) :
 
-**Communication réécrite au kit (17/11)** : Notifications automatiques (règles en tableau + tiroir,
-politique en formulaires, crédits en tableau avec « offrir » par `ReasonDialog` et allocation par dialogue),
-Page bio (audience, réglages, liste d'attente), Campagnes (base, quota, listes importées, import), Push de Yuno
-(historique + tiroir « Nouveau push »). Restent dans leur cadre : Email Studio, recettes e-mail, éditeur SMS
-(partagés avec la Console des pros), derrière une barre de retour au kit (`EditorFrame`).
+| Écran | Adresse | Cadre |
+|---|---|---|
+| Email Studio, rapport, modèles, recettes (`AdminMarketing`) | `/admin/comms/email/*`, `automations` | Suite, barre de retour au kit |
+| Éditeur SMS (`SmsCampaignsPanel`) | `/admin/comms/sms` | Suite, en-tête au kit |
+| Rapport du plan de soirée (`NightPlanReport`) | `/admin/system/connectors/plan/*` | CRM, page au kit |
+| Catalogue boissons (`AdminDrinkCatalog`) | `/admin/system/drinks`, redirigé tant que le pilier est en pause | Suite |
 
-Ces écrans ont les couleurs, la police et le rouge du kit, mais gardent leur
-mise en page (cartes à grands rayons, boutons et tableaux à eux). L'ancien kit
-(`src/components/admin/ui.tsx`, `src/crm/admin/ui.tsx`) disparaît avec le dernier.
+Captures claire et sombre des écrans réécrits : `docs/designs/admin-rebuild/14-*`
+à `22-*`.
 
 ## 8. Conventions pour les lots 1 à 6
 

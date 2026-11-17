@@ -83,6 +83,10 @@ ombre à peine visible en clair, **aucune en sombre**.
 - **Tableau** : ligne 40 px, en-tête collant gris, nombres à droite, tri visible,
   ligne entière cliquable, recherche et filtres AU-DESSUS, compteur en bas.
 - **Badge / pastille** : neutre, accent, positif, attention, critique ; toujours un mot.
+- **Formulaire** (`Form.tsx`) : libellé au-dessus, aide grise dessous ; interrupteur
+  allumé = accent (jamais vert) ; ligne de réglage = titre + description + interrupteur
+  à droite ; cases à l'accent ; boutons segmentés pour 2 à 5 choix ; liste de filtre
+  32 px au-dessus du tableau ; détail replié par `Fold` (un `<details>` natif).
 - **États** : squelettes aux dimensions du contenu ; vide = une phrase + une
   action ; erreur = une phrase + « Réessayer ». Les mêmes partout.
 - **Coquille** : barre latérale sobre, entrée active = barre rouge + fond doux,
