@@ -125,12 +125,11 @@ export function HeroChart({
           {hasPrev && hi == null && (() => {
             const last = [...data].reverse().findIndex((d) => d.prev != null);
             if (last < 0 || !labels.prev || !data.some((d) => (d.prev ?? 0) > 0)) return null;
-            const i = n - 1 - last;
-            // De l'autre côté de la courbe en cours, pour ne jamais la chevaucher.
-            const yp = sy(data[i].prev ?? 0);
-            const yc = data[i].v == null ? yp + 100 : sy(data[i].v ?? 0);
-            const below = yc < yp || yp < pad.t + 14;
-            return <text x={x1} y={below ? Math.min(height - pad.b - 4, yp + 14) : yp - 8} textAnchor="end" className="a-viz-tick">{labels.prev}</text>;
+            // Au-dessus des deux courbes sur le dernier cinquième (là où s'écrit l'étiquette), sinon en haut à droite.
+            const from = Math.max(0, Math.floor(n * 0.8));
+            const peakEnd = Math.max(0, ...data.slice(from).map((d) => Math.max(d.v ?? 0, d.prev ?? 0)));
+            const y = sy(peakEnd) - 8;
+            return <text x={x1} y={y < pad.t + 4 ? pad.t + 4 : y} textAnchor="end" className="a-viz-tick">{labels.prev}</text>;
           })()}
           {hi != null && (
             <g pointerEvents="none">

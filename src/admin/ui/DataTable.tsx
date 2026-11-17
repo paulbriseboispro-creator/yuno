@@ -52,14 +52,19 @@ export interface DataTableProps<T> {
   getRowId?: (row: T, index: number) => string;
   /** Recherche déjà posée à l'ouverture (lien « voir ce compte » d'une autre page, `?q=`). */
   initialSearch?: string | null;
-  /** Sans boîte : un filet en haut et en bas (un tableau posé dans un Block). */
+  /**
+   * Sans boîte : un filet en haut et en bas. Par défaut, un tableau sans barre
+   * (ni recherche ni filtres) est posé sans boîte dans sa section ; une liste
+   * à filtrer garde son cadre.
+   */
   bare?: boolean;
 }
 
 export function DataTable<T>({
   data, columns, loading, error, onRetry, searchable, searchPlaceholder, pageSize = 25,
-  initialSort = [], onRowClick, rowHref, empty, toolbar, getRowId, initialSearch, bare,
+  initialSort = [], onRowClick, rowHref, empty, toolbar, getRowId, initialSearch, bare: bareIn,
 }: DataTableProps<T>) {
+  const bare = bareIn ?? !(searchable || toolbar);
   const { t, lang: language } = useAdminT();
   const navigate = useNavigate();
   const [sorting, setSorting] = useState<SortingState>(initialSort);
@@ -169,7 +174,7 @@ export function DataTable<T>({
       )}
       {body}
       {!loading && !error && filtered > 0 && (
-        <div className="a-t2 flex items-center gap-3 border-t px-3 py-2 text-[12.5px]">
+        <div className={`a-t2 flex items-center gap-3 border-t py-2 text-[12.5px] ${bare ? '' : 'px-3'}`}>
           <span className="a-num flex-1">
             {pageCount > 1
               ? t('adm.ui.table.range', { from: fmtNum(pageIndex * size + 1, language), to: fmtNum(Math.min(filtered, (pageIndex + 1) * size), language), total: fmtNum(filtered, language) })

@@ -289,6 +289,12 @@
 [data-admin] .a-table tbody tr:last-child td { border-bottom: 0; }
 [data-admin] .a-table tbody tr[data-clickable='true'] { cursor: pointer; }
 [data-admin] .a-table tbody tr:hover td { background: var(--a-subtle); }
+/* Tableau sans boîte (posé dans sa section) : en-tête sans aplat, aligné sur le texte de la page. */
+[data-admin] .a-table-bare .a-table th { background: var(--a-bg); }
+[data-admin] .a-table-bare .a-table th:first-child,
+[data-admin] .a-table-bare .a-table td:first-child { padding-left: 0; }
+[data-admin] .a-table-bare .a-table th:last-child,
+[data-admin] .a-table-bare .a-table td:last-child { padding-right: 0; }
 
 /* ── Squelette ── */
 @keyframes a-pulse { 50% { opacity: 0.5; } }

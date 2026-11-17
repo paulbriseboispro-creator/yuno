@@ -44,7 +44,7 @@ export default function Ai() {
         <Hero kicker={t('adm.sys3.ai.kicker', { n: range.days })} loading={!d} value={fmtUsd(tt?.cost_usd ?? 0, lang)} current={tt?.cost_usd} previous={tt?.prev_cost_usd} invert
           sentence={tt ? (tt.events === 0 ? t('adm.sys3.ai.none', { n: range.days }) : t('adm.sys3.ai.sentence', { calls: fmtNum(tt.events, lang), tokens: fmtTokens(tt.tokens, lang), top: assistants[0]?.assistant ?? '—' })) : null}
           chart={!d ? <div className="a-skel h-[200px] w-full" /> : tt && tt.events === 0 ? null : (
-            <HeroChart data={points} height={200} formatX={(x) => fmtAxisDay(x, lang)} formatV={(v) => fmtUsd(v, lang)} formatTick={(v) => fmtUsd(v, lang)}
+            <HeroChart data={points} height={200} formatX={(x) => fmtAxisDay(x, lang)} formatV={(v) => fmtUsd(v, lang)} formatTick={(v) => new Intl.NumberFormat(lang, { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v)}
               labels={{ cur: t('adm.sys.ai.k.cost'), peak: t('adm.comms.cp3.peak') }} />
           )} />
       )}
