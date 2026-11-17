@@ -10,7 +10,8 @@ import { searchResultHref } from '../shell/searchHref';
 const TABLE: Array<[string, string]> = [
   // Suite : routes montées
   ['/admin/growth', '/admin/pilot/audience'],
-  ['/admin/signups', '/admin/pilot/signups'],
+  ['/admin/signups', '/admin/pros/prospects?src=signup'],
+  ['/admin/pilot/signups', '/admin/pros/prospects?src=signup'],
   ['/admin/revenue', '/admin/money'],
   ['/admin/product', '/admin/pilot/product'],
   ['/admin/ai', '/admin/pilot/product?tab=ai'],

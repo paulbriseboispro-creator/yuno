@@ -62,8 +62,6 @@ export const ADMIN_NAV: AdminRubric[] = [
       { key: 'retention', path: '/admin/pilot/retention' },
       { key: 'audience', path: '/admin/pilot/audience' },
       { key: 'product', path: '/admin/pilot/product' },
-      // Écran hérité des inscriptions, joignable par son adresse ; la liste à rappeler vit dans Pros › Prospects.
-      { key: 'signups', path: '/admin/pilot/signups', hidden: true },
     ],
   },
   {

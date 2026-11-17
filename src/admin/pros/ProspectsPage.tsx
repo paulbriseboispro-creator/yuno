@@ -8,7 +8,7 @@
  * prévision et raisons de perte du pipeline Yuno CRM.
  */
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Check, Mail, MessageCircle, Phone, StickyNote } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,12 +18,16 @@ import { fmtDate, fmtNum, fmtRelative } from '@/lib/adminFormat';
 import { useProspects, useProsRefresh } from './data';
 import { accountHref, accountKey, phoneLinks } from './accounts';
 import { Pipeline } from './prospects/Pipeline';
+import { SignupDrawer } from './prospects/SignupDrawer';
+import type { SignupPerson } from '@/lib/proSignupPeople';
 
 type Source = 'links' | 'signup' | 'crm';
 interface Prospect {
   id: string; ids: string[]; source: Source; at: string; name: string; contact: string | null; city: string | null;
   kind: string | null; phone: string | null; email: string | null; note: string | null; contacted: boolean;
   stage: string | null; accountHref: string | null; detail: string | null;
+  /** Inscription landing : la personne entière, pour le tiroir. */
+  person?: SignupPerson;
 }
 
 export default function ProspectsPage() {
@@ -43,9 +47,11 @@ function AllProspects() {
   const { range } = useAdminFilters();
   const { base, signups } = useProspects();
   const refresh = useProsRefresh();
-  const [source, setSource] = useState<'all' | Source>('all');
+  const [sp] = useSearchParams();
+  const [source, setSource] = useState<'all' | Source>(() => { const v = sp.get('src'); return v === 'links' || v === 'signup' || v === 'crm' ? v : 'all'; });
   const [onlyOpen, setOnlyOpen] = useState(true);
   const [noteFor, setNoteFor] = useState<Prospect | null>(null);
+  const [personFor, setPersonFor] = useState<SignupPerson | null>(null);
 
   const rows = useMemo<Prospect[]>(() => {
     const out: Prospect[] = [];
@@ -58,7 +64,7 @@ function AllProspects() {
       const acc = p.account ? (p.account.venue_id ? accountHref(accountKey('venue', p.account.venue_id)) : accountHref(accountKey('org', p.account.user_id))) : null;
       out.push({ id: `signup:${p.key}`, ids: p.ids, source: 'signup', at: p.last_at, name: p.org_name || who || p.email || '—', contact: who, city: p.city,
         kind: p.kind, phone: p.phones?.[0] ?? null, email: p.email, note: p.admin_notes, contacted: !!p.contacted_at,
-        stage: p.account ? 'account' : p.outcome, accountHref: acc, detail: p.account ? null : p.furthest_step ? t('adm.pros.pr.stoppedAt', { step: p.furthest_step }) : null });
+        stage: p.account ? 'account' : p.outcome, accountHref: acc, detail: p.account ? null : p.furthest_step ? t('adm.pros.pr.stoppedAt', { step: t(`adm.signups.step.${p.furthest_step}`) }) : null, person: p });
     }
     for (const c of base.data?.crm ?? []) {
       out.push({ id: `crm:${c.id}`, ids: [c.id], source: 'crm', at: c.stage_changed_at ?? c.at, name: c.name, contact: c.contact, city: c.city,
@@ -139,6 +145,7 @@ function AllProspects() {
       </KpiRow>
       <DataTable data={shown} columns={columns} loading={base.isLoading || signups.isLoading} error={base.error ?? signups.error}
         onRetry={() => { void base.refetch(); void signups.refetch(); }} searchable getRowId={(r) => r.id}
+        onRowClick={(r) => { if (r.person) setPersonFor(r.person); }}
         initialSort={[{ id: 'at', desc: true }]}
         empty={{ title: t(onlyOpen ? 'adm.pros.pr.emptyOpen' : 'adm.pros.pr.empty') }}
         toolbar={(
@@ -150,6 +157,7 @@ function AllProspects() {
             <label className="a-t2 inline-flex items-center gap-1.5 text-[12.5px]"><input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} />{t('adm.pros.pr.onlyOpen')}</label>
           </div>
         )} />
+      <SignupDrawer person={personFor} onClose={() => setPersonFor(null)} />
       {noteFor && <NoteDialog p={noteFor} onClose={() => setNoteFor(null)} onSaved={() => { setNoteFor(null); void refresh(); }} />}
     </div>
   );

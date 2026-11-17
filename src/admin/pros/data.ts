@@ -2,6 +2,7 @@
  * Données de la rubrique « Pros » : un hook par RPC (migration 20261218120000).
  * La démo et la période viennent de useAdminFilters ; la porte démo vit en SQL.
  */
+import type { SignupPerson } from '@/lib/proSignupPeople';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { rpc } from '@/crm/lib/rpc';
 import { useAdminFilters } from '../context/useAdminFilters';
@@ -103,13 +104,8 @@ export function useProsRefresh() {
 // ── Prospects ──
 export interface LinksLead { id: string; at: string; name: string | null; org_name: string | null; org_type: string | null; city: string | null; phone: string | null; email: string | null; message: string | null; lang: string | null; contacted_at: string | null; notes: string | null }
 export interface CrmProspect { id: string; at: string; name: string; contact: string | null; phone: string | null; email: string | null; city: string | null; kind: string; source: string | null; stage: string; next_action: string | null; next_at: string | null; note: string | null; opposed: boolean; stage_changed_at: string | null }
-export interface SignupPerson {
-  key: string; ids: string[]; outcome: string; furthest_step: string | null; first_at: string; last_at: string;
-  first_name: string | null; last_name: string | null; email: string | null; phones: string[];
-  org_name: string | null; kind: string | null; product: string | null; city: string | null;
-  invited: boolean; contacted_at: string | null; admin_notes: string | null;
-  account: { user_id: string; venue_id: string | null; created_at: string } | null;
-}
+/** Une personne inscrite depuis la landing : le type complet de `admin_pro_signups.people`. */
+export type { SignupPerson } from '@/lib/proSignupPeople';
 
 export function useProspects() {
   const { includeDemo, range } = useAdminFilters();

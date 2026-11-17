@@ -48,7 +48,6 @@ const dict: AdminDict = {
   'adm.nav2.pilot.retention': ['Retention', 'Rétention', 'Retención'],
   'adm.nav2.pilot.audience': ['Audience', 'Audience', 'Audiencia'],
   'adm.nav2.pilot.product': ['Product', 'Produit', 'Producto'],
-  'adm.nav2.pilot.signups': ['Pro sign-ups', 'Inscriptions pro', 'Altas pro'],
 
   'adm.nav2.pros': ['Pros', 'Pros', 'Pros'],
   'adm.nav2.pros.q': ['Who are my accounts and where do they stand?', 'Qui sont mes comptes et où en sont-ils ?', '¿Quiénes son mis cuentas y en qué punto están?'],

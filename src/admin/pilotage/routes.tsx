@@ -6,14 +6,12 @@
  */
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
-import { SuiteFrame } from '../shell/frames';
 
 const OverviewPage = lazyWithRetry(() => import('./OverviewPage'));
 const AcquisitionPage = lazyWithRetry(() => import('./AcquisitionPage'));
 const RetentionPage = lazyWithRetry(() => import('./RetentionPage'));
 const AudiencePage = lazyWithRetry(() => import('./AudiencePage'));
 const ProductPage = lazyWithRetry(() => import('./ProductPage'));
-const AdminProSignups = lazyWithRetry(() => import('@/pages/admin/AdminProSignups'));
 
 /** Ancienne adresse de la rubrique → nouvelle, la requête suit (et la cible peut en poser une). */
 function Moved({ to }: { to: string }) {
@@ -33,7 +31,7 @@ export default function PilotageRoutes() {
       <Route path="retention" element={<RetentionPage />} />
       <Route path="audience" element={<AudiencePage />} />
       <Route path="product" element={<ProductPage />} />
-      <Route path="signups" element={<SuiteFrame><AdminProSignups /></SuiteFrame>} />
+      <Route path="signups" element={<Moved to="/admin/pros/prospects?src=signup" />} />
       {/* Adresses du lot 0, remplacées. */}
       <Route path="growth" element={<Moved to="/admin/pilot/audience" />} />
       <Route path="ai" element={<Moved to="/admin/pilot/product?tab=ai" />} />

@@ -103,6 +103,7 @@ const dict: AdminDict = {
   'adm.signups.step.opened': ['opening', 'ouverture', 'apertura'],
   'adm.signups.step.role': ['profile', 'profil', 'perfil'],
   'adm.signups.step.structure': ['description', 'description', 'descripción'],
+  'adm.signups.step.email': ['email', 'e-mail', 'correo'],
   'adm.signups.step.account': ['account (password)', 'compte (mot de passe)', 'cuenta (contraseña)'],
   'adm.signups.step.lead': ['request sent', 'demande envoyée', 'solicitud enviada'],
   'adm.signups.step.created': ['account created', 'compte créé', 'cuenta creada'],
@@ -185,6 +186,14 @@ const dict: AdminDict = {
   ],
   'adm.signups.bySource': ['How they came (people, first visit)', 'Par où ils arrivent (personnes, première visite)', 'Por dónde llegan (personas, primera visita)'],
   'adm.signups.bySourceLine': ['{c} with an account', 'dont {c} avec un compte', '{c} con cuenta'],
+  'adm.signups.size': ['Declared size', 'Taille déclarée', 'Tamaño declarado'],
+  'adm.signups.frequency': ['Declared frequency', 'Fréquence déclarée', 'Frecuencia declarada'],
+  'adm.signups.currentTool': ['Current ticketing', 'Billetterie actuelle', 'Ticketing actual'],
+  'adm.signups.progress': ['Account progress', 'Avancement du compte', 'Avance de la cuenta'],
+  'adm.signups.alertsTitle': ['Alerts sent to Yuno', 'Alertes reçues par Yuno', 'Alertas recibidas por Yuno'],
+  'adm.signups.cityLang': ['City and language', 'Ville et langue', 'Ciudad e idioma'],
+  'adm.signups.email': ['Email', 'E-mail', 'Correo'],
+  'adm.signups.phone': ['Phone', 'Téléphone', 'Teléfono'],
 };
 
 export default dict;

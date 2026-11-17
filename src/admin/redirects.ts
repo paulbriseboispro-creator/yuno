@@ -33,7 +33,8 @@ const RULES: readonly Rule[] = [
 
   // ── Admin de la Suite : Pilotage ──
   [/^\/admin\/(growth|traffic)$/, '/admin/pilot/audience'],
-  [/^\/admin\/signups$/, '/admin/pilot/signups'],
+  // Inscriptions pro : une personne = une ligne de Pros › Prospects, son détail en tiroir ; funnel dans Pilotage › Acquisition.
+  [/^\/admin\/(?:pilot\/)?signups$/, '/admin/pros/prospects?src=signup'],
   [/^\/admin\/product$/, '/admin/pilot/product'],
   [/^\/admin\/ai$/, '/admin/pilot/product?tab=ai'],
   // ── Argent ──
