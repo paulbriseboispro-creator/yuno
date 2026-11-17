@@ -192,7 +192,7 @@ function TierCard() {
         <p className="a-t2 text-[13px]">{t('adm.crm.pt.sub')}</p>
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone={active ? 'positive' : 'warning'}>{t(active ? 'adm.crm.pt.active' : 'adm.crm.pt.pending')}</Badge>
-          {d && <Badge>{t(d.tier === 'public' ? 'adm.crm.pt.tierPublic' : 'adm.crm.pt.tierLaunch', { n: d.paying, at: d.switch_at })}</Badge>}
+          {d && <Badge>{t(d.tier === 'public' ? 'adm.crm.pt.tierPublic' : 'adm.crm.pt.tierLaunch', { n: d.paying ?? '—', at: d.switch_at ?? '—' })}</Badge>}
         </div>
         {st && <DataTable data={st.prices} columns={cols} getRowId={(p) => p.lookup_key} pageSize={10} />}
         {!st && d?.checked_at && <p className="a-t3 text-[12px]">{t('adm.crm.pt.lastCheck', { date: fmtDate(d.checked_at, lang, 'datetime') })}</p>}

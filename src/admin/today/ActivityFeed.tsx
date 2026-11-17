@@ -54,13 +54,13 @@ export function ActivityFeed({ includeDemo }: { includeDemo: boolean }) {
 function FeedLine({ row }: { row: FeedRow }) {
   const { t, lang } = useAdminT();
   const body = (
-    <div className="grid grid-cols-[7rem_minmax(0,9rem)_minmax(0,1fr)_auto] items-center gap-3 px-1 py-1.5 text-[13px]">
+    <div className="grid grid-cols-[4.75rem_minmax(0,1fr)_auto] items-center gap-3 px-1 py-1.5 text-[13px] sm:grid-cols-[7rem_minmax(0,9rem)_minmax(0,1fr)_auto]">
       <time className="a-mono a-t3 truncate whitespace-nowrap text-[11px]" dateTime={row.at} title={fmtDate(row.at, lang, 'datetime')}>{fmtRelative(row.at, lang)}</time>
-      <span className="a-t2 flex min-w-0 items-center gap-2 truncate text-[12.5px]">
+      <span className="a-t2 hidden min-w-0 items-center gap-2 truncate text-[12.5px] sm:flex">
         <span aria-hidden className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: toneColor(row.tone) }} />
         <span className="truncate">{t(`adm.today.feed.k.${row.kind}`)}</span>
       </span>
-      <span className="min-w-0 truncate"><span className="a-t1">{row.title || t('adm.today.unknown')}</span>{row.sub && <span className="a-t3 ml-2">{row.sub}</span>}</span>
+      <span className="min-w-0 truncate"><span aria-hidden className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full align-middle sm:hidden" style={{ background: toneColor(row.tone) }} /><span className="a-t1">{row.title || t('adm.today.unknown')}</span>{row.sub && <span className="a-t3 ml-2">{row.sub}</span>}</span>
       <span className="a-num a-t2 text-[12.5px]">{row.amount != null && row.amount > 0 ? fmtEur(row.amount, lang) : ''}</span>
     </div>
   );

@@ -102,7 +102,7 @@ export default function CrmMoneyPage() {
 
       <Block title={t('adm.mon.crm.subs')} meta={d ? t('adm.mon.v3c.subsMeta', { n: n(subs.length) }) : undefined}>
         {!d ? <div className="a-skel h-32 w-full" /> : subs.length === 0 ? <p className="a-t2 text-[13px]">{t('adm.mon.crm.noSubs')}</p> : (
-          <div className="flex flex-col">
+          <div className="overflow-x-auto"><div className="flex min-w-[36rem] flex-col">
             <div className="a-kicker grid grid-cols-[minmax(0,1fr)_6rem_6rem_7rem_7rem] gap-3 border-b pb-2">
               <span>{t('adm.mon.crm.account')}</span><span className="text-right">{t('adm.mon.v3c.age')}</span>
               <span className="text-right">{t('adm.mon.crm.mrrShare')}</span><span className="text-right">{t('adm.mon.crm.next')}</span><span className="text-right">{t('adm.mon.v3c.state')}</span>
@@ -122,7 +122,7 @@ export default function CrmMoneyPage() {
                 </div>
               );
             })}
-          </div>
+          </div></div>
         )}
       </Block>
 

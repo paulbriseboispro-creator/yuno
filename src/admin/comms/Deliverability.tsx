@@ -112,8 +112,8 @@ export default function Deliverability() {
         <div className="flex flex-col gap-3"><div className="a-skel h-10 w-[30rem] max-w-full" /><div className="a-skel h-4 w-96 max-w-full" /></div>
       ) : (
         <Verdict tone={verdict.tone} kicker={t('adm.comms.dl3.kicker')}
-          headline={t(`adm.comms.dl3.head.${verdict.key}`, { n: fmtNum(frozen.length, lang), sent: fmtNum(sent30, lang) })}
-          sub={t(enough ? 'adm.comms.dl3.sub' : 'adm.comms.dl3.subFew', { sent: fmtNum(sent30, lang), k: rows.length, c: complaints == null ? '—' : fmtPct(complaints, 2, lang), b: bounces == null ? '—' : fmtPct(bounces, 1, lang) })} />
+          headline={t(`adm.comms.dl3.head.${verdict.key}${verdict.key === 'frozen' && frozen.length === 1 ? 'One' : ''}`, { n: fmtNum(frozen.length, lang), sent: fmtNum(sent30, lang) })}
+          sub={t(`${enough ? 'adm.comms.dl3.sub' : 'adm.comms.dl3.subFew'}${rows.length === 1 ? 'One' : ''}`, { sent: fmtNum(sent30, lang), k: rows.length, c: complaints == null ? '—' : fmtPct(complaints, 2, lang), b: bounces == null ? '—' : fmtPct(bounces, 1, lang) })} />
       )}
 
       <Block title={t('adm.comms.dl3.thresholds')} meta={t('adm.comms.dl3.thresholdsMeta')}>

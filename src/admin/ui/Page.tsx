@@ -22,7 +22,7 @@ export function Page({
   return (
     <div className={cn('mx-auto w-full px-5 py-6 md:px-8 md:py-8', width === 'wide' ? 'max-w-[1280px]' : 'max-w-[880px]')}>
       <header className="mb-6 flex flex-wrap items-start gap-x-6 gap-y-3">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-[20rem]">
           <h1 className="a-t1 text-[22px] font-semibold leading-[1.25] tracking-[-0.02em]" style={{ textWrap: 'balance' }}>{title}</h1>
           <span aria-hidden className="a-title-rule" />
           {subtitle && <p className="a-t2 mt-3 max-w-[80ch] text-[14px] leading-normal">{subtitle}</p>}

@@ -117,7 +117,7 @@ export function Fold({ title, hint, children, defaultOpen = false }: {
       <summary className="a-focus flex min-h-[40px] cursor-pointer list-none items-center gap-2 rounded-md py-1 [&::-webkit-details-marker]:hidden">
         <ChevronRight className="a-t3 h-4 w-4 flex-none transition-transform group-open:rotate-90" />
         <span className="a-t1 min-w-0 flex-1 truncate text-[14px] font-semibold">{title}</span>
-        {hint && <span className="a-mono a-t3 flex-none text-[11px]">{hint}</span>}
+        {hint && <span className="a-mono a-t3 min-w-0 max-w-[45%] flex-none truncate text-[11px]">{hint}</span>}
       </summary>
       <div className="flex flex-col gap-4 pt-3">{children}</div>
     </details>
@@ -138,9 +138,9 @@ export function Chip({ on, onClick, children, count }: { on: boolean; onClick: (
 
 /** Des puces de filtre, un seul choix, avec leur nombre. */
 export function Chips<V extends string>({ value, options, onChange, label }: {
-  value: V;
+  value: NoInfer<V>;
   options: Array<{ value: V; label: ReactNode; count?: number | null }>;
-  onChange: (v: V) => void;
+  onChange: (v: NoInfer<V>) => void;
   label: string;
 }) {
   return (

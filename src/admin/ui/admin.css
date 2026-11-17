@@ -256,6 +256,7 @@
   font: inherit;
   font-size: 12.5px;
   font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
 }
 [data-admin] .a-seg > button[aria-pressed='true'] {

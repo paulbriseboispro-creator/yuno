@@ -107,12 +107,12 @@ export function DenseRows({ rows, head, empty }: { rows: Array<{ key: string; ma
   if (rows.length === 0) return <p className="a-t2 text-[13px]">{empty}</p>;
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-[13px]">
+      <table className="w-full min-w-[30rem] border-collapse text-[13px]">
         <thead><tr><th />{head.map((h) => <th key={h} className="a-kicker pb-2 text-right font-normal">{h}</th>)}<th /></tr></thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.key} className="border-t">
-              <td className="py-1.5 pr-3">{r.main}</td>
+              <td className="min-w-[9rem] py-1.5 pr-3">{r.main}</td>
               {r.cells.map((c, i) => <td key={i} className="a-mono a-t1 py-1.5 pl-4 text-right text-[12px]">{c}</td>)}
               <td className="py-1.5 pl-4 text-right">{r.flag}</td>
             </tr>

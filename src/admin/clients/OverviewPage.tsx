@@ -117,7 +117,7 @@ export default function OverviewPage() {
                         <span className="a-t1 text-[13px] font-medium">{t(`adm.cl.seg.${r.key}`)}</span>
                         <span className="a-t3 truncate text-[11.5px]">{t(`adm.cl.seg.${r.key}.rule`)}</span>
                       </span>
-                      <span className="flex items-baseline gap-3">
+                      <span className="flex flex-wrap items-baseline gap-x-3">
                         <span className="a-num a-t1 text-[22px] font-semibold tracking-[-0.02em]">{fmtNum(r.count, lang)}</span>
                         {r.count > 0 && tot && tot.customers >= 10 && <span className="a-mono a-t2 text-[11px]">{fmtPct(share * 100, 0, lang)}</span>}
                         {r.count > 0 && <span className="a-mono a-t3 ml-auto text-[11px]">{t('adm.cl.v3.avg', { v: fmtEur(r.avg, lang, { cents: false }) })}</span>}

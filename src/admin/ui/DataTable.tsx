@@ -169,7 +169,7 @@ export function DataTable<T>({
                 placeholder={searchPlaceholder ?? t('adm.ui.table.search')} aria-label={searchPlaceholder ?? t('adm.ui.table.search')} />
             </label>
           )}
-          <div className="ml-auto flex items-center gap-2">{toolbar}</div>
+          <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center gap-2 overflow-x-auto">{toolbar}</div>
         </div>
       )}
       {body}
