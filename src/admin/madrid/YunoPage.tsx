@@ -89,7 +89,7 @@ export default function YunoPage() {
             {t('adm.mad.y.prosLine', { signups: n(d.madrid_pros.signups), accounts: n(d.madrid_pros.signups_account), leads: n(d.madrid_pros.leads), venues: n(d.madrid_pros.venues) })}
           </p>
         )}
-        {d && d.pros.length === 0 ? <p className="a-t3 text-[13px]">{t('adm.mad.y.prosEmpty')} {t('adm.mad.y.prosEmptyBody')}</p> : (
+        {d && d.pros.length === 0 ? <p className="a-t3 text-[13px]">{t('adm.mad.y.prosEmptyBody')}</p> : (
           <DataTable data={d?.pros} columns={proCols} loading={!d} pageSize={10}
             empty={{ title: t('adm.mad.y.prosEmpty'), body: t('adm.mad.y.prosEmptyBody') }} />
         )}

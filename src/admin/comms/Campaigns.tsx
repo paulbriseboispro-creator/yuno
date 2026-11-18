@@ -222,7 +222,7 @@ function ChannelBlock({ title, count, loading, empty, emptyBody, children }: {
   const shown = all ? count : Math.min(8, count);
   return (
     <Block title={title} meta={String(count)}>
-      {loading ? <div className="a-skel h-20 w-full" /> : count === 0 ? <EmptyLine>{empty} {emptyBody}</EmptyLine> : (
+      {loading ? <div className="a-skel h-20 w-full" /> : count === 0 ? <EmptyLine>{empty}. {emptyBody}</EmptyLine> : (
         <>
           <Ledger>{children(shown)}</Ledger>
           {count > 8 && <button type="button" className="a-btn a-btn--sm self-start" onClick={() => setAll((v) => !v)}>{all ? t('adm.comms.cp3.less') : t('adm.comms.cp3.more', { n: count - 8 })}</button>}

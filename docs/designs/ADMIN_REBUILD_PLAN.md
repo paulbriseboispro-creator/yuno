@@ -690,41 +690,65 @@ rejouées, et la lecture d'un écran de bout en bout par Paul.
 
 ### Rejeu sur données de prod (18/11)
 
-Les 46 pages rejouées avec les réponses réelles de la prod (66 lectures fournies par
-la session principale, hors dépôt, branchées par chemin absolu sur le banc) : aucune
-erreur de rendu, aucun débordement, un seul mot technique (`signup_research`,
-traduit). Pages remontées à 9 sur ces données :
+Les 46 pages rejouées avec les réponses réelles de la prod (88 lectures fournies par la
+session principale, lues sous le compte super admin sans démo, avec les arguments du
+front ; hors dépôt, branchées par chemin absolu sur le banc). Aucune erreur de rendu,
+aucun débordement, aucun mot technique restant. Seules Clients › Soirées et Annuaire
+lisent des tables en direct : notées sur leur forme avec un échantillon plausible.
 
-| Page | Note banc | Note réelle | Ce qui a changé |
+Ce que les vraies données ont révélé, et corrigé :
+
+- **Kit** : un écart de +77 350 % ne dit rien ; au-delà de ±300 % le badge écrit l'écart
+  absolu et la référence (« +1 547 (contre 2) »). Le calendrier d'activité liste ses
+  jours actifs en clair quand il y en a peu, et la grille presque vide disparaît sous
+  4 jours actifs (Campagnes, Madrid › Clubs, Clients › Soirées).
+- **Légal** : « Dossiers vendeurs et 1 autres » (accord) ; Consentements montrait 0 % de
+  preuve pour 93,8 % réels (les fichiers attestés prouvent l'accord) et le tableau suit
+  désormais la même règle ; Vendeurs affichait « — » dans Factures pour 321 factures ;
+  Journal : 89 gestes dont des rafales identiques regroupées (« Modification ×4 »),
+  actions et cibles en mots, filtre par compte en puces ; Incidents vide dit « Le
+  registre est vide ».
+- **Santé technique** : le repère de quota ne parle plus de l'offre Pro ; « 1 connexions ».
+- **Notifications** : 0 ouverture, 0 acheteur, 0 retenue sur 21 envois : une phrase au
+  lieu de trois tuiles à zéro ; accords au pluriel.
+- **Madrid › Effet sur Yuno** : six tuiles de petits nombres remplacées par une phrase
+  sous 20 personnes connues ; table vide remplacée par sa phrase ; limites repliées.
+- **Rétention** : seules les colonnes de mois atteintes (M0, M+1 sur la prod).
+- **Accès assisté** : colonne « Dernière session » ; un accès accordé sans session depuis
+  14 jours est marqué « à couper » et compté dans la phrase (3 sur la prod).
+- **Connecteurs** : une phrase dit ce qu'est chaque barre et l'heure la plus chargée.
+- **Délivrabilité** : verdict, seuils et capacité en un écran, le reste replié (ouvert
+  d'office si un compte est sous garde). **Produit**, **Offre et tarifs** : héros et
+  phrase-réponse. **Inviter, Démo, Vendeurs** : j / k dans l'ordre affiché.
+
+| Page | Banc (17/11) | Prod (18/11) | Reste |
 |---|---|---|---|
-| Pilotage › Produit | 8 | 9 | Héros : pages vues, puis visites d'une soirée → billets → entrées à la porte. |
-| Système › Offre et tarifs | 8 | 9 | Phrase-réponse en tête : palier en vigueur et ce qui le fera changer. |
-| Argent › Ventes | 8.5 | 9 | « 0 billet » était un trou du banc : 574 billets sur la prod. |
-| Communication › Délivrabilité | 8.5 | 9 | Verdict, seuils et capacité en un écran ; courbe, comptes, surveillance repliés (ouverts d'office si un compte est sous garde). |
-| Légal › Vendeurs | 8.5 | 9 (banc) | j / k / entrée dans l'ordre affiché, ligne ouverte surlignée ; lecture réelle non fournie. |
+| Aujourd'hui (3 pages) | 9 | 9 | — |
+| Pilotage › Vue d'ensemble, Acquisition, Audience | 9 | 9 | — |
+| Pilotage › Rétention | 8.5 | 9 | — |
+| Pilotage › Produit | 8 | 9 | — |
+| Madrid › Verdict, Audience, Santé de l'offre | 9 | 9 | — |
+| Madrid › Clubs et soirées | 8.5 | 9 | — |
+| Madrid › Effet sur Yuno | 8.5 | 9 | — |
+| Pros › Tous les comptes, Fiche, Prospects | 9 | 9 | — |
+| Pros › Inviter | 8.5 | 8.5 | Formulaire déjà en étapes (type → produit → formulaire), mais le formulaire CRM reste long ; à découper avec Paul. |
+| Pros › Démo | 8.5 | 9 | — |
+| Pros › Accès assisté | 8.5 | 9 | — |
+| Clients › Vue d'ensemble, Tous, Fiche | 9 | 9 | — |
+| Clients › Soirées, Annuaire | 8 | 8.5 (échantillon) | Lisent des tables en direct : jamais vues sur la prod. |
+| Argent (5 pages) | 8.5 à 9 | 9 | — |
+| Communication › Campagnes | 8.5 | 9 | — |
+| Communication › Notifications automatiques | 8.5 | 9 | — |
+| Communication › Délivrabilité | 8.5 | 9 | — |
+| Communication › Page bio | 9 | 9 | — |
+| Légal (9 pages) | 8.5 à 9 | 9 | Journal : la cible d'un geste du super admin reste un identifiant court quand la base n'en donne pas le nom. |
+| Système › Santé, Interrupteurs, IA | 9 | 9 | — |
+| Système › Offre et tarifs | 8 | 9 | — |
+| Système › Connecteurs | 8.5 | 9 | — |
 
-34 pages sur 47 à 9. Restent sous 9, et pourquoi :
-
-- **Jugées sans données réelles** (lectures non fournies, notées sur le banc) :
-  Légal (Vue d'ensemble, Consentements, Conditions, Vendeurs, Incidents, Signalements,
-  Journal, Demandes RGPD), Système › Santé technique, Argent › Abonnements et Yunits,
-  Pilotage › Produit (partie CRM), Notifications automatiques, Clients › Soirées et
-  Annuaire (lecture directe de tables). Lectures à rejouer, avec les arguments du front :
-  `admin_orders_list` (p_kind tickets / tables / guestlist, p_limit 25),
-  `admin_legal_overview`, `admin_legal_terms`, `admin_legal_consents`,
-  `admin_legal_sellers {p_year 2026}`, `admin_legal_incidents`, `admin_legal_audit`,
-  `admin_privacy_requests`, `admin_content_reports`, `admin_release_health`,
-  `crm_admin_platform / money / product / feedback / pipeline / targets / landing /
-  activity / lifecycle`, `get_auto_push_stats`, `demo_event_ids`.
-- **Pilotage › Rétention (8.5)** : grille de cohortes dense ; la liste des pros à risque
-  mène à la fiche (pas d'aperçu, donc pas de j / k : volontaire).
-- **Madrid › Clubs et soirées (8.5)**, **Communication › Campagnes (8.5)** : calendriers
-  presque vides tant que l'activité est faible ; à revoir quand il y aura du volume.
-- **Madrid › Effet sur Yuno (8.5)** : beaucoup de zéros en ligne, peu de hiérarchie.
-- **Pros › Inviter, Démo (8.5)** : j / k ajoutés ; formulaire d'invitation long.
-- **Pros › Accès assisté (8.5)** : la liste mène à la fiche du pro (pas d'aperçu).
-- **Légal › Consentements, Journal ; Système › Connecteurs (8.5)** : tableau dense,
-  filtres en champs libres, graphique de requêtes par heure peu expliqué.
+44 pages sur 47 à 9 sur données de prod. Sous 9 : Inviter (longueur du formulaire CRM)
+et Clients › Soirées / Annuaire (jamais rejouées sur la prod, faute de lecture RPC).
+Aucune page à 10 : il manque la lecture de chaque écran par Paul.
 
 ### Visites et Madrid : la correction à faire en base (17/11, non appliquée)
 

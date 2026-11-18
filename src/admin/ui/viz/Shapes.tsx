@@ -297,7 +297,7 @@ function heatInk(v: number, max: number): string {
   return `color-mix(in srgb, var(--a-text) ${Math.round(25 + 60 * Math.min(1, v / max))}%, transparent)`;
 }
 
-export function CalendarHeat({ days, fmt, weekdays, month, fewAt = 10 }: {
+export function CalendarHeat({ days, fmt, weekdays, month, fewAt = 10, sparseAt = 3 }: {
   /** Jours consécutifs (AAAA-MM-JJ) et leur valeur. */
   days: Array<{ d: string; v: number }>;
   fmt: (d: string, v: number) => string;
@@ -307,6 +307,8 @@ export function CalendarHeat({ days, fmt, weekdays, month, fewAt = 10 }: {
   month?: (d: string) => string;
   /** Jusqu'à ce nombre de jours actifs, ils sont aussi listés en clair sous la grille. */
   fewAt?: number;
+  /** Jusqu'à ce nombre de jours actifs, la grille presque vide disparaît : seule la liste reste. */
+  sparseAt?: number;
 }) {
   const tip = useTip();
   const max = Math.max(0, ...days.map((x) => x.v));
@@ -319,7 +321,7 @@ export function CalendarHeat({ days, fmt, weekdays, month, fewAt = 10 }: {
   const few = active > 0 && active <= fewAt ? days.filter((x) => x.v > 0).sort((a, b) => b.d.localeCompare(a.d)) : null;
   return (
     <div className="flex flex-col gap-3">
-    <div ref={tip.ref} className="relative flex gap-2" role="img" aria-label={`${active} / ${days.length}`}>
+    {(active === 0 || active > sparseAt) && (<div ref={tip.ref} className="relative flex gap-2" role="img" aria-label={`${active} / ${days.length}`}>
       <div className="a-mono a-t3 flex flex-col gap-[3px] pt-[16px] text-[10px]">{weekdays.map((w, i) => <span key={i} className="h-3 leading-3">{i % 2 === 0 ? w : ''}</span>)}</div>
       <div className="flex gap-[3px] overflow-x-auto">
         {weeks.map((w, i) => {
@@ -338,7 +340,7 @@ export function CalendarHeat({ days, fmt, weekdays, month, fewAt = 10 }: {
         })}
       </div>
       {tip.node}
-    </div>
+    </div>)}
     {few && (
       <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-[12.5px]">
         {few.map((x) => (

@@ -26,13 +26,14 @@ export default function ConsentsPage() {
   const p = d?.products;
   const sum = (k: keyof ProductConsents) => (p ? PRODS.reduce((s, x) => s + (p[x]?.[k] ?? 0), 0) : 0);
 
+  const provenOf = (r: Partial<ProductConsents>) => Math.min(r.subscribed ?? 0, (r.with_proof ?? 0) + (r.from_import ?? 0));
   const productRows = PRODS.map((prod) => ({ prod, ...(p?.[prod] ?? null) })) as ({ prod: Prod } & Partial<ProductConsents>)[];
   const pcols: ColumnDef<{ prod: Prod } & Partial<ProductConsents>, unknown>[] = [
     { accessorKey: 'prod', header: t('adm.lg2.cs.col.product'), cell: (c) => <span className="a-t1 font-medium">{t(`adm.lg2.product.${c.getValue<string>()}`)}</span> },
     { accessorKey: 'subscribed', header: t('adm.lg2.cs.col.subscribed'), meta: { align: 'right' }, cell: (c) => fmtNum(c.getValue<number>(), lang) },
-    { id: 'proof', accessorFn: (r) => (r.subscribed ? (r.with_proof ?? 0) / r.subscribed : null), header: t('adm.lg2.cs.col.proof'), meta: { align: 'right' },
-      cell: (c) => { const r = c.row.original; return r.subscribed ? `${fmtPct(((r.with_proof ?? 0) / r.subscribed) * 100, 0, lang)} (${fmtNum(r.with_proof, lang)})` : '—'; } },
-    { accessorKey: 'from_import', header: t('adm.lg2.cs.col.fromImport'), meta: { align: 'right' }, cell: (c) => fmtNum(c.getValue<number>(), lang) },
+    // Même règle que la tuile du haut : accord tracé dans le compte, ou ligne d'un fichier attesté.
+    { id: 'proof', accessorFn: (r) => (r.subscribed ? provenOf(r) / r.subscribed : null), header: t('adm.lg2.cs.col.proof'), meta: { align: 'right' },
+      cell: (c) => { const r = c.row.original; const v = provenOf(r); return r.subscribed ? <span style={{ color: v / r.subscribed < 0.5 ? 'var(--a-warn)' : undefined }}>{`${fmtPct((v / r.subscribed) * 100, 0, lang)} (${fmtNum(v, lang)})`}</span> : '—'; } },
     { accessorKey: 'unsubscribed', header: t('adm.lg2.cs.col.unsubscribed'), meta: { align: 'right' }, cell: (c) => fmtNum(c.getValue<number>(), lang) },
     { accessorKey: 'sms_ok', header: t('adm.lg2.cs.col.sms'), meta: { align: 'right' }, cell: (c) => fmtNum(c.getValue<number>(), lang) },
     { accessorKey: 'imports', header: t('adm.lg2.cs.col.imports'), meta: { align: 'right' },
