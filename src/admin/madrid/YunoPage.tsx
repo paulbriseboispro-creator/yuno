@@ -6,7 +6,7 @@
  *   2. ce que ces personnes font ensuite dans Yuno (app, push, achats) ;
  *   3. les clubs de Madrid qu'on retrouve chez Yuno (client, inscription, prospect).
  */
-import { Block, DataTable, ErrorState, Hero, StatStrip, useAdminFilters, type ColumnDef, Note } from '@/admin/ui';
+import { Block, DataTable, ErrorState, Fold, Hero, StatStrip, useAdminFilters, type ColumnDef, Note } from '@/admin/ui';
 import { useMadridOffer, type MadridOffer } from './data';
 import { MadridPage } from './shared';
 import { useMadridFmt } from './fmt';
@@ -47,14 +47,21 @@ export default function YunoPage() {
         note={t('adm.mad.y.cameRule')} />
 
       <Block title={t('adm.mad.y.peopleTitle')} meta={t('adm.mad.y.sinceStart')}>
-        <StatStrip items={[
+        {!y ? <div className="a-skel h-16 w-full" /> : y.known < 20 ? (
+          // Peu de personnes : une phrase, pas six tuiles de petits nombres.
+          <p className="a-hero-sentence max-w-[72ch]">{t('adm.mad.y.peopleSentence', {
+            known: n(y.known), k: y.known, signed: n(y.clicked_signed_in), s: y.clicked_signed_in, city: n(y.city_madrid), fav: n(y.favorites), f: y.favorites,
+            push: n(y.push), app: n(y.app_sessions), a: y.app_sessions, period: t(`adm.mad.per.${period}`) })}</p>
+        ) : (
+          <StatStrip items={[
           { key: 'known', label: t('adm.mad.y.known'), value: y ? n(y.known) : '', loading: !y, hint: t('adm.mad.y.knownRule') },
           { key: 'signed', label: t('adm.mad.y.signedClick'), value: y ? n(y.clicked_signed_in) : '', loading: !y },
           { key: 'city', label: t('adm.mad.y.city'), value: y ? n(y.city_madrid) : '', loading: !y },
           { key: 'fav', label: t('adm.mad.y.fav'), value: y ? n(y.favorites) : '', loading: !y },
           { key: 'push', label: t('adm.mad.y.push'), value: y ? n(y.push) : '', loading: !y, hint: t('adm.mad.y.pushRule') },
           { key: 'app', label: t('adm.mad.y.app', { period: t(`adm.mad.per.${period}`) }), value: y ? n(y.app_sessions) : '', loading: !y },
-        ]} />
+          ]} />
+        )}
         <Note>{t('adm.mad.y.peopleRule')}</Note>
       </Block>
 
@@ -82,18 +89,20 @@ export default function YunoPage() {
             {t('adm.mad.y.prosLine', { signups: n(d.madrid_pros.signups), accounts: n(d.madrid_pros.signups_account), leads: n(d.madrid_pros.leads), venues: n(d.madrid_pros.venues) })}
           </p>
         )}
-        <DataTable data={d?.pros} columns={proCols} loading={!d} pageSize={10}
-          empty={{ title: t('adm.mad.y.prosEmpty'), body: t('adm.mad.y.prosEmptyBody') }} />
+        {d && d.pros.length === 0 ? <p className="a-t3 text-[13px]">{t('adm.mad.y.prosEmpty')} {t('adm.mad.y.prosEmptyBody')}</p> : (
+          <DataTable data={d?.pros} columns={proCols} loading={!d} pageSize={10}
+            empty={{ title: t('adm.mad.y.prosEmpty'), body: t('adm.mad.y.prosEmptyBody') }} />
+        )}
         <Note>{t('adm.mad.y.prosRule')}</Note>
       </Block>
 
-      <Block title={t('adm.mad.y.limitsTitle')}>
+      <Fold title={t('adm.mad.y.limitsTitle')} hint="3">
         <ul className="a-t2 flex list-disc flex-col gap-1.5 pl-5 text-[13px]">
           <li>{t('adm.mad.y.limit1')}</li>
           <li>{t('adm.mad.y.limit2')}</li>
           <li>{t('adm.mad.y.limit3')}</li>
         </ul>
-      </Block>
+      </Fold>
     </MadridPage>
   );
 }

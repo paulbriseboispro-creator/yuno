@@ -18,6 +18,11 @@ import { useProsRefresh, useSupportOverview, type SupportGrant } from './data';
 
 const isOpen = (g: SupportGrant) => !g.revoked_at && (!g.expires_at || new Date(g.expires_at) > new Date());
 
+// Un accès accordé qui ne sert plus (aucune session depuis 14 jours) est à couper : l'aide est finie.
+const DORMANT_MS = 14 * 86400e3;
+const isDormant = (g: SupportGrant) => g.status === 'active' && isOpen(g) && !(g.live_until && new Date(g.live_until) > new Date())
+  && Date.now() - new Date(g.last_session_at ?? g.approved_at ?? g.created_at).getTime() > DORMANT_MS;
+
 export default function SupportPage() {
   const { t, lang, label } = useAdminT();
   const q = useSupportOverview();
@@ -26,6 +31,7 @@ export default function SupportPage() {
   const active = grants.filter((g) => g.status === 'active' && isOpen(g));
   const pending = grants.filter((g) => g.status === 'pending' && isOpen(g));
   const live = grants.filter((g) => g.live_until && new Date(g.live_until) > new Date());
+  const dormant = grants.filter(isDormant);
   const items = [
     { value: 'active', label: t('adm.pros.sup.active'), count: active.length },
     { value: 'pending', label: t('adm.pros.sup.pending'), count: pending.length },
@@ -63,6 +69,14 @@ export default function SupportPage() {
         </span>
       ),
     },
+    {
+      id: 'last', header: t('adm.pros.sup.lastUse'), accessorFn: (g) => (g.last_session_at ? new Date(g.last_session_at).getTime() : 0),
+      cell: ({ row: { original: g } }) => (
+        <span className="text-[12.5px]" style={{ color: isDormant(g) ? 'var(--a-warn)' : undefined }}>
+          {g.last_session_at ? fmtRelative(g.last_session_at, lang) : t('adm.pros.sup.never')}{isDormant(g) ? ` · ${t('adm.pros.sup.toCut')}` : ''}
+        </span>
+      ),
+    },
     { id: 'at', header: t('adm.pros.sup.asked'), accessorFn: (g) => new Date(g.created_at).getTime(), cell: ({ row: { original: g } }) => <span className="a-t2 text-[12.5px]" title={fmtDate(g.created_at, lang, 'datetime')}>{fmtRelative(g.created_at, lang)}</span> },
   ], [t, lang]);
 
@@ -78,6 +92,7 @@ export default function SupportPage() {
     <>
       {live.length === 0 ? t('adm.pros.v3.sup.noLive') : <><b>{fmtNum(live.length, lang)}</b> {t(live.length === 1 ? 'adm.pros.v3.sup.liveOne' : 'adm.pros.v3.sup.live')}</>}
       {'. '}<b>{fmtNum(active.length, lang)}</b> {t('adm.pros.v3.sup.granted')}, <b>{fmtNum(pending.length, lang)}</b> {t('adm.pros.v3.sup.waiting')}.
+      {dormant.length > 0 && <> {t('adm.pros.sup.dormant', { n: fmtNum(dormant.length, lang), c: dormant.length })}</>}
     </>
   );
 

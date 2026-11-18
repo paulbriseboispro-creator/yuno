@@ -53,6 +53,9 @@ function ShotgunTab() {
           <div className="flex flex-col gap-4">
             <BulletBar value={peak} max={Math.max(SHOTGUN_LIMIT * 1.2, peak)} zones={[SHOTGUN_LIMIT * 0.6, SHOTGUN_LIMIT * 0.85]} target={SHOTGUN_LIMIT} targetLabel={t('adm.sys3.cn.limit', { n: SHOTGUN_LIMIT })}
               label={t('adm.sys3.cn.peak')} display={`${Math.round(peak * 10) / 10} / ${SHOTGUN_LIMIT} ${t('adm.sys3.cn.perMin')}`} />
+            {(() => { const top = s.hours.reduce((a, h) => (h.req > a.req ? h : a), s.hours[0]); return (
+              <p className="a-t2 text-[13px]">{t('adm.sys3.cn.barsExplain', { n: s.hours.length, max: fmtNum(top.req, lang), m: top.req, at: fmtDate(top.h, lang, 'time') })}</p>
+            ); })()}
             <div><Spark data={s.hours.map((h) => h.req)} kind="bar" height={56} />
               <div className="a-mono a-t3 flex justify-between text-[11px]"><span>{fmtDate(s.hours[0].h, lang, 'time')}</span><span>{t('adm.sys.cn.requests')}</span><span>{fmtDate(s.hours[s.hours.length - 1].h, lang, 'time')}</span></div></div>
             <p className="a-t3 text-[12.5px]">{t('adm.sys.cn.quotaNote', { peak: Math.round(peak * 10) / 10, limit: SHOTGUN_LIMIT })}</p>

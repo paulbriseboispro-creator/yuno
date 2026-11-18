@@ -31,7 +31,7 @@ export default function ConsentsPage() {
     { accessorKey: 'prod', header: t('adm.lg2.cs.col.product'), cell: (c) => <span className="a-t1 font-medium">{t(`adm.lg2.product.${c.getValue<string>()}`)}</span> },
     { accessorKey: 'subscribed', header: t('adm.lg2.cs.col.subscribed'), meta: { align: 'right' }, cell: (c) => fmtNum(c.getValue<number>(), lang) },
     { id: 'proof', accessorFn: (r) => (r.subscribed ? (r.with_proof ?? 0) / r.subscribed : null), header: t('adm.lg2.cs.col.proof'), meta: { align: 'right' },
-      cell: (c) => { const r = c.row.original; return r.subscribed ? `${fmtNum(r.with_proof, lang)} · ${fmtPct(((r.with_proof ?? 0) / r.subscribed) * 100)}` : '—'; } },
+      cell: (c) => { const r = c.row.original; return r.subscribed ? `${fmtPct(((r.with_proof ?? 0) / r.subscribed) * 100, 0, lang)} (${fmtNum(r.with_proof, lang)})` : '—'; } },
     { accessorKey: 'from_import', header: t('adm.lg2.cs.col.fromImport'), meta: { align: 'right' }, cell: (c) => fmtNum(c.getValue<number>(), lang) },
     { accessorKey: 'unsubscribed', header: t('adm.lg2.cs.col.unsubscribed'), meta: { align: 'right' }, cell: (c) => fmtNum(c.getValue<number>(), lang) },
     { accessorKey: 'sms_ok', header: t('adm.lg2.cs.col.sms'), meta: { align: 'right' }, cell: (c) => fmtNum(c.getValue<number>(), lang) },
@@ -68,9 +68,11 @@ export default function ConsentsPage() {
   const mail = { ok: sum('subscribed'), out: sum('unsubscribed'), sup: (d?.suppressions.email_suppressions ?? 0) + (d?.suppressions.email_opt_outs ?? 0) };
   const sms = { ok: sum('sms_ok'), stop: sum('sms_stop') };
   const ev = d?.events;
-  const share = sum('subscribed') ? sum('with_proof') / sum('subscribed') : null;
+  // Prouvé = accord tracé dans le compte, ou ligne venue d'un fichier attesté (cf. « Imports à vérifier »).
+  const proven = p ? PRODS.reduce((s, x) => s + Math.min(p[x]?.subscribed ?? 0, (p[x]?.with_proof ?? 0) + (p[x]?.from_import ?? 0)), 0) : 0;
+  const share = sum('subscribed') ? proven / sum('subscribed') : null;
   const stats: Stat[] = [
-    { key: 'proof', label: t('adm.lg2.cs.k.proof'), value: share == null ? '—' : fmtPct(share * 100, 0, lang), hint: t('adm.lg2.cs.k.proofHint'), loading: !d },
+    { key: 'proof', label: t('adm.lg2.cs.k.proof'), value: share == null ? '—' : fmtPct(share * 100, share < 0.995 && share > 0.005 ? 1 : 0, lang), hint: t('adm.lg2.cs.k.proofHint2', { n: fmtNum(proven, lang), total: fmtNum(sum('subscribed'), lang) }), loading: !d },
     { key: 'granted', label: t('adm.lg2.cs.k.granted'), value: fmtNum(ev?.granted_period, lang), current: ev?.granted_period, previous: ev?.granted_previous, loading: !d },
     { key: 'withdrawn', label: t('adm.lg2.cs.k.withdrawn'), value: fmtNum(ev?.withdrawn_period, lang), current: ev?.withdrawn_period, previous: ev?.withdrawn_previous, invert: true, loading: !d },
     { key: 'unattested', label: t('adm.lg2.cs.k.unattested'), value: fmtNum(sum('imports_unattested') + sum('imports_support'), lang), hint: t('adm.lg2.cs.k.unattestedHint'), loading: !d },

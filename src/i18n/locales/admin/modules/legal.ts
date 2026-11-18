@@ -153,6 +153,7 @@ const dict: AdminDict = {
   'adm.lg2.cs.k.subscribedHint': ['Opted-in lines of the register, all products (one address can count once per account).', 'Lignes du registre avec accord, tous produits (une adresse compte une fois par compte).', 'Líneas del registro con consentimiento, todos los productos (una dirección cuenta una vez por cuenta).'],
   'adm.lg2.cs.k.proof': ['With a recorded proof', 'Avec une preuve tracée', 'Con prueba registrada'],
   'adm.lg2.cs.k.proofHint': ['Share of subscribed contacts with a recorded consent in the same account. Imported files prove consent by their attestation.', 'Part des abonnés dont l’accord est enregistré dans le même compte. Les fichiers importés le prouvent par leur attestation.', 'Parte de suscriptores con un consentimiento registrado en la misma cuenta. Los archivos importados lo prueban con su declaración.'],
+  'adm.lg2.cs.k.proofHint2': ['{n} of {total} subscribers: consent recorded in the account, or a line from an attested file.', '{n} abonnés sur {total} : accord enregistré dans le compte, ou ligne venue d’un fichier attesté.', '{n} de {total} suscriptores: consentimiento registrado en la cuenta, o línea de un archivo declarado.'],
   'adm.lg2.cs.k.granted': ['Consents given', 'Accords donnés', 'Consentimientos dados'],
   'adm.lg2.cs.k.withdrawn': ['Consents withdrawn', 'Accords retirés', 'Consentimientos retirados'],
   'adm.lg2.cs.k.suppressed': ['Suppressed addresses', 'Adresses repoussées', 'Direcciones excluidas'],
@@ -533,6 +534,7 @@ const dict: AdminDict = {
   'adm.lg3.sl.reached': ['A marker is reached: this seller is in scope of the yearly declaration.', 'Un repère est atteint : ce vendeur entre dans le périmètre de la déclaration annuelle.', 'Se alcanza un umbral: este vendedor entra en el perímetro de la declaración anual.'],
   'adm.lg3.sl.under': ['Under both markers.', 'Sous les deux repères.', 'Por debajo de ambos umbrales.'],
   'adm.lg3.in.kicker': ['Data breaches', 'Violations de données', 'Violaciones de datos'],
+  'adm.lg3.in.emptySub': ['The register is empty. The 72 h clock appears here the moment an incident opens.', 'Le registre est vide. Le compte à rebours de 72 h apparaît ici dès qu’un incident s’ouvre.', 'El registro está vacío. La cuenta atrás de 72 h aparece aquí en cuanto se abre un incidente.'],
   'adm.lg3.in.noneSub': ['{n} {n|incident|incidents} in the register, all closed. The 72 h clock appears here the moment one opens.', '{n} {n|incident|incidents} au registre, {n|clos|tous clos}. Le compte à rebours de 72 h apparaît ici dès qu’un incident s’ouvre.', '{n} {n|incidente|incidentes} en el registro, {n|cerrado|todos cerrados}. La cuenta atrás de 72 h aparece aquí en cuanto se abre uno.'],
   'adm.lg3.in.cnilClock': ['Time left to notify the CNIL', 'Temps restant pour prévenir la CNIL', 'Tiempo restante para avisar a la CNIL'],
   'adm.lg3.in.lead': ['The incident that presses, among {n} open', 'L’incident qui presse, parmi {n} {n|ouvert|ouverts}', 'El incidente más urgente, entre {n} {n|abierto|abiertos}'],
@@ -557,12 +559,13 @@ const dict: AdminDict = {
   'adm.lg3.dc.textsMeta': ['{n} texts', '{n} textes', '{n} textos'],
   'adm.lg3.dc.subsMeta': ['{n} processors, {o} may process outside the EU', '{n} sous-traitants, dont {o} peuvent traiter hors UE', '{n} encargados, {o} pueden tratar fuera de la UE'],
   'adm.lg3.au.kicker': ['Who did what', 'Qui a fait quoi', 'Quién hizo qué'],
+  'adm.lg3.au.allAccounts': ['All accounts', 'Tous les comptes', 'Todas las cuentas'],
   'adm.lg3.au.none': ['No action in this period with these filters.', 'Aucun geste sur cette période avec ces filtres.', 'Ninguna acción en este período con estos filtros.'],
   'adm.lg3.au.sentence': ['{n} actions in the period: {a} by the super admin, {s} through assisted access, {g} by the agent.', '{n} gestes sur la période : {a} par le super admin, {s} en accès assisté, {g} par l’agent.', '{n} acciones en el período: {a} del super admin, {s} por acceso asistido, {g} del agente.'],
   'adm.lg3.au.dayCount': ['{n} {n|action|actions}', '{n} {n|geste|gestes}', '{n} {n|acción|acciones}'],
   // ── v3 ──
   'adm.lg3.ov.and': ['and', 'et', 'y'],
-  'adm.lg3.ov.andMore': ['and {n} more', 'et {n} autres', 'y {n} más'],
+  'adm.lg3.ov.andMore': ['and {n} more', 'et {n} {n|autre|autres}', 'y {n} más'],
   'adm.lg3.dc.versionOf': ['version of {d}', 'version du {d}', 'versión del {d}'],
 };
 

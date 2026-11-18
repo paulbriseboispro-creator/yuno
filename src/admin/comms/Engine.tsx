@@ -28,6 +28,8 @@ export default function Engine() {
   } : null;
   const rate = d ? tapRate(d.totals.taps, d.totals.sent) : null;
   const points = (d?.series ?? []).map((s) => ({ x: s.day.slice(0, 10), v: s.sent }));
+  // Rien d'ouvert, d'acheté ni de retenu : la phrase le dit, pas trois tuiles à zéro.
+  const quiet = !!d && d.totals.taps === 0 && d.totals.buyers === 0 && d.totals.held === 0;
   const stats: Stat[] = d ? [
     { key: 'taps', label: t('adm.comms.en.k.opened'), value: fmtNum(d.totals.taps, lang), current: d.totals.taps, previous: prev?.taps, hint: rate == null ? undefined : t('adm.comms.en.k.rate', { pct: fmtPct(rate) }) },
     { key: 'buyers', label: t('adm.comms.en.k.buyers'), value: fmtNum(d.totals.buyers, lang), current: d.totals.buyers, previous: prev?.buyers, hint: t('adm.comms.en.k.buyersHint') },
@@ -39,14 +41,14 @@ export default function Engine() {
   return (
     <Page title={t('adm.comms.en.title')} subtitle={t('adm.comms.en.sub')} period>
       <Hero kicker={t('adm.comms.en3.kicker', { n: range.days })} loading={!d} value={fmtNum(d?.totals.sent ?? 0, lang)} current={d?.totals.sent} previous={prev?.sent}
-        sentence={d ? (d.totals.sent === 0 ? t('adm.comms.en3.none', { n: range.days }) : t('adm.comms.en3.sentence', {
+        sentence={d ? (d.totals.sent === 0 ? t('adm.comms.en3.none', { n: range.days }) : quiet ? t('adm.comms.en3.nothingYet', { n: range.days }) : t('adm.comms.en3.sentence', {
           n: range.days, taps: fmtNum(d.totals.taps, lang), rate: rate == null ? '—' : fmtPct(rate), buyers: fmtNum(d.totals.buyers, lang), held: fmtNum(d.totals.held, lang) })) : null}
         chart={!d ? <div className="a-skel h-[200px] w-full" /> : d.totals.sent === 0 ? null : (
           <HeroChart data={points} height={200} formatX={(x) => fmtAxisDay(x, lang)} formatV={(v) => fmtNum(v, lang)} formatTick={(v) => fmtCompact(v, lang)}
             labels={{ cur: t('adm.comms.en.k.sent'), peak: t('adm.comms.cp3.peak') }} />
         )}
         note={<>{t('adm.comms.en3.protected')}</>} />
-      {d && <StatStrip items={stats} />}
+      {d && !quiet && <StatStrip items={stats} />}
       {d ? <EngineRules data={d} /> : <Block title={t('adm.comms.en3.rules')}><div className="a-skel h-40 w-full" /></Block>}
       {d ? <EnginePolicy data={d} /> : <EmptyLine>{t('adm.comms.en3.loading')}</EmptyLine>}
       <Fold title={t('adm.comms.en.tab.credits')} hint={t('adm.comms.en3.creditsHint')}>{d ? <EngineCredits data={d} /> : <div className="a-skel h-24 w-full" />}</Fold>

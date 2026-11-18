@@ -112,8 +112,11 @@ export default function RetentionPage() {
 function Cohorts({ cohorts, mode }: { cohorts: Retention['cohorts']; mode: CohortMode }) {
   const { t, lang } = useAdminT();
   const rows = [...cohorts].sort((a, b) => b.m.localeCompare(a.m));
+  // Seuls les mois qu'au moins une cohorte a atteints : pas de colonnes de points.
+  const reached = Math.max(0, ...cohorts.map((c) => c.months_elapsed));
+  const ks = KS.filter((k) => k <= reached);
   // Repère : toutes cohortes confondues, seulement celles qui ont atteint le mois k.
-  const pooled = KS.map((k) => {
+  const pooled = ks.map((k) => {
     const eligible = cohorts.filter((c) => c.months_elapsed >= k && c.size > 0);
     const base = eligible.reduce((s, c) => s + (mode === 'accounts' ? c.size : c.amount[0] ?? 0), 0);
     const raw = eligible.reduce((s, c) => s + (mode === 'accounts' ? c.active[k] ?? 0 : c.amount[k] ?? 0), 0);
@@ -128,7 +131,7 @@ function Cohorts({ cohorts, mode }: { cohorts: Retention['cohorts']; mode: Cohor
           <tr>
             <th className="a-kicker pb-2 text-left font-normal">{t('adm.pil.ret.cohort')}</th>
             <th className="a-kicker pb-2 pr-3 text-right font-normal">{t('adm.pil.ret.size')}</th>
-            {KS.map((k) => <th key={k} className="a-kicker pb-2 text-center font-normal">{k === 0 ? 'M0' : `M+${k}`}</th>)}
+            {ks.map((k) => <th key={k} className="a-kicker pb-2 text-center font-normal">{k === 0 ? 'M0' : `M+${k}`}</th>)}
           </tr>
         </thead>
         <tbody>
@@ -136,7 +139,7 @@ function Cohorts({ cohorts, mode }: { cohorts: Retention['cohorts']; mode: Cohor
             <tr key={c.m}>
               <td className="a-t2 whitespace-nowrap py-[3px] pr-3">{fmtMonth(c.m, lang)}</td>
               <td className="a-mono a-t3 pr-3 text-right">{fmtNum(c.size, lang)}</td>
-              {KS.map((k) => {
+              {ks.map((k) => {
                 const v = cohortCell(c, k, mode);
                 if (!v) return <td key={k} className="a-t3 text-center">·</td>;
                 const share = c.size > 0 ? (mode === 'accounts' ? (c.active[k] ?? 0) / c.size : (c.amount[0] ?? 0) > 0 ? (c.amount[k] ?? 0) / (c.amount[0] ?? 1) : 0) : 0;

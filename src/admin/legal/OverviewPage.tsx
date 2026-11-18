@@ -26,7 +26,7 @@ export default function OverviewPage() {
   const todo = rows.filter((r) => r.state !== 'ok');
   // Les deux plus pressées par leur nom, le reste en nombre : une phrase qui se lit d'un coup.
   const named = todo.slice(0, 2).map((r) => t(`adm.lg2.ob.${r.id}`));
-  const names = todo.length > 2 ? `${named.join(', ')} ${t('adm.lg3.ov.andMore', { n: todo.length - 2 })}` : named.join(` ${t('adm.lg3.ov.and')} `);
+  const names = todo.length > 3 ? `${named.join(', ')} ${t('adm.lg3.ov.andMore', { n: todo.length - 2 })}` : named.join(` ${t('adm.lg3.ov.and')} `);
 
   const headline = !o ? '' : todo.length === 0 ? t('adm.lg3.ov.headOk')
     : t(todo.length === 1 ? (late.length ? 'adm.lg3.ov.headOneLate' : 'adm.lg3.ov.headOne') : (late.length ? 'adm.lg3.ov.headManyLate' : 'adm.lg3.ov.headMany'),

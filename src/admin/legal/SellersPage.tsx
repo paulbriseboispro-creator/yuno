@@ -49,7 +49,7 @@ export default function SellersPage() {
     { id: 'dac7a', accessorFn: (r) => Number(r.amount), header: t('adm.lg3.sl.dacAmount'), meta: { width: '170px' },
       cell: (c) => <MiniBar value={Number(c.row.original.amount)} max={DAC7_MARKERS.amount} width={64} tone={Number(c.row.original.amount) >= DAC7_MARKERS.amount ? 'warning' : 'neutral'} display={fmtEur(Number(c.row.original.amount), lang, { cents: false })} /> },
     { id: 'invoices', accessorFn: (r) => r.missing_invoices, header: t('adm.lg2.sl.col.invoices'), meta: { align: 'right' },
-      cell: (c) => { const r = c.row.original; return r.missing_invoices > 0 ? <span className="whitespace-nowrap font-medium" style={{ color: 'var(--a-neg)' }}>{t('adm.lg2.sl.missingInv', { n: r.missing_invoices })}</span> : <span className="a-t3">—</span>; } },
+      cell: (c) => { const r = c.row.original; return r.missing_invoices > 0 ? <span className="whitespace-nowrap font-medium" style={{ color: 'var(--a-neg)' }}>{t('adm.lg2.sl.missingInv', { n: r.missing_invoices })}</span> : <span className="a-num a-t2">{fmtNum(r.invoices_issued ?? 0, lang)}</span>; } },
   ];
 
   const incomplete = rows.length - complete;

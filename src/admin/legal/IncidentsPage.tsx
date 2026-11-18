@@ -52,7 +52,7 @@ export default function IncidentsPage() {
       {q.isError && !q.data ? <ErrorState onRetry={() => void q.refetch()} /> : !q.data ? (
         <div className="flex flex-col gap-3"><div className="a-skel h-10 w-[26rem] max-w-full" /><div className="a-skel h-16 w-72" /></div>
       ) : !lead ? (
-        <Verdict tone="positive" kicker={t('adm.lg3.in.kicker')} headline={t('adm.lg2.in.none')} sub={t('adm.lg3.in.noneSub', { n: list.length })} />
+        <Verdict tone="positive" kicker={t('adm.lg3.in.kicker')} headline={t('adm.lg2.in.none')} sub={t(list.length === 0 ? 'adm.lg3.in.emptySub' : 'adm.lg3.in.noneSub', { n: list.length })} />
       ) : (
         <section className="grid grid-cols-1 gap-x-12 gap-y-8 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
           <Countdown label={t('adm.lg3.in.cnilClock')} hours={hoursUntil(lead.deadline, now) ?? 0} total={72} tone={rowState(lead)}
