@@ -5074,6 +5074,8 @@ const en: Record<string, string> = {
   'bouncer.placeOf': 'Ticket {k} of {n} · {name}\'s order',
   'bouncer.groupQr': 'Group QR · the whole order of {total} enters',
   'bouncer.groupQrPartial': 'Group QR · {n} of {total} already in',
+  'bouncer.wholeQrLeft': 'Order QR · 1 person enters · {n} of {total} still to come: one scan per person',
+  'bouncer.wholeQrLast': 'Order QR · last person of {total}',
   'bouncer.tapToContinue': 'Tap to continue',
   'bouncer.tapToSkip': 'Tap to skip',
   'bouncer.rapidNext': 'Next guest',

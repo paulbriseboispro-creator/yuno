@@ -17,8 +17,10 @@ export interface OfflineScanResult {
   kind: 'ticket' | 'guest_list' | 'table' | 'not_found';
   name: string | null;
   entry: ManifestEntry | null;
-  /** QR du billet entier d'un billet à places : personnes qu'il fait entrer (ses places encore libres). */
+  /** QR du billet entier d'un billet à places : il fait entrer UNE personne (1). */
   headcount?: number;
+  /** QR du billet entier : la place qui vient d'entrer et celles encore dehors après elle. */
+  wholePlace?: { name: string | null; left: number };
   offline: true;
 }
 
@@ -163,19 +165,10 @@ export function useOfflineScanning(eventId: string | null, scope: DoorScope) {
       if (await db.get('local_scans', p.qr)) continue;
       free.push(p);
     }
-    return free;
+    // L'acheteur d'abord (suffixe « -1 »), comme en ligne.
+    const rank = (qr: string) => { const m = /-(\d{1,3})$/.exec(qr); return m ? Number(m[1]) : 9999; };
+    return free.sort((a, b) => rank(a.qr) - rank(b.qr));
   }, []);
-
-  /** Note les places comme entrées sur ce téléphone (sans file : le serveur les fera entrer avec le billet). */
-  const markPlacesLocally = useCallback(async (places: ManifestEntry[], scannedAt: string) => {
-    if (!eventId) return;
-    const db = await getOfflineDb();
-    for (const p of places) {
-      await db.put('local_scans', {
-        qr: p.qr, eventId, entityType: 'ticket_attendee', entityId: p.id, scannedAt, synced: true,
-      });
-    }
-  }, [eventId]);
 
   const refreshPending = useCallback(async () => {
     setPending(await pendingCount(eventId || undefined));
@@ -273,12 +266,17 @@ export function useOfflineScanning(eventId: string | null, scope: DoorScope) {
     let entity: ScanEntity = local
       ? ({ ...hit.entity, eventId, scanned: true, scannedAt: local.scannedAt } as ScanEntity)
       : ({ ...hit.entity, eventId } as ScanEntity);
-    // QR du billet entier d'un billet à places : il ne fait entrer que les places
-    // encore libres, et il est « déjà scanné » quand il n'en reste aucune.
+    // QR du billet entier d'un billet à places : il fait entrer UNE personne par
+    // scan (la première place libre) ; il n'est « déjà scanné » que quand il n'en
+    // reste aucune. Seules les places décident, jamais le billet ni un ancien scan
+    // local du QR entier.
     const freePlaces = entity.type === 'ticket' ? await freePlacesOf(entity.id) : null;
-    if (freePlaces && freePlaces.length === 0 && !entity.scanned) {
-      entity = { ...entity, scanned: true, scannedAt: null } as ScanEntity;
+    if (freePlaces) {
+      entity = freePlaces.length === 0
+        ? ({ ...entity, scanned: true, scannedAt: entity.scannedAt ?? null } as ScanEntity)
+        : ({ ...entity, scanned: false, scannedAt: null } as ScanEntity);
     }
+    const nextPlace = freePlaces && freePlaces.length > 0 ? freePlaces[0] : null;
 
     const ctx = {
       scope: { venueId: scopeVenueId, organizerUserId: scopeOrganizerUserId, eventIds: scopeEventIds },
@@ -305,15 +303,18 @@ export function useOfflineScanning(eventId: string | null, scope: DoorScope) {
 
     if (verdict.status === 'success') {
       const scannedAt = new Date().toISOString();
+      // QR entier : c'est la PLACE qui entre (et se rejoue), pas le billet.
+      const target = nextPlace
+        ? { qr: nextPlace.qr, type: 'ticket_attendee' as const, id: nextPlace.id }
+        : { qr: qr.trim(), type: entity.type, id: entity.id };
       await db.put('local_scans', {
-        qr: qr.trim(), eventId, entityType: entity.type, entityId: entity.id, scannedAt, synced: false,
+        qr: target.qr, eventId, entityType: target.type, entityId: target.id, scannedAt, synced: false,
       });
-      if (freePlaces) await markPlacesLocally(freePlaces, scannedAt);
       await enqueueScan({
         client_id: crypto.randomUUID(),
-        entity_type: entity.type,
-        entity_id: entity.id,
-        qr: qr.trim(),
+        entity_type: target.type,
+        entity_id: target.id,
+        qr: target.qr,
         scanned_at: scannedAt,
         device_id: getDeviceId(),
         event_id: eventId,
@@ -325,9 +326,11 @@ export function useOfflineScanning(eventId: string | null, scope: DoorScope) {
 
     return {
       verdict, kind: hit.kind, name: hit.entry.name, entry: hit.entry, offline: true,
-      ...(freePlaces && freePlaces.length > 0 ? { headcount: freePlaces.length } : {}),
+      ...(nextPlace && verdict.status === 'success'
+        ? { headcount: 1, wholePlace: { name: nextPlace.name ?? null, left: (freePlaces?.length ?? 1) - 1 } }
+        : {}),
     };
-  }, [eventId, scopeVenueId, scopeOrganizerUserId, scopeEventKey, refreshPending, replay, freePlacesOf, markPlacesLocally]);
+  }, [eventId, scopeVenueId, scopeOrganizerUserId, scopeEventKey, refreshPending, replay, freePlacesOf]);
 
   /**
    * Un scan validé EN LIGNE est aussi noté dans le set local : si le réseau
@@ -342,16 +345,12 @@ export function useOfflineScanning(eventId: string | null, scope: DoorScope) {
       await db.put('local_scans', {
         qr: qr.trim(), eventId, entityType, entityId, scannedAt, synced: true,
       });
-      // Le QR entier vient de faire entrer les places libres : leurs QR ne
-      // doivent plus passer si le réseau tombe avant le prochain manifeste.
-      if (entityType === 'ticket') {
-        const free = await freePlacesOf(entityId);
-        if (free) await markPlacesLocally(free, scannedAt);
-      }
+      // Le QR entier d'un billet à places fait entrer une seule place : l'appelant
+      // la note lui-même (type ticket_attendee), jamais toutes les places.
     } catch {
       /* stockage indisponible : le serveur reste la vérité */
     }
-  }, [enabled, eventId, freePlacesOf, markPlacesLocally]);
+  }, [enabled, eventId]);
 
   const manifestAgeMs = stored ? Date.now() - new Date(stored.fetchedAt).getTime() : null;
 

@@ -20,7 +20,7 @@ import {
 import { tableGuestDoorName } from '@/lib/tableGuests';
 import { resolveDoorEventIds } from '@/lib/scan/doorEvents';
 import {
-  doorRefusalKey, enterRemainingPlaces, fetchDoorRefundPreview, placesEnteredByMeJustNow,
+  doorRefusalKey, enterNextPlace, type EnteredPlace, fetchDoorRefundPreview,
   refundAtDoor, ticketPlacesOf, type DoorRefundPreview,
 } from '@/lib/scan/doorRefund';
 import type { DoorScope } from '@/lib/scan/types';
@@ -91,6 +91,8 @@ interface ScannedTicket {
   headcount?: number;
   /** QR nominatif d'une commande de plusieurs personnes : « Billet k sur N ». */
   placeOf?: { index: number; total: number };
+  /** QR du billet entier : places encore dehors après la personne qui vient d'entrer. */
+  wholeLeft?: number;
   /** Acheteur de la commande (nommé sous la place ou le QR de groupe). */
   buyerName?: string;
   eventTitle: string;
@@ -650,13 +652,14 @@ export default function Bouncer() {
     const pending = pendingLateRef.current;
     if (!pending) return 'none';
     const me = await myUserId();
-    // Billet à places : le QR entier fait entrer les places encore libres.
+    // Billet à places : le QR entier fait entrer UNE personne (la première place dehors).
     if (pending.places) {
-      const entered = await retrySupabaseAction(() => enterRemainingPlaces(pending.id, me));
+      const place = await enterNextPlace(pending.id, me);
       pendingLateRef.current = null;
-      if (entered === 0 && (await placesEnteredByMeJustNow(pending.id, me)) === 0) return 'already';
+      if (!place) return 'already';
       setDoorEnteredQr({ qr: pending.qr, at: Date.now() });
-      void offline.markScannedOnline(pending.qr, pending.kind, pending.id);
+      void offline.markScannedOnline(place.qr, 'ticket_attendee', place.id);
+      setScannedTicket(prev => prev ? { ...prev, fullName: place.name || prev.fullName, headcount: 1, wholeLeft: place.left } : prev);
       fetchStats();
       return 'ok';
     }
@@ -981,7 +984,7 @@ export default function Bouncer() {
           entry.holder ?? null,
           (k) => t('tableGuest.label').replace('{n}', String(k)),
         )
-      : result.name;
+      : (result.wholePlace?.name || result.name);
 
     // VIP hors-ligne : reconstruire la même carte de détail qu'en online depuis
     // le manifeste local — le videur voit zone, pack, personnes, reste à payer et
@@ -1011,7 +1014,8 @@ export default function Bouncer() {
       setScannedTicket({
         id: entry.ticket_id || entry.id,
         userEmail: '',
-        fullName: entry.name || undefined,
+        fullName: result.wholePlace?.name || entry.name || undefined,
+        wholeLeft: result.wholePlace?.left,
         quantity: entry.qty || 1,
         // Une entrée du manifeste avec `ticket_id` est un QR nominatif (un ami) ; le
         // QR entier d'un billet à places fait entrer ses places encore libres ici.
@@ -1512,17 +1516,18 @@ export default function Bouncer() {
 
         const user = { id: await myUserId() };
         let admitted = wholeDoor.headcount;
+        let enteredPlace: EnteredPlace | null = null;
 
         if (places) {
-          // Les places libres entrent une à une (premier scan gagne, place par place).
-          const entered = await retrySupabaseAction(() => enterRemainingPlaces(ticket.id, user.id, signal), retries);
-          admitted = entered || await placesEnteredByMeJustNow(ticket.id, user.id);
-          if (admitted === 0) {
+          // Le QR entier fait entrer UNE personne : la première place encore dehors.
+          enteredPlace = await enterNextPlace(ticket.id, user.id, signal, retries + 1);
+          if (!enteredPlace) {
             setScanResult('already');
             setOverlayResult('already');
             setOverlayName(ticket.full_name || undefined);
             return;
           }
+          admitted = 1;
         } else {
           const { data: updatedData, error: updateError } = await retrySupabaseAction(async () => {
             const res = await sig(supabase
@@ -1551,16 +1556,19 @@ export default function Bouncer() {
           }
         }
 
-        void offline.markScannedOnline(qrCode, 'ticket', ticket.id);
+        if (enteredPlace) void offline.markScannedOnline(enteredPlace.qr, 'ticket_attendee', enteredPlace.id);
+        else void offline.markScannedOnline(qrCode, 'ticket', ticket.id);
+        const enteredName = enteredPlace?.name || ticket.full_name;
         setScanResult('success');
         setOverlayResult('success');
-        setOverlayName(ticket.full_name || undefined);
+        setOverlayName(enteredName || undefined);
         setScannedTicket({
           id: ticket.id,
           userEmail: ticket.user_email,
-          fullName: ticket.full_name,
+          fullName: enteredName,
           quantity: ticket.quantity,
           headcount: admitted,
+          wholeLeft: enteredPlace ? enteredPlace.left : undefined,
             buyerName: ticket.full_name || undefined,
           eventTitle: ticket.events.title,
           roundName: ticketDisplayName(ticket.ticket_rounds.name, ticket.ticket_rounds.group_label),
@@ -3187,6 +3195,11 @@ export default function Bouncer() {
               // sur 3 ») n'aidait pas le videur (Paul, 27/10). Seul l'ancien QR de
               // groupe (commandes d'avant le 21/10) garde sa ligne.
               const peopleSub = !scannedTicket ? null
+                : scannedTicket.wholeLeft !== undefined
+                    // QR de la commande : une personne par scan, on dit combien restent.
+                    ? (scannedTicket.wholeLeft > 0
+                        ? t('bouncer.wholeQrLeft').replace('{n}', String(scannedTicket.wholeLeft)).replace('{total}', String(orderSize))
+                        : t('bouncer.wholeQrLast').replace('{total}', String(orderSize)))
                 : isGroupQr
                     ? (people < orderSize
                         ? t('bouncer.groupQrPartial')

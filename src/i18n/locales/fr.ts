@@ -5041,6 +5041,8 @@ const fr: Record<string, string> = {
   'bouncer.placeOf': 'Billet {k} sur {n} · commande de {name}',
   'bouncer.groupQr': 'QR de groupe · toute la commande de {total} entre',
   'bouncer.groupQrPartial': 'QR de groupe · {n} sur {total} déjà entré(s)',
+  'bouncer.wholeQrLeft': 'QR de la commande · 1 personne entre · encore {n} sur {total} : un scan par personne',
+  'bouncer.wholeQrLast': 'QR de la commande · dernière personne sur {total}',
   'bouncer.tapToContinue': 'Toucher pour continuer',
   'bouncer.tapToSkip': 'Toucher pour passer',
   'bouncer.rapidNext': 'Client suivant',

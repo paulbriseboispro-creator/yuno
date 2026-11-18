@@ -5267,6 +5267,8 @@ const es: Record<string, string> = {
   'bouncer.placeOf': 'Entrada {k} de {n} · pedido de {name}',
   'bouncer.groupQr': 'QR de grupo · entra todo el pedido de {total}',
   'bouncer.groupQrPartial': 'QR de grupo · {n} de {total} ya dentro',
+  'bouncer.wholeQrLeft': 'QR del pedido · entra 1 persona · faltan {n} de {total}: un escaneo por persona',
+  'bouncer.wholeQrLast': 'QR del pedido · última persona de {total}',
   'bouncer.tapToContinue': 'Toca para continuar',
   'bouncer.tapToSkip': 'Toca para pasar',
   'bouncer.rapidNext': 'Siguiente cliente',

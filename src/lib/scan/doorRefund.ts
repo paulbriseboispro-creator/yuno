@@ -159,37 +159,86 @@ export async function ticketPlacesOf(
   return { total: data.length, remaining: data.length - refunded - entered, entered, refunded };
 }
 
-/**
- * Le QR du billet entier fait entrer les places encore libres : chaque place
- * passe « entrée » (premier scan gagne, place par place), le billet parent est
- * marqué par ricochet. Rend le nombre de personnes admises (0 = un collègue
- * vient de les faire entrer). La base refuse de toute façon une place remboursée.
- */
-export async function enterRemainingPlaces(ticketId: string, by: string | null, signal?: AbortSignal): Promise<number> {
-  const query = supabase
-    .from('ticket_attendees')
-    .update({ entry_scanned: true, entry_scanned_at: new Date().toISOString(), entry_scanned_by: by })
-    .eq('ticket_id', ticketId)
-    .eq('entry_scanned', false)
-    .is('refunded_at', null)
-    .select('id');
-  const { data, error } = await (signal ? query.abortSignal(signal) : query);
-  if (error) throw error;
-  return data?.length ?? 0;
+/** La place qu'un scan du QR entier vient de faire entrer. */
+export interface EnteredPlace {
+  id: string;
+  qr: string;
+  name: string | null;
+  /** Places encore dehors après ce scan (ni entrées, ni remboursées). */
+  left: number;
+}
+
+/** Rang d'une place dans sa commande (suffixe « -k » de son QR), l'acheteur d'abord. */
+function placeRank(qr: string | null | undefined): number {
+  const m = /-(\d{1,3})$/.exec((qr ?? '').trim());
+  return m ? Number(m[1]) : 9999;
 }
 
 /**
- * Réponse perdue sur le wifi du club : les places de ce billet que J'AI fait
- * entrer il y a moins d'une minute (le renvoi tombe sinon sur « déjà scanné »).
+ * Le QR du billet ENTIER fait entrer UNE personne par scan : la première place
+ * encore dehors, l'acheteur d'abord. Jamais toute la commande d'un coup : le
+ * 18/11 (House Of Love), l'acheteuse a montré le QR entier, son amie est entrée
+ * « par ricochet » sur le papier et son propre QR a été refusé à son arrivée.
+ * Un groupe qui n'a que ce QR le fait scanner une fois par personne.
+ *
+ * Premier scan gagne, place par place (un collègue qui prend la même place
+ * fait passer à la suivante). Un réessai réseau rejoue la MÊME place, jamais la
+ * suivante : une réponse perdue ne fait pas entrer deux personnes. `null` =
+ * plus personne à faire entrer.
  */
-export async function placesEnteredByMeJustNow(ticketId: string, me: string | null): Promise<number> {
-  if (!me) return 0;
-  const since = new Date(Date.now() - 60_000).toISOString();
-  const { count, error } = await supabase
+export async function enterNextPlace(
+  ticketId: string,
+  by: string | null,
+  signal?: AbortSignal,
+  attempts = 3,
+): Promise<EnteredPlace | null> {
+  const read = supabase
     .from('ticket_attendees')
-    .select('id', { count: 'exact', head: true })
-    .eq('ticket_id', ticketId)
-    .eq('entry_scanned_by', me)
-    .gte('entry_scanned_at', since);
-  return error ? 0 : count ?? 0;
+    .select('id, qr_code, full_name, entry_scanned, refunded_at')
+    .eq('ticket_id', ticketId);
+  const { data, error } = await (signal ? read.abortSignal(signal) : read);
+  if (error) throw error;
+  const free = (data ?? [])
+    .filter(p => !p.entry_scanned && !p.refunded_at)
+    .sort((a, b) => placeRank(a.qr_code) - placeRank(b.qr_code));
+
+  for (let i = 0; i < free.length; i++) {
+    const place = free[i];
+    let won = false;
+    let lastError: unknown = null;
+    for (let attempt = 0; attempt < Math.max(1, attempts); attempt++) {
+      try {
+        const upd = supabase
+          .from('ticket_attendees')
+          .update({ entry_scanned: true, entry_scanned_at: new Date().toISOString(), entry_scanned_by: by })
+          .eq('id', place.id)
+          .eq('entry_scanned', false)
+          .is('refunded_at', null)
+          .select('id');
+        const res = await (signal ? upd.abortSignal(signal) : upd);
+        if (res.error) throw res.error;
+        if ((res.data?.length ?? 0) > 0) { won = true; break; }
+        // 0 ligne : soit un collègue l'a prise, soit MON essai précédent est passé
+        // et sa réponse s'est perdue.
+        if (attempt > 0 && by) {
+          const { data: row } = await supabase
+            .from('ticket_attendees').select('entry_scanned_by, entry_scanned_at').eq('id', place.id).maybeSingle();
+          if (row && row.entry_scanned_by === by && row.entry_scanned_at
+            && Date.now() - new Date(row.entry_scanned_at).getTime() < 60_000) { won = true; }
+        }
+        lastError = null;
+        break;
+      } catch (err) {
+        lastError = err;
+        if (signal?.aborted) break;
+        await new Promise(r => setTimeout(r, 400 * (attempt + 1)));
+      }
+    }
+    if (lastError) throw lastError;
+    if (won) {
+      return { id: place.id, qr: place.qr_code, name: place.full_name ?? null, left: free.length - i - 1 };
+    }
+  }
+  return null;
 }
+

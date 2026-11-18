@@ -10,7 +10,7 @@ import { Scanner } from '@/lib/qrScanner';
 import { classifyCameraError } from '@/lib/cameraPermission';
 import { CameraPermissionNotice } from '@/components/pro/CameraPermissionNotice';
 import type { Tables } from '@/integrations/supabase/types';
-import { enterRemainingPlaces, isPlaceRefunded, ticketPlacesOf } from '@/lib/scan/doorRefund';
+import { enterNextPlace, isPlaceRefunded, ticketPlacesOf } from '@/lib/scan/doorRefund';
 import { wholeTicketDoorState } from '@/lib/scan/rules';
 
 /** A ticket reached through one of its named attendees' QR codes. */
@@ -200,7 +200,7 @@ export function PromoterScanTab({ promoterId, eventId, eventTitle }: PromoterSca
       // Check if already scanned
       // QR nominatif : seule SA place compte — le billet parent est marqué dès
       // qu'un premier ami entre, ce qui refusait à tort les suivants.
-      // QR du billet entier d'un billet à places : il fait entrer les places encore libres.
+      // QR du billet entier d'un billet à places : il fait entrer UNE place encore libre par scan.
       const wholePlaces = !attendeeTicket && ticket ? await ticketPlacesOf(ticket.id, ticket.quantity) : null;
       const isScanned = attendeeTicket?.attendee
         ? !!attendeeTicket.attendee.entry_scanned
@@ -230,7 +230,8 @@ export function PromoterScanTab({ promoterId, eventId, eventTitle }: PromoterSca
         }
       }
       if (wholePlaces) {
-        if ((await enterRemainingPlaces(resolvedTicket.id, scanUser?.id ?? null)) === 0) {
+        // Le QR entier fait entrer UNE personne : la première place encore dehors.
+        if (!(await enterNextPlace(resolvedTicket.id, scanUser?.id ?? null))) {
           setLastResult({ status: 'already_scanned' });
           toast.warning(t('promoterScan.alreadyScanned'));
           return;

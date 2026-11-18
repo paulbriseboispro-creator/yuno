@@ -69,9 +69,14 @@ describe('wholeTicketDoorState — QR du billet entier d\'un billet à places', 
     expect(wholeTicketDoorState(true, 3, null)).toEqual({ scanned: true, headcount: 3 });
   });
 
-  it('un ami déjà entré avec SON QR : le QR entier fait entrer les places restantes', () => {
+  it('un ami déjà entré avec SON QR : le QR entier reste valable pour les autres', () => {
     // Billet parent marqué par le scan de l'ami, 3 places encore libres sur 4.
-    expect(wholeTicketDoorState(true, 4, { remaining: 3 })).toEqual({ scanned: false, headcount: 3 });
+    expect(wholeTicketDoorState(true, 4, { remaining: 3 }).scanned).toBe(false);
+  });
+
+  it('le QR entier fait entrer UNE personne par scan, jamais toute la commande (18/11)', () => {
+    expect(wholeTicketDoorState(false, 2, { remaining: 2 })).toEqual({ scanned: false, headcount: 1 });
+    expect(wholeTicketDoorState(true, 4, { remaining: 3 })).toEqual({ scanned: false, headcount: 1 });
   });
 
   it('plus aucune place libre : déjà scanné', () => {

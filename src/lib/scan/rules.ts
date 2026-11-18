@@ -148,12 +148,13 @@ export function ticketPlaceFromQr(
 }
 
 /**
- * QR du BILLET ENTIER (e-mail, Wallet) d'un billet à places nominatives : il
- * fait entrer les places encore libres — ni entrées avec leur propre QR, ni
- * remboursées une à une. Il n'est « déjà scanné » que quand il n'en reste
- * aucune. Avant, le billet parent étant marqué dès qu'un premier ami entrait
- * avec SON QR, l'acheteur et les autres amis se voyaient répondre « Déjà
- * scanné ». `places` = null : billet sans places (son QR est la seule entrée).
+ * QR du BILLET ENTIER (Wallet, page de la commande) d'un billet à places
+ * nominatives : il fait entrer UNE personne par scan, la première place encore
+ * dehors (l'acheteur d'abord), et n'est « déjà scanné » que quand il n'en reste
+ * aucune. Jamais toute la commande d'un coup : le 18/11, l'amie de l'acheteuse
+ * était « entrée » avec elle sur le papier et son propre QR a été refusé.
+ * `places` = null : billet sans places (son QR est la seule entrée, toute la
+ * commande entre).
  */
 export function wholeTicketDoorState(
   ticketScanned: boolean | null | undefined,
@@ -162,12 +163,12 @@ export function wholeTicketDoorState(
 ): { scanned: boolean; headcount: number } {
   if (!places) return { scanned: !!ticketScanned, headcount: entryHeadcount('ticket', quantity) };
   const remaining = Math.max(0, Math.floor(places.remaining));
-  return { scanned: remaining === 0, headcount: Math.max(1, remaining) };
+  return { scanned: remaining === 0, headcount: 1 };
 }
 
 /**
  * QR de la RÉSERVATION d'une table à tickets d'invités (table_reservation_guests) :
- * même règle que le QR d'un billet entier. Il fait entrer les personnes encore
+ * il fait entrer TOUTES les personnes encore
  * dehors, et n'est « déjà scanné » que quand elles sont toutes entrées. Sans
  * tickets d'invités (table d'une personne, réservation d'avant), la réservation
  * entière entre d'un coup, comme avant.
@@ -177,7 +178,9 @@ export function wholeTableDoorState(
   guestCount: number | null | undefined,
   guests: { remaining: number } | null,
 ): { scanned: boolean; headcount: number } {
-  return wholeTicketDoorState(reservationScanned, guestCount, guests);
+  if (!guests) return { scanned: !!reservationScanned, headcount: entryHeadcount('ticket', guestCount) };
+  const remaining = Math.max(0, Math.floor(guests.remaining));
+  return { scanned: remaining === 0, headcount: Math.max(1, remaining) };
 }
 
 export function validateTicketEntry(entity: TicketScanEntity, ctx: ScanContext): ScanVerdict {

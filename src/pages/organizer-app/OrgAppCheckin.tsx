@@ -30,7 +30,7 @@ import { calcStripeFee } from '@/utils/fees';
 import { toZonedTime } from 'date-fns-tz';
 import { getEventTimezone } from '@/lib/timezone';
 import {
-  doorRefusalKey, enterRemainingPlaces, fetchDoorRefundPreview, isPlaceRefunded, placesEnteredByMeJustNow,
+  doorRefusalKey, enterNextPlace, fetchDoorRefundPreview, isPlaceRefunded,
   refundAtDoor, ticketPlacesOf, type DoorRefundPreview,
 } from '@/lib/scan/doorRefund';
 import {
@@ -460,10 +460,13 @@ export default function OrgAppCheckin() {
         }
 
         let admitted = ticketCard.headcount;
+        let enteredName = ticket.full_name ?? null;
         if (places) {
-          const entered = await retrySupabaseAction(() => enterRemainingPlaces(ticket.id, user!.id));
-          admitted = entered || await placesEnteredByMeJustNow(ticket.id, user!.id);
-          if (admitted === 0) { setLastScan({ ok: false, name: ticket.full_name ?? undefined, reason: t('Déjà scanné', 'Already scanned') }); return; }
+          // Le QR entier fait entrer UNE personne : la première place encore dehors.
+          const place = await enterNextPlace(ticket.id, user!.id);
+          if (!place) { setLastScan({ ok: false, name: ticket.full_name ?? undefined, reason: t('Déjà scanné', 'Already scanned') }); return; }
+          admitted = 1;
+          enteredName = place.name || enteredName;
         } else {
           const { data: updated } = await retrySupabaseAction(async () => {
             const r = await supabase.from('tickets')
@@ -474,10 +477,10 @@ export default function OrgAppCheckin() {
           if ((!updated || updated.length === 0) && !(await scannedByMeJustNow('tickets', ticket.id))) { setLastScan({ ok: false, name: ticket.full_name ?? undefined, reason: t('Déjà scanné', 'Already scanned') }); return; }
         }
 
-        setLastScan({ ok: true, name: ticket.full_name ?? undefined });
-        setDoorTicket({ ...ticketCard, headcount: admitted });
-        setRecent(r => [{ name: ticket.full_name, at: new Date() }, ...r].slice(0, 5));
-        toast.success(`✓ ${ticket.full_name ?? t('Entrée validée', 'Entry validated')}`);
+        setLastScan({ ok: true, name: enteredName ?? undefined });
+        setDoorTicket({ ...ticketCard, name: enteredName ?? ticketCard.name, headcount: admitted });
+        setRecent(r => [{ name: enteredName, at: new Date() }, ...r].slice(0, 5));
+        toast.success(`✓ ${enteredName ?? t('Entrée validée', 'Entry validated')}`);
         return;
       }
 
@@ -626,9 +629,9 @@ export default function OrgAppCheckin() {
       const scanAt = new Date().toISOString();
       let admittedCount = card.headcount;
       if (pending.places) {
-        // QR entier d'un billet à places : les places encore libres entrent.
-        const entered = await retrySupabaseAction(() => enterRemainingPlaces(pending.id, user!.id));
-        admittedCount = entered || await placesEnteredByMeJustNow(pending.id, user!.id);
+        // QR entier d'un billet à places : UNE personne entre (la première place dehors).
+        const place = await enterNextPlace(pending.id, user!.id);
+        admittedCount = place ? 1 : 0;
         if (admittedCount === 0) {
           setDoorTicket(null);
           setLastScan({ ok: false, name: card.name ?? undefined, reason: t('Déjà scanné', 'Already scanned') });
