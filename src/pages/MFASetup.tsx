@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { Shield, Download, CheckCircle, Loader2, Copy } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -106,7 +107,7 @@ export default function MFASetup() {
   const generateSecret = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('mfa', { body: { action: 'generate-secret' } });
+      const { data, error } = await invokeEdgeFunction('mfa', { body: { action: 'generate-secret' } });
 
       if (error) throw error;
 
@@ -143,7 +144,7 @@ export default function MFASetup() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('mfa', {
+      const { data, error } = await invokeEdgeFunction('mfa', {
         body: { action: 'verify-setup', code },
       });
 
@@ -154,7 +155,17 @@ export default function MFASetup() {
       toast.success(t('mfa.activated'));
     } catch (error: unknown) {
       console.error('Erreur vérification:', error);
-      toast.error((error as Error).message || t('mfa.incorrectCode'));
+      const message = (error as Error).message || t('mfa.incorrectCode');
+      // Le secret en attente vit 15 minutes côté serveur : passé ce délai (ou
+      // s'il a été effacé), un nouveau QR code est généré d'office au lieu de
+      // laisser la personne retaper un code qui ne pourra jamais passer.
+      if (/expir|recommencer|en attente/i.test(message)) {
+        toast.error(tr('Ce QR code a expiré (15 minutes). Un nouveau vient d\'être généré : scannez-le à nouveau.', 'This QR code expired (15 minutes). A new one was just generated: scan it again.', 'Este código QR ha caducado (15 minutos). Se acaba de generar uno nuevo: escanéalo de nuevo.'));
+        setCode('');
+        await generateSecret();
+        return;
+      }
+      toast.error(message);
     } finally {
       setLoading(false);
     }
