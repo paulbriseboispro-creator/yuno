@@ -166,6 +166,7 @@ const dict: AdminDict = {
   'adm.ui.period.12m': ['12 months', '12 mois', '12 meses'],
   'adm.ui.kpi.vsPrev': ['Compared with the previous period of the same length', 'Comparé à la période précédente de même durée', 'Comparado con el periodo anterior de igual duración'],
   'adm.ui.kpi.noCompare': ['no comparison', 'pas de comparaison', 'sin comparación'],
+  'adm.ui.kpi.absDelta': ['{d} (was {p})', '{d} (contre {p})', '{d} (frente a {p})'],
   'adm.ui.table.search': ['Search this list', 'Chercher dans la liste', 'Buscar en la lista'],
   'adm.ui.table.empty': ['Nothing here yet.', 'Rien ici pour l’instant.', 'Nada por ahora.'],
   'adm.ui.table.noMatch': ['No line matches this search.', 'Aucune ligne ne correspond à cette recherche.', 'Ninguna línea coincide con esta búsqueda.'],

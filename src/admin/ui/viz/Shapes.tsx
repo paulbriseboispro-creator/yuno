@@ -297,7 +297,7 @@ function heatInk(v: number, max: number): string {
   return `color-mix(in srgb, var(--a-text) ${Math.round(25 + 60 * Math.min(1, v / max))}%, transparent)`;
 }
 
-export function CalendarHeat({ days, fmt, weekdays, month }: {
+export function CalendarHeat({ days, fmt, weekdays, month, fewAt = 10 }: {
   /** Jours consécutifs (AAAA-MM-JJ) et leur valeur. */
   days: Array<{ d: string; v: number }>;
   fmt: (d: string, v: number) => string;
@@ -305,6 +305,8 @@ export function CalendarHeat({ days, fmt, weekdays, month }: {
   weekdays: string[];
   /** Nom court d'un mois pour le repère au-dessus des colonnes (« nov. »). */
   month?: (d: string) => string;
+  /** Jusqu'à ce nombre de jours actifs, ils sont aussi listés en clair sous la grille. */
+  fewAt?: number;
 }) {
   const tip = useTip();
   const max = Math.max(0, ...days.map((x) => x.v));
@@ -313,7 +315,10 @@ export function CalendarHeat({ days, fmt, weekdays, month }: {
   const weeks: Array<typeof cells> = [];
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
   const active = days.filter((x) => x.v > 0).length;
+  // À faible volume, une grille presque vide ne dit rien : les jours actifs s'écrivent en clair dessous.
+  const few = active > 0 && active <= fewAt ? days.filter((x) => x.v > 0).sort((a, b) => b.d.localeCompare(a.d)) : null;
   return (
+    <div className="flex flex-col gap-3">
     <div ref={tip.ref} className="relative flex gap-2" role="img" aria-label={`${active} / ${days.length}`}>
       <div className="a-mono a-t3 flex flex-col gap-[3px] pt-[16px] text-[10px]">{weekdays.map((w, i) => <span key={i} className="h-3 leading-3">{i % 2 === 0 ? w : ''}</span>)}</div>
       <div className="flex gap-[3px] overflow-x-auto">
@@ -333,6 +338,17 @@ export function CalendarHeat({ days, fmt, weekdays, month }: {
         })}
       </div>
       {tip.node}
+    </div>
+    {few && (
+      <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-[12.5px]">
+        {few.map((x) => (
+          <li key={x.d} className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-2 w-2 rounded-[2px]" style={{ background: heatInk(x.v, max) }} />
+            <span className="a-t2">{fmt(x.d, x.v)}</span>
+          </li>
+        ))}
+      </ul>
+    )}
     </div>
   );
 }

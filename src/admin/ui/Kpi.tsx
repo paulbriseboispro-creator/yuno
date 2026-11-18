@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 import { ArrowDownRight, ArrowUpRight, ChevronRight, Minus } from 'lucide-react';
 import { Line, LineChart, ResponsiveContainer } from 'recharts';
 import { useAdminT } from './i18n';
-import { fmtPct } from '@/lib/adminFormat';
+import { fmtNum, fmtPct } from '@/lib/adminFormat';
 import { relativeDelta } from '../context/period';
 
 export function Sparkline({ data, color = 'var(--a-accent)', height = 28 }: { data: number[]; color?: string; height?: number }) {
@@ -31,9 +31,11 @@ export function DeltaBadge({ current, previous, invert = false }: {
   /** Vrai quand une baisse est une bonne nouvelle (remboursements, échecs). */
   invert?: boolean;
 }) {
-  const { t } = useAdminT();
+  const { t, lang } = useAdminT();
   const d = relativeDelta(current, previous);
   if (d == null) return <span className="a-t3 text-[12px]">{t('adm.ui.kpi.noCompare')}</span>;
+  // Au-delà de ±300 %, un pourcentage ne dit plus rien : on écrit l'écart absolu et la référence.
+  const huge = Math.abs(d) > 3 && current != null && previous != null;
   const flat = Math.abs(d) < 0.005;
   const good = flat ? null : (d > 0) !== invert;
   // Le rouge est l'accent : une mauvaise évolution s'écrit en encre neutre, avec sa flèche.
@@ -42,7 +44,7 @@ export function DeltaBadge({ current, previous, invert = false }: {
   return (
     <span className="a-num inline-flex items-center gap-0.5 text-[12px] font-medium" style={{ color }} title={t('adm.ui.kpi.vsPrev')}>
       <Icon className="h-3.5 w-3.5" />
-      {flat ? '0 %' : `${d > 0 ? '+' : ''}${fmtPct(d * 100, Math.abs(d) < 0.1 ? 1 : 0)}`}
+      {flat ? '0 %' : huge ? t('adm.ui.kpi.absDelta', { d: `${d > 0 ? '+' : '−'}${fmtNum(Math.abs((current ?? 0) - (previous ?? 0)), lang)}`, p: fmtNum(previous ?? 0, lang) }) : `${d > 0 ? '+' : ''}${fmtPct(d * 100, Math.abs(d) < 0.1 ? 1 : 0)}`}
     </span>
   );
 }
