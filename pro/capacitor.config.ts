@@ -39,6 +39,12 @@ const config: CapacitorConfig = {
       // Le splash natif couvre ce téléchargement (17-18 Mo) au lieu de laisser
       // flasher l'ancien bundle embarqué puis recharger.
       autoSplashscreen: true,
+      // Délai laissé au nouveau bundle pour signaler qu'il démarre bien
+      // (notifyAppReady) avant d'être jugé cassé et remplacé par l'ancien.
+      // Le défaut (10 s) était trop court pour un premier lancement lent :
+      // mesuré le 21/11 sur iOS 27, une mise à jour saine abandonnée à 11 s,
+      // puis double rechargement (~20 s d'écran de démarrage).
+      appReadyTimeout: 20000,
       autoSplashscreenLoader: true,
       // Réseau lent : au-delà de 12 s on rend la main, le téléchargement finit
       // en arrière-plan et s'applique au prochain démarrage (= comportement

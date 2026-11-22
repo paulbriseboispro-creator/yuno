@@ -35,25 +35,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return path.hasSuffix("/guestlist")
     }
 
-    private var urlObservation: NSKeyValueObservation?
-
-    func applicationDidBecomeActive(_ application: UIApplication) {
-        // Swipe back natif : active le geste bord-écran du WKWebView. L'historique
-        // SPA (pushState) est dans la back-forward list du WebView, donc le geste
-        // dépile la navigation comme une app iOS classique. Idempotent.
-        guard let vc = window?.rootViewController as? CAPBridgeViewController,
-              let webView = vc.webView else { return }
-
-        webView.allowsBackForwardNavigationGestures = !AppDelegate.guardsItsOwnBack(webView.url)
-
-        // `url` est observable et suit les pushState/replaceState de la SPA :
-        // le geste se recoupe et se rétablit page par page, sans plugin.
-        if urlObservation == nil {
-            urlObservation = webView.observe(\.url, options: [.new]) { wv, _ in
-                wv.allowsBackForwardNavigationGestures = !AppDelegate.guardsItsOwnBack(wv.url)
-            }
-        }
-    }
+    // Le geste bord-écran se règle dans SceneDelegate.sceneDidBecomeActive :
+    // avec des scènes (obligatoires depuis iOS 27), la fenêtre n'est plus ici
+    // et iOS n'appelle plus applicationDidBecomeActive.
 
     func applicationWillTerminate(_ application: UIApplication) {
         // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.

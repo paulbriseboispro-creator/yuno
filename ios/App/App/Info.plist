@@ -2,22 +2,18 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CAPACITOR_DEBUG</key>
+	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>Yuno</string>
+	<string>Yuno</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
-	<!-- Langues supportées, déclarées pour la WebView. iOS borne le
-	     navigator.languages d'une WKWebView aux localisations du bundle : sans
-	     cette clé, l'app est réputée anglaise seule et la WebView annonce 'en'
-	     à tout le monde, quelle que soit la langue du téléphone. -->
 	<key>CFBundleLocalizations</key>
 	<array>
 		<string>en</string>
@@ -30,33 +26,6 @@
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
-	<key>CFBundleVersion</key>
-	<string>$(CURRENT_PROJECT_VERSION)</string>
-	<key>LSRequiresIPhoneOS</key>
-	<true/>
-	<key>UILaunchStoryboardName</key>
-	<string>LaunchScreen</string>
-	<key>UIMainStoryboardFile</key>
-	<string>Main</string>
-	<key>UIRequiredDeviceCapabilities</key>
-	<array>
-		<string>armv7</string>
-	</array>
-	<!-- Yuno est une app portrait : le paysage exposerait des écrans non conçus,
-	     cibles faciles pour un reviewer Apple. iPhone verrouillé en portrait. -->
-	<key>UISupportedInterfaceOrientations</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-	</array>
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>UIViewControllerBasedStatusBarAppearance</key>
-	<true/>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -76,26 +45,65 @@
 			</array>
 		</dict>
 	</array>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Yuno uses your location to show clubs and events near you on the map.</string>
-	<!-- Exigée par App Store Connect (ITMS-90683, build 40) : le plugin
-	     @capacitor/geolocation référence l'API « Always » même si Yuno ne
-	     demande jamais la localisation en arrière-plan. -->
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Yuno uses your location to show clubs and events near you on the map. Yuno never tracks your location in the background.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Yuno uses the camera to scan QR codes for tickets and event check-in.</string>
-	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
-	<string>Yuno adds your event tickets to your calendar so you never miss a night out.</string>
-	<key>NSCalendarsUsageDescription</key>
-	<string>Yuno adds your event tickets to your calendar so you never miss a night out.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Yuno saves your ticket QR codes and event images to your photo library when you tap Save.</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Yuno adds your event tickets to your calendar so you never miss a night out.</string>
+	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
+	<string>Yuno adds your event tickets to your calendar so you never miss a night out.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Yuno uses the camera to scan QR codes for tickets and event check-in.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Yuno uses your location to show clubs and events near you on the map. Yuno never tracks your location in the background.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Yuno uses your location to show clubs and events near you on the map.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Yuno saves your ticket QR codes and event images to your photo library when you tap Save.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
+	<true/>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Default Configuration</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+					<key>UISceneStoryboardFile</key>
+					<string>Main</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>armv7</string>
+	</array>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 </dict>
 </plist>
