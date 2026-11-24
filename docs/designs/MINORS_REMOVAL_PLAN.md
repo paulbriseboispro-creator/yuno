@@ -162,9 +162,30 @@ puis grep final : `grep -rniE "minor|mineur|menor|alcohol_free|alcoholFree" src 
 
 - [x] Cartographie (2026-11-24)
 - [x] Front (nouveau composant `src/components/AdultBirthGate.tsx`, clés `birthGate.*`)
-- [x] Edge (code) : `create-ticket-checkout` refuse une date déclarée < 18 ans ; à DÉPLOYER avant la migration
-- [x] Migration écrite : `supabase/migrations/20261220100000_remove_minors_system.sql`, répétée en transaction annulée sur la prod (OK)
-- [ ] Déploiement : front (push main) + OTA, puis edge `create-ticket-checkout`, PUIS migration, puis fichiers de stockage + bucket, puis types.ts
-- [ ] Docs, aide, assistants, légal
-- [ ] Vérification
-- [ ] Commit + push
+- [x] Edge (code) : `create-ticket-checkout` refuse une date déclarée < 18 ans
+- [x] Migration écrite : `supabase/migrations/20261220100000_remove_minors_system.sql`,
+      répétée en transaction annulée sur la prod (OK, rien modifié)
+- [x] Docs, aide (3 langues), `CLAUDE.md`, guide
+- [x] Vérifié : tsc, lint (0 erreur), vitest (2 328), build, `deno check`
+- [x] Commité et poussé sur `main` (2026-11-24) → le web se redéploie seul (Cloudflare)
+
+### Reste à faire en PRODUCTION, dans cet ordre (feu vert de Paul requis)
+
+La prod de `create-ticket-checkout` était identique à `main` avant ce chantier
+(vérifié fichier par fichier le 24/11) : on peut la déployer depuis `main`.
+
+1. **Edge** (compatible dans les deux sens, à faire AVANT la migration : l'ancienne
+   version écrit `tickets.minor_auth_doc_url`, qui va disparaître) :
+   `supabase functions deploy create-ticket-checkout --use-api`
+2. **OTA des deux apps natives** : les bundles installés lisent encore
+   `events.alcohol_free` (choix du billet, paiement, confirmation, porte du videur,
+   Console). Après la migration, ces écrans tomberaient sur une ancienne version.
+   `npm run ota:publish` (ou beta → promote), puis laisser les apps se mettre à jour.
+   Attention : l'OTA embarque tout `main` (dont le travail admin des autres sessions).
+3. **Migration** : `supabase db push` (ou API + ligne dans `schema_migrations` +
+   `NOTIFY pgrst, 'reload schema'`). Vérifier d'abord que personne n'écrit en
+   prod (`pg_stat_activity`).
+4. **Stockage** (API Storage, clé service, jamais SQL) : supprimer les 3 fichiers
+   listés plus haut, puis le bucket `minor-auth-uploads`.
+5. `supabase gen types … 2>/dev/null > src/integrations/supabase/types.ts`,
+   `python3 scripts/check-selects.py`, `supabase db lint --linked`, commit + push.
