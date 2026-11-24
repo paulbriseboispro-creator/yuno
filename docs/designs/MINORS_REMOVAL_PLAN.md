@@ -169,23 +169,20 @@ puis grep final : `grep -rniE "minor|mineur|menor|alcohol_free|alcoholFree" src 
 - [x] Vérifié : tsc, lint (0 erreur), vitest (2 328), build, `deno check`
 - [x] Commité et poussé sur `main` (2026-11-24) → le web se redéploie seul (Cloudflare)
 
-### Reste à faire en PRODUCTION, dans cet ordre (feu vert de Paul requis)
+### Production (feu vert de Paul le 24/11)
 
-La prod de `create-ticket-checkout` était identique à `main` avant ce chantier
-(vérifié fichier par fichier le 24/11) : on peut la déployer depuis `main`.
-
-1. **Edge** (compatible dans les deux sens, à faire AVANT la migration : l'ancienne
-   version écrit `tickets.minor_auth_doc_url`, qui va disparaître) :
-   `supabase functions deploy create-ticket-checkout --use-api`
-2. **OTA des deux apps natives** : les bundles installés lisent encore
-   `events.alcohol_free` (choix du billet, paiement, confirmation, porte du videur,
-   Console). Après la migration, ces écrans tomberaient sur une ancienne version.
-   `npm run ota:publish` (ou beta → promote), puis laisser les apps se mettre à jour.
-   Attention : l'OTA embarque tout `main` (dont le travail admin des autres sessions).
-3. **Migration** : `supabase db push` (ou API + ligne dans `schema_migrations` +
-   `NOTIFY pgrst, 'reload schema'`). Vérifier d'abord que personne n'écrit en
-   prod (`pg_stat_activity`).
-4. **Stockage** (API Storage, clé service, jamais SQL) : supprimer les 3 fichiers
-   listés plus haut, puis le bucket `minor-auth-uploads`.
-5. `supabase gen types … 2>/dev/null > src/integrations/supabase/types.ts`,
-   `python3 scripts/check-selects.py`, `supabase db lint --linked`, commit + push.
+- [x] Edge `create-ticket-checkout` déployée depuis `main` (24/11, prod = main
+      vérifié avant ; répond normalement).
+- [x] OTA publiée : client 1.0.92, Pro 1.0.100, canaux production ET beta (24/11).
+- [x] 3 fichiers de test + bucket `minor-auth-uploads` supprimés par l'API Storage.
+- [ ] **Migration `20261220100000`** : volontairement EN ATTENTE. Une app restée sur
+      un ancien bundle (avant 1.0.92 / 1.0.100) lit encore `events.alcohol_free` et
+      les colonnes de `PUBLIC_VENUE_COLUMNS` : après la migration, la page billets,
+      la page club et le SCAN DU VIDEUR y tombent. Les apps prennent l'OTA à une
+      ouverture et l'appliquent à la suivante. Il y avait des ventes en cours et une
+      vraie soirée (Midnight House, 26/11 00:00 Paris). Appliquer après la soirée,
+      une fois `npm run ota:devices` montrant les appareils actifs en 1.0.92 / 1.0.100.
+      Commande : répéter en transaction annulée (cf. plus haut), puis
+      `supabase db push` ou API + `schema_migrations` + `NOTIFY pgrst, 'reload schema'`.
+- [ ] Après la migration : `supabase gen types … 2>/dev/null > src/integrations/supabase/types.ts`,
+      `python3 scripts/check-selects.py`, `supabase db lint --linked`, commit + push.
