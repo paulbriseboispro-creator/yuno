@@ -1845,7 +1845,7 @@ export default function EventDetails() {
             (commande dans l'app, presale après le billet, retrait sans file).
             L'achat vit sur /order/upsell et en Mode Live. */}
         {DRINKS_PILLAR_LIVE && venue && venue.id !== primaryOrganizer?.user_id && (
-          <EventDrinksTeaser venueId={venue.id} eventId={event.id} />
+          <EventDrinksTeaser venueId={venue.id} />
         )}
 
         {/* ── DESCRIPTION ── */}

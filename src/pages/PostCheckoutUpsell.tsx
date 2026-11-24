@@ -9,7 +9,7 @@
 //                                      (résout le billet payé de l'utilisateur)
 //
 // Éligibilité — sinon redirection immédiate vers la confirmation billet :
-// connecté ∧ billet trouvé ∧ soirée non alcohol_free ∧ menu_enabled ∧
+// connecté ∧ billet trouvé ∧ menu_enabled ∧
 // post_checkout_upsell_enabled ∧ carte non vide. Les invités (guest checkout)
 // ne passent jamais ici : ils gardent l'écran incitation-compte.
 //
@@ -130,10 +130,10 @@ export default function PostCheckoutUpsell() {
         // 2) Soirée + club : éligibilité.
         const { data: ev } = await supabase
           .from('events')
-          .select('id, title, start_at, venue_id, poster_url, alcohol_free')
+          .select('id, title, start_at, venue_id, poster_url')
           .eq('id', evId)
           .maybeSingle();
-        if (!ev || !ev.venue_id || ev.alcohol_free) { if (!cancelled) exitToConfirmation(tid); return; }
+        if (!ev || !ev.venue_id) { if (!cancelled) exitToConfirmation(tid); return; }
 
         const { data: venue } = await supabase
           .from('venues')

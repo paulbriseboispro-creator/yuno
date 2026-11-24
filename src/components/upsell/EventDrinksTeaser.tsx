@@ -18,11 +18,9 @@ import { FadeInView } from '@/components/motion';
 
 interface EventDrinksTeaserProps {
   venueId: string;
-  /** Si fourni, vérifie events.alcohol_free (soirée sans alcool → pas de teaser). */
-  eventId?: string;
 }
 
-export function EventDrinksTeaser({ venueId, eventId }: EventDrinksTeaserProps) {
+export function EventDrinksTeaser({ venueId }: EventDrinksTeaserProps) {
   const { t } = useLanguage();
   const [state, setState] = useState<{ show: boolean; hasPresale: boolean }>({ show: false, hasPresale: false });
 
@@ -31,14 +29,6 @@ export function EventDrinksTeaser({ venueId, eventId }: EventDrinksTeaserProps) 
     let cancelled = false;
     (async () => {
       try {
-        if (eventId) {
-          const { data: ev } = await supabase
-            .from('events')
-            .select('alcohol_free')
-            .eq('id', eventId)
-            .maybeSingle();
-          if (ev?.alcohol_free) return;
-        }
         const { data: venue } = await supabase
           .from('venues')
           .select('menu_enabled')
@@ -59,7 +49,7 @@ export function EventDrinksTeaser({ venueId, eventId }: EventDrinksTeaserProps) 
       }
     })();
     return () => { cancelled = true; };
-  }, [venueId, eventId]);
+  }, [venueId]);
 
   if (!state.show) return null;
 

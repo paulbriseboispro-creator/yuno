@@ -505,7 +505,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Users',
         actionLink: { labelKey: 'ohelp.action.goToCustomers', path: '/clients' },
         relatedArticleIds: ['loyalty-setup', 'understand-analytics', 'email-campaigns'],
-        keywords: ['CRM', 'client', 'customer', 'segment', 'rfm', 'champions', 'loyal', 'ban', 'bannir', 'minor', 'mineur', 'tier', 'palier', 'lifetime value', 'fiche client', 'clientes', 'origines', 'origins'],
+        keywords: ['CRM', 'client', 'customer', 'segment', 'rfm', 'champions', 'loyal', 'ban', 'bannir', 'tier', 'palier', 'lifetime value', 'fiche client', 'clientes', 'origines', 'origins'],
         sections: [
           { headingKey: 'ohelp.pg.customers.s1h', bodyKey: 'ohelp.pg.customers.s1b' },
           { headingKey: 'ohelp.pg.customers.s2h', bodyKey: 'ohelp.pg.customers.s2b', screenshotUrl: '/help/owner-customers.webp' },

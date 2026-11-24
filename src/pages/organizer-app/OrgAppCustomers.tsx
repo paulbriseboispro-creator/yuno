@@ -8,7 +8,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import {
   Users, Search, Ban, CheckCircle, Ticket, Table, AlertTriangle, Euro,
   Crown, TrendingUp, TrendingDown, Calendar, Star, Target, ShoppingBag, Download, Filter, X,
-  Activity, History, ArrowDownRight, Mail, Globe, ShieldAlert, FileText,
+  Activity, History, ArrowDownRight, Mail, Globe,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -19,11 +19,9 @@ import { CustomerTimelineSheet } from '@/components/crm/CustomerTimelineSheet';
 import { CustomerContactBlock } from '@/components/crm/CustomerContactBlock';
 import { OwnerCustomerOrigins } from '@/components/owner/OwnerCustomerOrigins';
 import { countryFromPhone, COUNTRIES, getCountryName } from '@/lib/countries';
-import { fetchMinorDocsByEmail, ageFromBirthDate, type MinorDoc } from '@/lib/minorTicketDocs';
 import { OrgPageHeader } from '@/components/org-ui';
 import { useTabParam } from '@/hooks/useTabParam';
 import { exportContactBase } from '@/lib/contactBaseExport';
-import { orgEventsOr } from '@/lib/coorg';
 import { formatMoneyAuto } from '@/lib/money';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -44,7 +42,7 @@ const CARD_SHADOW = '0 1px 0 rgb(var(--sheen)/.05) inset,0 18px 40px -28px rgb(0
 type OrgSegmentRow = Database['public']['Functions']['get_organizer_customer_segments']['Returns'][number];
 type SegmentKey = 'champions' | 'loyal' | 'promising' | 'new' | 'at_risk' | 'dormant' | 'lost';
 type Tier = 'bronze' | 'silver' | 'gold' | 'platinum';
-type TabKey = 'all' | 'top' | 'minors' | 'warned' | 'origins';
+type TabKey = 'all' | 'top' | 'warned' | 'origins';
 type TopLimit = 5 | 25 | 50 | 100;
 
 // Mirror of the owner VenueCustomer shape. `id` is the lowercased email
@@ -110,8 +108,7 @@ export default function OrgAppCustomers() {
   const [emailBans, setEmailBans] = useState<{ email: string; ban_reason: string | null; banned_at: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useTabParam<TabKey>('all', ['all', 'top', 'minors', 'warned', 'origins']);
-  const [minorByEmail, setMinorByEmail] = useState<Map<string, MinorDoc>>(new Map());
+  const [activeTab, setActiveTab] = useTabParam<TabKey>('all', ['all', 'top', 'warned', 'origins']);
   const [selectedCustomer, setSelectedCustomer] = useState<OrgCustomer | null>(null);
   const [showBanDialog, setShowBanDialog] = useState(false);
   const [showUnbanDialog, setShowUnbanDialog] = useState(false);
@@ -146,16 +143,7 @@ export default function OrgAppCustomers() {
 
   const num = (v: unknown) => Number(v || 0);
 
-  useEffect(() => { if (organizerId) { fetchAllCustomers(); fetchFlags(); fetchMinorEmails(); } }, [organizerId]);
-
-  const fetchMinorEmails = async () => {
-    if (!organizerId) return;
-    const { data: events } = await supabase
-      .from('events').select('id')
-      .or(orgEventsOr(organizerId));
-    const eventIds = (events ?? []).map((e) => e.id);
-    setMinorByEmail(await fetchMinorDocsByEmail(eventIds));
-  };
+  useEffect(() => { if (organizerId) { fetchAllCustomers(); fetchFlags(); } }, [organizerId]);
 
   const fetchAllCustomers = async () => {
     if (!organizerId) return;
@@ -331,7 +319,6 @@ export default function OrgAppCustomers() {
     const searchLower = searchQuery.toLowerCase();
     const baseList = activeTab === 'all' ? allCustomers
       : activeTab === 'top' ? topCustomers
-      : activeTab === 'minors' ? allCustomers.filter(c => minorByEmail.has(c.email.toLowerCase()))
       : warnedCustomers;
     let list = baseList;
     if (searchQuery) list = list.filter(c => c.email.toLowerCase().includes(searchLower) || c.first_name?.toLowerCase().includes(searchLower) || c.last_name?.toLowerCase().includes(searchLower) || c.phone?.includes(searchQuery));
@@ -343,7 +330,7 @@ export default function OrgAppCustomers() {
     if (category) list = list.filter(c => category === 'tickets' ? (c.ticket_count || 0) > 0 : (c.table_count || 0) > 0);
     if (churn) list = list.filter(c => scoredById.get(c.id)?._s.churnRisk);
     return list;
-  }, [allCustomers, topCustomers, warnedCustomers, minorByEmail, searchQuery, activeTab, segmentFilters, scoredById]);
+  }, [allCustomers, topCustomers, warnedCustomers, searchQuery, activeTab, segmentFilters, scoredById]);
 
   const getIncidentTypeLabel = (type: string) => {
     const m: Record<string, Record<string, string>> = {
@@ -410,7 +397,6 @@ export default function OrgAppCustomers() {
   const TABS = [
     { key: 'all' as TabKey, label: t('customers.allClients'), Icon: Users },
     { key: 'top' as TabKey, label: t('customers.topClients'), Icon: Crown },
-    { key: 'minors' as TabKey, label: t('minorClients.filter'), Icon: ShieldAlert },
     { key: 'warned' as TabKey, label: t('customers.warnedClients'), Icon: AlertTriangle },
     { key: 'origins' as TabKey, label: t('customers.originsTab'), Icon: Globe },
   ];
@@ -455,12 +441,6 @@ export default function OrgAppCustomers() {
               <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
                 style={{ background: 'rgba(232,25,44,0.1)', color: RED }}>
                 <Ban className="w-2.5 h-2.5 inline mr-0.5" />{t('customers.banned')}
-              </span>
-            )}
-            {minorByEmail.has(customer.email.toLowerCase()) && (
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold flex items-center gap-0.5"
-                style={{ background: 'rgba(232,25,44,0.12)', color: 'var(--acc-ff7a80)' }}>
-                <ShieldAlert className="w-2.5 h-2.5" />{t('minorClients.badge')}
               </span>
             )}
           </div>
@@ -772,36 +752,6 @@ export default function OrgAppCustomers() {
                 </SheetHeader>
 
                 <CustomerContactBlock email={selectedCustomer.email} phone={selectedCustomer.phone} />
-
-                {/* Minor ticket → birth date + signed authorization */}
-                {(() => {
-                  const md = minorByEmail.get(selectedCustomer.email.toLowerCase());
-                  if (!md) return null;
-                  const age = ageFromBirthDate(md.birthDate);
-                  return (
-                    <div className="rounded-xl p-3.5 space-y-2.5" style={{ background: 'rgba(232,25,44,0.06)', border: '1px solid rgba(232,25,44,0.25)' }}>
-                      <p className="flex items-center gap-1.5" style={{ color: 'var(--acc-ff7a80)', fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
-                        <ShieldAlert className="w-3.5 h-3.5" />{t('minorClients.badge')}
-                      </p>
-                      {md.birthDate && (
-                        <p style={{ color: T2, fontSize: 12 }}>
-                          {t('minorClients.bornOn')} {format(new Date(md.birthDate), 'dd/MM/yyyy')}
-                          {age != null && <span style={{ color: T3 }}> · {age} {language === 'fr' ? 'ans' : language === 'es' ? 'años' : 'yo'}</span>}
-                        </p>
-                      )}
-                      {md.docUrl ? (
-                        <a href={md.docUrl} target="_blank" rel="noopener noreferrer" download
-                          className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg" style={{ background: INNER_BG, border: `1px solid ${F_BORDER}` }}>
-                          <FileText className="w-4 h-4 shrink-0" style={{ color: RED }} />
-                          <span style={{ color: T1, fontSize: 13 }} className="flex-1 truncate">{md.docName || t('minorClients.signedDoc')}</span>
-                          <Download className="w-4 h-4 shrink-0" style={{ color: T2 }} />
-                        </a>
-                      ) : (
-                        <p style={{ color: T3, fontSize: 12 }}>{t('minorClients.noDoc')}</p>
-                      )}
-                    </div>
-                  );
-                })()}
 
                 {!selectedCustomer.emailOnly && (
                   <>

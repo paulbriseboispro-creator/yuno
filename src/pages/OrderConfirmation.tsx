@@ -53,7 +53,6 @@ interface UpsellSelection {
 type JoinedEventExtras = {
   organizer_user_id: string | null;
   partner_organizer_id: string | null;
-  alcohol_free: boolean | null;
 };
 
 type EventPlaceRow = {
@@ -167,7 +166,6 @@ interface ConfirmationData {
   packName?: string;
   packPrice?: number;
   upsellSelections?: UpsellSelection[];
-  alcoholFree?: boolean;
   accessDocs?: Array<{ id: string; label: string; fileUrl: string; fileName: string }>;
 }
 
@@ -337,7 +335,7 @@ export default function OrderConfirmation() {
           .from('tickets')
           .select(`
             *,
-            events!inner(id, title, start_at, timezone, venue_id, partner_venue_id, location_city, poster_url, alcohol_free, organizer_user_id, partner_organizer_id),
+            events!inner(id, title, start_at, timezone, venue_id, partner_venue_id, location_city, poster_url, organizer_user_id, partner_organizer_id),
             ticket_rounds!inner(name, group_label, price)
           `)
           .eq('id', id)
@@ -477,22 +475,6 @@ export default function OrderConfirmation() {
           .order('position', { ascending: true }) : { data: [] as Pick<Tables<'venue_access_documents'>, 'id' | 'label' | 'file_url' | 'file_name'>[] };
         const accessDocs = (docs || []).map((d) => ({ id: d.id, label: d.label, fileUrl: d.file_url, fileName: d.file_name }));
 
-        // Alcohol-free events: surface the minor-authorization document (from the
-        // venue, or the organizer for venue-less events) so minors can sign it.
-        if (ticketEvent.alcohol_free) {
-          let minorDoc: { url: string | null; name: string | null } | null = null;
-          if (ticket.events.venue_id) {
-            const { data: v } = await supabase.from('venues').select('minor_auth_doc_url, minor_auth_doc_name').eq('id', ticket.events.venue_id).maybeSingle();
-            if (v?.minor_auth_doc_url) minorDoc = { url: v.minor_auth_doc_url, name: v.minor_auth_doc_name };
-          } else if (ticketEvent.organizer_user_id) {
-            const { data: o } = await supabase.from('organizer_profiles').select('minor_auth_doc_url, minor_auth_doc_name').eq('user_id', ticketEvent.organizer_user_id).maybeSingle();
-            if (o?.minor_auth_doc_url) minorDoc = { url: o.minor_auth_doc_url, name: o.minor_auth_doc_name };
-          }
-          if (minorDoc?.url) {
-            accessDocs.push({ id: 'minor-auth', label: t('confirmation.minorDocLabel'), fileUrl: minorDoc.url, fileName: minorDoc.name || 'authorization.pdf' });
-          }
-        }
-
         const ticketOrganizers = await fetchEventOrganizers([
           ticketEvent.organizer_user_id,
           ticketEvent.partner_organizer_id,
@@ -502,7 +484,6 @@ export default function OrderConfirmation() {
           type: 'ticket',
           organizers: ticketOrganizers.length > 0 ? ticketOrganizers : undefined,
           organizerLed: !!ticketEvent.organizer_user_id,
-          alcoholFree: ticketEvent.alcohol_free ?? false,
           accessDocs: accessDocs.length > 0 ? accessDocs : undefined,
           id: ticket.id,
           qrCode: ticket.qr_code,

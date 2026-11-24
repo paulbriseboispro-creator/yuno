@@ -20,7 +20,6 @@ export interface ManifestEvent {
   venue_id: string | null;
   /** Organisateur de la soirée. NULL sur une soirée de club pure. */
   organizer_user_id: string | null;
-  alcohol_free?: boolean | null;
 }
 
 export interface ManifestEntry {

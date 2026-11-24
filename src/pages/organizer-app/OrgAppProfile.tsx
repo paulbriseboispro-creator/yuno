@@ -8,7 +8,7 @@ import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
 import { translate } from '@/i18n/orgTranslate';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { ExternalLink, Loader2, Upload, Globe, Image as ImageIcon, User, Building2, FileText, Trash2, MapPin } from 'lucide-react';
+import { ExternalLink, Loader2, Upload, Globe, Image as ImageIcon, User, Building2, MapPin } from 'lucide-react';
 import { GalleryPhotosEditor } from '@/components/gallery/GalleryPhotosEditor';
 import { parseGalleryCrops, galleryCropsToJson, type GalleryCrops } from '@/lib/galleryCrop';
 import { Instagram } from '@/components/icons/Instagram';
@@ -41,9 +41,6 @@ interface OrgProfile {
   /** '' = automatique (association ⇒ non assujettie, sinon 20 %). */
   vat_regime: '' | 'subject' | 'franchise' | 'exempt_association';
   billing_email: string | null;
-  minors_allowed: boolean;
-  minor_auth_doc_url: string | null;
-  minor_auth_doc_name: string | null;
   absorb_yuno_fees: boolean;
   can_sell_alcohol: boolean;
   can_sell_alcohol_confirmed_at: string | null;
@@ -88,8 +85,8 @@ export default function OrgAppProfile() {
   const [profile, setProfile] = useState<OrgProfile>({
     user_id: '', display_name: '', slug: null, bio: '', city: '', avatar_url: '', cover_url: '',
     instagram_url: '', website_url: '', is_public: true,
-    legal_name: '', legal_address: '', siret: '', vat_number: '', rna_number: '', vat_regime: '', billing_email: '', minors_allowed: false,
-    minor_auth_doc_url: null, minor_auth_doc_name: null, absorb_yuno_fees: false,
+    legal_name: '', legal_address: '', siret: '', vat_number: '', rna_number: '', vat_regime: '', billing_email: '',
+    absorb_yuno_fees: false,
     can_sell_alcohol: false, can_sell_alcohol_confirmed_at: null,
   });
 
@@ -101,7 +98,7 @@ export default function OrgAppProfile() {
       const [{ data }, { data: legalRows, error: legalErr }] = await Promise.all([
         supabase
           .from('organizer_profiles')
-          .select('user_id, display_name, slug, bio, city, avatar_url, cover_url, instagram_url, website_url, is_public, minors_allowed, minor_auth_doc_url, minor_auth_doc_name, absorb_yuno_fees, can_sell_alcohol, can_sell_alcohol_confirmed_at, bde_verified, name_changed_at, gallery_images, gallery_crops')
+          .select('user_id, display_name, slug, bio, city, avatar_url, cover_url, instagram_url, website_url, is_public, absorb_yuno_fees, can_sell_alcohol, can_sell_alcohol_confirmed_at, bde_verified, name_changed_at, gallery_images, gallery_crops')
           .eq('user_id', user.id)
           .maybeSingle(),
         supabase.rpc('get_organizer_legal_identity', { p_organizer_user_id: user.id }),
@@ -129,9 +126,6 @@ export default function OrgAppProfile() {
           rna_number: legal?.rna_number || '',
           vat_regime: (legal?.vat_regime || '') as OrgProfile['vat_regime'],
           billing_email: legal?.billing_email || '',
-          minors_allowed: data.minors_allowed ?? false,
-          minor_auth_doc_url: data.minor_auth_doc_url ?? null,
-          minor_auth_doc_name: data.minor_auth_doc_name ?? null,
           absorb_yuno_fees: data.absorb_yuno_fees ?? false,
           can_sell_alcohol: data.can_sell_alcohol ?? false,
           can_sell_alcohol_confirmed_at: data.can_sell_alcohol_confirmed_at ?? null,
@@ -206,31 +200,6 @@ export default function OrgAppProfile() {
     return true;
   };
 
-  const [uploadingMinorDoc, setUploadingMinorDoc] = useState(false);
-  const handleMinorDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file || !user) return;
-    const isTxt = file.type === 'text/plain' || /\.txt$/i.test(file.name);
-    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
-    if (!isPdf && !isTxt) { toast.error(t('Fichiers PDF ou TXT uniquement', 'PDF or TXT files only')); return; }
-    if (file.size > 10 * 1024 * 1024) { toast.error(t('Fichier trop volumineux (max 10 Mo)', 'File too large (max 10 MB)')); return; }
-    setUploadingMinorDoc(true);
-    try {
-      const ext = isTxt ? 'txt' : 'pdf';
-      const path = `${user.id}/minor-auth-${Date.now()}.${ext}`;
-      const { error } = await supabase.storage.from('profile-photos').upload(path, file, { upsert: true, contentType: file.type || (isTxt ? 'text/plain' : 'application/pdf') });
-      if (error) throw error;
-      const { data } = supabase.storage.from('profile-photos').getPublicUrl(path);
-      setProfile((p) => ({ ...p, minor_auth_doc_url: data.publicUrl, minor_auth_doc_name: file.name }));
-      toast.success(t('Document ajouté — pensez à enregistrer', 'Document added — remember to save'));
-    } catch (err: unknown) {
-      toast.error((err as Error).message || t('Erreur upload', 'Upload error'));
-    } finally {
-      setUploadingMinorDoc(false);
-    }
-  };
-
   const save = async (): Promise<boolean> => {
     if (!user) return false;
     if (!profile.display_name.trim()) {
@@ -278,9 +247,6 @@ export default function OrgAppProfile() {
         rna_number: profile.rna_number?.replace(/\s+/g, '').toUpperCase() || null,
         vat_regime: profile.vat_regime || null,
         billing_email: profile.billing_email?.trim() || null,
-        minors_allowed: profile.minors_allowed,
-        minor_auth_doc_url: profile.minor_auth_doc_url,
-        minor_auth_doc_name: profile.minor_auth_doc_name,
         absorb_yuno_fees: profile.absorb_yuno_fees,
         can_sell_alcohol: profile.can_sell_alcohol,
         // Stamp the attestation date on first enable; keep it while enabled; clear when off.
@@ -527,52 +493,6 @@ export default function OrgAppProfile() {
             <Switch checked={profile.can_sell_alcohol} onCheckedChange={(v) => setProfile((p) => ({ ...p, can_sell_alcohol: v }))} />
           </div>
           )}
-
-          {/* Minors allowed (alcohol-free) */}
-          <div className="rounded-xl p-3 space-y-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p style={{ color: T1, fontSize: 13, fontWeight: 540 }}>{t('Autoriser les mineurs (sans alcool)', 'Allow minors (alcohol-free)')}</p>
-                <p className="mt-0.5" style={{ color: T3, fontSize: 11.5 }}>
-                  {t('Quand activé, toutes vos soirées acceptent les mineurs et sont signalées sans alcool. Désactivable par soirée à la création.', 'When enabled, all your events allow minors and are flagged alcohol-free. Can be disabled per event at creation.')}
-                </p>
-              </div>
-              <Switch checked={profile.minors_allowed} onCheckedChange={(v) => setProfile((p) => ({ ...p, minors_allowed: v }))} />
-            </div>
-
-            {profile.minors_allowed && (
-              <div className="pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
-                <p style={{ color: T1, fontSize: 12.5, fontWeight: 540 }}>{t("Document d'autorisation (mineurs)", 'Authorization document (minors)')}</p>
-                <p className="mt-0.5 mb-2" style={{ color: T3, fontSize: 11.5 }}>
-                  {t("Optionnel : un PDF à faire signer aux mineurs (autorisation parentale, décharge...). Joint au récap de commande des soirées sans alcool.", 'Optional: a PDF for minors to sign (parental consent, waiver...). Shared on the order summary for alcohol-free events.')}
-                </p>
-                {profile.minor_auth_doc_url ? (
-                  <div className="flex items-center gap-3 rounded-xl p-3" style={{ background: 'var(--sf-0d0d0f)', border: `1px solid ${BORDER}` }}>
-                    <FileText className="h-5 w-5 flex-none" style={{ color: RED }} />
-                    <a href={profile.minor_auth_doc_url} target="_blank" rel="noopener noreferrer" className="flex-1 truncate" style={{ color: T1, fontSize: 13 }}>{profile.minor_auth_doc_name || 'Document'}</a>
-                    <button type="button" onClick={() => {
-                        if (!confirm(t(
-                          'Supprimer le document d’autorisation ? Cette action est définitive.',
-                          'Delete the authorization document? This action is permanent.'
-                        ))) return;
-                        setProfile((p) => ({ ...p, minor_auth_doc_url: null, minor_auth_doc_name: null }));
-                      }}
-                      className="flex-none p-2 rounded-lg" style={{ color: T3 }}>
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="flex items-center justify-center gap-2 rounded-xl px-4 py-3 cursor-pointer"
-                    style={{ background: 'var(--sf-0d0d0f)', border: `1px dashed ${BORDER}`, color: uploadingMinorDoc ? T3 : T1, fontSize: 13, fontWeight: 540 }}>
-                    {uploadingMinorDoc
-                      ? <><Loader2 className="h-4 w-4 animate-spin" />{t('Envoi...', 'Uploading...')}</>
-                      : <><Upload className="h-4 w-4" />{t('Uploader un PDF ou TXT', 'Upload a PDF or TXT')}</>}
-                    <input type="file" accept="application/pdf,.pdf,text/plain,.txt" className="hidden" disabled={uploadingMinorDoc} onChange={handleMinorDocUpload} />
-                  </label>
-                )}
-              </div>
-            )}
-          </div>
 
           {/* Billing info */}
           <div className="rounded-xl p-4" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>

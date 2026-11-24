@@ -204,9 +204,6 @@ export default function OwnerVenue() {
   const [shortDescription, setShortDescription] = useState('');
   const [musicGenre, setMusicGenre] = useState('');
   const [minAge, setMinAge] = useState<number | ''>('');
-  const [minorsAllowed, setMinorsAllowed] = useState(false);
-  const [minorAuthDoc, setMinorAuthDoc] = useState<{ url: string; name: string } | null>(null);
-  const [uploadingMinorDoc, setUploadingMinorDoc] = useState(false);
 
   // Social media
   const [instagramUrl, setInstagramUrl] = useState('');
@@ -269,7 +266,7 @@ export default function OwnerVenue() {
       // select('*') prendrait un 403 total. invoice_prefix arrive par la RPC
       // privée ci-dessous ; le bloc légal reste en lecture directe.
       const { data, error } = await supabase.from('venues').select(
-        'id, name, city, address, logo_url, cover_url, cover_position, latitude, longitude, gallery_images, gallery_crops, instagram_url, facebook_url, tiktok_url, twitter_url, whatsapp_number, hidden_from_map, description, short_description, music_genre, min_age, minors_allowed, minor_auth_doc_url, minor_auth_doc_name, menu_enabled, free_drink_mode, absorb_yuno_fees, legal_name, siret, vat_number, legal_address, is_hidden, slug, decommissioned_at',
+        'id, name, city, address, logo_url, cover_url, cover_position, latitude, longitude, gallery_images, gallery_crops, instagram_url, facebook_url, tiktok_url, twitter_url, whatsapp_number, hidden_from_map, description, short_description, music_genre, min_age, menu_enabled, free_drink_mode, absorb_yuno_fees, legal_name, siret, vat_number, legal_address, is_hidden, slug, decommissioned_at',
       ).eq('id', venueId).single();
       if (error) throw error;
       if (data.logo_url) { setCurrentLogoUrl(data.logo_url); setLogoPreview(data.logo_url); }
@@ -294,8 +291,6 @@ export default function OwnerVenue() {
       setShortDescription(data.short_description || '');
       setMusicGenre(data.music_genre || '');
       setMinAge(data.min_age || '');
-      setMinorsAllowed(data.minors_allowed ?? false);
-      setMinorAuthDoc(data.minor_auth_doc_url ? { url: data.minor_auth_doc_url, name: data.minor_auth_doc_name || 'Document' } : null);
       setMenuEnabled(data.menu_enabled !== false);
       if (DRINKS_PILLAR_LIVE) setFreeDrinkMode((data.free_drink_mode as 'credits' | 'bouncer_notify' | null) || 'credits');
       setAbsorbFees(data.absorb_yuno_fees === true);
@@ -394,13 +389,12 @@ export default function OwnerVenue() {
         short_description: shortDescription || null,
         music_genre: musicGenre || null,
         min_age: minAge !== '' ? Number(minAge) : null,
-        minors_allowed: minorsAllowed,
       }).eq('id', venueId);
       if (error) throw error;
       // Le géocodage a pu écrire de nouvelles coordonnées : la référence doit
       // intégrer CE qui est parti en base, pas ce qui était à l'écran avant.
       setCoordinates({ lat, lng });
-      infoGuard.markSaved({ city, address, coordinates: { lat, lng }, venueDescription, shortDescription, musicGenre, minAge, minorsAllowed });
+      infoGuard.markSaved({ city, address, coordinates: { lat, lng }, venueDescription, shortDescription, musicGenre, minAge });
       toast.success(lat && lng ? t('owner.infoGpsUpdated') : t('owner.infoUpdated'));
       return true;
     } catch { toast.error(t('owner.errorSaving')); return false; }
@@ -447,11 +441,11 @@ export default function OwnerVenue() {
     scope: `owner-venue-info:${venueId ?? 'none'}`,
     label: t('owner.venueInfo'),
     ready: guardReady,
-    value: { city, address, coordinates, venueDescription, shortDescription, musicGenre, minAge, minorsAllowed },
+    value: { city, address, coordinates, venueDescription, shortDescription, musicGenre, minAge },
     onRestore: (v) => {
       setCity(v.city); setAddress(v.address); setCoordinates(v.coordinates);
       setVenueDescription(v.venueDescription); setShortDescription(v.shortDescription);
-      setMusicGenre(v.musicGenre); setMinAge(v.minAge); setMinorsAllowed(v.minorsAllowed);
+      setMusicGenre(v.musicGenre); setMinAge(v.minAge);
     },
     onSave: handleSaveVenueInfo,
   });
@@ -492,38 +486,6 @@ export default function OwnerVenue() {
     setGalleryImages(next);
     setGalleryCrops(crops);
     return true;
-  };
-
-  const handleMinorDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file || !venueId) return;
-    const isTxt = file.type === 'text/plain' || /\.txt$/i.test(file.name);
-    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
-    if (!isPdf && !isTxt) { toast.error(t('owner.minorDocFormat')); return; }
-    if (file.size > 10 * 1024 * 1024) { toast.error(t('owner.accessDocsTooLarge')); return; }
-    setUploadingMinorDoc(true);
-    try {
-      const ext = isTxt ? 'txt' : 'pdf';
-      const filePath = `access-docs/${venueId}/minor-auth-${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from('venue-assets').upload(filePath, file, { contentType: file.type || (isTxt ? 'text/plain' : 'application/pdf') });
-      if (uploadError) throw uploadError;
-      const { data: { publicUrl } } = supabase.storage.from('venue-assets').getPublicUrl(filePath);
-      const { error } = await supabase.from('venues').update({ minor_auth_doc_url: publicUrl, minor_auth_doc_name: file.name }).eq('id', venueId);
-      if (error) throw error;
-      setMinorAuthDoc({ url: publicUrl, name: file.name });
-      toast.success(t('owner.accessDocsAdded'));
-    } catch { toast.error(t('owner.errorSaving')); }
-    finally { setUploadingMinorDoc(false); }
-  };
-
-  const handleRemoveMinorDoc = async () => {
-    try {
-      const { error } = await supabase.from('venues').update({ minor_auth_doc_url: null, minor_auth_doc_name: null }).eq('id', venueId);
-      if (error) throw error;
-      setMinorAuthDoc(null);
-      toast.success(t('owner.accessDocsRemoved'));
-    } catch { toast.error(t('owner.errorSaving')); }
   };
 
   const handleAccessDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -826,41 +788,6 @@ export default function OwnerVenue() {
                 </button>
               ))}
             </div>
-          </div>
-
-          <div className="rounded-xl p-3 space-y-3" style={{ background: INNER_BG, border: `1px solid ${F_BORDER}` }}>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <FieldLabel>{t('owner.minorsAllowedLabel')}</FieldLabel>
-                <p style={{ color: T3, fontSize: 12 }}>{t('owner.minorsAllowedHint')}</p>
-              </div>
-              <Switch checked={minorsAllowed} onCheckedChange={setMinorsAllowed} />
-            </div>
-
-            {minorsAllowed && (
-              <div className="pt-3" style={{ borderTop: `1px solid ${F_BORDER}` }}>
-                <FieldLabel>{t('owner.minorDocLabel')}</FieldLabel>
-                <p style={{ color: T3, fontSize: 12, marginBottom: 8 }}>{t('owner.minorDocHint')}</p>
-                {minorAuthDoc ? (
-                  <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: CARD_BG, border: `1px solid ${BORDER}` }}>
-                    <FileText className="h-5 w-5 flex-none" style={{ color: RED }} />
-                    <a href={minorAuthDoc.url} target="_blank" rel="noopener noreferrer" className="flex-1 truncate" style={{ color: T1, fontSize: 13 }}>{minorAuthDoc.name}</a>
-                    <button type="button" onClick={handleRemoveMinorDoc} className="flex-none p-2 rounded-lg" style={{ color: T2 }}
-                      onMouseEnter={e => (e.currentTarget.style.color = RED)} onMouseLeave={e => (e.currentTarget.style.color = T2)}>
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl cursor-pointer"
-                    style={{ background: CARD_BG, border: `1px dashed ${BORDER}`, color: uploadingMinorDoc ? T3 : T1, fontSize: 13, fontWeight: 560 }}>
-                    {uploadingMinorDoc
-                      ? <><Loader2 className="h-4 w-4 animate-spin" />{t('owner.uploading')}...</>
-                      : <><Upload className="h-4 w-4" />{t('owner.minorDocUpload')}</>}
-                    <input type="file" accept="application/pdf,.pdf,text/plain,.txt" className="hidden" disabled={uploadingMinorDoc} onChange={handleMinorDocUpload} />
-                  </label>
-                )}
-              </div>
-            )}
           </div>
 
           {(coordinates.lat || coordinates.lng) && (

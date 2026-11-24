@@ -27,6 +27,7 @@ import { isWaitingForPrevious, normalizeChainVisibility, rowPhase } from "../_sh
 import { promoterCodePattern, promoterIdHint, promoterScopeOr } from "../_shared/promoter-scope.ts";
 import { buildTicketPlaces } from "../_shared/ticket-places.ts";
 import { ticketDisplayName } from "../_shared/ticket-name.ts";
+import { resolveAgeDeclaration, AgeDeclarationError, AGE_DECLARATION_REQUIRED_CODE } from "../_shared/age-declaration.ts";
 
 // Production mode - payments go through Stripe Connect
 const TEST_MODE = false;
@@ -97,7 +98,9 @@ serve(async (req) => {
       discountCode,
       guestEmail, guestFullName, guestPhone, packId,
       upsellSelections, cancelUrl,
-      purchaseSource, minorAuthDocUrl, language, trackedLinkId,
+      purchaseSource, language, trackedLinkId,
+      // Déclaration de majorité : Yuno est réservé aux majeurs.
+      ageDeclaration,
       // Contexte Meta (consentement pub, _fbp/_fbc) → métadonnées Stripe, relues par verify-ticket-payment.
       meta,
       analytics,
@@ -120,6 +123,29 @@ serve(async (req) => {
 
     if (!eventId || !ticketRoundId || !quantity) {
       throw new Error("Missing required fields");
+    }
+
+    // Yuno est réservé aux majeurs. Une date de naissance déclarée qui donne moins
+    // de 18 ans refuse l'achat, même par un appel direct à l'API. La déclaration
+    // n'est pas encore exigée ici (une ancienne version de l'app ne l'envoie pas) :
+    // la porte de la page la demande, et la pièce d'identité se contrôle à l'entrée.
+    if (ageDeclaration !== undefined && ageDeclaration !== null) {
+      try {
+        resolveAgeDeclaration(ageDeclaration, req);
+      } catch (e) {
+        if (e instanceof AgeDeclarationError) {
+          logStep("Age declaration refused — ticket checkout refused");
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: t("checkout.ageDeclarationRequired", lang),
+              code: AGE_DECLARATION_REQUIRED_CODE,
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+          );
+        }
+        throw e;
+      }
     }
 
     // Authenticate user OR handle guest checkout
@@ -939,7 +965,6 @@ serve(async (req) => {
           guest_phone: isGuestCheckout ? userPhone : null,
           purchase_source: safePurchaseSource,
           tracked_link_id: safeTrackedLinkId,
-          minor_auth_doc_url: minorAuthDocUrl || null,
           promo_code_id: promoCodeId,
           promo_discount: promoCodeId ? promoCodeDiscount : null,
           ...saleTracking,
@@ -1229,7 +1254,6 @@ serve(async (req) => {
         purchase_source: safePurchaseSource,
         tracked_link_id: safeTrackedLinkId,
         reservation_id: reservationId,
-        minor_auth_doc_url: minorAuthDocUrl || null,
         promo_code_id: promoCodeId,
         promo_discount: promoCodeId ? promoCodeDiscount : null,
         ...saleTracking,

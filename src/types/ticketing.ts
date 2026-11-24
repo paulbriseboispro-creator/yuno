@@ -228,9 +228,6 @@ export type EventWithTicketing = {
   guestListSoldOut?: boolean;
   /** Formules de table marquées complètes pour cette soirée (table_packs.id). */
   soldOutPackIds?: string[];
-  /** Event-level: minors allowed → alcohol-free. Derived from the creator's global
-   *  setting minus a per-event opt-out; maintained denormalized in events.alcohol_free. */
-  alcoholFree?: boolean;
   /** BDE event (organizer is bde_verified). Lowers the ticket/table commission floor
    *  to 0.49€. Stamped server-side onto events.is_bde — read-only signal for the buyer UI. */
   isBde?: boolean;

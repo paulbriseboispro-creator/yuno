@@ -11,7 +11,7 @@ describe('rehostEmailImages', () => {
     );
   });
   it('laisse les autres buckets et les autres domaines', () => {
-    const html = `<a href="${SB}/storage/v1/object/public/minor-auth-uploads/a.pdf">x</a><img src="https://images.shotgun.live/a.jpg">`;
+    const html = `<a href="${SB}/storage/v1/object/public/ota-bundles/a.pdf">x</a><img src="https://images.shotgun.live/a.jpg">`;
     expect(rehostEmailImages(html, SB, 'https://yunoapp.eu')).toBe(html);
   });
 });
@@ -21,8 +21,8 @@ describe('emailImageStoragePath', () => {
     expect(emailImageStoragePath('/email-img/email-assets/mcp/abc/image.jpg')).toBe('email-assets/mcp/abc/image.jpg');
   });
   it('refuse un bucket hors liste et les remontées', () => {
-    expect(emailImageStoragePath('/email-img/minor-auth-uploads/a.pdf')).toBeNull();
-    expect(emailImageStoragePath('/email-img/email-assets/../minor-auth-uploads/a.pdf')).toBeNull();
+    expect(emailImageStoragePath('/email-img/ota-bundles/a.pdf')).toBeNull();
+    expect(emailImageStoragePath('/email-img/email-assets/../ota-bundles/a.pdf')).toBeNull();
     expect(emailImageStoragePath('/email-img/email-assets/')).toBeNull();
     expect(emailImageStoragePath('/email-img/')).toBeNull();
   });

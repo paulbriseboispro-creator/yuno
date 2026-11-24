@@ -9,7 +9,7 @@ import { VipGuestCounter } from '@/components/vip/VipGuestCounter';
 import { ZoneUpsellSheet } from '@/components/vip/ZoneUpsellSheet';
 import { TermsNotice } from '@/components/TermsAcceptance';
 import { recordTermsAcceptance } from '@/lib/termsAcceptance';
-import { MinorAuthGate } from '@/components/MinorAuthGate';
+import { AdultBirthGate } from '@/components/AdultBirthGate';
 import { CheckoutSummaryBar } from '@/components/CheckoutSummaryBar';
 import { CheckoutStepHeader } from '@/components/checkout/CheckoutStepHeader';
 import { OrderEventRow } from '@/components/checkout/OrderEventRow';
@@ -182,7 +182,7 @@ export default function TableCheckout() {
     marketingConsent.emailGranted,
   );
   // Date de naissance : demandée une fois, puis lue sur le profil. Une table est
-  // réservée aux majeurs (MinorAuthGate sans mineurs) ; la date déclarée part au
+  // réservée aux majeurs (AdultBirthGate) ; la date déclarée part au
   // serveur comme déclaration sur l'honneur (age-declaration.ts).
   const [birthState, setBirthState] = useState<BirthDateState | null>({ status: 'empty' });
   const [ageGateReady, setAgeGateReady] = useState(false);
@@ -1407,15 +1407,11 @@ export default function TableCheckout() {
 
                   {/* Date de naissance : une table est réservée aux majeurs. Demandée
                       une fois, puis lue sur le profil ; la porte contrôle la pièce d'identité. */}
-                  <MinorAuthGate
+                  <AdultBirthGate
                     userId={user?.id}
-                    eventId={event.id}
-                    acceptsMinors={false}
-                    template={null}
                     hint={t('tableCheckout.birthHint')}
                     onReady={setAgeGateReady}
-                    onDocUploaded={() => {}}
-                    onMinorInfo={(info) => setDeclaredBirthDate(info?.birthDate || null)}
+                    onBirthDate={setDeclaredBirthDate}
                     onBirthState={setBirthState}
                     error={shownError('birth')}
                     invalidField={birthInvalidFieldFor(formErrors.birth)}

@@ -101,7 +101,6 @@ interface ScannedTicket {
   entryScanned: boolean;
   entryScannedAt: string | null;
   includesDrink: boolean;
-  alcoholFree: boolean;
   drinkRedeemed: boolean;
   drinkName: string | null;
   totalPrice?: number;
@@ -271,7 +270,7 @@ export default function Bouncer() {
   const [scannedTicket, setScannedTicketState] = useState<ScannedTicket | null>(null);
   /**
    * Miroir synchrone de `scannedTicket`, comme `scanResultRef` : l'entrée par
-   * la liste lit la carte du billet (boisson offerte, mineur) dès que
+   * la liste lit la carte du billet (boisson offerte) dès que
    * `onScanSuccess` a rendu la main, avant de l'effacer. L'état React, lui,
    * est encore périmé dans la closure de `handleDoorPick`.
    */
@@ -287,8 +286,8 @@ export default function Bouncer() {
   /**
    * Ce que la porte doit encore faire pour une personne entrée PAR LA LISTE :
    * la carte de verdict s'efface (la ligne passe au vert), mais la boisson
-   * offerte à remettre (ou plus après son heure) et l'alerte « mineur » restent
-   * affichées au-dessus de la liste jusqu'au nom suivant.
+   * offerte à remettre (ou plus après son heure) reste
+   * affichée au-dessus de la liste jusqu'au nom suivant.
    */
   const [doorPickNotice, setDoorPickNotice] = useState<{
     name: string | null;
@@ -296,7 +295,6 @@ export default function Bouncer() {
     includesDrink: boolean;
     drinkCutoff?: string;
     drinkTooLate: boolean;
-    alcoholFree: boolean;
   } | null>(null);
   /** QR entré APRÈS coup (hors créneau accepté) : la ligne de la liste passe au vert. */
   const [doorEnteredQr, setDoorEnteredQr] = useState<{ qr: string; at: number } | null>(null);
@@ -900,17 +898,16 @@ export default function Bouncer() {
     // Une entrée acceptée se voit sur la ligne elle-même (elle passe au vert) :
     // on efface la carte de verdict pour que la liste reste lisible. Un REFUS
     // reste affiché — c'est la seule façon pour le videur de savoir pourquoi.
-    // Ce que la carte disait encore à faire (boisson offerte, mineur) reste
+    // Ce que la carte disait encore à faire (boisson offerte) reste
     // visible au-dessus de la liste : chaque billet Amoris inclut une boisson.
     const entered = scannedTicketRef.current;
-    if (ok && entered && (entered.includesDrink || entered.alcoholFree)) {
+    if (ok && entered && entered.includesDrink) {
       setDoorPickNotice({
         name: entered.fullName ?? null,
         headcount: entered.headcount ?? entered.quantity,
         includesDrink: entered.includesDrink,
         drinkCutoff: entered.drinkCutoff,
         drinkTooLate: !!entered.drinkCutoff && computeLateness(entered.drinkCutoff, nowInParis()).isPast,
-        alcoholFree: entered.alcoholFree,
       });
     }
     if (ok) {
@@ -1028,7 +1025,6 @@ export default function Bouncer() {
         entryScannedAt: verdict.status === 'already' ? (verdict.scannedAt ?? entry.scanned_at) : new Date().toISOString(),
         includesDrink: !!entry.drink,
         drinkCutoff: entry.drink_cutoff ? entry.drink_cutoff.substring(0, 5) : undefined,
-        alcoholFree: !!offline.manifestEvent?.alcohol_free,
         drinkRedeemed: false,
         drinkName: null,
         entryDeadline: entry.deadline ? entry.deadline.substring(0, 5) : undefined,
@@ -1114,7 +1110,7 @@ export default function Bouncer() {
           tickets!inner(
             id, event_id, user_email, full_name, quantity, status, user_id, total_price, service_fee,
             drink_redeemed, drink_name, entry_scanned,
-            events!inner(title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, alcohol_free),
+            events!inner(title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id),
             ticket_rounds!inner(name, group_label, includes_drink, entry_deadline, drink_cutoff_time, drink_deadline_type)
           )
         `)
@@ -1124,7 +1120,7 @@ export default function Bouncer() {
         .from('tickets')
         .select(`
           *,
-          events!inner(title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, alcohol_free),
+          events!inner(title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id),
           ticket_rounds!inner(name, group_label, includes_drink, entry_deadline, drink_cutoff_time, drink_deadline_type)
         `)
         .eq('qr_code', qrCode))
@@ -1226,7 +1222,6 @@ export default function Bouncer() {
             entryScannedAt: null,
             includesDrink: ticket.ticket_rounds.includes_drink,
             drinkCutoff: drinkCutoffOf(ticket.ticket_rounds),
-            alcoholFree: ticket.events.alcohol_free ?? false,
             drinkRedeemed: ticket.drink_redeemed,
             drinkName: ticket.drink_name,
             totalPrice: ticket.total_price,
@@ -1256,7 +1251,6 @@ export default function Bouncer() {
             entryScannedAt: attendee.entry_scanned_at,
             includesDrink: ticket.ticket_rounds.includes_drink,
             drinkCutoff: drinkCutoffOf(ticket.ticket_rounds),
-            alcoholFree: ticket.events.alcohol_free ?? false,
             drinkRedeemed: ticket.drink_redeemed,
             drinkName: ticket.drink_name,
             entryDeadline: ticket.ticket_rounds.entry_deadline ? ticket.ticket_rounds.entry_deadline.substring(0, 5) : undefined,
@@ -1290,7 +1284,6 @@ export default function Bouncer() {
             entryScannedAt: null,
             includesDrink: ticket.ticket_rounds.includes_drink,
             drinkCutoff: drinkCutoffOf(ticket.ticket_rounds),
-            alcoholFree: ticket.events.alcohol_free ?? false,
             drinkRedeemed: ticket.drink_redeemed,
             drinkName: ticket.drink_name,
             totalPrice: ticket.total_price,
@@ -1352,7 +1345,6 @@ export default function Bouncer() {
           entryScannedAt: new Date().toISOString(),
           includesDrink: ticket.ticket_rounds.includes_drink,
           drinkCutoff: drinkCutoffOf(ticket.ticket_rounds),
-          alcoholFree: ticket.events.alcohol_free ?? false,
           drinkRedeemed: ticket.drink_redeemed,
           drinkName: ticket.drink_name,
           entryDeadline: ticket.ticket_rounds.entry_deadline ? ticket.ticket_rounds.entry_deadline.substring(0, 5) : undefined,
@@ -1444,7 +1436,6 @@ export default function Bouncer() {
             entryScannedAt: null,
             includesDrink: ticket.ticket_rounds.includes_drink,
             drinkCutoff: drinkCutoffOf(ticket.ticket_rounds),
-            alcoholFree: ticket.events.alcohol_free ?? false,
             drinkRedeemed: ticket.drink_redeemed,
             drinkName: ticket.drink_name,
             totalPrice: ticket.total_price,
@@ -1471,7 +1462,6 @@ export default function Bouncer() {
             entryScannedAt: ticket.entry_scanned_at,
             includesDrink: ticket.ticket_rounds.includes_drink,
             drinkCutoff: drinkCutoffOf(ticket.ticket_rounds),
-            alcoholFree: ticket.events.alcohol_free ?? false,
             drinkRedeemed: ticket.drink_redeemed,
             drinkName: ticket.drink_name,
             entryDeadline: ticket.ticket_rounds.entry_deadline ? ticket.ticket_rounds.entry_deadline.substring(0, 5) : undefined,
@@ -1503,7 +1493,6 @@ export default function Bouncer() {
             entryScannedAt: null,
             includesDrink: ticket.ticket_rounds.includes_drink,
             drinkCutoff: drinkCutoffOf(ticket.ticket_rounds),
-            alcoholFree: ticket.events.alcohol_free ?? false,
             drinkRedeemed: ticket.drink_redeemed,
             drinkName: ticket.drink_name,
             totalPrice: ticket.total_price,
@@ -1577,7 +1566,6 @@ export default function Bouncer() {
           entryScannedAt: new Date().toISOString(),
           includesDrink: ticket.ticket_rounds.includes_drink,
           drinkCutoff: drinkCutoffOf(ticket.ticket_rounds),
-          alcoholFree: ticket.events.alcohol_free ?? false,
           drinkRedeemed: ticket.drink_redeemed,
           drinkName: ticket.drink_name,
           entryDeadline: ticket.ticket_rounds.entry_deadline ? ticket.ticket_rounds.entry_deadline.substring(0, 5) : undefined,
@@ -1835,7 +1823,6 @@ export default function Bouncer() {
               entryScanned: true,
               entryScannedAt: glEntry.entry_scanned_at,
               includesDrink: (glEntry.guest_lists as GuestListJoin).includes_drink,
-              alcoholFree: false,
               drinkRedeemed: false,
               drinkName: null,
             });
@@ -1895,7 +1882,6 @@ export default function Bouncer() {
               entryScanned: true,
               entryScannedAt: glEntry.entry_scanned_at,
               includesDrink: (glEntry.guest_lists as GuestListJoin).includes_drink,
-              alcoholFree: false,
               drinkRedeemed: false,
               drinkName: null,
             });
@@ -1927,7 +1913,6 @@ export default function Bouncer() {
             entryScanned: true,
             entryScannedAt: new Date().toISOString(),
             includesDrink: includesDrinkFromEntry,
-            alcoholFree: false,
             drinkRedeemed: false,
             drinkName: null,
           });
@@ -2411,12 +2396,6 @@ export default function Bouncer() {
                     </div>
                   )
                 )}
-                {doorPickNotice.alcoholFree && (
-                  <div className="p-3 rounded-lg flex items-center gap-3" style={{ background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.55)' }}>
-                    <AlertTriangle className="h-5 w-5 flex-none" style={{ color: '#F59E0B' }} />
-                    <p className="text-sm font-semibold" style={{ color: '#F59E0B' }}>{t('bouncer.minorNoAlcohol')}</p>
-                  </div>
-                )}
               </div>
             )}
             {activeTab === 'client' && (
@@ -2798,20 +2777,6 @@ export default function Bouncer() {
                           <span className="flex-none" style={{ color: T3, fontSize: 13 }}>{t('bouncer.ticketType')}</span>
                           <span className="min-w-0 truncate" style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T1, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999 }}>{scannedTicket.roundName}</span>
                         </div>
-
-                        {scannedTicket.alcoholFree && (
-                          <div className="p-4 rounded-lg" style={{ background: 'rgba(245,158,11,0.15)', border: '2px solid rgba(245,158,11,0.55)' }}>
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-full flex-none" style={{ background: 'rgba(245,158,11,0.22)' }}>
-                                <AlertTriangle className="h-6 w-6" style={{ color: '#F59E0B' }} />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="font-bold text-base" style={{ color: '#F59E0B' }}>{t('bouncer.minorNoAlcohol')}</p>
-                                <p style={{ color: T2, fontSize: 13 }}>{t('bouncer.minorNoAlcoholDesc')}</p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
 
                         {scannedTicket.entryDeadline && (
                           <div className="flex items-center justify-between gap-3">
@@ -3341,12 +3306,6 @@ export default function Bouncer() {
                               <span className="min-w-0 truncate text-sm" style={{ color: fgSoft }}>{t('bouncer.freeDrinkIncluded')}</span>
                             </div>
                           )
-                        )}
-                        {scannedTicket.alcoholFree && (
-                          <div className="flex items-center gap-2">
-                            <AlertTriangle className="h-5 w-5 flex-none" style={{ color: fg }} />
-                            <p className="min-w-0 truncate text-sm font-bold" style={{ color: fg }}>{t('bouncer.minorNoAlcohol')}</p>
-                          </div>
                         )}
                       </div>
                     )}

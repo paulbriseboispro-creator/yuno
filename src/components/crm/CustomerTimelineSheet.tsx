@@ -3,11 +3,10 @@ import { translate } from '@/i18n/orgTranslate';
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
-import { Ticket, Wine, Crown, ScanLine, CreditCard, MapPin, Sparkles, Loader2, ShieldAlert, FileText, Download, Mail, type LucideIcon } from 'lucide-react';
+import { Ticket, Wine, Crown, ScanLine, CreditCard, MapPin, Sparkles, Loader2, Mail, type LucideIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr as frLocale, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { ageFromBirthDate, type MinorDoc } from '@/lib/minorTicketDocs';
 import { orgEventsOr, venueEventsOr } from '@/lib/coorg';
 import { formatMoneyAuto } from '@/lib/money';
 
@@ -44,7 +43,6 @@ export function CustomerTimelineSheet({ open, onClose, email, name, organizerUse
   const dateLocale = language === 'fr' ? frLocale : enUS;
   const [items, setItems] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [minorDoc, setMinorDoc] = useState<MinorDoc | null>(null);
 
   useEffect(() => {
     if (!open || !email) return;
@@ -71,21 +69,6 @@ export function CustomerTimelineSheet({ open, onClose, email, name, organizerUse
             .or(venueEventsOr(venueId));
           eventIds = (events ?? []).map((e) => e.id);
           (events ?? []).forEach((e) => eventTitles.set(e.id, e.title));
-        }
-
-        // Minor-ticket record for this buyer (across the scoped events).
-        if (eventIds.length > 0) {
-          const { data: minorRows } = await supabase
-            .from('minor_ticket_docs')
-            .select('birth_date, doc_url, doc_name, created_at')
-            .in('event_id', eventIds)
-            .ilike('buyer_email', lc)
-            .order('created_at', { ascending: false })
-            .limit(1);
-          const mr = minorRows?.[0];
-          if (!cancelled) setMinorDoc(mr ? { birthDate: mr.birth_date ?? null, docUrl: mr.doc_url ?? null, docName: mr.doc_name ?? null } : null);
-        } else if (!cancelled) {
-          setMinorDoc(null);
         }
 
         const list: ActivityItem[] = [];
@@ -209,30 +192,6 @@ export function CustomerTimelineSheet({ open, onClose, email, name, organizerUse
           <SheetTitle>{name || email.split('@')[0]}</SheetTitle>
           <p className="text-xs text-muted-foreground">{email} · {tt('Historique d\'activité', 'Activity history')}</p>
         </SheetHeader>
-        {minorDoc && (
-          <div className="mt-5 rounded-xl p-3.5 space-y-2.5" style={{ background: 'rgba(232,25,44,0.06)', border: '1px solid rgba(232,25,44,0.25)' }}>
-            <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--acc-ff7a80)' }}>
-              <ShieldAlert className="w-3.5 h-3.5" />
-              {tt('Client mineur', 'Minor customer')}
-            </p>
-            {minorDoc.birthDate && (
-              <p className="text-xs text-muted-foreground">
-                {tt('Né(e) le', 'Born on')} {format(new Date(minorDoc.birthDate), 'dd/MM/yyyy', { locale: dateLocale })}
-                {ageFromBirthDate(minorDoc.birthDate) != null && <span> · {ageFromBirthDate(minorDoc.birthDate)} {tt('ans', 'yo')}</span>}
-              </p>
-            )}
-            {minorDoc.docUrl ? (
-              <a href={minorDoc.docUrl} target="_blank" rel="noopener noreferrer" download
-                className="flex items-center gap-2.5 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5 hover:bg-white/[0.06] transition">
-                <FileText className="h-4 w-4 shrink-0 text-primary" />
-                <span className="flex-1 truncate text-sm text-foreground">{minorDoc.docName || tt('Document signé', 'Signed document')}</span>
-                <Download className="h-4 w-4 shrink-0 text-muted-foreground" />
-              </a>
-            ) : (
-              <p className="text-xs text-muted-foreground">{tt('Aucun document', 'No document provided')}</p>
-            )}
-          </div>
-        )}
         <div className="mt-6">
           {loading ? (
             <div className="flex items-center justify-center py-16 text-muted-foreground">

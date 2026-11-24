@@ -100,7 +100,6 @@ interface CheckinEvent {
   organizer_user_id: string | null;
   partner_organizer_id: string | null;
   timezone: string | null;
-  alcohol_free: boolean | null;
 }
 
 /** Tarif d'un billet tel que la porte le lit : heure limite d'entrée, boisson offerte. */
@@ -302,7 +301,7 @@ export default function OrgAppCheckin() {
     (async () => {
       const { data } = await supabase
         .from('events')
-        .select('id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, timezone, alcohol_free')
+        .select('id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, timezone')
         // Soirées menées, en partenariat OU co-hébergées : un co-hôte ÉDITEUR tient
         // aussi la porte (is_event_door_staff, migration 20260929190000).
         .or(orgEventsOr(organizerId))
@@ -1045,7 +1044,6 @@ export default function OrgAppCheckin() {
                             ticket={doorTicket}
                             drinkTooLate={!!doorTicket.drinkCutoff && computeLateness(doorTicket.drinkCutoff, nowAtDoor()).isPast}
                             drinkMode={venueDrinkMode}
-                            alcoholFree={!!selectedEvent?.alcohol_free}
                             tk={tk}
                             t={t}
                           />
@@ -1311,12 +1309,11 @@ function LateDecisionCard({
 
 /** Carte d'une entrée accordée : tarif, heure limite, boisson offerte à remettre (ou plus). */
 function DoorTicketDetails({
-  ticket, drinkTooLate, drinkMode, alcoholFree, tk, t,
+  ticket, drinkTooLate, drinkMode, tk, t,
 }: {
   ticket: DoorTicket;
   drinkTooLate: boolean;
   drinkMode: 'credits' | 'bouncer_notify';
-  alcoholFree: boolean;
   tk: DictT;
   t: InlineT;
 }) {
@@ -1349,15 +1346,6 @@ function DoorTicketDetails({
         </div>
         {ticket.toPayOnSite != null && (
           <Row label={t('Reste à régler sur place', 'Left to pay on site', 'Por pagar en el local')} value={`${ticket.toPayOnSite.toFixed(2)} €`} />
-        )}
-        {alcoholFree && (
-          <div className="flex items-start gap-2 rounded-xl p-3" style={{ background: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.4)' }}>
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" style={{ color: AMBER }} />
-            <div>
-              <div style={{ color: AMBER, fontWeight: 700 }}>{tk('bouncer.minorNoAlcohol')}</div>
-              <div style={{ color: T2, fontSize: 12 }}>{tk('bouncer.minorNoAlcoholDesc')}</div>
-            </div>
-          </div>
         )}
         {ticket.includesDrink && (
           drinkMode === 'credits' ? (

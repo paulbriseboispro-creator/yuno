@@ -29,7 +29,7 @@ import type { BirthDateState } from '@/lib/birthDate';
 import { TicketUpsellSelector, SelectedUpsell } from '@/components/upsell/TicketUpsellSelector';
 import { TermsNotice } from '@/components/TermsAcceptance';
 import { recordTermsAcceptance } from '@/lib/termsAcceptance';
-import { MinorAuthGate } from '@/components/MinorAuthGate';
+import { AdultBirthGate } from '@/components/AdultBirthGate';
 import { MarketingOptIns } from '@/components/MarketingOptIns';
 import { useEventMarketingHosts } from '@/hooks/useEventMarketingHosts';
 import { shareCheckoutConsent } from '@/lib/coorg';
@@ -183,30 +183,11 @@ export default function TicketCheckout() {
   // Même question pour Yuno, dans sa propre portée (les deux colonnes à NULL).
   const platformConsent = usePlatformMarketingConsent(true);
   const [selectedUpsells, setSelectedUpsells] = useState<SelectedUpsell[]>([]);
-  // Single age/minor gate for ticket sales (decision tree in MinorAuthGate). A
-  // birth date is required; once entered it's saved on the profile and never asked
-  // again on future events:
-  //   no date                                → blocked (date of birth required)
-  //   adult                                  → normal ticket, nothing shown
-  //   minor + event forbids minors           → blocked ("must be of legal age")
-  //   minor + event allows minors + needs doc→ download + upload the signed form, then OK
-  //   minor + event allows minors + no doc   → minor ticket OK
-  // `minorTemplate` is the blank form the venue/organizer attached; `minorGateReady`
-  // gates the pay button; `minorDocUrl` is the buyer's uploaded copy (saved on the ticket).
-  const [minorTemplate, setMinorTemplate] = useState<{ url: string; name: string } | null>(null);
-  // A birth date is mandatory to buy. The gate starts blocked and only flips to
-  // true once a valid date is known (entered now, or reused from the profile) and
-  // resolves to an adult, a minor allowed without a doc, or a minor whose signed
-  // authorization has been uploaded.
-  const [minorGateReady, setMinorGateReady] = useState(false);
-  // True only while a minor on a minors-allowed event still owes their signed
-  // authorization upload. This is the ONLY blocked state that shows the dashed
-  // "complete the form" CTA; every other blocked state (e.g. no birth date yet)
-  // simply disables the normal pay button.
-  const [minorDocPending, setMinorDocPending] = useState(false);
-  const [minorDocUrl, setMinorDocUrl] = useState<string | null>(null);
-  // Full minor classification from the gate — used to record a minor-ticket row at checkout.
-  const [minorInfo, setMinorInfo] = useState<{ isMinor: boolean; birthDate: string; docUrl: string | null; docName: string | null } | null>(null);
+  // Porte d'âge : Yuno est réservé aux majeurs. Une date de naissance est
+  // exigée (saisie ou lue sur le profil) et doit donner 18 ans ou plus ; elle part
+  // au serveur comme déclaration sur l'honneur, comme pour une table.
+  const [ageGateReady, setAgeGateReady] = useState(false);
+  const [declaredBirthDate, setDeclaredBirthDate] = useState<string | null>(null);
   // Sale controls (per-person limit + password gate)
   const [salePasswordEnabled, setSalePasswordEnabled] = useState(false);
   const [perPersonLimit, setPerPersonLimit] = useState<number | null>(null);
@@ -441,7 +422,6 @@ export default function TicketCheckout() {
         ticketsSoldOut: !!eventData.tickets_sold_out,
         maxTickets: eventData.max_tickets,
         tablesEnabled: eventData.tables_enabled,
-        alcoholFree: eventData.alcohol_free ?? false,
         isBde: eventData.is_bde ?? false,
         createdAt: eventData.created_at,
         updatedAt: eventData.updated_at,
@@ -449,29 +429,6 @@ export default function TicketCheckout() {
 
       setSalePasswordEnabled(eventData.sale_password_enabled ?? false);
       setPerPersonLimit(eventData.max_tickets_per_person ?? null);
-
-      // Alcohol-free events welcome minors. If the venue (or, for venue-less events,
-      // the organizer) requires a signed authorization, load that blank template so
-      // a minor buyer can download, sign, and re-upload it before paying.
-      if (eventData.alcohol_free) {
-        let doc: { url: string; name: string } | null = null;
-        if (eventData.venue_id) {
-          const { data: v } = await supabase
-            .from('venues')
-            .select('minor_auth_doc_url, minor_auth_doc_name')
-            .eq('id', eventData.venue_id)
-            .maybeSingle();
-          if (v?.minor_auth_doc_url) doc = { url: v.minor_auth_doc_url, name: v.minor_auth_doc_name || '' };
-        } else if (eventData.organizer_user_id) {
-          const { data: o } = await supabase
-            .from('organizer_profiles')
-            .select('minor_auth_doc_url, minor_auth_doc_name')
-            .eq('user_id', eventData.organizer_user_id)
-            .maybeSingle();
-          if (o?.minor_auth_doc_url) doc = { url: o.minor_auth_doc_url, name: o.minor_auth_doc_name || '' };
-        }
-        setMinorTemplate(doc);
-      }
 
       setRound({
         id: roundData.id,
@@ -654,11 +611,9 @@ export default function TicketCheckout() {
   const maxQuantity = Math.min(Math.max(perOrderAllowance, 0), remainingTickets);
   const perPersonLimitReached = perPersonLimit != null && perOrderAllowance <= 0;
 
-  // The age gate must be satisfied before paying: a known birth date (entered now
-  // or reused from the profile) that resolves to an adult, a minor allowed without
-  // a doc, or a minor whose signed authorization has been uploaded. No date, or a
-  // minor on an adults-only event, keeps the pay button in its "incomplete" state.
-  const minorGateBlocked = !minorGateReady;
+  // La porte d'âge doit être franchie avant de payer : une date de naissance
+  // connue qui donne 18 ans ou plus.
+  const ageGateBlocked = !ageGateReady;
 
   // Consentement SMS : la réponse est écrite sur le profil AU MOMENT où elle est
   // donnée, pas à la fin du paiement. Un checkout qui échoue (ou un rechargement)
@@ -702,9 +657,9 @@ export default function TicketCheckout() {
   const buyer = attendees[0];
   const buyerEmail = user?.email ?? buyer.email;
   const formErrors = buyerFormErrors({ fullName: buyer.fullName, email: buyerEmail, phone: buyer.phone, birth: birthState, requireTwoWords: true });
-  // La date est lisible mais la soirée la refuse, ou le document signé manque :
-  // c'est toujours la date qu'il faut revoir, avec le message de MinorAuthGate.
-  const gateProblem = !formErrors.birth && minorGateBlocked;
+  // La date est lisible mais la personne a moins de 18 ans : c'est la date
+  // qu'il faut revoir, avec le message de la porte d'âge.
+  const gateProblem = !formErrors.birth && ageGateBlocked;
   const missingCount = Object.keys(formErrors).length + (gateProblem ? 1 : 0) + Object.keys(friendsProblems(attendees)).length;
   // Un champ dit son erreur quand on le quitte (sauf « obligatoire », réservé au
   // tap sur le bouton), et le tap mène au premier oubli.
@@ -778,26 +733,6 @@ export default function TicketCheckout() {
           setCheckoutLoading(false);
           navigate(`${basePath}/billets`, { state: { eventId } });
           return;
-        }
-      }
-
-      // Record a minor-ticket row (best-effort) so the owner/organizer can later
-      // see who bought a minor ticket and access their signed document. Written
-      // here (not via the edge fn) so it works without an edge deploy; it only
-      // surfaces once intersected with a paid purchase, so an abandoned checkout
-      // never shows up. Never block the purchase if this insert fails.
-      if (minorInfo?.isMinor) {
-        try {
-          await supabase.from('minor_ticket_docs').insert({
-            event_id: event.id,
-            buyer_email: attendees[0].email.trim(),
-            buyer_name: attendees[0].fullName.trim() || null,
-            birth_date: minorInfo.birthDate || null,
-            doc_url: minorInfo.docUrl,
-            doc_name: minorInfo.docName,
-          });
-        } catch (e) {
-          console.error('minor_ticket_docs insert failed:', e);
         }
       }
 
@@ -880,8 +815,8 @@ export default function TicketCheckout() {
           newsletterOptIn: effectiveNewsletterOptIn,
           smsOptIn: effectiveSmsOptIn,
           platformOptIn: effectivePlatformOptIn,
-          // Signed minor authorization uploaded by the buyer (alcohol-free events).
-          minorAuthDocUrl: minorDocUrl,
+          // Déclaration de majorité (date de naissance saisie ou lue sur le profil).
+          ageDeclaration: { confirmed: true, birthDate: declaredBirthDate ?? undefined },
           // Always send promoCode if we have it stored (even if client can't read promoters table due to RLS).
           // venue.id porte l'id du club, ou celui de l'organisateur quand la soirée
           // n'a pas de club (cf. fetchData). On cherche donc dans les deux portées :
@@ -1262,22 +1197,16 @@ export default function TicketCheckout() {
               />
             )}
 
-            {/* Date de naissance : demandée une fois, puis lue sur le profil. La
-                même porte classe ensuite (majeur, mineur accepté, refusé, document). */}
-            <MinorAuthGate
+            {/* Date de naissance : demandée une fois, puis lue sur le profil.
+                Yuno est réservé aux majeurs. */}
+            <AdultBirthGate
               userId={user?.id}
-              eventId={event.id}
-              acceptsMinors={!!event.alcoholFree}
-              template={minorTemplate}
-              onReady={setMinorGateReady}
-              onDocUploaded={setMinorDocUrl}
-              onMinorInfo={setMinorInfo}
-              onDocPending={setMinorDocPending}
+              onReady={setAgeGateReady}
+              onBirthDate={setDeclaredBirthDate}
               onBirthState={setBirthState}
               error={shownError('birth')}
               invalidField={birthInvalidField}
               onBlur={() => markTouched('birth')}
-              highlightDoc={submitted && minorDocPending}
               anchorRef={birthRef}
             />
 

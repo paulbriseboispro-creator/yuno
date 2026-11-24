@@ -78,7 +78,7 @@ export function partsFromPaste(text: string): BirthDateParts | null {
   return null;
 }
 
-/** Âge révolu à une date donnée (même règle que la porte de MinorAuthGate). */
+/** Âge révolu à une date donnée (porte d’âge des paiements, AdultBirthGate). */
 export function ageOn(iso: string, now: Date = new Date()): number | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
   if (!match) return null;

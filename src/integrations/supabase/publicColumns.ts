@@ -16,10 +16,6 @@
 //                        and never upsert this table from the client (ON CONFLICT
 //                        … EXCLUDED needs SELECT on every written column).
 //
-// NOTE: minor_auth_doc_url / minor_auth_doc_name stay anon-readable on purpose — they
-// are the venue/organizer's blank minor-authorization TEMPLATE that a guest (minor)
-// buyer must download during ticket checkout (see TicketCheckout).
-//
 // If you add a new column that public pages need, add it here AND grant it to anon
 // in a follow-up migration. Never select('*') on these tables from an anon-reachable
 // path — it will 403 once the column grants land.
@@ -37,8 +33,7 @@
 
 export const PUBLIC_VENUE_COLUMNS = `id, name, address, city, description, short_description, music_genre,
 cover_url, cover_position, logo_url, gallery_images, floor_plan_url,
-latitude, longitude, min_age, minors_allowed,
-minor_auth_doc_url, minor_auth_doc_name,
+latitude, longitude, min_age,
 menu_enabled, free_drink_mode, click_collect_mode, cloakroom_price,
 bar_count, bar_names, absorb_yuno_fees, cancellation_insurance_enabled,
 custom_domain, is_hidden, hidden_from_map, owner_id, created_at,
@@ -46,7 +41,6 @@ instagram_url, facebook_url, twitter_url, tiktok_url, whatsapp_number,
 vip_menu_display_mode, vip_menu_visibility, vip_placement_enabled, vip_preorder_enabled`;
 
 export const PUBLIC_ORGANIZER_COLUMNS = `user_id, slug, display_name, bio, avatar_url, cover_url, city,
-is_public, website_url, instagram_url, minors_allowed,
-minor_auth_doc_url, minor_auth_doc_name,
+is_public, website_url, instagram_url,
 can_sell_alcohol, can_sell_alcohol_confirmed_at, bde_verified, bde_verified_at,
 absorb_yuno_fees, gallery_images, created_at, updated_at`;

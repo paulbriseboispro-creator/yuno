@@ -14,7 +14,7 @@
  * buckets commune).
  */
 
-/** Buckets publics qui portent des images d'e-mail. Jamais les autres (autorisations de mineur, vidéos, bundles…). */
+/** Buckets publics qui portent des images d'e-mail. Jamais les autres (vidéos, bundles…). */
 export const EMAIL_IMAGE_BUCKETS = [
   'email-assets',
   'campaign-assets',

@@ -43,7 +43,6 @@ import {
 	GlobeIcon,
 	RepeatIcon,
 	TagIcon,
-	ShieldAlertIcon,
 	AlertTriangleIcon,
 } from "lucide-react";
 import { SUBSCRIPTIONS_ENABLED } from "@/lib/planFeatures";
@@ -87,8 +86,8 @@ export function tixAnalysesItem(t: (key: string) => string, base: string): Sideb
 
 /**
  * L'entrée « Clients » (copie du CRM) : Clients, Segments, Imports, puis les
- * trois listes que seule l'ancienne page Clients (`…/customers`) sait encore
- * montrer (mineurs, clients avertis, origines) et, au club, la fidélité. Les
+ * deux listes que seule l'ancienne page Clients (`…/customers`) sait encore
+ * montrer (clients avertis, origines) et, au club, la fidélité. Les
  * autres adresses de l'ancienne page renvoient sur `…/clients`.
  */
 export function tixClientsItem(t: (key: string) => string, base: string, opts: { loyalty?: boolean } = {}): SidebarNavItem {
@@ -103,7 +102,6 @@ export function tixClientsItem(t: (key: string) => string, base: string, opts: {
 			{ title: t('nav.tixClientsAll'), path: c, icon: <UsersIcon />, isDefault: true, exact: true },
 			{ title: t('nav.tixSegments'), path: `${c}/segments`, icon: <SparklesIcon /> },
 			{ title: t('nav.tixImports'), path: `${c}/imports`, icon: <FolderOpenIcon /> },
-			{ title: t('minorClients.filter'), path: `${legacy}?tab=minors`, icon: <ShieldAlertIcon /> },
 			{ title: t('sidebar.customersWarned'), path: `${legacy}?tab=warned`, icon: <AlertTriangleIcon /> },
 			{ title: t('customers.originsTab'), path: `${legacy}?tab=origins`, icon: <GlobeIcon /> },
 			...(opts.loyalty ? [{ title: t('sidebar.loyalty'), path: `${base}/loyalty`, icon: <HeartIcon /> }] : []),

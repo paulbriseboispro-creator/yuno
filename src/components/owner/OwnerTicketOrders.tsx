@@ -4,12 +4,11 @@ import { motion } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
-import { Search, Eye, Ticket, TrendingUp, ChevronDown, ShieldAlert, FileText, Download, Printer } from 'lucide-react';
+import { Search, Eye, Ticket, TrendingUp, ChevronDown, Printer } from 'lucide-react';
 import { RosterExportDialog } from '@/components/roster/RosterExportDialog';
 import { buildTicketRoster } from '@/lib/rosterBuilders';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchMinorDocsByEvents, minorDocKey, ageFromBirthDate, type MinorDoc } from '@/lib/minorTicketDocs';
 import { formatMoneyAuto } from '@/lib/money';
 import { TicketEmailBouncePanel } from '@/components/owner/TicketEmailBouncePanel';
 import { SaleSourceCard, SaleSourceChip } from '@/components/orders/SaleSource';
@@ -120,13 +119,9 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
   const [guests, setGuests] = useState<TicketGuest[]>([]);
   const [sortBy, setSortBy] = useState<'date' | 'price'>('date');
   const [exportOpen, setExportOpen] = useState(false);
-  // Minor-ticket records keyed by event+email, to flag minor buyers + their signed doc.
-  const [minorDocs, setMinorDocs] = useState<Map<string, MinorDoc>>(new Map());
 
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   const statusLabel = (s: string) => t(STATUS_KEY[s] ?? 'orders.status.pending');
-
-  const minorDocFor = (ticket: TicketOrder) => minorDocs.get(minorDocKey(ticket.eventId, ticket.userEmail));
 
   useEffect(() => {
     if (!venueId && !eventId && !orgScope) return;
@@ -176,7 +171,7 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
   const fetchTickets = async () => {
     try {
       // Organizer with no events yet → nothing to show (avoids an unfiltered query).
-      if (orgScope && eventIds!.length === 0) { setTickets([]); setMinorDocs(new Map()); return; }
+      if (orgScope && eventIds!.length === 0) { setTickets([]); return; }
       let query = supabase
         .from('tickets')
         .select(`*, events!inner(title, start_at, venue_id, timezone, venues!events_venue_id_fkey(name), partner_venue:venues!events_partner_venue_id_fkey(name)), ticket_rounds!inner(name, group_label)`)
@@ -216,10 +211,6 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
         sourceLabel: t.attribution_label ?? null,
       }));
       setTickets(mapped);
-
-      // Enrich with minor-ticket records for the events in view.
-      const docEventIds = [...new Set(mapped.map((m) => m.eventId).filter(Boolean))];
-      setMinorDocs(await fetchMinorDocsByEvents(docEventIds));
     } catch (error) {
       console.error('Error fetching tickets:', error);
     } finally {
@@ -348,12 +339,6 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
                   <div className="min-w-0">
                     <div style={{ color: T1, fontSize: 13, fontWeight: 560 }} className="truncate flex items-center gap-1.5">
                       <span className="truncate">{ticket.fullName ?? ticket.userEmail}</span>
-                      {minorDocFor(ticket) && (
-                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full shrink-0" style={{ background: 'rgba(232,25,44,0.12)', color: 'var(--acc-ff7a80)', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                          <ShieldAlert className="w-2.5 h-2.5" />
-                          {t('minorClients.badge')}
-                        </span>
-                      )}
                     </div>
                     <div style={{ color: T3, fontSize: 11.5, marginTop: 1 }} className="flex items-center gap-1">
                       <Ticket className="w-3 h-3 inline" />
@@ -451,37 +436,6 @@ export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: 
                   setTickets((list) => list.map((tk) => (tk.id === selectedTicket.id ? { ...tk, userEmail: email } : tk)));
                 }}
               />
-
-              {/* Minor ticket → birth date + signed authorization */}
-              {(() => {
-                const md = minorDocFor(selectedTicket);
-                if (!md) return null;
-                const age = ageFromBirthDate(md.birthDate);
-                return (
-                  <div className="p-4 rounded-xl space-y-2.5" style={{ background: 'rgba(232,25,44,0.06)', border: '1px solid rgba(232,25,44,0.25)' }}>
-                    <p className="flex items-center gap-1.5" style={{ color: 'var(--acc-ff7a80)', fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
-                      <ShieldAlert className="w-3.5 h-3.5" />
-                      {t('minorClients.badge')}
-                    </p>
-                    {md.birthDate && (
-                      <p style={{ color: T2, fontSize: 13 }}>
-                        {t('minorClients.bornOn')} {format(new Date(md.birthDate), 'dd/MM/yyyy', { locale: dateLocale })}
-                        {age != null && <span style={{ color: T3 }}> · {age} {language === 'fr' ? 'ans' : language === 'es' ? 'años' : 'yo'}</span>}
-                      </p>
-                    )}
-                    {md.docUrl ? (
-                      <a href={md.docUrl} target="_blank" rel="noopener noreferrer" download
-                        className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-                        <FileText className="w-4 h-4 shrink-0" style={{ color: RED }} />
-                        <span style={{ color: T1, fontSize: 13 }} className="flex-1 truncate">{md.docName || t('minorClients.signedDoc')}</span>
-                        <Download className="w-4 h-4 shrink-0" style={{ color: T2 }} />
-                      </a>
-                    ) : (
-                      <p style={{ color: T3, fontSize: 12 }}>{t('minorClients.noDoc')}</p>
-                    )}
-                  </div>
-                );
-              })()}
 
               <div>
                 <p style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 8 }}>{t('owner.items')}</p>

@@ -212,10 +212,6 @@ export default function OwnerEvents() {
   // Secret-location reveal: true = address in the booking confirmation email,
   // false = the organizer reveals it via their own scheduled/manual email.
   const [revealAddressInEmail, setRevealAddressInEmail] = useState(true);
-  // Minors / alcohol-free: global lives on the venue (owner) or organizer profile.
-  // Per-event opt-out is only offered when the global is on.
-  const [globalMinorsAllowed, setGlobalMinorsAllowed] = useState(false);
-  const [minorsDisabled, setMinorsDisabled] = useState(false);
 
   // ─── « Avec qui fais-tu cette soirée ? » ──────────────────────────────────
   // Un seul verbe : inviter (plan docs/designs/COLLAB_OPEN_INVITE_PLAN.md). Le
@@ -305,17 +301,15 @@ export default function OwnerEvents() {
     return () => { supabase.removeChannel(channel); };
   }, [venueId, organizerUserId, isOrganizerScope, scopeReady, planLoading, plan]);
 
-  // Load the creator's global "minors allowed" setting (venue for owners, profile for organizers).
+  // Fuseau (et ville) de la portée : club pour un owner, profil pour un organisateur.
   useEffect(() => {
     if (!scopeReady) return;
     (async () => {
       if (isOrganizerScope) {
-        const { data } = await supabase.from('organizer_profiles').select('minors_allowed, city').eq('user_id', organizerUserId!).maybeSingle();
-        setGlobalMinorsAllowed(data?.minors_allowed ?? false);
+        const { data } = await supabase.from('organizer_profiles').select('city').eq('user_id', organizerUserId!).maybeSingle();
         setVenueTimezone(cityToTimezone(data?.city));
       } else {
-        const { data } = await supabase.from('venues').select('minors_allowed, timezone, city').eq('id', venueId!).maybeSingle();
-        setGlobalMinorsAllowed(data?.minors_allowed ?? false);
+        const { data } = await supabase.from('venues').select('timezone, city').eq('id', venueId!).maybeSingle();
         setVenueTimezone(data?.timezone || cityToTimezone(data?.city));
         venueCityRef.current = data?.city ?? null;
       }
@@ -538,7 +532,6 @@ export default function OwnerEvents() {
       location_is_secret: (isOrganizerScope && !venueChosen) ? locationIsSecret : false,
       reveal_address_in_email: (isOrganizerScope && !venueChosen && locationIsSecret) ? revealAddressInEmail : true,
       is_active: formData.isActive,
-      minors_disabled: minorsDisabled,
       music_genres: formData.musicGenres,
       event_type: formData.eventType,
       event_kind: eventKind,
@@ -556,7 +549,7 @@ export default function OwnerEvents() {
     if (editingEvent && partnerDomains) {
       const allowed = new Set<string>([
         ...(partnerDomains.design ? ['title', 'description', 'poster_url', 'video_url', 'flyer_wide_url', 'poster_position', 'music_genres', 'event_type'] : []),
-        ...(partnerDomains.operations ? ['start_at', 'end_at', 'minors_disabled'] : []),
+        ...(partnerDomains.operations ? ['start_at', 'end_at'] : []),
       ]);
       for (const k of Object.keys(payload)) if (!allowed.has(k)) delete (payload as Record<string, unknown>)[k];
     }
@@ -748,7 +741,7 @@ export default function OwnerEvents() {
           flyer_wide_url: flyerWideUrl,
           poster_position: posterPosition ? { x: posterPosition.x, y: posterPosition.y, scale: posterPosition.scale } : null,
           start_at: startAtUTC, end_at: endAtUTC, timezone: formData.timezone || PARIS_TIMEZONE, is_active: formData.isActive,
-          venue_id: venueId, minors_disabled: minorsDisabled, music_genres: formData.musicGenres, event_type: formData.eventType,
+          venue_id: venueId, music_genres: formData.musicGenres, event_type: formData.eventType,
         }).eq('id', editingEvent.id);
         if (error) throw error;
         if (formData.isActive && !editingEvent.isActive) {
@@ -780,7 +773,7 @@ export default function OwnerEvents() {
           flyer_wide_url: flyerWideUrl,
           poster_position: posterPosition ? { x: posterPosition.x, y: posterPosition.y, scale: posterPosition.scale } : null,
           start_at: startAtUTC, end_at: endAtUTC, timezone: formData.timezone || PARIS_TIMEZONE, is_active: formData.isActive,
-          venue_id: venueId, minors_disabled: minorsDisabled, music_genres: formData.musicGenres, event_type: formData.eventType,
+          venue_id: venueId, music_genres: formData.musicGenres, event_type: formData.eventType,
         }).select('id').single();
         if (error) throw error;
         video.commit(); wideFlyer.commit(); // les fichiers ont servi : plus d'envoi abandonné à nettoyer
@@ -1138,8 +1131,6 @@ export default function OwnerEvents() {
     setLineupEntries(entries);
     setInitialLineupEntries(entries);
     setGuestArtists(await loadGuestArtists(event.id));
-    const { data: mdRow } = await supabase.from('events').select('minors_disabled').eq('id', event.id).maybeSingle();
-    setMinorsDisabled(mdRow?.minors_disabled ?? false);
     // Contrat vivant + rattachement courant : c'est ce qui permet de proposer une
     // collab APRÈS coup (rouvrir la soirée et choisir un partenaire) tout en
     // verrouillant l'édition dès qu'un contrat est engagé.
@@ -1198,7 +1189,7 @@ export default function OwnerEvents() {
     setEventKind('public_event'); setPrincipalMode('co_event'); setPartnerVenueId(''); setPartnerOrganizerId(''); setLinkedPartner(null);
     setLiveContract(null);
     setPartnerDrafts([]); setMoneyAgreement('external'); setYunoSplit(DEFAULT_YUNO_SPLIT); setCollectorsTouched(false); setPartnerVisibilityChoice('full');
-    setLocationName(''); setLocationCity(''); setLocationAddress(''); locationLogo.reset(); setLocationLogoPreview(''); setLocationIsSecret(false); setRevealAddressInEmail(true); setMinorsDisabled(false);
+    setLocationName(''); setLocationCity(''); setLocationAddress(''); locationLogo.reset(); setLocationLogoPreview(''); setLocationIsSecret(false); setRevealAddressInEmail(true);
   };
 
   const handlePosterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1905,21 +1896,6 @@ export default function OwnerEvents() {
                 onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
               />
             </div>
-
-            {/* Minors / alcohol-free per-event opt-out (only when the global is on) */}
-            {globalMinorsAllowed && (
-              <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-                <div>
-                  <p style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{t('owner.minorsDisabledLabel')}</p>
-                  <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>{t('owner.minorsDisabledHint')}</p>
-                </div>
-                <Switch
-                  id="minorsDisabled"
-                  checked={minorsDisabled}
-                  onCheckedChange={setMinorsDisabled}
-                />
-              </div>
-            )}
 
             {/* Actions */}
             <div className="flex gap-3 pt-1">
