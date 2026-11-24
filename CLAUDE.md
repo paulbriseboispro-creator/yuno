@@ -4386,7 +4386,7 @@ CNIL). `src/pages/TicketCheckout.tsx` + `src/components/checkout/*` (`BuyerDetai
   (formule, convives, plan, prix + code promo en rangée) puis « Vos infos » ; barre
   `CheckoutSummaryBar` aux deux étapes, `totalLabel` « Acompte aujourd'hui » quand
   il reste à régler au club, rien en barre pour une formule réglée sur place (la
-  phrase le dit). Date de naissance = `MinorAuthGate acceptsMinors={false}`, sa
+  phrase le dit). Date de naissance = `AdultBirthGate` (18 ans ou plus), sa
   date part en `ageDeclaration` ; la case d'attestation d'âge ET la case CGV
   deviennent la phrase `TermsNotice lead` (« vous certifiez avoir 18 ans ou plus
   et acceptez les conditions de vente »), tracée par `recordTermsAcceptance`
@@ -4401,9 +4401,29 @@ CNIL). `src/pages/TicketCheckout.tsx` + `src/components/checkout/*` (`BuyerDetai
   guest list (il n'y avait pas de case : rien de nouveau à accepter).
 - **Compte connecté = la page attend son profil** (2026-10-20, billet, table et
   guest list) : squelette tant que `profiles` (nom, téléphone, date de naissance)
-  n'est pas lu, et `MinorAuthGate` ne rend rien avant sa propre lecture ; « Tout
+  n'est pas lu, et `AdultBirthGate` ne rend rien avant sa propre lecture ; « Tout
   est prêt » attend aussi la date quand la page en demande une. Sinon les cases apparaissaient puis
   disparaissaient, et le client croyait qu'on lui redemandait sa date.
+
+## Yuno = majeurs seulement — le système « mineurs » est supprimé (2026-11-24)
+
+Décision de Paul : Yuno n'accepte AUCUN mineur. Le réglage « autoriser les mineurs
+(sans alcool) » (club et organisateur), l'exclusion par soirée, le document
+d'autorisation parentale, la table `minor_ticket_docs`, l'onglet « Mineurs » des
+Clients, l'alerte de porte « mineur, pas d'alcool » et le bucket
+`minor-auth-uploads` sont SUPPRIMÉS (migration `20261220100000`, guide
+`docs/designs/MINORS_REMOVAL_PLAN.md`). Règles :
+
+- **Porte unique au paiement : `AdultBirthGate`** (`src/components/AdultBirthGate.tsx`,
+  billet et table) : date de naissance exigée, moins de 18 ans = achat refusé ; la
+  date part au serveur en `ageDeclaration`. `create-ticket-checkout` et
+  `create-table-checkout` refusent une date déclarée de moins de 18 ans
+  (`_shared/age-declaration.ts`). Le panier boissons garde `AgeGate`.
+- **Ne jamais réintroduire** de soirée « sans alcool / mineurs acceptés », de
+  document parental, de branche « mineur accepté » ni de liste de clients mineurs.
+  Ce qui reste et qui est voulu : le motif de refus « Mineur » à la porte, la
+  section « Mineurs » de la politique de confidentialité (« réservé aux majeurs »),
+  les clauses légales qui interdisent de cibler des mineurs.
 
 ## E-mail de vente non livré — une faute d'adresse se voit (billet, table, guest list, 2026-10-20)
 

@@ -115,7 +115,7 @@ Humain : 1 jour. CC : 1 h.
    - `is_org_member`, `is_org_team_member`, `is_event_door_staff` → `_user_id = auth.uid()` sauf super admin, comme `coorg_party_level` depuis la revue du 29/09.
    - `generate_invoice_number` : appelée par le front dans `OrderConfirmation` et par les `verify-*` en service_role. REVOKE `anon` ; à terme retirer l'appel front (un client ne doit pas numéroter une facture).
    - `email_has_account` : garder (décision produit) mais freiner à 20 appels / heure / visiteur via `links_visitor_context()`, comme `check_promo_code`.
-3. **Bucket `minor-auth-uploads` → privé.** Ordre imposé : (a) front d'abord —
+3. **Bucket `minor-auth-uploads` → privé.** _(Caduc le 2026-11-24 : tout le système mineurs est supprimé, bucket compris — migration `20261220100000`.)_ Ordre imposé : (a) front d'abord —
    `OwnerTicketOrders` lit le justificatif par `createSignedUrl` (1 h), et
    `MinorAuthGate` stocke le CHEMIN (pas l'URL publique) dans `minor_doc_url`
    des billets ; (b) puis migration : `update storage.buckets set public =
