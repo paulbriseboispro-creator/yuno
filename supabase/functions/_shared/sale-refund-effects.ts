@@ -42,7 +42,17 @@ import {
 export async function createSaleStripeRefund(
   stripe: Stripe,
   admin: SupabaseClient,
-  p: { paymentIntentId: string; amountCents: number; connectedAccountId: string | null; idempotencyKey: string },
+  p: {
+    paymentIntentId: string;
+    amountCents: number;
+    connectedAccountId: string | null;
+    idempotencyKey: string;
+    /**
+     * Rendre aussi la commission Yuno (annulation d'une table par l'organisateur :
+     * le client récupère tout, frais de service compris). Charge directe seulement.
+     */
+    refundApplicationFee?: boolean;
+  },
 ): Promise<Stripe.Refund> {
   let reverseTransfer = false;
   if (!p.connectedAccountId) {
@@ -54,7 +64,7 @@ export async function createSaleStripeRefund(
     payment_intent: p.paymentIntentId,
     amount: p.amountCents,
     ...(reverseTransfer ? { reverse_transfer: true } : {}),
-    refund_application_fee: false,
+    refund_application_fee: !!p.connectedAccountId && p.refundApplicationFee === true,
   }, {
     idempotencyKey: p.idempotencyKey,
     maxNetworkRetries: 2,
@@ -109,6 +119,8 @@ export async function refundSaleOnStripe(
     idempotencyKey: string;
     /** Cumul remboursé attendu sur la charge une fois ce remboursement passé. */
     expectedCumulativeCents: number;
+    /** Voir `createSaleStripeRefund`. */
+    refundApplicationFee?: boolean;
   },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
@@ -220,14 +232,19 @@ export async function applyRefundAmountEffects(
   admin: SupabaseClient,
   ctx: SaleRefundContext,
   amountCents: number,
-  opts: { reason?: string | null; source: "yuno" | "stripe_dashboard" },
+  opts: {
+    reason?: string | null;
+    source: "yuno" | "stripe_dashboard";
+    /** L'appelant envoie son propre e-mail (annulation d'une table : `cancelled_refunded`). */
+    skipEmail?: boolean;
+  },
 ): Promise<void> {
   const amount = fromCents(amountCents);
   if (amount <= 0) return;
 
   await decrementCustomerSpent(admin, ctx, amountCents);
 
-  if (ctx.customerEmail) {
+  if (ctx.customerEmail && !opts.skipEmail) {
     try {
       const resendApiKey = Deno.env.get("RESEND_API_KEY");
       if (resendApiKey) {

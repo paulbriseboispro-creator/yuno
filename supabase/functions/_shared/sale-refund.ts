@@ -72,6 +72,23 @@ export function refundCapCents(kind: SaleKind, s: SaleAmounts): number {
   return Math.max(0, toCents(s.total_price) - toCents(s.service_fee) - (absorbed ? 0 : toCents(s.management_fee)));
 }
 
+/**
+ * Plafond d'une table ANNULÉE PAR L'ORGANISATEUR (décision D10) : tout ce que le
+ * client a payé en ligne, frais de service compris — seuls les frais Stripe
+ * restent au vendeur. `chargeAmountCents` est le montant réellement encaissé,
+ * lu chez Stripe (c'est la vérité, y compris quand le client a payé les frais
+ * d'un vendeur qui les absorbe) ; sans lui, repli sur l'acompte plus les frais
+ * de gestion que le client a payés à part. Une annulation à l'initiative du
+ * client garde `refundCapCents` (acompte seul).
+ */
+export function tableCancelCapCents(s: SaleAmounts, chargeAmountCents?: number | null): number {
+  const charged = Math.round(Number(chargeAmountCents));
+  if (Number.isFinite(charged) && charged > 0) return charged;
+  const deposit = toCents(s.deposit);
+  if (deposit <= 0) return 0;
+  return deposit + (s.fee_absorbed === true ? 0 : toCents(s.management_fee));
+}
+
 /** Déjà rendu au client (cumul), en centimes. */
 export function alreadyRefundedCents(s: SaleAmounts): number {
   return Math.max(0, toCents(s.refund_amount));

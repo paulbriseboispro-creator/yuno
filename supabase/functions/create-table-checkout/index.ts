@@ -24,6 +24,7 @@ import { parseAnalyticsContext, analyticsContextToStripeMetadata, captureOrderPa
 import { restrictedCorsHeaders, resolveReturnOrigin, safeReturnPath } from "../_shared/cors.ts";
 import { PromoCodeError, attachPromoRedemption, claimPromoCode, normalizePromoCode, releasePromoRedemption } from "../_shared/promo-codes.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
+import { boundDeposit, packInScope, parseGuestCount, safePlacementStatus as toSafePlacementStatus } from "../_shared/table-bounds.ts";
 import { promoterCodePattern, promoterIdHint, promoterScopeOr } from "../_shared/promoter-scope.ts";
 
 // Production mode - payments go through Stripe Connect
@@ -49,6 +50,15 @@ interface PreOrderBottlePayload {
   menuItemId?: string;
   quantity?: number | string;
   unitPrice?: number | string;
+}
+
+// Refus serveur à code stable (400 + `code`) : le front traduit par code.
+class CheckoutRefusal extends Error {
+  code: string;
+  constructor(message: string, code: string) {
+    super(message);
+    this.code = code;
+  }
 }
 
 serve(async (req) => {
@@ -118,6 +128,8 @@ serve(async (req) => {
       language,
     } = await req.json();
     const lang = resolveLang(language);
+    // Liste blanche : un appel direct ne pose pas `approved` / `rejected` à la place de l'organisateur.
+    const safePlacementStatus = toSafePlacementStatus(placementStatus);
 
     const ALLOWED_SOURCES = ['venue_profile','organizer_profile','dj_profile','explore','promoter','instagram','tiktok','facebook','whatsapp','social','paid_social','search','referral','email','direct'];
     // Default to 'direct' so analytics never show "unknown" — every reservation has a source.
@@ -275,16 +287,42 @@ serve(async (req) => {
     if (Array.isArray(soldOutPackIds) && soldOutPackIds.includes(packId)) {
       throw new Error(t("checkout.tablesSoldOut", lang));
     }
-    if (eventScopedTables && pack.event_id !== eventId) {
-      throw new Error(t("table.invalidPack", lang));
+    // Event-scopé : la formule de CETTE soirée. Soirée d'un club en mode élite :
+    // celle du club (ou créée pour cette soirée), jamais celle d'un autre club.
+    if (!packInScope(pack, { eventId, eventScoped: eventScopedTables, clubId: effectiveVenueId ?? null })) {
+      logStep("Pack outside the event scope", { packId: pack.id, packVenue: pack.venue_id, packEvent: pack.event_id, effectiveVenueId });
+      throw new CheckoutRefusal(t("table.invalidPack", lang), "invalid_pack");
     }
+
+    // Nombre de convives : entier borné par la formule, jamais pris tel quel du
+    // navigateur (négatif, 500 convives sans surcoût…). Absent = la base de la formule.
+    const requestedGuests = parseGuestCount(guestCount, pack.base_capacity, pack.max_extra_persons);
+    if (requestedGuests === null) {
+      logStep("Guest count out of bounds", { guestCount, base: pack.base_capacity, extra: pack.max_extra_persons });
+      throw new CheckoutRefusal(t("table.invalidGuestCount", lang), "invalid_guest_count");
+    }
+    const validGuestCount = requestedGuests;
 
     logStep("Pack found", { packId: pack.id, packName: pack.name, basic: isBasicMode, eventScoped: eventScopedTables });
 
     // ===== ZONE CAPACITY GUARD =====
     // Prevent overselling: count active reservations in the target zone and block when
     // the zone's `tables_count` is reached. Each reservation consumes exactly 1 table slot.
-    const effectiveZoneId = zoneId || pack.zone_id;
+    // La zone est celle de la formule : celle du navigateur est ignorée (sans
+    // erreur), sinon un appel direct choisirait une zone sans plafond.
+    let effectiveZoneId: string | null = pack.zone_id ?? null;
+    if (!effectiveZoneId && typeof zoneId === "string" && zoneId) {
+      // Formule sans zone propre : la zone du navigateur ne vaut que si elle
+      // appartient bien à cette soirée / à ce club.
+      const { data: claimedZone } = await supabaseAdmin
+        .from("table_zones").select("id, venue_id, event_id").eq("id", zoneId).maybeSingle();
+      const zoneOk = !!claimedZone && (
+        claimedZone.event_id === eventId
+        || (!claimedZone.event_id && !!effectiveVenueId && claimedZone.venue_id === effectiveVenueId)
+      );
+      if (zoneOk) effectiveZoneId = zoneId;
+      else logStep("Browser zone ignored (outside the event scope)", { zoneId });
+    }
     if (effectiveZoneId) {
       const { data: zoneRow } = await supabaseAdmin
         .from("table_zones")
@@ -536,7 +574,6 @@ serve(async (req) => {
     const extraPersonPrice = Number(pack.extra_person_price) || 0;
     
     // Calculate extra person charges
-    const validGuestCount = parseInt(guestCount) || pack.base_capacity;
     const extraPeople = Math.max(0, validGuestCount - pack.base_capacity);
     const extraCharges = extraPeople * extraPersonPrice;
     
@@ -555,6 +592,9 @@ serve(async (req) => {
     } else {
       serverDeposit = serverTotalPrice; // Full payment if no deposit configured
     }
+    // Un acompte fixe supérieur au prix (ou remonté par une formule remisée)
+    // ne se paie jamais : l'acompte est au plus le prix de la table.
+    serverDeposit = boundDeposit(serverDeposit, serverTotalPrice);
 
     // Promoteur de la réservation : par l'id que le navigateur a mémorisé, sinon
     // par son code, TOUJOURS dans le périmètre de la soirée (club hôte, club
@@ -634,6 +674,12 @@ serve(async (req) => {
         userId: user?.id ?? null,
       });
       if (!claim.ok) throw new PromoCodeError(t("checkout.promoInvalid", lang), claim.reason);
+      // Un code qui ramènerait l'acompte à zéro laisserait une session Stripe de
+      // frais de service seuls : le code est refusé (usage rendu), pas la vente.
+      if (serverDeposit > 0 && claim.discount >= serverDeposit) {
+        await releasePromoRedemption(supabaseAdmin, claim.redemptionId);
+        throw new CheckoutRefusal(t("table.promoNotApplicable", lang), "promo_not_applicable_to_deposit");
+      }
       if (claim.discount >= promoterDiscount) {
         promoRedemptionId = claim.redemptionId;
         promoCodeId = claim.promoCodeId;
@@ -646,6 +692,13 @@ serve(async (req) => {
       logStep("Promo code resolved", { code: cleanDiscountCode, promoCodeId, promoCodeDiscount, promoterDiscount });
     }
 
+    // Remise du PROMOTEUR qui ramènerait l'acompte à zéro : écartée (la vente
+    // reste attribuée à son promoteur), même règle que pour un code promo.
+    if (serverDeposit > 0 && validatedDiscount >= serverDeposit && !promoCodeId) {
+      logStep("Promoter discount would zero the deposit — ignored", { validatedDiscount, serverDeposit });
+      validatedDiscount = 0;
+      promoterDiscount = 0;
+    }
     const discountedDeposit = serverDeposit - validatedDiscount;
     
     // Service fee: min(cap, max(floor, 4% of deposit)). BDE events get a reduced
@@ -695,7 +748,7 @@ serve(async (req) => {
       const onSiteTotal = serverTotalPrice;
       const { data: onSiteId, error: onSiteErr } = await supabaseAdmin.rpc("reserve_table_slot", {
         _event_id: eventId,
-        _zone_id: zoneId,
+        _zone_id: effectiveZoneId,
         _capacity_zone_id: effectiveZoneId,
         _pack_id: packId,
         _user_id: user?.id || null,
@@ -713,7 +766,7 @@ serve(async (req) => {
         _newsletter_opt_in: newsletterOptIn,
         _sms_opt_in: !!smsOptIn,
         _requested_table_id: requestedTableId || null,
-        _placement_status: placementStatus || "none",
+        _placement_status: safePlacementStatus,
         _purchase_source: safePurchaseSource,
         _fee_absorbed: false,
       });
@@ -726,7 +779,7 @@ serve(async (req) => {
       // pas une demande — la table choisie sur le plan est assignée d'office
       // (reserve_table_slot a déjà refusé un doublon sous verrou). L'export
       // donné au club porte ainsi la table finale, pas une demande en attente.
-      const onSiteAssigned = !!requestedTableId && placementStatus === 'requested';
+      const onSiteAssigned = !!requestedTableId && safePlacementStatus === 'requested';
       await supabaseAdmin.from("table_reservations").update({
         payment_mode: "on_site",
         tracked_link_id: safeTrackedLinkId || null,
@@ -845,7 +898,7 @@ serve(async (req) => {
         await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-vip-confirmation`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
-          body: JSON.stringify({ reservation_id: onSiteReservationId, type: 'request_received' }),
+          body: JSON.stringify({ reservation_id: onSiteReservationId, type: 'confirmed' }),
         });
       } catch (vipEmailError) {
         console.error('Error sending VIP email (on-site):', vipEmailError);
@@ -868,7 +921,7 @@ serve(async (req) => {
       // See migration 20260616130000_reserve_table_slot_atomic.sql.
       const { data: reservationId, error: reservationError } = await supabaseAdmin.rpc("reserve_table_slot", {
         _event_id: eventId,
-        _zone_id: zoneId,
+        _zone_id: effectiveZoneId,
         _capacity_zone_id: effectiveZoneId,
         _pack_id: packId,
         _user_id: user?.id || null,
@@ -886,7 +939,7 @@ serve(async (req) => {
         _newsletter_opt_in: newsletterOptIn,
         _sms_opt_in: !!smsOptIn,
         _requested_table_id: requestedTableId || null,
-        _placement_status: placementStatus || "none",
+        _placement_status: safePlacementStatus,
         _purchase_source: safePurchaseSource,
         _fee_absorbed: feeAbsorbed,
       });
@@ -928,14 +981,14 @@ serve(async (req) => {
 
       // Pré-commande : enregistre les bouteilles choisies au checkout comme commande table
       // (préparée pour l'arrivée, réglée à la table). Non bloquant.
-      if (Array.isArray(preOrderBottles) && preOrderBottles.length > 0 && event.venue_id) {
+      if (Array.isArray(preOrderBottles) && preOrderBottles.length > 0 && effectiveVenueId) {
         try {
           const poTotal = preOrderBottles.reduce((s: number, b: PreOrderBottlePayload) => s + (Number(b.unitPrice) || 0) * (Number(b.quantity) || 0), 0);
           const { data: poOrder, error: poErr } = await supabaseAdmin
             .from("vip_table_orders")
             .insert({
               table_reservation_id: reservation.id,
-              venue_id: event.venue_id,
+              venue_id: effectiveVenueId,
               user_id: user?.id ?? null,
               status: "preorder",
               total_amount: poTotal,
@@ -1082,14 +1135,14 @@ serve(async (req) => {
         console.error('VIP reservation notif error (demo, non-blocking):', notifErr);
       }
 
-      // Send VIP request_received email
+      // Payé = confirmé : e-mail « confirmée » (QR + Wallet) tout de suite
       try {
         await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-vip-confirmation`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
-          body: JSON.stringify({ reservation_id: reservation.id, type: 'request_received' })
+          body: JSON.stringify({ reservation_id: reservation.id, type: 'confirmed' })
         });
-        logStep("VIP request_received email sent");
+        logStep("VIP confirmed email sent");
       } catch (vipEmailError) {
         console.error('Error sending VIP email:', vipEmailError);
       }
@@ -1143,7 +1196,7 @@ serve(async (req) => {
     // pending reservation. See migration 20260616130000_reserve_table_slot_atomic.sql.
     const { data: reservationId, error: reservationError } = await supabaseAdmin.rpc("reserve_table_slot", {
       _event_id: eventId,
-      _zone_id: zoneId,
+      _zone_id: effectiveZoneId,
       _capacity_zone_id: effectiveZoneId,
       _pack_id: packId,
       _user_id: user?.id || null,
@@ -1161,7 +1214,7 @@ serve(async (req) => {
       _newsletter_opt_in: newsletterOptIn,
       _sms_opt_in: !!smsOptIn,
       _requested_table_id: requestedTableId || null,
-      _placement_status: placementStatus || "none",
+      _placement_status: safePlacementStatus,
       _purchase_source: safePurchaseSource,
       _fee_absorbed: feeAbsorbed,
     });
@@ -1203,14 +1256,14 @@ serve(async (req) => {
 
     // Pré-commande : enregistre les bouteilles choisies au checkout comme commande table
     // (préparée pour l'arrivée, réglée à la table). Non bloquant ; survit au pending->paid.
-    if (Array.isArray(preOrderBottles) && preOrderBottles.length > 0 && event.venue_id) {
+    if (Array.isArray(preOrderBottles) && preOrderBottles.length > 0 && effectiveVenueId) {
       try {
         const poTotal = preOrderBottles.reduce((s: number, b: PreOrderBottlePayload) => s + (Number(b.unitPrice) || 0) * (Number(b.quantity) || 0), 0);
         const { data: poOrder, error: poErr } = await supabaseAdmin
           .from("vip_table_orders")
           .insert({
             table_reservation_id: reservation.id,
-            venue_id: event.venue_id,
+            venue_id: effectiveVenueId,
             user_id: user?.id ?? null,
             status: "preorder",
             total_amount: poTotal,
@@ -1287,10 +1340,18 @@ serve(async (req) => {
     }
     const connectedAccountId = split.splitMode === "direct" ? split.primary.accountId : null;
     if (connectedAccountId || split.transferSplit) {
-      await supabaseAdmin.from("table_reservations").update({
+      // Écrit AVANT la création de la session et VÉRIFIÉ : verify-table-payment et
+      // owner-refund relisent le paiement sur CE compte. Sans cette colonne, un
+      // acheteur paierait une session que personne ne retrouve. Un échec arrête
+      // tout (le catch supprime la réservation pending) : la session n'est pas créée.
+      const { data: stampedRows, error: stampErr } = await supabaseAdmin.from("table_reservations").update({
         ...(connectedAccountId ? { stripe_connected_account_id: connectedAccountId } : {}),
         collab_split: split.transferSplit ?? null,
-      }).eq('id', reservation.id);
+      }).eq('id', reservation.id).select('id');
+      if (stampErr || !stampedRows || stampedRows.length !== 1) {
+        logStep("Connected account stamp failed — session not created", { reservationId: reservation.id, error: stampErr?.message ?? "no row updated" });
+        throw new Error(t("checkout.tryAgain", lang));
+      }
     }
 
     // En vente directe la session naît sur le compte du pro : si Link n'y est
@@ -1317,7 +1378,7 @@ serve(async (req) => {
       cancel_url: `${origin}${safeReturnPath(cancelUrl, "/")}`,
       customer_email: user?.email || guestEmail,
       payment_method_types: ['card', 'link'],
-      metadata: { reservationId: reservation.id, eventId, packId, userId: user?.id || '', venueId: effectiveVenueId ?? '', promoterId: promoterId || '', promoCode: checkoutPromoter?.promo_code || '', promoDiscount: String(promoterDiscount || 0), promoCodeId: promoCodeId || '', promoRedemptionId: promoRedemptionId || '', trackedLinkId: safeTrackedLinkId || '', isGuest: isGuestCheckout ? 'true' : 'false', ...metaContextToStripeMetadata(metaCtx), ...analyticsContextToStripeMetadata(analyticsCtx) },
+      metadata: { reservationId: reservation.id, connected_account: connectedAccountId ?? '', eventId, packId, userId: user?.id || '', venueId: effectiveVenueId ?? '', promoterId: promoterId || '', promoCode: checkoutPromoter?.promo_code || '', promoDiscount: String(promoterDiscount || 0), promoCodeId: promoCodeId || '', promoRedemptionId: promoRedemptionId || '', trackedLinkId: safeTrackedLinkId || '', isGuest: isGuestCheckout ? 'true' : 'false', ...metaContextToStripeMetadata(metaCtx), ...analyticsContextToStripeMetadata(analyticsCtx) },
       payment_intent_data: (() => {
         const stripeFee = Math.round(split.grossAmountCents * STRIPE_PERCENT) + STRIPE_FIXED_CENTS;
         const transferGroup = `EVENT_${event.id}_TBL_${reservation.id}`;
@@ -1409,7 +1470,9 @@ serve(async (req) => {
         .delete().eq("id", pendingReservationId).eq("status", "pending");
       if (releaseErr) logStep("Pending reservation release failed", { id: pendingReservationId, error: releaseErr.message });
     }
-    const promo = error instanceof PromoCodeError ? { code: error.code, reason: error.reason } : {};
+    const promo = error instanceof PromoCodeError
+      ? { code: error.code, reason: error.reason }
+      : error instanceof CheckoutRefusal ? { code: error.code } : {};
     return new Response(JSON.stringify({ error: errorMessage, ...promo }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });
   }
 });

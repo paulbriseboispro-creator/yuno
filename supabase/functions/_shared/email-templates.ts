@@ -319,6 +319,12 @@ export function buildVipConfirmation(d: {
   day: string; month: string; arrivalTime?: string;
   tableName: string; guests: string; bottles?: string; total: string; reference: string; manageUrl: string;
   qrDataUrl?: string; walletUrl?: string;
+  /** Payé en ligne (acompte + frais) et reste à régler au club : deux lignes en plus du total. */
+  paidOnline?: string; remainingOnSite?: string;
+  /** Précision sur la table, écrite par l'appelant dans la langue du client (table demandée, placement à l'arrivée). */
+  note?: string;
+  /** Acheteur sans compte : le lien retrouve la réservation (et tous les QR) au lieu d'ouvrir « Mes commandes ». */
+  manageIsClaim?: boolean;
 }): BuiltEmail {
   const lang = L(d.lang || 'en');
   const hi = d.firstName ? `${d.firstName}, ` : '';
@@ -336,6 +342,7 @@ export function buildVipConfirmation(d: {
           fr: `<strong style="color:${C.white}">${esc(d.tableName)}</strong> est réservée pour <strong style="color:${C.white}">${esc(d.eventTitle)}</strong>. Présente-toi à l'accueil VIP à ton nom.`,
           es: `<strong style="color:${C.white}">${esc(d.tableName)}</strong> está reservada para <strong style="color:${C.white}">${esc(d.eventTitle)}</strong>. Preséntate en recepción VIP a tu nombre.`,
         }))),
+      ...(d.note ? [section(`<div style="border:1px solid ${C.borderStrong};border-radius:4px;background:${C.card};padding:16px 18px;">${body(esc(d.note))}</div>`)] : []),
       section(bigDate({ day: d.day, month: d.month, dateLabel: lbl(lang, 'date'), timeLabel: lbl(lang, 'arrival'), timeValue: d.arrivalTime || '—' })),
       section(infoRows([
         { k: lbl(lang, 'party'), v: d.eventTitle },
@@ -344,10 +351,14 @@ export function buildVipConfirmation(d: {
         { k: lbl(lang, 'guests'), v: d.guests },
         ...(d.bottles ? [{ k: lbl(lang, 'bottles'), v: d.bottles }] : []),
         { k: lbl(lang, 'total'), v: d.total },
+        ...(d.paidOnline ? [{ k: p(lang, { en: 'Paid online', fr: 'Payé en ligne', es: 'Pagado en línea' }), v: d.paidOnline }] : []),
+        ...(d.remainingOnSite ? [{ k: p(lang, { en: 'To pay on site', fr: 'Reste à régler sur place', es: 'Pendiente en el local' }), v: d.remainingOnSite }] : []),
         { k: lbl(lang, 'reference'), v: d.reference },
       ])),
       ...(d.qrDataUrl ? [section(qrCard(d.qrDataUrl, p(lang, { en: 'Scan at VIP entry', fr: "À scanner à l'entrée VIP", es: 'Escanear en entrada VIP' }), d.reference), { border: false, padBottom: 4 })] : []),
-      section(`${d.walletUrl ? `${walletPill(p(lang, WALLET_LABEL), d.walletUrl)}<div style="height:16px"></div>` : ''}${ctaPill(p(lang, { en: 'Manage my booking', fr: 'Gérer ma réservation', es: 'Gestionar mi reserva' }), d.manageUrl)}`, { border: false }),
+      section(`${d.walletUrl ? `${walletPill(p(lang, WALLET_LABEL), d.walletUrl)}<div style="height:16px"></div>` : ''}${ctaPill(d.manageIsClaim
+        ? p(lang, { en: 'See my QR codes', fr: 'Voir mes QR', es: 'Ver mis QR' })
+        : p(lang, { en: 'Manage my booking', fr: 'Gérer ma réservation', es: 'Gestionar mi reserva' }), d.manageUrl)}`, { border: false }),
       footer({ lang, venueName: d.venueName }),
     ].join(''),
   });
@@ -445,20 +456,26 @@ export function buildWaitlistJoined(d: {
   return { subject, preheader: d.meta || '', html };
 }
 
-// ── 4c. Statut d'une demande de table VIP (reçue / modifiée / refusée) ───────
+// ── 4c. Statut d'une table VIP (reçue / modifiée / table changée / annulée) ──
 // Même grille que la confirmation : le client reconnaît l'email d'un coup
-// d'œil. Un refus ne porte pas de bouton : il n'y a rien à ouvrir.
+// d'œil. Une annulation ne porte ni date ni bouton : il n'y a rien à ouvrir.
+// Payé = confirmé : il n'existe plus de « refus » sans remboursement, une
+// annulation par l'organisation rend tout (`cancelled_refunded`).
+export type VipStatusKind = 'request_received' | 'modified' | 'table_changed' | 'cancelled_refunded' | 'cancelled';
 export function buildVipStatus(d: {
-  lang?: Lang; kind: 'request_received' | 'modified' | 'refused'; firstName?: string;
+  lang?: Lang; kind: VipStatusKind; firstName?: string;
   eventTitle: string; venueName: string; posterUrl?: string; day: string; month: string; arrivalTime?: string;
   tableName?: string; guests?: string; changes?: string; address?: string; addressDeferred?: boolean;
   manageUrl?: string; claimUrl?: string;
+  /** Montant rendu, déjà formaté (`cancelled_refunded`). */
+  refundAmount?: string;
 }): BuiltEmail {
   const lang = L(d.lang || 'en');
   const hi = d.firstName ? `${esc(d.firstName)}, ` : '';
   const ev = `<strong style="color:${C.white}">${esc(d.eventTitle)}</strong>`;
   const vn = `<strong style="color:${C.white}">${esc(d.venueName)}</strong>`;
-  const K = {
+  const amt = d.refundAmount ? esc(d.refundAmount) : '';
+  const KS: Record<VipStatusKind, { subject: string; label: string; title: string; body: string }> = {
     request_received: {
       subject: p(lang, { en: 'Table request received', fr: 'Demande de table reçue', es: 'Solicitud de mesa recibida' }),
       label: p(lang, { en: 'Request received', fr: 'Demande reçue', es: 'Solicitud recibida' }),
@@ -479,17 +496,38 @@ export function buildVipStatus(d: {
         es: `Tu mesa para ${ev} en ${vn} ha sido modificada por el club.${d.changes ? ' Esto es lo que cambia:' : ''}`,
       }),
     },
-    refused: {
-      subject: p(lang, { en: 'Table request not confirmed', fr: 'Demande de table non confirmée', es: 'Solicitud de mesa no confirmada' }),
-      label: p(lang, { en: 'Not confirmed', fr: 'Non confirmée', es: 'No confirmada' }),
-      title: p(lang, { en: 'sorry', fr: 'désolé', es: 'lo sentimos' }),
+    table_changed: {
+      subject: p(lang, { en: 'Your table changed', fr: 'Ta table a changé', es: 'Tu mesa ha cambiado' }),
+      label: p(lang, { en: 'Table updated', fr: 'Table modifiée', es: 'Mesa modificada' }),
+      title: p(lang, { en: 'heads up', fr: 'à noter', es: 'atención' }),
       body: p(lang, {
-        en: `${vn} couldn't confirm your table request for ${ev}. Nothing has been charged. For another date or another package, reach out to the venue directly.`,
-        fr: `${vn} n'a pas pu confirmer ta demande de table pour ${ev}. Rien ne t'a été débité. Pour une autre date ou une autre formule, contacte directement le club.`,
-        es: `${vn} no ha podido confirmar tu solicitud de mesa para ${ev}. No se te ha cobrado nada. Para otra fecha u otra fórmula, contacta directamente con el club.`,
+        en: `Your booking for ${ev} at ${vn} still stands, but your table changed.${d.changes ? ' Here is the update:' : ''}`,
+        fr: `Ta réservation pour ${ev} chez ${vn} tient toujours, mais ta table change.${d.changes ? ' Voici le détail :' : ''}`,
+        es: `Tu reserva para ${ev} en ${vn} sigue en pie, pero tu mesa cambia.${d.changes ? ' Este es el detalle:' : ''}`,
       }),
     },
-  }[d.kind];
+    cancelled_refunded: {
+      subject: p(lang, { en: 'Your table is cancelled and refunded', fr: 'Ta table est annulée et remboursée', es: 'Tu mesa ha sido cancelada y reembolsada' }),
+      label: p(lang, { en: 'Cancelled', fr: 'Annulée', es: 'Cancelada' }),
+      title: p(lang, { en: 'sorry', fr: 'désolé', es: 'lo sentimos' }),
+      body: p(lang, {
+        en: `${vn} had to cancel your table for ${ev}. Everything you paid is refunded${amt ? ` (${amt}, service fee included)` : ', service fee included'}. The money reaches your account within 5 to 10 days, depending on your bank.`,
+        fr: `${vn} a dû annuler ta table pour ${ev}. Tout ce que tu as payé t'est remboursé${amt ? ` (${amt}, frais de service compris)` : ', frais de service compris'}. L'argent arrive sur ton compte sous 5 à 10 jours, selon ta banque.`,
+        es: `${vn} ha tenido que cancelar tu mesa para ${ev}. Todo lo que pagaste te será reembolsado${amt ? ` (${amt}, gastos de servicio incluidos)` : ', gastos de servicio incluidos'}. El dinero llega a tu cuenta en 5 a 10 días, según tu banco.`,
+      }),
+    },
+    cancelled: {
+      subject: p(lang, { en: 'Your table is cancelled', fr: 'Ta table est annulée', es: 'Tu mesa ha sido cancelada' }),
+      label: p(lang, { en: 'Cancelled', fr: 'Annulée', es: 'Cancelada' }),
+      title: p(lang, { en: 'sorry', fr: 'désolé', es: 'lo sentimos' }),
+      body: p(lang, {
+        en: `${vn} has cancelled your table for ${ev}. Nothing was charged online. For another date or another package, reach out to the venue directly.`,
+        fr: `${vn} a annulé ta table pour ${ev}. Rien n'a été débité en ligne. Pour une autre date ou une autre formule, contacte directement le club.`,
+        es: `${vn} ha cancelado tu mesa para ${ev}. No se cobró nada en línea. Para otra fecha u otra fórmula, contacta directamente con el club.`,
+      }),
+    },
+  };
+  const K = KS[d.kind];
   const subject = `${K.subject} — ${d.eventTitle}`;
   const deferred = p(lang, {
     en: 'The exact address is sent to you by the host before the event.',
@@ -503,7 +541,8 @@ export function buildVipStatus(d: {
     ...(d.guests ? [{ k: lbl(lang, 'guests'), v: d.guests }] : []),
     ...(d.address ? [{ k: p(lang, { en: 'Address', fr: 'Adresse', es: 'Dirección' }), v: d.address }] : []),
   ];
-  const cta = d.kind === 'refused' ? '' : d.manageUrl
+  const cancelledKind = d.kind === 'cancelled' || d.kind === 'cancelled_refunded';
+  const cta = d.kind === 'cancelled' ? '' : d.manageUrl
     ? ctaPill(p(lang, { en: 'View my booking', fr: 'Voir ma réservation', es: 'Ver mi reserva' }), d.manageUrl)
     : d.claimUrl ? ctaPill(p(lang, { en: 'Find my booking', fr: 'Retrouver ma réservation', es: 'Encontrar mi reserva' }), d.claimUrl) : '';
   const html = shell({
@@ -514,7 +553,7 @@ export function buildVipStatus(d: {
       poster(d.posterUrl || '', d.eventTitle),
       section(ruleLabel(K.label) + `<div style="height:14px"></div>` + title(`${hi}${K.title}`, 30) + `<div style="height:14px"></div>` + body(K.body)),
       ...(d.changes ? [section(`<div style="border:1px solid ${C.borderStrong};border-radius:4px;background:${C.card};padding:16px 18px;">${body(esc(d.changes))}</div>`)] : []),
-      ...(d.kind === 'refused' ? [] : [section(bigDate({ day: d.day, month: d.month, dateLabel: lbl(lang, 'date'), timeLabel: lbl(lang, 'arrival'), timeValue: d.arrivalTime || '—' }))]),
+      ...(cancelledKind ? [] : [section(bigDate({ day: d.day, month: d.month, dateLabel: lbl(lang, 'date'), timeLabel: lbl(lang, 'arrival'), timeValue: d.arrivalTime || '—' }))]),
       section(infoRows(rows) + (d.addressDeferred && !d.address ? `<div style="height:12px"></div>${mono(deferred, C.gray3, 11)}` : ''), { border: !!cta }),
       ...(cta ? [section(cta, { border: false })] : []),
       footer({ lang, venueName: d.venueName }),
@@ -1329,7 +1368,7 @@ export const PREVIEW_SAMPLES: Record<string, () => BuiltEmail> = {
   waitlistJoined: () => buildWaitlistJoined({ lang: 'fr', firstName: 'Paul', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', posterUrl: POSTER, meta: '22 Juin · 18:00 · Paris' }),
   vipRequest: () => buildVipStatus({ lang: 'fr', kind: 'request_received', firstName: 'Paul', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', posterUrl: POSTER, day: '22', month: 'Juin 2026', arrivalTime: '23:00', tableName: 'Carré VIP — Pont supérieur', guests: '6', manageUrl: `${APP}/my-orders` }),
   vipModified: () => buildVipStatus({ lang: 'fr', kind: 'modified', firstName: 'Paul', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', posterUrl: POSTER, day: '22', month: 'Juin 2026', arrivalTime: '23:00', tableName: 'Carré VIP — Pont supérieur', guests: '8', changes: 'Ta table passe en Carré Prestige, 8 personnes, arrivée avant 23h30.', manageUrl: `${APP}/my-orders` }),
-  vipRefused: () => buildVipStatus({ lang: 'fr', kind: 'refused', firstName: 'Paul', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', posterUrl: POSTER, day: '22', month: 'Juin 2026' }),
+  vipCancelledRefunded: () => buildVipStatus({ lang: 'fr', kind: 'cancelled_refunded', firstName: 'Paul', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', posterUrl: POSTER, day: '22', month: 'Juin 2026', refundAmount: '104,00 €', manageUrl: `${APP}/my-orders` }),
   walkinSummary: () => buildWalkinSummary({ lang: 'fr', firstName: 'Paul', venueName: 'Night Square', items: [{ k: '2 × Grey Goose 70cl', v: '€360.00' }, { k: '6 × Red Bull', v: '€36.00' }], total: '€396.00', signupUrl: `${APP}/auth?signup=true` }),
   securityAlert: () => buildSecurityAlert({ lang: 'fr', title: '2FA désactivée sur ton compte', message: "L'authentification à deux facteurs vient d'être désactivée sur ton compte Yuno.", rows: [{ k: 'Date', v: '15/09/2026 14:02 (Paris)' }, { k: 'IP', v: '203.0.113.7' }], warning: "Si ce n'est pas toi : change ton mot de passe immédiatement et réactive la 2FA depuis tes paramètres de sécurité." }),
   lowTicketOwner: () => buildLowTicketAlert({ lang: 'fr', audience: 'owner', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', pctSold: '85%', meta: '', url: `${APP}/owner` }),

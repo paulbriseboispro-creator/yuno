@@ -82,28 +82,68 @@ serve(async (req) => {
       }
     }
 
-    const { sessionId, reservationId } = await req.json();
+    const { sessionId, reservationId, connectedAccount: bodyConnectedAccount } = await req.json();
     logStep("Verifying payment", { sessionId, reservationId });
+
+    // Seul le webhook (clé service) peut indiquer sur quel compte connecté la
+    // charge directe est née : jamais une valeur du navigateur.
+    const callerToken = (req.headers.get('Authorization') ?? '').replace('Bearer ', '');
+    const isServiceCaller = callerToken !== '' && callerToken === (Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
 
     // Fetch reservation first — a DIRECT-charge session lives on the connected
     // account, so we need the account to retrieve it.
     const { data: reservation, error: reservationError } = await supabaseAdmin
       .from('table_reservations')
-      .select('*')
+      .select('*, table_packs(name)')
       .eq('id', reservationId)
       .single();
 
     if (reservationError || !reservation) {
       throw new Error('Reservation not found');
     }
+    // Nom de la formule pour les notifications (`pack_name` n'existe pas sur la réservation).
+    const packName: string = (reservation.table_packs as { name?: string | null } | null)?.name || 'Table VIP';
 
     // Retrieve the session from Stripe. Direct charges live on the connected
     // account → pass { stripeAccount } when the reservation carries one.
-    const retrieveOpts = reservation.stripe_connected_account_id
-      ? { stripeAccount: reservation.stripe_connected_account_id as string }
-      : undefined;
-    const session = await stripe.checkout.sessions.retrieve(sessionId, retrieveOpts);
+    // Compte de la charge : la colonne de la réservation, sinon (colonne non
+    // posée) celui que le webhook a lu dans l'événement / la métadonnée de la session.
+    let connectedAccountId: string | null = (reservation.stripe_connected_account_id as string | null) ?? null;
+    let connectedAccountFromHint = false;
+    if (!connectedAccountId && isServiceCaller && typeof bodyConnectedAccount === 'string' && /^acct_[A-Za-z0-9]+$/.test(bodyConnectedAccount)) {
+      connectedAccountId = bodyConnectedAccount;
+      connectedAccountFromHint = true;
+      logStep("Connected account missing on the reservation — using the webhook hint", { connectedAccountId });
+    }
+    const retrieveOpts = connectedAccountId ? { stripeAccount: connectedAccountId } : undefined;
+    let session: Stripe.Checkout.Session;
+    try {
+      session = await stripe.checkout.sessions.retrieve(sessionId, retrieveOpts);
+    } catch (retrieveErr) {
+      if (!connectedAccountId && reservation.status === 'pending') {
+        // Charge directe introuvable faute de compte : le client a pu payer sans
+        // que personne ne retrouve la session. Alerte super admin (dédoublonnée).
+        await supabaseAdmin.rpc('emit_admin_notification', {
+          p_type: 'admin_paid_sale_unfulfilled',
+          p_title: 'Paiement de table introuvable',
+          p_message: `La session Stripe ${sessionId} de la table ${reservationId} est introuvable : le compte connecté n'est pas posé sur la réservation. Si l'acheteur a payé, retrouver le paiement chez Stripe et valider la table à la main ou rembourser.`.slice(0, 480),
+          p_priority: 'high',
+          p_reference_type: 'table',
+          p_reference_id: reservationId,
+          p_metadata: { session_id: sessionId, error: (retrieveErr as Error).message },
+          p_dedup_key: `paid_unfulfilled:${sessionId}`,
+          p_event_id: reservation.event_id ?? null,
+        }).then(() => undefined, () => undefined);
+      }
+      throw retrieveErr;
+    }
     logStep("Stripe session retrieved", { paymentStatus: session.payment_status, direct: !!retrieveOpts });
+    if (connectedAccountFromHint) {
+      // La colonne manquait : on la pose, owner-refund et les rejeux en ont besoin.
+      await supabaseAdmin.from('table_reservations')
+        .update({ stripe_connected_account_id: connectedAccountId })
+        .eq('id', reservationId).is('stripe_connected_account_id', null);
+    }
 
     if (session.metadata?.reservationId !== reservationId) {
       throw new Error('Session does not match reservation');
@@ -154,6 +194,8 @@ serve(async (req) => {
             alreadyProcessed: true,
             isGuest: isGuestReservation,
             guestEmail: isGuestReservation ? reservation.user_email : undefined,
+            // Page de confirmation d'un acheteur sans compte : le QR de la table.
+            qrCode: reservation.qr_code ?? undefined,
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
         );
@@ -356,7 +398,6 @@ serve(async (req) => {
       if (resolvedVenueId) {
         try {
           // 1. table_booked — every confirmed reservation
-          const packName = reservation.pack_name ?? 'Table VIP';
           const depositFormatted = Number(reservation.deposit ?? reservation.total_price ?? 0).toFixed(2);
           await supabaseAdmin.from('staff_notifications').insert({
             venue_id: resolvedVenueId,
@@ -450,7 +491,6 @@ serve(async (req) => {
       // Mirror of the owner block, into the organizer's own inbox.
       if (resolvedOrganizerId) {
         try {
-          const packName = reservation.pack_name ?? 'Table VIP';
           const depositFormatted = Number(reservation.deposit ?? reservation.total_price ?? 0).toFixed(2);
           await supabaseAdmin.from('organizer_notifications').insert({
             organizer_user_id: resolvedOrganizerId,
@@ -537,14 +577,16 @@ serve(async (req) => {
       }
       // ─────────────────────────────────────────────────────────────────────
 
-      // Send VIP email
+      // Payé = confirmé : le client reçoit tout de suite l'e-mail « confirmée »
+      // (QR + pass Wallet), sans attendre une action du club. Si une table précise
+      // a été demandée, l'e-mail le dit (le placement reste une étape du club).
       try {
         await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-vip-confirmation`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
-          body: JSON.stringify({ reservation_id: reservationId, type: 'request_received' })
+          body: JSON.stringify({ reservation_id: reservationId, type: 'confirmed' })
         });
-        logStep("VIP request_received email sent");
+        logStep("VIP confirmed email sent");
       } catch (vipEmailError) {
         console.error('Error sending VIP confirmation email:', vipEmailError);
       }
@@ -585,6 +627,8 @@ serve(async (req) => {
           pushSent,
           isGuest: isGuestReservation,
           guestEmail: isGuestReservation ? reservation.user_email : undefined,
+          // Page de confirmation d'un acheteur sans compte : le QR de la table.
+          qrCode: reservation.qr_code ?? undefined,
           // Pixel Meta navigateur (Purchase dédoublonné avec l'envoi serveur). Valeur = prix de la réservation.
           metaPurchase: { eventId: reservation.event_id, valueCents: Math.round(Number(reservation.total_price || 0) * 100) || (session.amount_total ?? null), currency: session.currency ?? 'eur' },
         }),

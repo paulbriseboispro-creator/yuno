@@ -8,6 +8,7 @@ import { heldLegAfterRefund, refundContext, releasedLegReversal } from "../_shar
 import { recordChargeRefund } from "../_shared/sale-refund-effects.ts";
 import { connectStatusOf, organizerConnectColumns, stateFromV1Account, venueConnectColumns } from "../_shared/stripe-connect-accounts.ts";
 import { crmRechargeFromSession, crmSubscriptionUpdate, type StripeSubLike } from "../_shared/crm-billing.ts";
+import { releasePromoRedemption } from "../_shared/promo-codes.ts";
 
 // Pinned to the account's API version. Newer than the SDK's bundled types
 // (which top out at basil), hence the cast. On clover+, a subscription's billing
@@ -587,9 +588,51 @@ serve(async (req) => {
           // traitement. verify-table-payment bascule pending/confirmed→paid de
           // façon atomique : si le client a déjà traité, cet appel est un no-op
           // (alreadyProcessed=true).
+          // `connectedAccount` : le compte sur lequel la charge directe est née
+          // (événement de l'endpoint Connect, sinon métadonnée posée au checkout).
+          // verify-table-payment s'en sert si la colonne de la réservation manque.
           await delegateToVerify(supabaseClient, "verify-table-payment",
-            { sessionId: session.id, reservationId: metadata.reservationId },
+            {
+              sessionId: session.id,
+              reservationId: metadata.reservationId,
+              connectedAccount: event.account ?? metadata.connected_account ?? "",
+            },
             { kind: "table", id: metadata.reservationId }, session);
+        }
+        break;
+      }
+
+      // Session Checkout d'une table expirée sans paiement (31 min, ou fermée) :
+      // la réservation « pending » ne tient plus la table. Même règle que
+      // cleanup-pending-purchases, mais tout de suite — sans attendre 45-60 min.
+      // Arrive par les DEUX endpoints (la charge directe naît sur le compte
+      // connecté : endpoint « Connected accounts »).
+      case "checkout.session.expired": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const metadata = session.metadata || {};
+        if (!metadata.reservationId || metadata.ticketId || metadata.orderId) {
+          // Pas une session de table : billets et boissons ont leur propre nettoyage.
+          break;
+        }
+        // Seulement une réservation encore en attente et jamais payée : un
+        // paiement qui arrive en retard passe par checkout.session.completed.
+        const { data: released, error: releaseErr } = await supabaseClient
+          .from("table_reservations")
+          .delete()
+          .eq("id", metadata.reservationId)
+          .eq("status", "pending")
+          .is("paid_at", null)
+          .select("id");
+        if (releaseErr) {
+          // Erreur base : Stripe rejoue, le nettoyage horaire reste le filet.
+          throw new Error(`checkout.session.expired: table release failed for ${metadata.reservationId}: ${releaseErr.message}`);
+        }
+        logStep("Expired table session — pending reservation released", {
+          reservationId: metadata.reservationId,
+          released: released?.length ?? 0,
+        });
+        if ((released?.length ?? 0) > 0 && metadata.promoRedemptionId) {
+          await releasePromoRedemption(supabaseClient, metadata.promoRedemptionId);
         }
         break;
       }

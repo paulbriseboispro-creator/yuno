@@ -6,7 +6,7 @@ import { isSupportSessionToken } from "../_shared/support-session.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 import {
   alreadyRefundedCents, fromCents, isSaleKind, planRefund, refundAllowed, refundCapCents,
-  saleCollector, saleParties, SALE_TABLE, toCents,
+  saleCollector, saleParties, SALE_TABLE, tableCancelCapCents, toCents,
   type CollectorRights, type SaleAmounts, type SaleCollector, type SaleKind, type SaleParty,
 } from "../_shared/sale-refund.ts";
 import {
@@ -61,14 +61,17 @@ serve(async (req) => {
   }
 
   const body = (await req.json().catch(() => ({}))) as {
-    action?: string; event_id?: unknown; items?: unknown; reason?: unknown;
+    action?: string; event_id?: unknown; items?: unknown; reason?: unknown; reservation_id?: unknown;
   };
   // `rights` ne fait que LIRE (qui peut rembourser quoi) : l'écran s'en sert pour
-  // ne proposer que ce que le serveur acceptera. Tout le reste rembourse.
-  const action: "rights" | "refund" = body?.action === "rights" ? "rights" : "refund";
+  // ne proposer que ce que le serveur acceptera. `cancel_table` : l'organisation
+  // annule une table (tout rendu, ou simple annulation sans paiement). Tout le
+  // reste rembourse.
+  const action: "rights" | "refund" | "cancel_table" =
+    body?.action === "rights" ? "rights" : body?.action === "cancel_table" ? "cancel_table" : "refund";
 
   // Lien démo : lecture seule garantie côté serveur (_shared/demo-guard.ts).
-  if (action === "refund") {
+  if (action !== "rights") {
     const demoRefusal = await demoPreviewGuard(req, corsHeaders);
     if (demoRefusal) return demoRefusal;
   }
@@ -238,6 +241,168 @@ serve(async (req) => {
         rights[row.id] = { allowed: d.allowed, collector: d.collectorName };
       }
       return json(corsHeaders, { rights });
+    }
+
+    // ── Annulation d'une table par l'organisation (D1, D10) ─────────────────
+    // Payée en ligne : le client récupère TOUT, frais de service compris (seuls
+    // les frais Stripe restent au vendeur), par le même chemin réservé et
+    // idempotent qu'un remboursement. Sans paiement Stripe (sur place, manuelle,
+    // jamais payée) : la RPC d'annulation, avec le JWT de l'appelant pour que
+    // ses droits s'appliquent. Dans les deux cas, le client reçoit un e-mail.
+    if (action === "cancel_table") {
+      const reservationId = typeof body.reservation_id === "string" ? body.reservation_id : "";
+      if (!reservationId) throw new Error("reservation_id is required");
+      const kind: SaleKind = "table_reservation";
+      const CANCEL_REASON = "cancelled_by_organizer";
+      const fail = (error: string) => json(corsHeaders, {
+        success: true, results: [{ id: reservationId, type: kind, success: false, error } satisfies ItemResult],
+      });
+
+      const { data: resRow } = await supabaseAdmin.from("table_reservations").select("*").eq("id", reservationId).maybeSingle();
+      const record = resRow as unknown as SaleRecord | null;
+      if (!record) return fail("Not found");
+      if (record.status === "refunded" || record.status === "cancelled") return fail("Already cancelled");
+
+      const sendCancelEmail = async (type: "cancelled_refunded" | "cancelled") => {
+        try {
+          await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-vip-confirmation`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+            body: JSON.stringify({ reservation_id: reservationId, type }),
+          });
+        } catch (e) { console.error("[OWNER-REFUND] cancel e-mail error:", e); }
+      };
+
+      // ── Sans paiement Stripe : annulation simple ─────────────────────────
+      const hasStripePayment = !!(record.stripe_payment_intent_id || record.stripe_session_id);
+      if (!hasStripePayment) {
+        const { error: cancelErr } = await supabaseClient.rpc("cancel_unpaid_table_reservation", {
+          p_reservation_id: reservationId, p_reason: CANCEL_REASON,
+        });
+        if (cancelErr) return fail(cancelErr.message);
+        await sendCancelEmail("cancelled");
+        logStep("Unpaid table cancelled", { reservationId, userId: user.id });
+        return json(corsHeaders, { success: true, results: [{ id: reservationId, type: kind, success: true, amount: 0 }] });
+      }
+
+      // ── Payée en ligne : encaisseur seul, tout est rendu ─────────────────
+      const ev = await loadEvent(record.event_id);
+      const { allowed, collector, collectorName } = await decide(kind, record, ev);
+      if (!allowed) {
+        return fail(collectorName ? `Collected by ${collectorName}: only they can refund it` : "Unauthorized");
+      }
+      const clubId = ev?.venue_id || ev?.partner_venue_id || "";
+      const ctx: SaleRefundContext = {
+        kind, id: record.id, venueId: clubId, venueName: clubId ? (await venueInfo(clubId)).name : "",
+        eventTitle: ev?.title || "", customerEmail: record.user_email || "", customerUserId: record.user_id || "",
+      };
+
+      const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { apiVersion: "2025-08-27.basil" });
+      const connectedAccountId = record.stripe_connected_account_id || null;
+
+      let paymentIntentId: string | null = record.stripe_payment_intent_id || null;
+      if (!paymentIntentId && record.stripe_session_id) {
+        try {
+          const session = await stripe.checkout.sessions.retrieve(
+            record.stripe_session_id, undefined, connectedAccountId ? { stripeAccount: connectedAccountId } : undefined,
+          );
+          paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id || null;
+          if (paymentIntentId) {
+            await supabaseAdmin.from("table_reservations").update({ stripe_payment_intent_id: paymentIntentId }).eq("id", reservationId);
+          }
+        } catch (sessionError) {
+          logStep("Error retrieving Stripe session", { error: (sessionError as Error).message });
+        }
+      }
+      if (!paymentIntentId) return fail("No Stripe payment found for this item");
+
+      // Montant réellement encaissé, lu chez Stripe : acompte + frais de service
+      // (ou frais Stripe d'un vendeur qui absorbe). Repli : acompte + frais de gestion.
+      let chargedCents: number | null = null;
+      try {
+        const pi = await stripe.paymentIntents.retrieve(
+          paymentIntentId, undefined, connectedAccountId ? { stripeAccount: connectedAccountId } : undefined,
+        );
+        chargedCents = pi.amount_received || pi.amount || null;
+      } catch (piError) {
+        logStep("Payment intent read failed — fallback on deposit + fee", { error: (piError as Error).message });
+      }
+      const capCents = tableCancelCapCents(record, chargedCents);
+      const prevCents = alreadyRefundedCents(record);
+      const plan = planRefund(capCents, prevCents, capCents - prevCents);
+      if (!plan) {
+        // Déjà tout rendu (cumul au plafond) : il ne reste qu'à clore la réservation.
+        if (capCents > 0 && prevCents >= capCents && await markSaleFullyRefunded(supabaseAdmin, kind, reservationId)) {
+          await applyFullRefundEffects(supabaseAdmin, ctx);
+          await sendCancelEmail("cancelled_refunded");
+          return json(corsHeaders, { success: true, results: [{ id: reservationId, type: kind, success: true, amount: 0 }] });
+        }
+        return fail("Nothing left to refund");
+      }
+      logStep("Table cancellation planned", { reservationId, collector, capCents, prevCents, plan, charged: chargedCents });
+
+      // Verrou AVANT Stripe, exactement comme un remboursement ordinaire.
+      const prevRaw = record.refund_amount ?? null;
+      let claim = supabaseAdmin.from("table_reservations")
+        .update({
+          refund_amount: fromCents(plan.cumulativeCents),
+          refund_reason: CANCEL_REASON,
+          refunded_by: user.id,
+          refunded_at: new Date().toISOString(),
+        })
+        .eq("id", reservationId)
+        .neq("status", "refunded");
+      claim = prevRaw === null ? claim.is("refund_amount", null) : claim.eq("refund_amount", prevRaw);
+      const { data: claimed, error: claimError } = await claim.select("id");
+      if (claimError) throw claimError;
+      if (!claimed || claimed.length === 0) return fail("This sale was just refunded from another screen — reload");
+
+      const refund = await refundSaleOnStripe(stripe, supabaseAdmin, {
+        paymentIntentId,
+        amountCents: plan.amountCents,
+        connectedAccountId,
+        idempotencyKey: `owner-refund:table-cancel:${reservationId}:${prevCents}:${plan.cumulativeCents}`,
+        expectedCumulativeCents: plan.cumulativeCents,
+        refundApplicationFee: true,
+      });
+      if (!refund.ok) {
+        await supabaseAdmin.from("table_reservations")
+          .update({
+            refund_amount: prevRaw,
+            refund_reason: record.refund_reason ?? null,
+            refunded_by: record.refunded_by ?? null,
+            refunded_at: record.refunded_at ?? null,
+          })
+          .eq("id", reservationId)
+          .eq("refund_amount", fromCents(plan.cumulativeCents));
+        logStep("Stripe refund error — claim released", { error: refund.error });
+        return fail(`Stripe: ${refund.error}`);
+      }
+      logStep("Stripe refund done (table cancelled, service fee included)", { paymentIntentId, amountCents: plan.amountCents, direct: !!connectedAccountId });
+
+      // L'e-mail du client est `cancelled_refunded` (envoyé plus bas) : pas le
+      // message de remboursement générique.
+      await applyRefundAmountEffects(supabaseAdmin, ctx, plan.amountCents, { reason: CANCEL_REASON, source: "yuno", skipEmail: true });
+      try {
+        if (await markSaleFullyRefunded(supabaseAdmin, kind, reservationId)) {
+          await applyFullRefundEffects(supabaseAdmin, ctx);
+        }
+      } catch (statusError) {
+        // L'argent est rendu et le montant enregistré : le webhook `charge.refunded`
+        // repassera la réservation « remboursée ».
+        logStep("Status update failed after Stripe refund", { id: reservationId, error: (statusError as Error).message });
+      }
+      await sendCancelEmail("cancelled_refunded");
+
+      if (isAdmin) {
+        try {
+          await supabaseAdmin.from("admin_audit_log").insert({
+            admin_id: user.id, action: "refund_issued", entity_type: kind, entity_id: reservationId,
+            metadata: { amount: fromCents(plan.amountCents), reason: CANCEL_REASON, venue_id: ctx.venueId, collector, cancel_table: true },
+          });
+        } catch (auditErr) { console.error("Admin audit log error (cancel_table):", auditErr); }
+      }
+      return json(corsHeaders, { success: true, results: [{ id: reservationId, type: kind, success: true, amount: fromCents(plan.amountCents) }] });
     }
 
     // ── Remboursement ──────────────────────────────────────────────────────

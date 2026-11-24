@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   alreadyRefundedCents, doorPlaceRefundCents, doorStripeFeeCents, fullRefundPatch, planChargeRefund,
   planRefund, refundAllowed, refundCapCents, remainingRefundableCents, saleCollector, saleParties,
-  unitShareCents, type CollectorRights,
+  tableCancelCapCents, unitShareCents, type CollectorRights,
 } from '../../../supabase/functions/_shared/sale-refund.ts';
 
 describe('refundCapCents — plafond côté club', () => {
@@ -212,5 +212,32 @@ describe('remboursement à la porte d\'UNE place nominative', () => {
   it('billet gratuit ou plus aucune place : rien à rendre, jamais négatif', () => {
     expect(doorPlaceRefundCents({ capCents: 0, stripeFeeCents: doorStripeFeeCents(0), places: 2, placesRefunded: 0, alreadyRefundedCents: 0 })).toBe(0);
     expect(doorPlaceRefundCents({ capCents: cap, stripeFeeCents: fee, places: 3, placesRefunded: 3, alreadyRefundedCents: 0 })).toBe(0);
+  });
+});
+
+describe('tableCancelCapCents — table annulée par l\'organisateur (D10)', () => {
+  it('le montant encaissé chez Stripe fait foi (acompte + frais de service)', () => {
+    expect(tableCancelCapCents({ deposit: 100, management_fee: 4 }, 10400)).toBe(10400);
+  });
+  it('frais absorbés par le vendeur : le client a payé les frais Stripe, Stripe le dit', () => {
+    expect(tableCancelCapCents({ deposit: 100, management_fee: 4, fee_absorbed: true }, 10175)).toBe(10175);
+  });
+  it('sans lecture Stripe : acompte + frais de gestion payés à part', () => {
+    expect(tableCancelCapCents({ deposit: 100, management_fee: 4 })).toBe(10400);
+    expect(tableCancelCapCents({ deposit: '100.00', management_fee: '4.00' }, null)).toBe(10400);
+    expect(tableCancelCapCents({ deposit: 100, management_fee: 4, fee_absorbed: true })).toBe(10000);
+  });
+  it('rien encaissé en ligne : zéro (réservation sur place, manuelle)', () => {
+    expect(tableCancelCapCents({ deposit: 0, management_fee: 0 })).toBe(0);
+    expect(tableCancelCapCents({ deposit: null })).toBe(0);
+  });
+  it('montant Stripe illisible ou nul : repli, jamais NaN', () => {
+    expect(tableCancelCapCents({ deposit: 50, management_fee: 2 }, Number.NaN)).toBe(5200);
+    expect(tableCancelCapCents({ deposit: 50, management_fee: 2 }, 0)).toBe(5200);
+  });
+  it('avec un remboursement partiel déjà fait, il ne reste que la différence', () => {
+    const cap = tableCancelCapCents({ deposit: 100, management_fee: 4 }, 10400);
+    const plan = planRefund(cap, 3000, cap - 3000);
+    expect(plan).toEqual({ amountCents: 7400, cumulativeCents: 10400, isFull: true });
   });
 });
