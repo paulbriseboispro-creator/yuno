@@ -405,6 +405,8 @@ export interface QRSlide {
   /** attendee name shown above the QR */
   caption?: string;
   scanned?: boolean;
+  /** Partage de CE QR (table : le titulaire envoie le QR de chaque invité). */
+  share?: { label: string; onShare: () => void; whatsappLabel?: string; onWhatsApp?: () => void };
 }
 
 /** A quick-action tile rendered in the overlay's bottom action bar. */
@@ -629,6 +631,27 @@ export function OrderQROverlay({
           </div>
         )}
       </div>
+
+      {active?.share && (
+        <div className="flex items-center justify-center gap-2 w-full max-w-md mx-auto" style={{ position: 'relative', zIndex: 1, padding: '0 24px' }}>
+          <button
+            onClick={active.share.onShare}
+            className="cursor-pointer font-mono uppercase"
+            style={{ height: 38, padding: '0 16px', borderRadius: 999, background: CARD, border: `1px solid ${BORDER_STRONG}`, color: G1, fontSize: 11, letterSpacing: '.08em' }}
+          >
+            {active.share.label}
+          </button>
+          {active.share.onWhatsApp && (
+            <button
+              onClick={active.share.onWhatsApp}
+              className="cursor-pointer font-mono uppercase"
+              style={{ height: 38, padding: '0 16px', borderRadius: 999, background: CARD, border: `1px solid ${BORDER_STRONG}`, color: G1, fontSize: 11, letterSpacing: '.08em' }}
+            >
+              {active.share.whatsappLabel || 'WhatsApp'}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Infos bas — remonté au-dessus de la safe-area (home indicator) */}
       <div className="w-full max-w-md mx-auto" style={{ padding: '16px 24px calc(env(safe-area-inset-bottom, 0px) + 24px)', position: 'relative', zIndex: 1 }}>

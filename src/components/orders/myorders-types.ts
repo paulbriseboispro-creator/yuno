@@ -124,6 +124,8 @@ export interface VipReservationWithDetails extends EventVenueRef {
   requestedTableName?: string;
   assignedTableName?: string;
   placementNote?: string;
+  /** Adresse secrète non dévoilée avant la soirée : aucune adresse ni itinéraire. */
+  addressDeferred?: boolean;
 }
 
 export interface GuestListEntryWithDetails extends EventVenueRef {

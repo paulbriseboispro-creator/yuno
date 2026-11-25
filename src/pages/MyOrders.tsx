@@ -31,6 +31,8 @@ import { DrinkCreditsCard } from '@/components/upsell/DrinkCreditsCard';
 import { TicketQROverlay } from '@/components/orders/TicketQROverlay';
 import { normalizeTicketDescription } from '@/lib/freeTicketing';
 import { useTableGuestSlides } from '@/hooks/useTableGuestSlides';
+import { useTableReceipt } from '@/hooks/useTableReceipt';
+import { placementView, placementAdjustmentView, fillTemplate } from '@/lib/tableReceipt';
 import {
   SegControl, PendingCard, UpcomingCard, PastCard, OrderQROverlay,
   type UnifiedOrderEntry, type OrderBucket, type QRAction,
@@ -120,7 +122,10 @@ export default function MyOrders() {
     selectedVipReservation?.id,
     selectedVipReservation?.guestCount,
     selectedVipReservation?.fullName,
+    selectedVipReservation?.qrCode,
+    selectedVipReservation?.eventTitle,
   );
+  const vipReceipt = useTableReceipt(selectedVipReservation?.id, selectedVipReservation?.qrCode);
   const [selectedDrinkOrder, setSelectedDrinkOrder] = useState<Order | null>(null);
   const [collectMode, setCollectMode] = useState(false);
   const [qrImages, setQrImages] = useState<Record<string, string>>({});
@@ -554,7 +559,7 @@ export default function MyOrders() {
           placement_note,
           table_packs (name),
           table_zones (name),
-          events!inner (title, start_at, end_at, venue_id, partner_venue_id, poster_url)
+          events!inner (title, start_at, end_at, venue_id, partner_venue_id, poster_url, location_name, location_address, location_city, location_is_secret, reveal_address_in_email)
         `)
         .eq('user_id', user?.id)
         .in('status', ['paid', 'refunded'])
@@ -573,6 +578,8 @@ export default function MyOrders() {
 
       const formattedReservations: VipReservationWithDetails[] = (reservationsData || []).map(r => {
         const v = venueMap.get(r.events.venue_id ?? r.events.partner_venue_id);
+        // Adresse secrète que l'organisateur ne dévoile pas avant la soirée : même règle que l'e-mail et le reçu.
+        const hideAddress = !!r.events.location_is_secret && r.events.reveal_address_in_email === false;
         return ({
         id: r.id,
         eventId: r.event_id,
@@ -580,11 +587,13 @@ export default function MyOrders() {
         eventStartAt: r.events.start_at,
         eventEndAt: r.events.end_at,
         eventPosterUrl: r.events.poster_url,
-        venueName: v?.name || '',
-        venueAddress: v?.address ?? null,
-        venueCity: v?.city ?? null,
-        venueLat: v?.latitude ?? null,
-        venueLng: v?.longitude ?? null,
+        // Soirée sans club : le lieu est celui que l'organisateur a saisi sur la soirée.
+        venueName: v?.name || r.events.location_name || '',
+        venueAddress: hideAddress ? null : (v?.address ?? r.events.location_address ?? null),
+        venueCity: v?.city ?? r.events.location_city ?? null,
+        venueLat: hideAddress ? null : (v?.latitude ?? null),
+        venueLng: hideAddress ? null : (v?.longitude ?? null),
+        addressDeferred: hideAddress,
         zoneName: r.table_zones?.name || '',
         packName: r.table_packs?.name || '',
         guestCount: r.guest_count || 1,
@@ -1927,6 +1936,43 @@ export default function MyOrders() {
                 <span className="font-mono uppercase" style={{ fontSize: 9.5, letterSpacing: '.06em', color: '#9A9A9A' }}>{t('tickets.reservedFor')}</span>
                 <span style={{ fontSize: 13, fontWeight: 600, color: '#FFFFFF' }}>{selectedVipReservation.fullName}</span>
               </div>
+              <div className="flex justify-between items-center" style={{ marginBottom: 6 }}>
+                <span className="font-mono uppercase" style={{ fontSize: 9.5, letterSpacing: '.06em', color: '#9A9A9A' }}>{t('tblc.row.status')}</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: selectedVipReservation.status === 'refunded' ? '#F87171' : '#34D399' }}>
+                  {selectedVipReservation.status === 'refunded' ? t('tblc.status.refunded') : t('tblc.status.confirmed')}
+                </span>
+              </div>
+              {vipReceipt && (() => {
+                const pv = placementView(vipReceipt);
+                const adj = placementAdjustmentView(vipReceipt);
+                if (selectedVipReservation.status === 'refunded') return null;
+                const label = pv.kind === 'assigned'
+                  ? (pv.name ? fillTemplate(t('tblc.placement.assigned'), { name: pv.name }) : t('tblc.placement.assignedNoName'))
+                  : pv.kind === 'requested'
+                    ? (pv.name ? fillTemplate(t('tblc.placement.requested'), { name: pv.name }) : t('tblc.placement.requestedNoName'))
+                    : pv.kind === 'on_arrival' ? t('tblc.placement.onArrival') : null;
+                return (
+                  <>
+                    {label && (
+                      <div className="flex justify-between items-start gap-3" style={{ marginBottom: 6 }}>
+                        <span className="font-mono uppercase flex-none" style={{ fontSize: 9.5, letterSpacing: '.06em', color: '#9A9A9A' }}>{t('tblc.row.table')}</span>
+                        <span className="text-right" style={{ fontSize: 13, fontWeight: 600, color: '#FFFFFF' }}>{label}</span>
+                      </div>
+                    )}
+                    {adj && (
+                      <div className="flex justify-between items-start gap-3" style={{ marginBottom: 6 }}>
+                        <span className="font-mono uppercase flex-none" style={{ fontSize: 9.5, letterSpacing: '.06em', color: '#9A9A9A' }}>{t('tblc.row.change')}</span>
+                        <span className="text-right" style={{ fontSize: 13, fontWeight: 600, color: '#FFFFFF' }}>
+                          {adj.kind === 'upgrade_free' ? t('tblc.adjust.upgradeFree') : fillTemplate(t('tblc.adjust.payOnSite'), { amount: adj.amount.toFixed(2) })}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+              {selectedVipReservation.addressDeferred && (
+                <p className="font-mono uppercase" style={{ fontSize: 9.5, letterSpacing: '.06em', color: '#9A9A9A', marginBottom: 6 }}>{t('tblc.addressDeferred')}</p>
+              )}
               <div className="flex justify-between items-center">
                 <span className="font-mono uppercase" style={{ fontSize: 9.5, letterSpacing: '.06em', color: '#9A9A9A' }}>{t('tickets.remainingOnSite')}</span>
                 <span className="font-mono" style={{ fontSize: 13, fontWeight: 700, color: '#E8192C' }}>

@@ -2,18 +2,22 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Ticket, CheckCircle2, ChevronLeft, ChevronRight, User } from 'lucide-react';
+import { Ticket, CheckCircle2, ChevronLeft, ChevronRight, User, Share2 } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import QRCode from 'qrcode';
 import { tableGuestName } from '@/lib/tableGuests';
+import { fetchTableReceipt, fillTemplate } from '@/lib/tableReceipt';
+import { shareTableGuestQr, openWhatsAppShare, guestQrPublicUrl } from '@/lib/tableGuestShare';
 
 interface Attendee {
   id: string;
   full_name: string;
   qr_code: string;
   entry_scanned: boolean;
+  /** Table : n° 0 = le titulaire. */
+  guest_number?: number;
 }
 
 interface TicketQRCarouselProps {
@@ -81,13 +85,23 @@ export function TicketQRCarousel({
           .select('id, guest_number, full_name, qr_code, entry_scanned')
           .eq('reservation_id', ticketId)
           .order('guest_number', { ascending: true });
-        if (res.error) throw res.error;
         const guestWord = (k: number) => t('tableGuest.label').replace('{n}', String(k));
-        data = (res.data ?? []).map((g) => ({
-          id: g.id,
+        type GuestRow = { id?: string; guest_number: number; full_name: string | null; qr_code: string; entry_scanned: boolean | null };
+        let rows: GuestRow[] = res.error ? [] : ((res.data ?? []) as GuestRow[]);
+        if (rows.length === 0 && ticketQrCode) {
+          // Acheteur SANS compte : la RLS ne lui rend aucun invité. Le QR de la réservation (qu'il détient) prouve
+          // qu'elle est la sienne : la base rend alors ses N QR.
+          const receipt = await fetchTableReceipt(supabase as unknown as Parameters<typeof fetchTableReceipt>[0], ticketId, ticketQrCode);
+          rows = receipt?.guests ?? [];
+        } else if (res.error) {
+          throw res.error;
+        }
+        data = rows.map((g) => ({
+          id: g.id ?? `g${g.guest_number}`,
+          guest_number: g.guest_number,
           full_name: tableGuestName(g, holderName, guestWord),
           qr_code: g.qr_code,
-          entry_scanned: g.entry_scanned,
+          entry_scanned: !!g.entry_scanned,
         }));
       } else {
         const res = await supabase
@@ -169,6 +183,7 @@ export function TicketQRCarousel({
   };
 
   const currentAttendee = attendees[currentIndex];
+  const shareText = fillTemplate(t('tblc.share.text'), { event: eventTitle, holder: (holderName || '').trim() });
   const isScanned = currentAttendee?.entry_scanned || (attendees.length === 0 && entryScanned);
 
   const carouselContent = (
@@ -282,6 +297,34 @@ export function TicketQRCarousel({
             <p className="text-xs text-muted-foreground mt-1 mb-1 mx-auto" style={{ maxWidth: 320 }}>
               {t('ticketPlaces.shareHint')}
             </p>
+          )}
+
+          {/* Table : le titulaire envoie le QR de chaque invité (feuille de partage, repli WhatsApp), sans rien demander. */}
+          {source === 'table' && attendees.length > 1 && (
+            <div className="mt-1 mb-1">
+              {currentAttendee && (currentAttendee.guest_number ?? 0) > 0 && (
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => { void shareTableGuestQr({ qr: currentAttendee.qr_code, text: shareText, title: eventTitle || 'Yuno' }); }}
+                  >
+                    <Share2 className="h-4 w-4 mr-1.5" />
+                    {t('tblc.share.button')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openWhatsAppShare(shareText, guestQrPublicUrl(currentAttendee.qr_code))}
+                  >
+                    WhatsApp
+                  </Button>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground mx-auto" style={{ maxWidth: 320 }}>
+                {t('tableGuest.shareHint')}
+              </p>
+            </div>
           )}
         </div>
       )}

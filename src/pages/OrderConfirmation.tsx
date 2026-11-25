@@ -26,6 +26,10 @@ import { DrinkCreditsCard } from '@/components/upsell/DrinkCreditsCard';
 import { DrinksUpsellCard } from '@/components/upsell/DrinksUpsellCard';
 import { TicketQRCarousel } from '@/components/orders/TicketQRCarousel';
 import { tableGuestTicketCount } from '@/lib/tableGuests';
+import {
+  fetchTableReceipt, readReceiptQr, saveReceiptQr, placementView, placementAdjustmentView, paidOnline, remainingOnSite,
+  fillTemplate, type TableReceipt, type PlacementView,
+} from '@/lib/tableReceipt';
 import { PostPurchaseAppCard } from '@/components/install/PostPurchaseAppCard';
 import { capturePosthog } from '@/lib/posthog';
 import { marketProps } from '@/lib/geo';
@@ -167,6 +171,15 @@ interface ConfirmationData {
   packPrice?: number;
   upsellSelections?: UpsellSelection[];
   accessDocs?: Array<{ id: string; label: string; fileUrl: string; fileName: string }>;
+  /** Table : ce que dit le reçu serveur (placement, montants, adresse différée). */
+  tableInfo?: {
+    status: string;
+    placement: PlacementView;
+    adjustment: ReturnType<typeof placementAdjustmentView>;
+    paidOnline: number;
+    remaining: number;
+    addressDeferred: boolean;
+  };
 }
 
 /**
@@ -185,6 +198,51 @@ type GuestReceipt = Omit<Partial<ConfirmationData>, 'id' | 'qrCode'> & {
 interface ConfirmationNavState {
   guestTicketData?: GuestReceipt;
   guestTableData?: GuestReceipt;
+  /** QR de la réservation de table, passé par la page de retour de paiement. */
+  tableQr?: string | null;
+}
+
+type RpcClientLike = Parameters<typeof fetchTableReceipt>[0];
+
+/** Champs de confirmation que le reçu serveur apporte (placement, montants, adresse différée). */
+function tableInfoFromReceipt(r: TableReceipt): NonNullable<ConfirmationData['tableInfo']> {
+  return {
+    status: r.status,
+    placement: placementView(r),
+    adjustment: placementAdjustmentView(r),
+    paidOnline: paidOnline(r),
+    remaining: remainingOnSite(r),
+    addressDeferred: !!r.event?.address_deferred,
+  };
+}
+
+/** Confirmation construite SEULEMENT depuis le reçu (acheteur sans compte, ou lecture directe impossible). */
+function dataFromTableReceipt(r: TableReceipt): ConfirmationData {
+  const place = [r.zone?.name, r.pack?.name].filter(Boolean).join(' - ');
+  return {
+    type: 'table',
+    id: r.id,
+    qrCode: r.qr_code,
+    eventId: r.event?.id,
+    eventTitle: r.event?.title ?? undefined,
+    eventDate: r.event?.start_at ?? undefined,
+    eventTimezone: r.event?.timezone ?? undefined,
+    eventCity: r.event?.location_city || r.venue?.city || undefined,
+    eventPosterUrl: r.event?.poster_url ?? undefined,
+    venueName: r.venue?.name || r.event?.location_name || undefined,
+    venueAddress: r.venue?.address || r.event?.location_address || undefined,
+    venueId: r.venue?.id,
+    details: place || undefined,
+    guestCount: r.guest_count ?? undefined,
+    totalPrice: r.total_price ?? undefined,
+    managementFee: r.management_fee ?? undefined,
+    unitPrice: r.deposit ?? undefined,
+    customerName: r.holder?.full_name ?? undefined,
+    customerEmail: r.holder?.email ?? undefined,
+    paidAt: r.paid_at ?? undefined,
+    onSitePayment: r.payment_mode === 'on_site',
+    tableInfo: tableInfoFromReceipt(r),
+  };
 }
 
 export default function OrderConfirmation() {
@@ -524,7 +582,11 @@ export default function OrderConfirmation() {
           setQrCodeImage(qrImage);
         }
       } else if (type === 'table') {
-        const { data: reservation, error } = await supabase
+        // Lecture directe (titulaire connecté), sinon le reçu par preuve QR (acheteur sans compte, rechargement
+        // compris). Jamais `.single()` : une ligne que la RLS cache n'est pas une erreur, c'est un invité.
+        const navState = location.state as ConfirmationNavState | null;
+        const knownQr = navState?.tableQr || guestTableData?.qrCode || readReceiptQr(sessionStorage, id) || readReceiptQr(localStorage, id);
+        const { data: reservation } = await supabase
           .from('table_reservations')
           .select(`
             *,
@@ -533,52 +595,68 @@ export default function OrderConfirmation() {
             table_zones(name)
           `)
           .eq('id', id)
-          .single();
+          .maybeSingle();
 
-        if (error && guestTableData) {
-          const gd = guestTableData;
-          setData({
-            type: 'table',
-            id: gd.id,
-            qrCode: gd.qrCode,
-            eventId: gd.eventId,
-            eventTitle: gd.eventTitle,
-            eventDate: gd.eventDate,
-            eventTimezone: gd.eventTimezone,
-            eventCity: gd.eventCity,
-            eventPosterUrl: gd.eventPosterUrl,
-            venueName: gd.venueName,
-            venueAddress: gd.venueAddress,
-            venueId: gd.venueId,
-            details: gd.details,
-            guestCount: gd.guestCount,
-            totalPrice: gd.totalPrice,
-            managementFee: gd.managementFee,
-            unitPrice: gd.unitPrice,
-            customerName: gd.customerName,
-            customerEmail: gd.customerEmail,
-            customerPhone: gd.customerPhone,
-            paidAt: gd.paidAt,
-            onSitePayment: !!gd.onSitePayment,
-            organizerLed: !!gd.organizerLed,
-          });
-          if (gd.qrCode) {
-            const qrImage = await QRCode.toDataURL(gd.qrCode, { width: 200, margin: 2 });
+        const proofQr = reservation?.qr_code || knownQr;
+        const receipt = proofQr ? await fetchTableReceipt(supabase as unknown as RpcClientLike, id, proofQr) : null;
+        if (proofQr && receipt) saveReceiptQr(sessionStorage, id, proofQr);
+
+        if (!reservation) {
+          if (receipt) {
+            setData(dataFromTableReceipt(receipt));
+            const qrImage = await QRCode.toDataURL(receipt.qr_code, { width: 200, margin: 2 });
             setQrCodeImage(qrImage);
+            setLoading(false);
+            return;
           }
-          setLoading(false);
-          return;
+          if (guestTableData) {
+            const gd = guestTableData;
+            setData({
+              type: 'table',
+              id: gd.id,
+              qrCode: gd.qrCode,
+              eventId: gd.eventId,
+              eventTitle: gd.eventTitle,
+              eventDate: gd.eventDate,
+              eventTimezone: gd.eventTimezone,
+              eventCity: gd.eventCity,
+              eventPosterUrl: gd.eventPosterUrl,
+              venueName: gd.venueName,
+              venueAddress: gd.venueAddress,
+              venueId: gd.venueId,
+              details: gd.details,
+              guestCount: gd.guestCount,
+              totalPrice: gd.totalPrice,
+              managementFee: gd.managementFee,
+              unitPrice: gd.unitPrice,
+              customerName: gd.customerName,
+              customerEmail: gd.customerEmail,
+              customerPhone: gd.customerPhone,
+              paidAt: gd.paidAt,
+              onSitePayment: !!gd.onSitePayment,
+              organizerLed: !!gd.organizerLed,
+            });
+            if (gd.qrCode) {
+              const qrImage = await QRCode.toDataURL(gd.qrCode, { width: 200, margin: 2 });
+              setQrCodeImage(qrImage);
+            }
+            setLoading(false);
+            return;
+          }
+          throw new Error('table_reservation_not_found');
         }
-        if (error) throw error;
 
         const reservationEvent = reservation.events as typeof reservation.events & JoinedEventExtras;
 
-        const { data: venue } = await supabase
-          .from('venues')
-          .select('id, name, address, city, logo_url, legal_name, siret, vat_number, legal_address')
-          .eq('id', reservation.events.venue_id)
-          .single();
+        const { data: venue } = reservation.events.venue_id
+          ? await supabase
+              .from('venues')
+              .select('id, name, address, city, logo_url, legal_name, siret, vat_number, legal_address')
+              .eq('id', reservation.events.venue_id)
+              .maybeSingle()
+          : { data: null };
         const tablePlace = await resolveEventPlace(reservation.events, venue?.city);
+        const tableDeferred = !!receipt?.event?.address_deferred;
 
         // Fetch existing invoice number
         const { data: existingInvoice } = await supabase
@@ -608,8 +686,9 @@ export default function OrderConfirmation() {
           eventDate: reservation.events.start_at,
           ...tablePlace,
           eventPosterUrl: reservation.events.poster_url,
-          venueName: venue?.name,
-          venueAddress: venue?.address,
+          venueName: venue?.name ?? receipt?.event?.location_name ?? undefined,
+          // Adresse secrète que l'organisateur ne dévoile pas avant la soirée : jamais montrée ici (comme l'e-mail).
+          venueAddress: tableDeferred ? undefined : (venue?.address ?? receipt?.event?.location_address ?? undefined),
           venueLegalName: venue?.legal_name,
           venueSiret: venue?.siret,
           venueVatNumber: venue?.vat_number,
@@ -617,6 +696,7 @@ export default function OrderConfirmation() {
           venueLogoUrl: venue?.logo_url,
           venueId: venue?.id,
           details: `${reservation.table_zones?.name || ''} - ${reservation.table_packs.name}`,
+          tableInfo: receipt ? tableInfoFromReceipt(receipt) : undefined,
           guestCount: reservation.guest_count,
           totalPrice: reservation.total_price,
           managementFee: reservation.management_fee,
@@ -1177,9 +1257,6 @@ export default function OrderConfirmation() {
                   onClose={() => {}}
                   embedded
                 />
-                <p className="text-center mb-3" style={{ fontSize: '12px', color: '#9A9A9A', maxWidth: 360 }}>
-                  {t('tableGuest.shareHint')}
-                </p>
               </>
             ) : (
               qrCodeImage && (
@@ -1214,7 +1291,54 @@ export default function OrderConfirmation() {
               {/* Table réservée avec acompte : le client n'a payé que l'acompte
                   (+ frais), le reste se règle au club. Afficher « Total payé
                   300 € » quand 78 € ont été débités fait douter du reçu. */}
-              {data.type === 'table' && !data.onSitePayment && data.unitPrice != null && data.totalPrice != null && data.unitPrice < data.totalPrice ? (
+              {data.type === 'table' && data.tableInfo && (
+                <>
+                  {data.tableInfo.status === 'cancelled' || data.tableInfo.status === 'refunded' ? (
+                    <div className="flex justify-between items-center" style={{ padding: '11px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                      <span className="font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.06em', color: '#9A9A9A' }}>{t('tblc.row.status')}</span>
+                      <span className="font-sans font-medium" style={{ fontSize: '14px', color: '#F87171' }}>
+                        {data.tableInfo.status === 'refunded' ? t('tblc.status.refunded') : t('tblc.status.cancelled')}
+                      </span>
+                    </div>
+                  ) : null}
+                  {data.tableInfo.placement.kind !== 'none' && (
+                    <div className="flex justify-between items-start gap-4" style={{ padding: '11px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                      <span className="font-mono uppercase flex-none" style={{ fontSize: '10px', letterSpacing: '0.06em', color: '#9A9A9A' }}>{t('tblc.row.table')}</span>
+                      <span className="font-sans font-medium text-white text-right" style={{ fontSize: '14px' }}>
+                        {data.tableInfo.placement.kind === 'assigned'
+                          ? (data.tableInfo.placement.name ? fillTemplate(t('tblc.placement.assigned'), { name: data.tableInfo.placement.name }) : t('tblc.placement.assignedNoName'))
+                          : data.tableInfo.placement.kind === 'requested'
+                            ? (data.tableInfo.placement.name ? fillTemplate(t('tblc.placement.requested'), { name: data.tableInfo.placement.name }) : t('tblc.placement.requestedNoName'))
+                            : t('tblc.placement.onArrival')}
+                      </span>
+                    </div>
+                  )}
+                  {data.tableInfo.adjustment && (
+                    <div className="flex justify-between items-start gap-4" style={{ padding: '11px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                      <span className="font-mono uppercase flex-none" style={{ fontSize: '10px', letterSpacing: '0.06em', color: '#9A9A9A' }}>{t('tblc.row.change')}</span>
+                      <span className="font-sans font-medium text-white text-right" style={{ fontSize: '14px' }}>
+                        {data.tableInfo.adjustment.kind === 'upgrade_free'
+                          ? t('tblc.adjust.upgradeFree')
+                          : fillTemplate(t('tblc.adjust.payOnSite'), { amount: data.tableInfo.adjustment.amount.toFixed(2) })}
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
+              {data.type === 'table' && data.tableInfo && !data.onSitePayment && data.tableInfo.paidOnline > 0 ? (
+                <>
+                  <div className="flex justify-between items-center" style={{ padding: '11px 0', borderBottom: data.tableInfo.remaining > 0 ? '1px solid rgba(255,255,255,0.06)' : undefined }}>
+                    <span className="font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.06em', color: '#9A9A9A' }}>{t('confirmation.depositPaid')}</span>
+                    <span className="font-display font-bold" style={{ fontSize: '17px', color: '#E8192C', letterSpacing: '-0.01em' }}>{data.tableInfo.paidOnline.toFixed(2)} €</span>
+                  </div>
+                  {data.tableInfo.remaining > 0 && (
+                    <div className="flex justify-between items-center" style={{ padding: '11px 0' }}>
+                      <span className="font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.06em', color: '#9A9A9A' }}>{t('confirmation.remainingOnSite')}</span>
+                      <span className="font-sans font-medium text-white" style={{ fontSize: '14px' }}>{data.tableInfo.remaining.toFixed(2)} €</span>
+                    </div>
+                  )}
+                </>
+              ) : data.type === 'table' && !data.tableInfo && !data.onSitePayment && data.unitPrice != null && data.totalPrice != null && data.unitPrice < data.totalPrice ? (
                 <>
                   <div className="flex justify-between items-center" style={{ padding: '11px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                     <span className="font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.06em', color: '#9A9A9A' }}>{t('confirmation.depositPaid')}</span>
@@ -1272,7 +1396,7 @@ export default function OrderConfirmation() {
         </motion.section>
 
         {/* PRÉPARE TA SOIRÉE — calendar + directions */}
-        {(data.eventDate || directionsUrl) && (
+        {(data.eventDate || directionsUrl || data.tableInfo?.addressDeferred) && (
           <motion.section {...rise(0.2)} className="py-7" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
             <p className="section-label-ruled mb-5">{t('confirmation.prepTitle')}</p>
             <div className="grid grid-cols-2 gap-3">
@@ -1297,7 +1421,13 @@ export default function OrderConfirmation() {
                 </a>
               )}
             </div>
-            {data.venueName && (
+            {data.tableInfo?.addressDeferred && (
+              <div className="flex items-center gap-1.5 mt-4 font-mono uppercase" style={{ fontSize: '10.5px', letterSpacing: '0.05em', color: '#9A9A9A' }}>
+                <MapPin className="h-3.5 w-3.5 flex-none" />
+                <span>{t('tblc.addressDeferred')}</span>
+              </div>
+            )}
+            {data.venueName && !data.tableInfo?.addressDeferred && (
               <div className="flex items-center gap-1.5 mt-4 font-mono uppercase" style={{ fontSize: '10.5px', letterSpacing: '0.05em', color: '#9A9A9A' }}>
                 <MapPin className="h-3.5 w-3.5 flex-none" />
                 <span className="truncate">{data.venueAddress || data.venueName}</span>

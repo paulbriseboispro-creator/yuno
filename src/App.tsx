@@ -193,6 +193,7 @@ const PromoterAgenda = lazyWithRetry(() => import("./pages/PromoterAgenda"));
 const PromoterPublicRedirect = lazyWithRetry(() => import("./pages/PromoterPublicRedirect"));
 const TrackedLinkRedirect = lazyWithRetry(() => import("./pages/TrackedLinkRedirect"));
 const PartnerStatsPage = lazyWithRetry(() => import("./pages/PartnerStatsPage"));
+const TableGuestPass = lazyWithRetry(() => import("./pages/TableGuestPass"));
 const GuestSpacePage = lazyWithRetry(() => import("./pages/GuestSpacePage"));
 const GuestInvitePage = lazyWithRetry(() => import("./pages/GuestInvitePage"));
 const CrmLinkRedirect = lazyWithRetry(() => import("./pages/CrmLinkRedirect"));
@@ -694,6 +695,8 @@ const App = () => (
                 <Route path="/promoteur/:promoCode/agenda" element={<PromoterAgenda />} />
                 <Route path="/l/:code" element={<TrackedLinkRedirect />} />
                 <Route path="/stats/:token" element={<PartnerStatsPage />} />
+                {/* QR d'un invité de table VIP, partagé par le titulaire : sans compte, ce QR seul. */}
+                <Route path="/t/:qr" element={<TableGuestPass />} />
                 {/* Espace invité d'une soirée (club ou organisation) : sans compte (chemin provisoire, à confirmer). */}
                 <Route path="/h/:token" element={<GuestInvitePage />} />
                 <Route path="/invite/:passId" element={<GuestSpacePage />} />

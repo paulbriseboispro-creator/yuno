@@ -35,6 +35,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { PUBLIC_VENUE_COLUMNS } from '@/integrations/supabase/publicColumns';
 import { fetchEventPaymentsReady } from '@/lib/paymentsReady';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
+import { saveReceiptToken, saveReceiptQr, checkoutErrorKey, isAvailabilityRefusal } from '@/lib/tableReceipt';
 import { launchCheckout } from '@/lib/native';
 import { haptics } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -392,23 +393,25 @@ export default function TableCheckout() {
         .from('table_packs').select('*').eq('id', packId).single();
       if (packError) throw packError;
 
-      let priceOverride: number | null = null;
+      // Prix de la soirée par formule (preset ou prix personnalisés) : valent pour la formule choisie ET pour celles
+      // que la feuille « changer de formule » propose, sinon le prix annoncé change à l'arrivée sur l'autre formule.
+      const overrides = new Map<string, number>();
       const { data: eventSettingsData } = await supabase
         .from('event_table_settings').select('*').eq('event_id', eventId).maybeSingle();
 
+      const collectOverrides = (list: { packId: string; customPrice: number | null }[] | null | undefined) => {
+        for (const o of list ?? []) {
+          if (o.customPrice !== null && o.customPrice !== undefined) overrides.set(o.packId, Number(o.customPrice));
+        }
+      };
       if (eventSettingsData?.preset_id) {
         const { data: presetData } = await supabase
-          .from('table_pack_presets').select('*').eq('id', eventSettingsData.preset_id).single();
-        if (presetData?.packs) {
-          const presetPacks = presetData.packs as { packId: string; customPrice: number | null }[];
-          const found = presetPacks.find(p => p.packId === packId);
-          if (found?.customPrice !== null && found?.customPrice !== undefined) priceOverride = found.customPrice;
-        }
+          .from('table_pack_presets').select('*').eq('id', eventSettingsData.preset_id).maybeSingle();
+        if (presetData?.packs) collectOverrides(presetData.packs as { packId: string; customPrice: number | null }[]);
       } else if (eventSettingsData?.custom_prices) {
-        const customPrices = eventSettingsData.custom_prices as { packId: string; customPrice: number | null }[];
-        const found = customPrices.find(p => p.packId === packId);
-        if (found?.customPrice !== null && found?.customPrice !== undefined) priceOverride = found.customPrice;
+        collectOverrides(eventSettingsData.custom_prices as { packId: string; customPrice: number | null }[]);
       }
+      const priceOverride: number | null = overrides.get(packId) ?? null;
       
       setPack({
         id: packData.id, zoneId: packData.zone_id, venueId: packData.venue_id,
@@ -465,7 +468,7 @@ export default function TableCheckout() {
             const tp: TablePack = {
               id: p.id, zoneId: p.zone_id, venueId: p.venue_id,
               name: p.name, description: p.description,
-              basePrice: Number(p.base_price), baseCapacity: p.base_capacity,
+              basePrice: overrides.get(p.id) ?? Number(p.base_price), baseCapacity: p.base_capacity,
               extraPersonPrice: p.extra_person_price ? Number(p.extra_person_price) : 0,
               maxExtraPersons: p.max_extra_persons ?? 0,
               deposit: p.deposit ? Number(p.deposit) : 0,
@@ -473,6 +476,7 @@ export default function TableCheckout() {
               includedBottlesQuota: p.included_bottles_quota || 0,
               minimumSpend: Number(p.minimum_spend) || 0,
               arrivalDeadline: p.arrival_deadline,
+              paymentMode: (p.payment_mode as 'online' | 'on_site') || 'online',
               tablesCount: p.tables_count || 1,
               limitTables: !!p.limit_tables,
               position: p.position, isActive: p.is_active,
@@ -867,7 +871,7 @@ export default function TableCheckout() {
           language,
           purchaseSource,
           trackedLinkId,
-          guestCount: Math.min(guestCount, pack!.baseCapacity + pack!.maxExtraPersons),
+          guestCount: Math.min(Math.max(guestCount, 1), pack!.baseCapacity + pack!.maxExtraPersons),
           extraGuestsAtClub: payAtClubGuests,
           totalPrice: pricing.totalPrice, deposit: pricing.deposit,
           managementFee: pricing.managementFee,
@@ -927,7 +931,8 @@ export default function TableCheckout() {
           navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
           return;
         }
-        throw new Error(data.error);
+        const refusalKey = checkoutErrorKey(data.code);
+        throw Object.assign(new Error(refusalKey ? t(refusalKey) : data.error), { code: data.code });
       }
       if (error) throw error;
 
@@ -992,9 +997,18 @@ export default function TableCheckout() {
           ...tableMarket,
         });
       }
+      // I4 : le jeton de reçu reste dans CE navigateur (jamais dans l'URL) ; la page de retour de Stripe le renvoie
+      // à verify-table-payment pour relire le QR d'un acheteur sans compte.
+      if (data?.reservationId) {
+        try {
+          saveReceiptToken(localStorage, data.reservationId, data.receiptToken);
+          saveReceiptQr(sessionStorage, data.reservationId, data.qrCode);
+          saveReceiptQr(localStorage, data.reservationId, data.qrCode); // app iOS : le retour de Stripe passe par un autre navigateur
+        } catch { /* stockage indisponible : l'e-mail de confirmation garde le QR */ }
+      }
       await termsRecorded;
       if (data?.testMode && data?.redirectUrl) {
-        toast.success(t('tables.reservationSuccess') || 'Réservation confirmée !');
+        toast.success(t('tables.reservationSuccess'));
         // Navigation SPA — window.location.href recharge le bundle (splash natif).
         navigate(data.redirectUrl, { state: { guestTableData } });
         return;
@@ -1005,7 +1019,7 @@ export default function TableCheckout() {
         launchCheckout(data.url);
       }
       else if (data?.redirectUrl) {
-        toast.success(t('tables.reservationSuccess') || 'Réservation confirmée !');
+        toast.success(t('tables.reservationSuccess'));
         navigate(data.redirectUrl, { state: { guestTableData } });
       }
     } catch (error) {
@@ -1013,8 +1027,9 @@ export default function TableCheckout() {
       trackFailure(error);
       haptics.error();
       toast.error((error as Error).message || t('tickets.checkoutError'));
-      // Échec de réservation (le plus souvent : zone complète) -> proposer la liste d'attente.
-      setWaitlistOpen(true);
+      // Liste d'attente seulement quand la table / la zone n'est plus disponible : une formule ou un nombre de
+      // convives refusé, un code promo inapplicable ou une panne n'ont rien à voir avec la disponibilité.
+      if (isAvailabilityRefusal((error as { code?: string }).code, (error as Error).message)) setWaitlistOpen(true);
     } finally {
       setSubmitting(false);
     }
