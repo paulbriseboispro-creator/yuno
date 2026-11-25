@@ -40,6 +40,10 @@ export interface InvoiceData {
   serviceFee?: number;
   managementFee?: number;
   insuranceFee?: number;
+  /** « deposit » = facture d'acompte d'une table : titre dédié, solde réglé au club hors total. */
+  invoiceKind?: 'deposit' | null;
+  /** Reste à régler sur place (information seulement, jamais ajouté au total). */
+  remainingOnSite?: number;
   totalHT: number;
   tva: number;
   totalTTC: number;
@@ -171,7 +175,7 @@ const INVOICE_LOCALE: Record<Language, string> = { fr: 'fr-FR', en: 'en-GB', es:
 
 const INVOICE_LABELS: Record<Language, Record<string, string>> = {
   fr: {
-    invoice: 'FACTURE', invoiceNo: 'N°', dateLabel: 'Date', issuer: 'ÉMETTEUR', recipient: 'DESTINATAIRE',
+    invoice: 'FACTURE', depositInvoice: "FACTURE D'ACOMPTE", remainingOnSite: 'Reste à régler sur place (hors total)', invoiceNo: 'N°', dateLabel: 'Date', issuer: 'ÉMETTEUR', recipient: 'DESTINATAIRE',
     vat: 'TVA', event: 'ÉVÉNEMENT', orderDetails: 'DÉTAIL DE LA COMMANDE', description: 'Description', qty: 'Qté',
     unitPrice: 'Prix U.', total: 'Total', serviceFee: 'Frais de service', managementFee: 'Frais de gestion',
     cancellationInsurance: 'Assurance annulation', subtotal: 'Sous-total HT', vatLine: 'TVA (20%)', vatLineFees: 'TVA (frais de service, 20%)', totalTTC: 'TOTAL TTC',
@@ -184,7 +188,7 @@ const INVOICE_LABELS: Record<Language, Record<string, string>> = {
     tagline: 'Billets · Tables VIP · Boissons', generatedVia: 'Édité via Yuno · yunoapp.eu',
   },
   en: {
-    invoice: 'INVOICE', invoiceNo: 'No.', dateLabel: 'Date', issuer: 'FROM', recipient: 'BILL TO',
+    invoice: 'INVOICE', depositInvoice: 'DEPOSIT INVOICE', remainingOnSite: 'Left to pay on site (not included above)', invoiceNo: 'No.', dateLabel: 'Date', issuer: 'FROM', recipient: 'BILL TO',
     vat: 'VAT', event: 'EVENT', orderDetails: 'ORDER DETAILS', description: 'Description', qty: 'Qty',
     unitPrice: 'Unit price', total: 'Total', serviceFee: 'Service fee', managementFee: 'Management fee',
     cancellationInsurance: 'Cancellation insurance', subtotal: 'Subtotal (excl. tax)', vatLine: 'VAT (20%)', vatLineFees: 'VAT (service fees, 20%)', totalTTC: 'TOTAL',
@@ -197,7 +201,7 @@ const INVOICE_LABELS: Record<Language, Record<string, string>> = {
     tagline: 'Tickets · VIP tables · Drinks', generatedVia: 'Issued via Yuno · yunoapp.eu',
   },
   es: {
-    invoice: 'FACTURA', invoiceNo: 'N.º', dateLabel: 'Fecha', issuer: 'EMISOR', recipient: 'DESTINATARIO',
+    invoice: 'FACTURA', depositInvoice: 'FACTURA DE ANTICIPO', remainingOnSite: 'Pendiente de pago en el local (no incluido arriba)', invoiceNo: 'N.º', dateLabel: 'Fecha', issuer: 'EMISOR', recipient: 'DESTINATARIO',
     vat: 'IVA', event: 'EVENTO', orderDetails: 'DETALLE DEL PEDIDO', description: 'Descripción', qty: 'Cant.',
     unitPrice: 'Precio U.', total: 'Total', serviceFee: 'Gastos de servicio', managementFee: 'Gastos de gestión',
     cancellationInsurance: 'Seguro de cancelación', subtotal: 'Subtotal (sin IVA)', vatLine: 'IVA (20%)', vatLineFees: 'IVA (gastos de servicio, 20%)', totalTTC: 'TOTAL',
@@ -354,7 +358,15 @@ export const generateInvoicePDF = async (data: InvoiceData, languageOverride?: L
   if (data.venueRna) { T(`RNA : ${data.venueRna}`, LX, iy, { size: 8, font: MONO, color: MUTED }); iy += 4; }
   if (data.venueVatNumber) { T(`${L.vat} : ${data.venueVatNumber}`, LX, iy, { size: 8, font: MONO, color: MUTED }); iy += 4; }
 
-  T(L.invoice, RX, 18, { size: 21, style: 'bold', color: RED, align: 'right' });
+  {
+    // Facture d'acompte : titre plus long, réduit jusqu'à tenir dans la colonne de droite.
+    const titleText = data.invoiceKind === 'deposit' ? L.depositInvoice : L.invoice;
+    let titleSize = 21;
+    doc.setFont(DISPLAY, 'bold');
+    doc.setFontSize(titleSize);
+    while (doc.getTextWidth(titleText) > CW * 0.5 && titleSize > 11) { titleSize -= 1; doc.setFontSize(titleSize); }
+    T(titleText, RX, 18, { size: titleSize, style: 'bold', color: RED, align: 'right' });
+  }
   T(`${L.invoiceNo} ${data.invoiceNumber}`, RX, 26, { size: 9, font: MONO, color: SUB, align: 'right' });
   T(`${L.dateLabel} · ${formatDate(data.invoiceDate, locale)}`, RX, 31, { size: 8, font: MONO, color: MUTED, align: 'right' });
 
@@ -464,6 +476,13 @@ export const generateInvoicePDF = async (data: InvoiceData, languageOverride?: L
   T(L.totalTTC, totLabelX, y + 2, { size: 10, style: 'bold', color: WHITE });
   T(formatPrice(data.totalTTC), RX - 3, y + 2, { size: 11, font: MONO, style: 'bold', color: WHITE, align: 'right' });
   y += 16;
+  // Facture d'acompte : le solde se règle au club, il n'est pas dans le total ci-dessus.
+  if (data.invoiceKind === 'deposit' && (data.remainingOnSite ?? 0) > 0) {
+    ensureSpace(10);
+    T(L.remainingOnSite, totLabelX - 5, y - 4, { size: 8.5, color: SUB });
+    T(formatPrice(data.remainingOnSite ?? 0), RX, y - 4, { size: 9, font: MONO, style: 'bold', color: SUB, align: 'right' });
+    y += 6;
+  }
 
   // ── Co-event revenue split (when applicable) ──────────────────────────────────
   if (data.coEvent) {

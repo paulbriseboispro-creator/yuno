@@ -36,6 +36,8 @@ export interface SaleAmounts {
   deposit?: Num;
   fee_absorbed?: boolean | null;
   refund_amount?: Num;
+  /** table_reservations.charged_total : ce que la session Stripe a prélevé (euros), posé au checkout. */
+  charged_total?: Num;
 }
 
 export function toCents(v: Num): number {
@@ -84,9 +86,26 @@ export function refundCapCents(kind: SaleKind, s: SaleAmounts): number {
 export function tableCancelCapCents(s: SaleAmounts, chargeAmountCents?: number | null): number {
   const charged = Math.round(Number(chargeAmountCents));
   if (Number.isFinite(charged) && charged > 0) return charged;
+  // Montants posés au checkout (ceux de la session) : la vérité quand Stripe ne répond pas.
+  const stored = toCents(s.charged_total);
+  if (stored > 0) return stored;
   const deposit = toCents(s.deposit);
   if (deposit <= 0) return 0;
   return deposit + (s.fee_absorbed === true ? 0 : toCents(s.management_fee));
+}
+
+/**
+ * Part de la commission Yuno (application fee) pas encore rendue, en centimes — jamais négative, jamais au-delà de la
+ * commission. En charge directe Stripe ne rend la commission qu'au PRORATA de chaque remboursement : une table annulée par
+ * l'organisateur après un remboursement partiel en laisse une part au vendeur, que l'annulation (D10 : tout est rendu,
+ * seuls les frais Stripe restent) doit solder.
+ */
+export function remainingApplicationFeeCents(feeCents: Num, refundedCents: Num): number {
+  const fee = Math.round(Number(feeCents));
+  if (!Number.isFinite(fee) || fee <= 0) return 0;
+  const done = Math.round(Number(refundedCents));
+  const rest = fee - (Number.isFinite(done) && done > 0 ? done : 0);
+  return Math.min(fee, Math.max(0, rest));
 }
 
 /** Déjà rendu au client (cumul), en centimes. */

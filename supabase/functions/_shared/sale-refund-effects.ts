@@ -21,7 +21,7 @@ import { type EmailLanguage } from "./email-branding.ts";
 import { buildRefund } from "./email-templates.ts";
 import { sendAutoPush } from "./auto-push.ts";
 import {
-  alreadyRefundedCents, fromCents, fullRefundPatch, planChargeRefund, refundCapCents, SALE_TABLE,
+  alreadyRefundedCents, fromCents, fullRefundPatch, planChargeRefund, refundCapCents, remainingApplicationFeeCents, SALE_TABLE,
   type SaleAmounts, type SaleKind,
 } from "./sale-refund.ts";
 
@@ -70,6 +70,37 @@ export async function createSaleStripeRefund(
     maxNetworkRetries: 2,
     ...(p.connectedAccountId ? { stripeAccount: p.connectedAccountId } : {}),
   });
+}
+
+/**
+ * Solde la commission Yuno d'une charge directe après l'annulation d'une table par l'organisateur : Stripe l'a rendue au prorata
+ * du dernier remboursement (`refund_application_fee`), pas celle des remboursements partiels d'avant. Ce qu'il en reste est rendu
+ * ici, sur la PLATEFORME (l'application fee est à elle), une seule fois (clé d'idempotence = commission + montant restant) et
+ * jamais au-delà de ce qui n'a pas été rendu. Ne lève jamais : l'argent du client est déjà parti, l'appelant journalise.
+ */
+export async function refundRemainingApplicationFee(
+  stripe: Stripe,
+  p: { paymentIntentId: string; connectedAccountId: string; idempotencyKeyPrefix: string },
+): Promise<{ ok: true; feeId: string | null; refundedCents: number } | { ok: false; error: string }> {
+  try {
+    const pi = await stripe.paymentIntents.retrieve(
+      p.paymentIntentId, { expand: ["latest_charge"] }, { stripeAccount: p.connectedAccountId },
+    );
+    const charge = pi.latest_charge && typeof pi.latest_charge === "object" ? pi.latest_charge : null;
+    const feeRef = charge?.application_fee;
+    const feeId = typeof feeRef === "string" ? feeRef : feeRef?.id ?? null;
+    if (!feeId) return { ok: true, feeId: null, refundedCents: 0 };
+    const fee = await stripe.applicationFees.retrieve(feeId);
+    const rest = remainingApplicationFeeCents(fee.amount, fee.amount_refunded);
+    if (rest <= 0) return { ok: true, feeId, refundedCents: 0 };
+    await stripe.applicationFees.createRefund(feeId, { amount: rest }, {
+      idempotencyKey: `${p.idempotencyKeyPrefix}:${feeId}:${rest}`,
+      maxNetworkRetries: 2,
+    });
+    return { ok: true, feeId, refundedCents: rest };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 /**

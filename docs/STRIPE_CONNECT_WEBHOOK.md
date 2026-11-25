@@ -43,6 +43,8 @@ deux secrets de signature (`STRIPE_WEBHOOK_SECRET` puis
    compte connecté :
    - `account.updated`
    - `checkout.session.completed`
+   - `checkout.session.expired` (libère tout de suite la table d'une réservation abandonnée et rend le code promo retenu ;
+     à abonner aussi sur l'endpoint plateforme « Yuno live »)
    - `payment_intent.succeeded`
    - `charge.refunded`
    - `charge.dispute.created`

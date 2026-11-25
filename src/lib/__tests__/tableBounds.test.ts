@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  boundDeposit, packInScope, parseGuestCount, safePlacementStatus,
+  boundDeposit, holdingReservationsOr, packInScope, parseGuestCount, pendingHoldCutoffIso, safePlacementStatus,
+  TABLE_PENDING_HOLD_MINUTES,
 } from '../../../supabase/functions/_shared/table-bounds.ts';
 
 describe('parseGuestCount — convives bornés par la formule', () => {
@@ -75,5 +76,16 @@ describe('packInScope — la formule est de la bonne soirée / du bon club', () 
     expect(packInScope({ event_id: null, venue_id: 'club-b' }, scope)).toBe(false);
     expect(packInScope({ event_id: 'event-2', venue_id: 'club-a' }, scope)).toBe(false);
     expect(packInScope({ event_id: null, venue_id: null }, scope)).toBe(false);
+  });
+});
+
+describe('holdingReservationsOr — la place gardée 35 min', () => {
+  it('coupe la pending à 35 min, garde payées et confirmées', () => {
+    const now = Date.UTC(2026, 10, 25, 12, 0, 0);
+    expect(TABLE_PENDING_HOLD_MINUTES).toBe(35);
+    expect(pendingHoldCutoffIso(now)).toBe('2026-11-25T11:25:00.000Z');
+    expect(holdingReservationsOr(now)).toBe(
+      'status.in.(paid,confirmed),and(status.eq.pending,created_at.gt.2026-11-25T11:25:00.000Z)',
+    );
   });
 });

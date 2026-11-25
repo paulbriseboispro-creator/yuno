@@ -47,3 +47,20 @@ export function packInScope(
   if (scope.eventScoped) return false;
   return !pack.event_id && !!scope.clubId && pack.venue_id === scope.clubId;
 }
+
+/**
+ * Durée pendant laquelle une réservation « pending » retient sa place : la session Stripe dure 30 min + 20 s, la place est
+ * gardée 35 min depuis la création de la réservation. MIROIR de `_table_resa_holds` (migration 20261225230000) : une seule
+ * valeur, jamais recopiée ailleurs que dans ces deux fichiers.
+ */
+export const TABLE_PENDING_HOLD_MINUTES = 35;
+
+/** Instant (ISO) avant lequel une pending ne retient plus rien. */
+export function pendingHoldCutoffIso(nowMs: number = Date.now()): string {
+  return new Date(nowMs - TABLE_PENDING_HOLD_MINUTES * 60_000).toISOString();
+}
+
+/** Filtre PostgREST `.or(...)` : réservations qui retiennent encore leur place (payées, ou pending récente). */
+export function holdingReservationsOr(nowMs: number = Date.now()): string {
+  return `status.in.(paid,confirmed),and(status.eq.pending,created_at.gt.${pendingHoldCutoffIso(nowMs)})`;
+}

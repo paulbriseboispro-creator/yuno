@@ -1,5 +1,5 @@
 -- Smoke ANNULÉ — tables vague A, P3.4 : can_manage_event_tables et l'équipe d'organisation.
---   node scripts/crm-bench/rehearse.mjs scripts/crm-bench/smoke/tables-4-team.sql 20261225130000_tables_can_manage_team.sql
+--   node scripts/crm-bench/rehearse.mjs scripts/crm-bench/smoke/tables-4-team.sql 20261225100000_tables_policies_event_scope.sql 20261225110000_tables_rpc_grants.sql 20261225130000_tables_can_manage_team.sql 20261225240000_tables_rights_split.sql
 -- Organisation = organizer@womber.fr. Membres posés dans la transaction : éditeur (barman@), scanneur (bouncer@),
 -- éditeur en attente (viphost@), admin déjà en base (promoter@). Manager de club : alex.door@ avec can_manage_tables.
 -- ── Prélude commun des smokes « tables » (fonctions TEMPORAIRES, annulées avec la transaction) ───────────────
@@ -97,13 +97,15 @@ BEGIN
 
   -- Soirée du club : l'équipe de l'organisateur n'y a aucun droit ; le manager « tables » du club oui.
   PERFORM pg_temp.expect('éditeur sur soirée de club', can_manage_event_tables(v_editor, v_A)::text, 'false');
-  PERFORM pg_temp.expect('manager tables sur soirée de club', can_manage_event_tables(v_mgr, v_A)::text, 'true');
+  -- Vague A bis (I2) : le manager « tables » n'ouvre PAS la porte de la soirée (billetterie), seulement celle des tables.
+  PERFORM pg_temp.expect('manager tables sur soirée de club (porte soirée)', can_manage_event_tables(v_mgr, v_A)::text, 'false');
+  PERFORM pg_temp.expect('manager tables sur soirée de club', can_manage_event_vip_tables(v_mgr, v_A)::text, 'true');
   PERFORM pg_temp.expect('inconnu sur soirée de club', can_manage_event_tables(v_unknown, v_A)::text, 'false');
 
   -- Co-soirée dont les opérations reviennent au CLUB : ni le partenaire ni son équipe.
   PERFORM pg_temp.expect('partenaire, ops = venue', can_manage_event_tables(v_org, v_AMORE)::text, 'false');
   PERFORM pg_temp.expect('éditeur partenaire, ops = venue', can_manage_event_tables(v_editor, v_AMORE)::text, 'false');
-  PERFORM pg_temp.expect('manager club, ops = venue', can_manage_event_tables(v_mgr, v_AMORE)::text, 'true');
+  PERFORM pg_temp.expect('manager club, ops = venue', can_manage_event_vip_tables(v_mgr, v_AMORE)::text, 'true');
   -- Co-soirée « both » : le partenaire et son équipe oui.
   PERFORM pg_temp.expect('partenaire, ops = both', can_manage_event_tables(v_org, v_BOTH)::text, 'true');
   PERFORM pg_temp.expect('éditeur partenaire, ops = both', can_manage_event_tables(v_editor, v_BOTH)::text, 'true');

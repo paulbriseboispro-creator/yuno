@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   alreadyRefundedCents, doorPlaceRefundCents, doorStripeFeeCents, fullRefundPatch, planChargeRefund,
   planRefund, refundAllowed, refundCapCents, remainingRefundableCents, saleCollector, saleParties,
-  tableCancelCapCents, unitShareCents, type CollectorRights,
+  remainingApplicationFeeCents, tableCancelCapCents, unitShareCents, type CollectorRights,
 } from '../../../supabase/functions/_shared/sale-refund.ts';
 
 describe('refundCapCents — plafond côté club', () => {
@@ -227,6 +227,12 @@ describe('tableCancelCapCents — table annulée par l\'organisateur (D10)', () 
     expect(tableCancelCapCents({ deposit: '100.00', management_fee: '4.00' }, null)).toBe(10400);
     expect(tableCancelCapCents({ deposit: 100, management_fee: 4, fee_absorbed: true })).toBe(10000);
   });
+  it('sans lecture Stripe : les montants posés au checkout (charged_total) priment sur l\'estimation', () => {
+    // Frais absorbés : le client a payé 203,31 € (acompte 200 + 3,31 de frais Stripe), pas 200 € ni 208 €.
+    expect(tableCancelCapCents({ deposit: 200, management_fee: 8, fee_absorbed: true, charged_total: '203.31' })).toBe(20331);
+    // La lecture Stripe, quand elle répond, reste la vérité.
+    expect(tableCancelCapCents({ deposit: 200, management_fee: 8, fee_absorbed: true, charged_total: 203.31 }, 20332)).toBe(20332);
+  });
   it('rien encaissé en ligne : zéro (réservation sur place, manuelle)', () => {
     expect(tableCancelCapCents({ deposit: 0, management_fee: 0 })).toBe(0);
     expect(tableCancelCapCents({ deposit: null })).toBe(0);
@@ -239,5 +245,25 @@ describe('tableCancelCapCents — table annulée par l\'organisateur (D10)', () 
     const cap = tableCancelCapCents({ deposit: 100, management_fee: 4 }, 10400);
     const plan = planRefund(cap, 3000, cap - 3000);
     expect(plan).toEqual({ amountCents: 7400, cumulativeCents: 10400, isFull: true });
+  });
+});
+
+describe('remainingApplicationFeeCents — commission Yuno encore à rendre après une annulation de table', () => {
+  it('rien rendu : toute la commission', () => {
+    expect(remainingApplicationFeeCents(800, 0)).toBe(800);
+    expect(remainingApplicationFeeCents(800, null)).toBe(800);
+  });
+  it('remboursement partiel d\'avant (rendue au prorata) : le reste', () => {
+    // Charge 208 €, commission 8 €, 100 € rendus d'abord sans la commission, puis annulation (108 €, prorata ≈ 4,15 €).
+    const afterCancelProrata = 415;
+    expect(remainingApplicationFeeCents(800, afterCancelProrata)).toBe(385);
+  });
+  it('déjà tout rendu : zéro, jamais négatif ni au-delà', () => {
+    expect(remainingApplicationFeeCents(800, 800)).toBe(0);
+    expect(remainingApplicationFeeCents(800, 950)).toBe(0);
+    expect(remainingApplicationFeeCents(0, 0)).toBe(0);
+    expect(remainingApplicationFeeCents(Number.NaN, 10)).toBe(0);
+    expect(remainingApplicationFeeCents(800, Number.NaN)).toBe(800);
+    expect(remainingApplicationFeeCents(800, -5)).toBe(800);
   });
 });

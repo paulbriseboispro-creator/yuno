@@ -6,6 +6,7 @@ import { buildVipConfirmation, buildVipStatus, buildWalkinSummary, fmtDateParts 
 import { ensureWalletPass, walletPassUrl } from "../_shared/wallet/router.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 import { recordSaleEmailSent, resendEmailId, saleEmailTags } from "../_shared/sale-email.ts";
+import { vipEmailStateOk } from "../_shared/vip-email-state.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -53,26 +54,27 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    // SECURITY : cette fonction n'est plus déclenchable par un simple
-    // reservationId anonyme. Elle envoie toujours l'email au titulaire de la
-    // réservation (jamais à une adresse fournie par l'appelant → pas de relais
-    // ouvert), mais on exige un appelant authentifié : soit la service-role
-    // (checkout / verify serveur), soit un JWT utilisateur valide (owner / hôte
-    // VIP qui confirme, refuse ou encaisse). Un anonyme est refusé (403).
+    // SECURITY : cette fonction n'est plus déclenchable par un simple reservationId anonyme. Elle envoie toujours
+    // l'email au titulaire de la réservation (jamais à une adresse fournie par l'appelant → pas de relais ouvert).
+    // Deux appelants seulement : la clé service (checkout / verify / owner-refund serveur) ; ou un compte connecté QUI
+    // GÈRE cette réservation (même porte que vip_set_table_placement : équipe de la soirée, partenaires, manager « tables »,
+    // hôte VIP du club) — vérifié plus bas, une fois la réservation lue. N'importe quel autre compte connecté, qui
+    // pouvait annoncer « table annulée et remboursée » à n'importe quel client, est refusé (403). Anonyme : 403.
     const authHeader = req.headers.get("Authorization") || "";
     const bearer = authHeader.replace("Bearer ", "");
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    let authorized = bearer !== "" && bearer === serviceKey;
-    if (!authorized && authHeader) {
+    const isService = bearer !== "" && bearer === serviceKey;
+    let callerId: string | null = null;
+    if (!isService && authHeader) {
       const authClient = createClient(
         Deno.env.get("SUPABASE_URL") ?? "",
         Deno.env.get("SUPABASE_ANON_KEY") ?? "",
         { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false } }
       );
       const { data: { user: caller } } = await authClient.auth.getUser();
-      if (caller) authorized = true;
+      callerId = caller?.id ?? null;
     }
-    if (!authorized) {
+    if (!isService && !callerId) {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -110,8 +112,8 @@ serve(async (req) => {
     const { data: reservation, error: resError } = await supabaseAdmin
       .from('table_reservations')
       .select(`
-        id, user_email, user_id, full_name, minimum_spend, total_price, guest_count, qr_code, reference_code,
-        deposit, management_fee, fee_absorbed, payment_mode, refund_amount,
+        id, status, refund_reason, user_email, user_id, full_name, minimum_spend, total_price, guest_count, qr_code, reference_code,
+        deposit, management_fee, fee_absorbed, payment_mode, refund_amount, charged_total,
         requested_table_id, assigned_table_id, placement_status, placement_adjustment, placement_adjustment_amount,
         zone_id,
         table_zones(name, venue_id),
@@ -122,6 +124,30 @@ serve(async (req) => {
       .single();
 
     if (resError || !reservation) throw new Error("Reservation not found");
+
+    // Un compte connecté doit gérer CETTE réservation (la clé service, elle, a déjà décidé côté serveur).
+    if (!isService) {
+      const resEvent = reservation.events as unknown as { id: string };
+      const { data: canManage } = await supabaseAdmin.rpc('_can_manage_table_reservation', {
+        p_uid: callerId, p_event_id: resEvent?.id ?? null, p_zone_id: reservation.zone_id ?? null, p_allow_vip_host: true,
+      });
+      if (canManage !== true) {
+        logStep("Caller does not manage this reservation", { callerId, reservationId });
+        return new Response(
+          JSON.stringify({ error: "Forbidden" }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // L'e-mail ne dit jamais autre chose que l'état de la réservation (annulée et remboursée ≠ payée, confirmée ≠ impayée).
+    if (!vipEmailStateOk(type, reservation as { status?: string | null; refund_amount?: number | string | null; refund_reason?: string | null })) {
+      logStep("State does not match the e-mail type — no e-mail sent", { reservationId, type, status: (reservation as { status?: string }).status });
+      return new Response(
+        JSON.stringify({ error: "state_mismatch", detail: "The reservation is not in the state this e-mail announces." }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Colonnes des embeds du select ci-dessus (utilisées dans ce fichier)
     interface VipEmailEvent {
@@ -303,7 +329,12 @@ serve(async (req) => {
     // Reçu de l'acompte : payé en ligne (acompte + frais) et reste à régler au club.
     const depositNum = Number(reservation.deposit) || 0;
     const totalNum = Number(reservation.total_price ?? reservation.minimum_spend ?? 0) || 0;
-    const paidOnlineNum = depositNum > 0 ? depositNum + (reservation.fee_absorbed ? 0 : (Number(reservation.management_fee) || 0)) : 0;
+    // Payé en ligne = ce que la session Stripe a prélevé (posé au checkout : acompte + ligne de frais, frais absorbés
+    // compris). Repli (réservation sans montants stockés) : l'estimation d'avant.
+    const chargedTotalNum = Number(reservation.charged_total) || 0;
+    const paidOnlineNum = chargedTotalNum > 0
+      ? chargedTotalNum
+      : depositNum > 0 ? depositNum + (reservation.fee_absorbed ? 0 : (Number(reservation.management_fee) || 0)) : 0;
     const remainingNum = Math.max(0, totalNum - depositNum);
 
     // For the "confirmed" (booked) email, render via the shared editorial

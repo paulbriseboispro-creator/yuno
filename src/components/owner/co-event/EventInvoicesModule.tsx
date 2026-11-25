@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { downloadInvoicePDF, type InvoiceData, type InvoiceItem } from '@/lib/generateInvoicePDF';
+import { buildInvoicePdfModel, type StoredInvoiceItem } from '@/lib/invoicePdfModel';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { resolveYunoFee, getEffectiveSplit, storedYunoFee, computeShare as computeShareUtil, type InvoiceType } from '@/utils/coEventSplit';
 import type { Json } from '@/integrations/supabase/types';
@@ -241,7 +242,7 @@ export function EventInvoicesModule({ eventId }: Props) {
   async function buildInvoiceData(invoice: Invoice): Promise<InvoiceData | null> {
     const { data: stored } = await supabase
       .from('invoices')
-      .select('items, service_fee, management_fee, insurance_fee, qr_code, venue_id, ticket_id, table_reservation_id')
+      .select('items, service_fee, management_fee, insurance_fee, qr_code, venue_id, ticket_id, table_reservation_id, total_ht, tva, invoice_kind, remaining_on_site')
       .eq('id', invoice.id)
       .maybeSingle();
 
@@ -262,24 +263,23 @@ export function EventInvoicesModule({ eventId }: Props) {
       .eq('id', venueId)
       .maybeSingle() : { data: null };
 
-    let items: InvoiceItem[] = [];
-    if (stored?.items && Array.isArray(stored.items)) {
-      items = (stored.items as { description?: string; quantity?: number; unitPrice?: number; total?: number }[]).map(it => ({
-        description: it.description || 'Item',
-        quantity: it.quantity || 1,
-        unitPrice: it.unitPrice || 0,
-        total: it.total || 0,
-      }));
-    } else {
-      items = [{
-        description: invoice.event_name || 'Item',
-        quantity: 1,
-        unitPrice: invoice.amount,
-        total: invoice.amount,
-      }];
-    }
-
-    const totalHT = invoice.amount / 1.2;
+    // Une facture de table « A bis » porte ses frais dans ses lignes et sa TVA : lue telle quelle (invoicePdfModel).
+    const model = buildInvoicePdfModel(
+      {
+        type: invoice.type,
+        amount: invoice.amount,
+        items: (stored?.items as StoredInvoiceItem[] | null) ?? null,
+        service_fee: stored?.service_fee,
+        management_fee: stored?.management_fee,
+        insurance_fee: stored?.insurance_fee,
+        total_ht: stored?.total_ht,
+        tva: stored?.tva,
+        invoice_kind: stored?.invoice_kind,
+        remaining_on_site: stored?.remaining_on_site,
+      },
+      (amount) => ({ totalHT: amount / 1.2, tva: amount - amount / 1.2 }),
+      (): InvoiceItem[] => [{ description: invoice.event_name || 'Item', quantity: 1, unitPrice: invoice.amount, total: invoice.amount }],
+    );
 
     // Build co-event block if applicable AND the user is venue/organizer
     let coEvent: InvoiceData['coEvent'] = undefined;
@@ -320,13 +320,15 @@ export function EventInvoicesModule({ eventId }: Props) {
       eventDate: invoice.event_date ? new Date(invoice.event_date) : undefined,
       eventPosterUrl: invoice.event_poster || undefined,
       type: invoice.type,
-      items,
-      serviceFee: Number(stored?.service_fee) || 0,
-      managementFee: Number(stored?.management_fee) || 0,
-      insuranceFee: Number(stored?.insurance_fee) || 0,
-      totalHT,
-      tva: invoice.amount - totalHT,
-      totalTTC: invoice.amount,
+      items: model.items,
+      serviceFee: model.serviceFee,
+      managementFee: model.managementFee,
+      insuranceFee: model.insuranceFee,
+      invoiceKind: model.invoiceKind,
+      remainingOnSite: model.remainingOnSite,
+      totalHT: model.totalHT,
+      tva: model.tva,
+      totalTTC: model.totalTTC,
       qrCode: stored?.qr_code || invoice.invoice_number,
       referenceCode,
       coEvent,

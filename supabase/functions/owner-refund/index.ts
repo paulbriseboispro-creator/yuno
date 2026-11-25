@@ -10,7 +10,7 @@ import {
   type CollectorRights, type SaleAmounts, type SaleCollector, type SaleKind, type SaleParty,
 } from "../_shared/sale-refund.ts";
 import {
-  applyFullRefundEffects, applyRefundAmountEffects, markSaleFullyRefunded, refundSaleOnStripe,
+  applyFullRefundEffects, applyRefundAmountEffects, markSaleFullyRefunded, refundRemainingApplicationFee, refundSaleOnStripe,
   type SaleRefundContext,
 } from "../_shared/sale-refund-effects.ts";
 
@@ -379,6 +379,30 @@ serve(async (req) => {
         return fail(`Stripe: ${refund.error}`);
       }
       logStep("Stripe refund done (table cancelled, service fee included)", { paymentIntentId, amountCents: plan.amountCents, direct: !!connectedAccountId });
+      // Charge directe : Stripe n'a rendu la commission Yuno qu'au prorata de CE remboursement. Après un remboursement
+      // partiel d'avant, il en reste une part chez le vendeur : on solde le reste (idempotent, jamais au-delà). Un échec ne
+      // défait rien (le client est remboursé) : alerte super admin pour le rendre à la main.
+      if (connectedAccountId) {
+        const feeRefund = await refundRemainingApplicationFee(stripe, {
+          paymentIntentId, connectedAccountId, idempotencyKeyPrefix: `owner-refund:table-cancel-fee:${reservationId}`,
+        });
+        if (!feeRefund.ok) {
+          logStep("Application fee refund failed", { error: feeRefund.error });
+          await supabaseAdmin.rpc("emit_admin_notification", {
+            p_type: "admin_refund_failed",
+            p_title: "Commission non rendue après une annulation de table",
+            p_message: `La table ${reservationId} est annulée et le client remboursé, mais le reste de la commission Yuno n'a pas pu être rendu au vendeur (${feeRefund.error}). À rendre à la main depuis Stripe.`.slice(0, 480),
+            p_priority: "high",
+            p_reference_type: "table",
+            p_reference_id: reservationId,
+            p_metadata: { payment_intent_id: paymentIntentId, error: feeRefund.error },
+            p_dedup_key: `cancel_fee_refund:${reservationId}`,
+            p_event_id: record.event_id ?? null,
+          }).then(() => undefined, () => undefined);
+        } else if (feeRefund.refundedCents > 0) {
+          logStep("Rest of the application fee refunded", { feeId: feeRefund.feeId, cents: feeRefund.refundedCents });
+        }
+      }
 
       // L'e-mail du client est `cancelled_refunded` (envoyé plus bas) : pas le
       // message de remboursement générique.

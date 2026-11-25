@@ -13,6 +13,7 @@ import { fr, es, enUS } from 'date-fns/locale';
 import { Search, Download, FileText, ChevronDown, Ticket, Wine, Sparkles, Loader2, FileSpreadsheet, Files, Archive, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { downloadInvoicePDF, generateInvoicePDF, InvoiceData, InvoiceItem } from '@/lib/generateInvoicePDF';
+import { buildInvoicePdfModel, type StoredInvoiceItem } from '@/lib/invoicePdfModel';
 import { resolveVatRegime, sellerVat, type VatRegime } from '@/lib/generateDocuments';
 import { PDFDocument } from 'pdf-lib';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
@@ -388,14 +389,10 @@ export default function OwnerInvoices() {
     // Fetch stored items from invoices table
     const { data: storedInvoice } = await supabase
       .from('invoices')
-      .select('items, service_fee, management_fee, insurance_fee, qr_code, ticket_id, table_reservation_id')
+      .select('items, service_fee, management_fee, insurance_fee, qr_code, ticket_id, table_reservation_id, total_ht, tva, invoice_kind, remaining_on_site')
       .eq('id', invoice.id)
       .maybeSingle();
 
-    let items: InvoiceItem[] = [];
-    const serviceFee = Number(storedInvoice?.service_fee) || 0;
-    const managementFee = Number(storedInvoice?.management_fee) || 0;
-    const insuranceFee = Number(storedInvoice?.insurance_fee) || 0;
     const qrCode = storedInvoice?.qr_code || invoice.invoice_number;
 
     // Short claim reference (TK-/VP-XXXXXX), shown as the ticket number on the bill.
@@ -408,38 +405,16 @@ export default function OwnerInvoices() {
       referenceCode = tr?.reference_code || undefined;
     }
 
-    if (storedInvoice?.items && Array.isArray(storedInvoice.items)) {
-      items = (storedInvoice.items as unknown as Array<{ description?: string; quantity?: number; unitPrice?: number; total?: number }>).map(item => ({
-        description: item.description || 'Item',
-        quantity: item.quantity || 1,
-        unitPrice: item.unitPrice || 0,
-        total: item.total || 0,
-      }));
-    } else {
-      // Fallback: generate items from type
+    // Repli quand la facture n'a pas de lignes stockées : une ligne selon le type.
+    const fallbackItems = (): InvoiceItem[] => {
       if (invoice.type === 'ticket') {
-        items = [{
-          description: invoice.event_name || t('invoices.ticket'),
-          quantity: 1,
-          unitPrice: invoice.amount,
-          total: invoice.amount,
-        }];
-      } else if (invoice.type === 'table') {
-        items = [{
-          description: `${t('invoices.vipTable')} - ${invoice.event_name || ''}`,
-          quantity: 1,
-          unitPrice: invoice.amount,
-          total: invoice.amount,
-        }];
-      } else {
-        items = [{
-          description: t('invoices.order'),
-          quantity: 1,
-          unitPrice: invoice.amount,
-          total: invoice.amount,
-        }];
+        return [{ description: invoice.event_name || t('invoices.ticket'), quantity: 1, unitPrice: invoice.amount, total: invoice.amount }];
       }
-    }
+      if (invoice.type === 'table') {
+        return [{ description: `${t('invoices.vipTable')} - ${invoice.event_name || ''}`, quantity: 1, unitPrice: invoice.amount, total: invoice.amount }];
+      }
+      return [{ description: t('invoices.order'), quantity: 1, unitPrice: invoice.amount, total: invoice.amount }];
+    };
 
     // Articles au taux du vendeur (0 % pour une association non assujettie),
     // frais Yuno toujours à 20 % — même règle que le reçu et le trigger
@@ -450,12 +425,30 @@ export default function OwnerInvoices() {
       && (!invoice.organizer_user_id || invoice.organizer_user_id === organizerUserId)
       ? sellerVat(orgIssuer.vatRegime, language as 'fr' | 'en' | 'es')
       : { rate: 20 as number, mention: undefined as string | undefined };
-    const feesTotal = (serviceFee || 0) + (managementFee || 0) + (insuranceFee || 0);
-    const itemsTotal = Math.max(0, invoice.amount - feesTotal);
-    const totalHT = orgVat.rate === 20
-      ? invoice.amount / 1.2
-      : itemsTotal / (1 + orgVat.rate / 100) + feesTotal / 1.2;
-    const tva = invoice.amount - totalHT;
+    // Une facture de table « A bis » porte ses frais dans ses lignes et sa TVA calculée : le PDF les lit telles
+    // quelles (invoicePdfModel). Les autres gardent le calcul d'avant.
+    const model = buildInvoicePdfModel(
+      {
+        type: invoice.type,
+        amount: invoice.amount,
+        items: (storedInvoice?.items as StoredInvoiceItem[] | null) ?? null,
+        service_fee: storedInvoice?.service_fee,
+        management_fee: storedInvoice?.management_fee,
+        insurance_fee: storedInvoice?.insurance_fee,
+        total_ht: storedInvoice?.total_ht,
+        tva: storedInvoice?.tva,
+        invoice_kind: storedInvoice?.invoice_kind,
+        remaining_on_site: storedInvoice?.remaining_on_site,
+      },
+      (amount, feesTotal) => {
+        const itemsTotal = Math.max(0, amount - feesTotal);
+        const ht = orgVat.rate === 20
+          ? amount / 1.2
+          : itemsTotal / (1 + orgVat.rate / 100) + feesTotal / 1.2;
+        return { totalHT: ht, tva: amount - ht };
+      },
+      fallbackItems,
+    );
 
     return {
       invoiceNumber: invoice.invoice_number,
@@ -477,13 +470,15 @@ export default function OwnerInvoices() {
       eventDate: invoice.event_date ? new Date(invoice.event_date) : undefined,
       eventPosterUrl: invoice.event_poster || undefined,
       type: invoice.type,
-      items,
-      serviceFee,
-      managementFee,
-      insuranceFee,
-      totalHT,
-      tva,
-      totalTTC: invoice.amount,
+      items: model.items,
+      serviceFee: model.serviceFee,
+      managementFee: model.managementFee,
+      insuranceFee: model.insuranceFee,
+      invoiceKind: model.invoiceKind,
+      remainingOnSite: model.remainingOnSite,
+      totalHT: model.totalHT,
+      tva: model.tva,
+      totalTTC: model.totalTTC,
       qrCode,
       referenceCode,
     };

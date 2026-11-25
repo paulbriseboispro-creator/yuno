@@ -24,8 +24,10 @@ import { parseAnalyticsContext, analyticsContextToStripeMetadata, captureOrderPa
 import { restrictedCorsHeaders, resolveReturnOrigin, safeReturnPath } from "../_shared/cors.ts";
 import { PromoCodeError, attachPromoRedemption, claimPromoCode, normalizePromoCode, releasePromoRedemption } from "../_shared/promo-codes.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
-import { boundDeposit, packInScope, parseGuestCount, safePlacementStatus as toSafePlacementStatus } from "../_shared/table-bounds.ts";
+import { boundDeposit, holdingReservationsOr, packInScope, parseGuestCount, safePlacementStatus as toSafePlacementStatus } from "../_shared/table-bounds.ts";
 import { promoterCodePattern, promoterIdHint, promoterScopeOr } from "../_shared/promoter-scope.ts";
+import { tableCharge } from "../_shared/table-charge.ts";
+import { hashReceiptToken, newReceiptToken } from "../_shared/receipt-token.ts";
 
 // Production mode - payments go through Stripe Connect
 const TEST_MODE = false;
@@ -333,13 +335,13 @@ serve(async (req) => {
       if (zoneRow && zoneRow.tables_count && zoneRow.tables_count > 0) {
         // Count reservations on this zone for this event that hold a slot.
         // Statuses considered as "holding a slot": pending (in checkout), paid, confirmed.
-        // Note: pending older than ~30min are flushed by the order cleanup cron.
+        // Une pending de plus de 35 min ne retient plus rien (même règle que reserve_table_slot, `_table_resa_holds`).
         const { count: activeCount } = await supabaseAdmin
           .from("table_reservations")
           .select("id", { count: "exact", head: true })
           .eq("event_id", eventId)
           .eq("zone_id", effectiveZoneId)
-          .in("status", ["pending", "paid", "confirmed"]);
+          .or(holdingReservationsOr());
 
         const used = activeCount || 0;
         if (used >= zoneRow.tables_count) {
@@ -362,7 +364,7 @@ serve(async (req) => {
         .select("id", { count: "exact", head: true })
         .eq("event_id", eventId)
         .eq("pack_id", pack.id)
-        .in("status", ["pending", "paid", "confirmed"]);
+        .or(holdingReservationsOr());
       const packUsed = packActive || 0;
       if (packUsed >= pack.tables_count) {
         logStep("Pack capacity reached", { packId: pack.id, used: packUsed, max: pack.tables_count });
@@ -1339,19 +1341,25 @@ serve(async (req) => {
       throw new Error(t("checkout.collabStripeSplitUnavailable", lang));
     }
     const connectedAccountId = split.splitMode === "direct" ? split.primary.accountId : null;
-    if (connectedAccountId || split.transferSplit) {
-      // Écrit AVANT la création de la session et VÉRIFIÉ : verify-table-payment et
-      // owner-refund relisent le paiement sur CE compte. Sans cette colonne, un
-      // acheteur paierait une session que personne ne retrouve. Un échec arrête
-      // tout (le catch supprime la réservation pending) : la session n'est pas créée.
-      const { data: stampedRows, error: stampErr } = await supabaseAdmin.from("table_reservations").update({
-        ...(connectedAccountId ? { stripe_connected_account_id: connectedAccountId } : {}),
-        collab_split: split.transferSplit ?? null,
-      }).eq('id', reservation.id).select('id');
-      if (stampErr || !stampedRows || stampedRows.length !== 1) {
-        logStep("Connected account stamp failed — session not created", { reservationId: reservation.id, error: stampErr?.message ?? "no row updated" });
-        throw new Error(t("checkout.tryAgain", lang));
-      }
+    // Ce que la session va prélever, en centimes : la facture d'acompte, l'e-mail « payé en ligne » et le repli
+    // d'annulation le LISENT (jamais recalculé). Les `unit_amount` envoyés à Stripe viennent de cette même liste.
+    const charge = tableCharge(discountedDeposit, transactionFee);
+    // Secret de reçu : renvoyé au navigateur de l'acheteur seulement, le hachage reste sur la réservation.
+    const receiptToken = newReceiptToken();
+    // Écrit AVANT la création de la session et VÉRIFIÉ : verify-table-payment et owner-refund relisent le
+    // paiement sur CE compte (sans cette colonne, un acheteur paierait une session que personne ne retrouve), la
+    // facture lit `charged_lines`, le QR n'est rendu qu'avec le jeton. Un échec arrête tout (le catch supprime la
+    // réservation pending) : la session n'est pas créée.
+    const { data: stampedRows, error: stampErr } = await supabaseAdmin.from("table_reservations").update({
+      ...(connectedAccountId ? { stripe_connected_account_id: connectedAccountId } : {}),
+      ...(connectedAccountId || split.transferSplit ? { collab_split: split.transferSplit ?? null } : {}),
+      charged_lines: charge.lines,
+      charged_total: charge.totalEuros,
+      receipt_token_hash: await hashReceiptToken(receiptToken),
+    }).eq('id', reservation.id).select('id');
+    if (stampErr || !stampedRows || stampedRows.length !== 1) {
+      logStep("Charge stamp failed — session not created", { reservationId: reservation.id, error: stampErr?.message ?? "no row updated" });
+      throw new Error(t("checkout.tryAgain", lang));
     }
 
     // En vente directe la session naît sur le compte du pro : si Link n'y est
@@ -1360,18 +1368,21 @@ serve(async (req) => {
       params,
       split.splitMode === "direct" ? { stripeAccount: split.primary.accountId } : undefined,
     ), {
-      // Une session Stripe vit 24 h par défaut : un paiement tardif arrivait après
-      // la fin de la réservation de places, voire après le décompte de la soirée.
-      // 31 min = le minimum Stripe (30) + une marge d'horloge.
-      expires_at: Math.floor(Date.now() / 1000) + 31 * 60,
-      line_items: [
-        // Only add deposit line if there's a deposit to pay
-        ...(discountedDeposit > 0 ? [{ price_data: { currency: "eur", product_data: { name: `${pack.name} - ${event.title}` }, unit_amount: Math.round(discountedDeposit * 100) }, quantity: 1 }] : []),
-        // Fan-facing fee line mirrors `transactionFee`: in absorb mode that's the Stripe
-        // transaction cost (club absorbs the commission via the application_fee override);
-        // in the default path it equals `managementFee`, so this is unchanged.
-        { price_data: { currency: "eur", product_data: { name: "Frais de service" }, unit_amount: Math.round(transactionFee * 100) }, quantity: 1 },
-      ],
+      // Une session Stripe vit 24 h par défaut : un paiement tardif arrivait après la fin de la réservation de
+      // places, voire après le décompte de la soirée. 30 min = le minimum Stripe ; +20 s de marge d'horloge, sinon
+      // Stripe refuse une valeur qui tombe un peu sous 30 min à son arrivée. La place reste gardée 35 min depuis la
+      // création de la réservation (`_table_resa_holds`) : jamais libérée avant que la session ne puisse plus être payée.
+      expires_at: Math.floor(Date.now() / 1000) + 30 * 60 + 20,
+      line_items: charge.lines.map((l) => ({
+        price_data: {
+          currency: "eur",
+          // Fan-facing fee line mirrors `transactionFee`: in absorb mode that's the Stripe transaction cost (club
+          // absorbs the commission via the application_fee override); in the default path it equals `managementFee`.
+          product_data: { name: l.kind === "deposit" ? `${pack.name} - ${event.title}` : "Frais de service" },
+          unit_amount: l.cents,
+        },
+        quantity: 1,
+      })),
       mode: "payment",
       success_url: `${origin}/verify-table-payment?session_id={CHECKOUT_SESSION_ID}&reservation_id=${reservation.id}${nativeFlag}`,
       // cancelUrl vient du client : chemin même-site uniquement (safeReturnPath).
@@ -1450,7 +1461,8 @@ serve(async (req) => {
       destination: split.primary.accountId,
     });
 
-    return new Response(JSON.stringify({ success: true, sessionId: session.id, url: session.url }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+    // `receiptToken` : à garder dans le navigateur de l'acheteur (jamais dans une URL) pour relire le QR au retour de paiement.
+    return new Response(JSON.stringify({ success: true, sessionId: session.id, url: session.url, receiptToken }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: errorMessage });

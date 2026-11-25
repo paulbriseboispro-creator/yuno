@@ -1,4 +1,4 @@
--- Smoke ANNULÉ — tables vague A, P2.8 : une pending de plus de 31 min ne retient plus rien (reserve_table_slot + get_event_table_availability).
+-- Smoke ANNULÉ — tables vague A, P2.8 : une pending de plus de 35 min (31 avant la vague A bis) ne retient plus rien (reserve_table_slot + get_event_table_availability).
 --   node scripts/crm-bench/rehearse.mjs scripts/crm-bench/smoke/tables-8-pending-31min.sql 20261225170000_tables_pending_31min.sql
 -- ── Prélude commun des smokes « tables » (fonctions TEMPORAIRES, annulées avec la transaction) ───────────────
 -- try_dml(uid, sql) : joue une écriture EN TANT QUE uid (rôle authenticated, claims posés) → 'OK:<lignes>' ou 'ERR:<code>:<message>'.
@@ -108,7 +108,7 @@ BEGIN
   -- 4. Table demandée : pending périmée = libre ; pending récente ou payée = prise.
   UPDATE table_packs SET limit_tables = false WHERE id = v_pack;
   INSERT INTO table_reservations (event_id, zone_id, pack_id, user_email, total_price, status, qr_code, requested_table_id, placement_status, created_at)
-    VALUES (v_evB, v_z, v_pack, 'old2@test', 100, 'pending', 'smk8-old2', t[1]::uuid, 'requested', now() - interval '32 minutes');
+    VALUES (v_evB, v_z, v_pack, 'old2@test', 100, 'pending', 'smk8-old2', t[1]::uuid, 'requested', now() - interval '36 minutes');
   r := pg_temp.rts(v_evB, v_z, v_pack, 'tbl1@test', t[1]);
   IF r LIKE 'ERR:%' THEN RAISE EXCEPTION 'SMOKE_FAIL pending périmée retient la table : %', r; END IF;
   r := pg_temp.rts(v_evB, v_z, v_pack, 'tbl2@test', t[1]);
@@ -118,15 +118,15 @@ BEGIN
   PERFORM pg_temp.expect('table prise par une payée', r, 'ERR:23514:Cette table vient d''être réservée');
   out := out || jsonb_build_object('requested_table_rules', 'ok');
 
-  -- 5. get_event_table_availability : même seuil (31 min). 30 min 30 s : encore retenue ; 31 min 30 s : plus rien.
+  -- 5. get_event_table_availability : même seuil (35 min depuis la vague A bis, I1). 34 min 30 s : encore retenue ; 35 min 30 s : plus rien.
   DELETE FROM table_reservations WHERE event_id = v_evB;
   INSERT INTO table_reservations (event_id, zone_id, user_email, total_price, status, qr_code, created_at) VALUES
-    (v_evB, v_z, 'a1@test', 100, 'pending', 'smk8-a1', now() - interval '30 minutes 30 seconds'),
-    (v_evB, v_z, 'a2@test', 100, 'pending', 'smk8-a2', now() - interval '31 minutes 30 seconds'),
+    (v_evB, v_z, 'a1@test', 100, 'pending', 'smk8-a1', now() - interval '34 minutes 30 seconds'),
+    (v_evB, v_z, 'a2@test', 100, 'pending', 'smk8-a2', now() - interval '35 minutes 30 seconds'),
     (v_evB, v_z, 'a3@test', 100, 'paid',    'smk8-a3', now() - interval '3 hours'),
     (v_evB, v_z, 'a4@test', 100, 'cancelled','smk8-a4', now());
   SELECT count(*) INTO n FROM get_event_table_availability(v_evB);
-  IF n <> 2 THEN RAISE EXCEPTION 'SMOKE_FAIL availability : % lignes (attendu 2 : pending 30 min 30 s + payée)', n; END IF;
+  IF n <> 2 THEN RAISE EXCEPTION 'SMOKE_FAIL availability : % lignes (attendu 2 : pending 34 min 30 s + payée)', n; END IF;
   out := out || jsonb_build_object('availability_rows', n);
 
   -- 6. Droits : anon lit toujours la disponibilité ; la file reste service_role.

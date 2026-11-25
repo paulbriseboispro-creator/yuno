@@ -9,6 +9,7 @@ import { metaContextFromStripeMetadata, enqueueMetaEvent, drainMetaOutboxInBackg
 import { analyticsContextFromStripeMetadata, captureOrderPaid, clubRevenue } from '../_shared/posthog.ts';
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 import { issueSaleInvoice } from "../_shared/sale-invoice.ts";
+import { receiptTokenMatches } from "../_shared/receipt-token.ts";
 
 const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -82,7 +83,7 @@ serve(async (req) => {
       }
     }
 
-    const { sessionId, reservationId, connectedAccount: bodyConnectedAccount } = await req.json();
+    const { sessionId, reservationId, connectedAccount: bodyConnectedAccount, receiptToken } = await req.json();
     logStep("Verifying payment", { sessionId, reservationId });
 
     // Seul le webhook (clé service) peut indiquer sur quel compte connecté la
@@ -154,6 +155,14 @@ serve(async (req) => {
       throw new Error('Reservation does not belong to this user');
     }
 
+    // I4 — secret de reçu : le QR de la table (qui fait entrer toute la table) et l'e-mail de l'acheteur ne sortent que
+    // pour le jeton remis au navigateur de l'acheteur par create-table-checkout (hachage gardé sur la réservation), ou pour
+    // le titulaire connecté. session_id + reservation_id, eux, traînent dans l'URL de retour Stripe (outils de mesure).
+    const receiptAuthorized = (['refunded', 'cancelled'].includes(String(reservation.status)) ? false : (
+      await receiptTokenMatches(receiptToken, reservation.receipt_token_hash as string | null)
+      || (!!userId && !!reservation.user_id && reservation.user_id === userId)
+    ));
+
     if (session.payment_status === 'paid') {
       // IDEMPOTENCE. On bascule pending/confirmed → paid de façon ATOMIQUE et un
       // seul appelant gagne la transition ; lui seul exécute les effets de bord
@@ -193,9 +202,10 @@ serve(async (req) => {
             paid: true,
             alreadyProcessed: true,
             isGuest: isGuestReservation,
-            guestEmail: isGuestReservation ? reservation.user_email : undefined,
-            // Page de confirmation d'un acheteur sans compte : le QR de la table.
-            qrCode: reservation.qr_code ?? undefined,
+            guestEmail: isGuestReservation && receiptAuthorized ? reservation.user_email : undefined,
+            // Page de confirmation d'un acheteur sans compte : le QR de la table, avec le jeton de reçu seulement.
+            qrCode: receiptAuthorized ? (reservation.qr_code ?? undefined) : undefined,
+            receiptRequired: receiptAuthorized ? undefined : true,
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
         );
@@ -270,6 +280,49 @@ serve(async (req) => {
 
       const resolvedVenueId = event?.venue_id ?? event?.partner_venue_id ?? null;
       const resolvedOrganizerId = event?.organizer_user_id ?? event?.partner_organizer_id ?? null;
+
+      // I1 — double vente : si la table demandée / attribuée est déjà tenue par une AUTRE réservation payée avant celle-ci
+      // (le paiement est arrivé après que la place a été rendue), la vente ne tombe JAMAIS — l'argent est pris : la
+      // réservation passe en placement à l'arrivée, et le pro comme Yuno sont prévenus. Jamais bloquant.
+      try {
+        const { data: placement, error: placementErr } = await supabaseAdmin.rpc('table_resolve_paid_conflict', { p_reservation_id: reservationId });
+        if (placementErr) {
+          logStep("table_resolve_paid_conflict failed", { error: placementErr.message });
+        } else if (placement && (placement.conflict === true || placement.zone_overflow === true)) {
+          logStep("Paid table conflict resolved", placement);
+          const isConflict = placement.conflict === true;
+          const title = isConflict ? 'Table déjà vendue : placement à l\'arrivée' : 'Zone au-dessus de son plafond';
+          const message = (isConflict
+            ? `${packName} · ${reservation.full_name ?? 'Client'} a payé alors que la table demandée était déjà vendue : la réservation est conservée, à placer à l'arrivée.`
+            : `${packName} · ${reservation.full_name ?? 'Client'} a payé : la zone ${placement.zone_name ?? ''} dépasse son plafond (${placement.zone_used}/${placement.zone_max}).`).slice(0, 480);
+          const meta = { reservation_id: reservationId, pack_name: packName, conflict: placement.conflict, tables: placement.tables ?? [], held_by: placement.held_by ?? [], zone_overflow: placement.zone_overflow, zone_used: placement.zone_used, zone_max: placement.zone_max };
+          if (resolvedVenueId) {
+            await supabaseAdmin.from('staff_notifications').insert({
+              venue_id: resolvedVenueId, target_role: 'owner', notification_type: 'table_booked', title, message, priority: 'high',
+              reference_type: 'table_reservation', reference_id: reservationId, event_id: reservation.event_id ?? null, metadata: meta,
+            });
+          }
+          if (resolvedOrganizerId) {
+            await supabaseAdmin.from('organizer_notifications').insert({
+              organizer_user_id: resolvedOrganizerId, notification_type: 'table_booked', title, message, priority: 'high',
+              reference_type: 'table_reservation', reference_id: reservationId, event_id: reservation.event_id ?? null, metadata: meta,
+            });
+          }
+          await supabaseAdmin.rpc('emit_admin_notification', {
+            p_type: 'admin_paid_sale_unfulfilled',
+            p_title: title,
+            p_message: message,
+            p_priority: 'high',
+            p_reference_type: 'table',
+            p_reference_id: reservationId,
+            p_metadata: meta,
+            p_dedup_key: `table_paid_conflict:${reservationId}`,
+            p_event_id: reservation.event_id ?? null,
+          }).then(() => undefined, () => undefined);
+        }
+      } catch (conflictErr) {
+        console.error('Paid table conflict handling error (non-blocking):', conflictErr);
+      }
 
       // Consentement SMS marketing — même correctif que côté billets : le chemin
       // Stripe live ne l'enregistrait nulle part, seul le mode démo alimentait la
@@ -626,9 +679,10 @@ serve(async (req) => {
           paid: true, 
           pushSent,
           isGuest: isGuestReservation,
-          guestEmail: isGuestReservation ? reservation.user_email : undefined,
-          // Page de confirmation d'un acheteur sans compte : le QR de la table.
-          qrCode: reservation.qr_code ?? undefined,
+          guestEmail: isGuestReservation && receiptAuthorized ? reservation.user_email : undefined,
+          // Page de confirmation d'un acheteur sans compte : le QR de la table, avec le jeton de reçu seulement.
+          qrCode: receiptAuthorized ? (reservation.qr_code ?? undefined) : undefined,
+          receiptRequired: receiptAuthorized ? undefined : true,
           // Pixel Meta navigateur (Purchase dédoublonné avec l'envoi serveur). Valeur = prix de la réservation.
           metaPurchase: { eventId: reservation.event_id, valueCents: Math.round(Number(reservation.total_price || 0) * 100) || (session.amount_total ?? null), currency: session.currency ?? 'eur' },
         }),

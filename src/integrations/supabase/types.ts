@@ -9895,12 +9895,14 @@ export type Database = {
           expires_at: string
           id: string
           insurance_fee: number | null
+          invoice_kind: string | null
           invoice_number: string
           items: Json | null
           management_fee: number | null
           order_id: string | null
           organizer_user_id: string | null
           qr_code: string | null
+          remaining_on_site: number | null
           service_fee: number | null
           table_reservation_id: string | null
           ticket_id: string | null
@@ -9922,12 +9924,14 @@ export type Database = {
           expires_at?: string
           id?: string
           insurance_fee?: number | null
+          invoice_kind?: string | null
           invoice_number: string
           items?: Json | null
           management_fee?: number | null
           order_id?: string | null
           organizer_user_id?: string | null
           qr_code?: string | null
+          remaining_on_site?: number | null
           service_fee?: number | null
           table_reservation_id?: string | null
           ticket_id?: string | null
@@ -9949,12 +9953,14 @@ export type Database = {
           expires_at?: string
           id?: string
           insurance_fee?: number | null
+          invoice_kind?: string | null
           invoice_number?: string
           items?: Json | null
           management_fee?: number | null
           order_id?: string | null
           organizer_user_id?: string | null
           qr_code?: string | null
+          remaining_on_site?: number | null
           service_fee?: number | null
           table_reservation_id?: string | null
           ticket_id?: string | null
