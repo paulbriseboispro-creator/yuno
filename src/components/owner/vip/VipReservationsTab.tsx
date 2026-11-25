@@ -17,6 +17,7 @@ import {
 } from './vip-ui';
 import { tint } from '@/lib/proTheme';
 import { formatMoneyAuto } from '@/lib/money';
+import { PlacementAdjustmentLine, TableMoneyBlock } from './TableMoneyBlock';
 
 interface Props {
   reservations: OwnerVipReservation[];
@@ -163,12 +164,17 @@ export function VipReservationsTab({ reservations, consumptions, orders, events,
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-4 gap-3 mb-2">
+                  <div className="grid grid-cols-3 gap-3 mb-2">
                     <ResStat label={t('vipHost.guests')} value={String(res.guestCount)} />
-                    <ResStat label={t('vipHost.deposit')} value={`${formatMoneyAuto(res.deposit)}`} />
                     <ResStat label={t('vipHost.consumed')} value={`${formatMoneyAuto(consumed)}`} />
                     <ResStat label={t('vipHost.credit')} value={`${formatMoneyAuto(credit)}`} color={credit >= 0 ? POS : RED} />
                   </div>
+                  <div className="mb-2"><TableMoneyBlock reservation={res} compact /></div>
+                  {(res.placementAdjustment === 'upgrade_free' || res.placementAdjustment === 'pay_on_site') && (
+                    <p className="mb-2" style={{ color: T3, fontSize: 11.5 }}>
+                      <PlacementAdjustmentLine adjustment={res.placementAdjustment} amount={res.placementAdjustmentAmount} />
+                    </p>
+                  )}
 
                   {/* Info pré-commande (Non / N bouteilles) */}
                   <div className="flex items-center gap-1.5 mb-1" style={{ fontSize: 11.5 }}>

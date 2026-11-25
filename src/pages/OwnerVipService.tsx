@@ -4,6 +4,7 @@ import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { useNavigate } from 'react-router-dom';
 import { VipMenuManager } from '@/components/owner/VipMenuManager';
 import { VipQRCodeSection } from '@/components/owner/VipQRCodeSection';
+import { VipLoadError } from '@/components/owner/vip/VipLoadError';
 import { VipEventSelector } from '@/components/owner/vip/VipEventSelector';
 import { VipOverviewTab } from '@/components/owner/vip/VipOverviewTab';
 import { VipReservationsTab } from '@/components/owner/vip/VipReservationsTab';
@@ -53,7 +54,7 @@ type VipTab = 'overview' | 'reservations' | 'placement' | 'menu' | 'staff' | 'se
 export default function OwnerVipService() {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const { venueId, loading, events, reservations, consumptions, orders, refresh } = useOwnerVipData();
+  const { venueId, loading, events, reservations, consumptions, orders, loadError, refresh } = useOwnerVipData();
 
   const [activeTab, setActiveTab] = useState<VipTab>('overview');
   const [selectedEventId, setSelectedEventId] = useState<string>('all');
@@ -167,6 +168,7 @@ export default function OwnerVipService() {
         totalPrice: r.totalPrice,
         deposit: r.deposit,
         createdAt: r.createdAt,
+        reservation: r,
       }));
   }, [filteredReservations, floorPlan]);
 
@@ -260,6 +262,8 @@ export default function OwnerVipService() {
       <OwnerHeader title={t('owner.vipService')} showBackButton={true} />
 
       <VipPage>
+        {loadError && <VipLoadError onRetry={refresh} />}
+
         {/* Event Selector */}
         <VipEventSelector
           events={events}
@@ -583,12 +587,16 @@ export default function OwnerVipService() {
         {/* Placement modification sheet */}
         <PlacementFloorPlanSheet
           open={!!modifyingReservation}
+          mode="move"
           onClose={() => setModifyingReservation(null)}
           reservation={modifyingReservation ? {
             id: modifyingReservation.id,
             fullName: modifyingReservation.fullName,
             guestCount: modifyingReservation.guestCount,
             zoneName: modifyingReservation.zoneName,
+            packId: modifyingReservation.packId,
+            assignedTableId: modifyingReservation.assignedTableId,
+            placementStatus: modifyingReservation.placementStatus,
             requestedTableId: modifyingReservation.requestedTableId || modifyingReservation.assignedTableId,
             requestedTableName: floorPlan?.layout?.tables?.find(tb => tb.id === (modifyingReservation.requestedTableId || modifyingReservation.assignedTableId))?.name,
           } : null}

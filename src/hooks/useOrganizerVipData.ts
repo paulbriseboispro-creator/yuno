@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  groupVipOrderItems, mapVipConsumption, mapVipOrder, mapVipReservation,
+  groupVipOrderItems, mapVipConsumption, mapVipOrder, mapVipReservation, VIP_RESERVATION_COLUMNS,
   type OwnerVipReservation, type OwnerVipConsumption, type OwnerVipOrder, type OwnerVipOrderItem, type VipEvent,
   type VipConsumptionRow, type VipOrderItemRow, type VipOrderRow, type VipReservationRow,
 } from './useOwnerVipData';
 import { orgEventsOr } from '@/lib/coorg';
+import { useVipLiveRefresh } from './useVipLiveRefresh';
 
 /**
  * Données du service VIP vues par un ORGANISATEUR : les soirées qu'il mène (ou
@@ -20,37 +21,37 @@ export function useOrganizerVipData(organizerUserId: string | null | undefined) 
   const [reservations, setReservations] = useState<OwnerVipReservation[]>([]);
   const [consumptions, setConsumptions] = useState<OwnerVipConsumption[]>([]);
   const [orders, setOrders] = useState<OwnerVipOrder[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const loadedOnce = useRef(false);
 
   const fetchData = useCallback(async () => {
     if (!organizerUserId) return;
-    setLoading(true);
+    if (!loadedOnce.current) setLoading(true);
+    setLoadError(null);
     try {
-      const { data: eventsData } = await supabase
+      const { data: eventsData, error: eventsError } = await supabase
         .from('events')
         .select('id, title, start_at, end_at, timezone, location_name')
         .or(orgEventsOr(organizerUserId))
         .eq('tables_enabled', true)
         .order('start_at', { ascending: false });
+      if (eventsError) throw eventsError;
 
       const evs: VipEvent[] = (eventsData || []).map(e => ({ id: e.id, title: e.title, startAt: e.start_at, endAt: e.end_at, timezone: e.timezone, locationName: e.location_name }));
       setEvents(evs);
       const eventIds = evs.map(e => e.id);
       if (eventIds.length === 0) { setReservations([]); setConsumptions([]); setOrders([]); return; }
 
-      const { data: resData } = await supabase
+      const { data: resData, error: resError } = await supabase
         .from('table_reservations')
-        .select(`
-          id, full_name, user_email, phone, guest_count, deposit, total_price, management_fee, fee_absorbed,
-          service_fee, refund_amount, stripe_payment_intent_id, stripe_session_id,
-          minimum_spend, vip_status, zone_id, assigned_table_id,
-          created_at, checked_in_at, placed_at, finished_at, event_id,
-          placement_status, requested_table_id, placement_note,
+        .select(`${VIP_RESERVATION_COLUMNS},
           table_zones(name, color),
           events(title)
         `)
         .eq('status', 'paid')
         .in('event_id', eventIds)
         .order('created_at', { ascending: false });
+      if (resError) throw resError;
 
       const mapped = ((resData ?? []) as unknown as VipReservationRow[]).map(mapVipReservation);
       setReservations(mapped);
@@ -80,7 +81,9 @@ export function useOrganizerVipData(organizerUserId: string | null | undefined) 
       setOrders(orderRows.map((o) => mapVipOrder(o, itemsByOrder)));
     } catch (error) {
       console.error('Error fetching organizer VIP data:', error);
+      setLoadError((error as { message?: string })?.message || 'load_failed');
     } finally {
+      loadedOnce.current = true;
       setLoading(false);
     }
   }, [organizerUserId]);
@@ -89,5 +92,7 @@ export function useOrganizerVipData(organizerUserId: string | null | undefined) 
     if (organizerUserId) fetchData();
   }, [organizerUserId, fetchData]);
 
-  return { loading, events, reservations, consumptions, orders, refresh: fetchData };
+  useVipLiveRefresh(!!organizerUserId, fetchData, `o-${organizerUserId}`);
+
+  return { loading, events, reservations, consumptions, orders, loadError, refresh: fetchData };
 }

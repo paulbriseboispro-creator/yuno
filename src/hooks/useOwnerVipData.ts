@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useVenueContext } from './useVenueContext';
+import { useVipLiveRefresh } from './useVipLiveRefresh';
 import { alreadyRefundedCents, remainingRefundableCents, type SaleAmounts } from '@/lib/saleRefund';
 
 /** Ce que le service VIP sait du remboursement d'une réservation. */
@@ -43,6 +44,15 @@ export interface OwnerVipReservation {
   placementStatus?: string;
   requestedTableId?: string;
   placementNote?: string;
+  /** Formule réservée (sert à savoir si un déplacement change de formule). */
+  packId?: string;
+  paymentMode?: string;
+  serviceFee: number;
+  /** Ce que Stripe a réellement pris (acompte + frais), stocké au checkout. */
+  chargedTotal?: number;
+  /** `upgrade_free` | `pay_on_site` quand le pro a déplacé le client vers une autre formule. */
+  placementAdjustment?: string;
+  placementAdjustmentAmount?: number;
 }
 
 export interface OwnerVipConsumption {
@@ -93,6 +103,11 @@ export interface VipReservationRow extends SaleAmounts {
   placement_status: string | null;
   requested_table_id: string | null;
   placement_note: string | null;
+  pack_id?: string | null;
+  payment_mode?: string | null;
+  charged_total?: number | null;
+  placement_adjustment?: string | null;
+  placement_adjustment_amount?: number | null;
   stripe_payment_intent_id?: string | null;
   stripe_session_id?: string | null;
   table_zones: { name: string | null; color: string | null } | null;
@@ -125,8 +140,23 @@ export function mapVipReservation(r: VipReservationRow): OwnerVipReservation {
     placementStatus: r.placement_status ?? undefined,
     requestedTableId: r.requested_table_id ?? undefined,
     placementNote: r.placement_note ?? undefined,
+    packId: r.pack_id ?? undefined,
+    paymentMode: r.payment_mode ?? undefined,
+    serviceFee: Number(r.service_fee) || 0,
+    chargedTotal: r.charged_total != null ? Number(r.charged_total) : undefined,
+    placementAdjustment: r.placement_adjustment ?? undefined,
+    placementAdjustmentAmount: r.placement_adjustment_amount != null ? Number(r.placement_adjustment_amount) : undefined,
   };
 }
+
+/** Colonnes de `table_reservations` lues par les deux services VIP. */
+export const VIP_RESERVATION_COLUMNS = `
+  id, full_name, user_email, phone, guest_count, deposit, total_price, management_fee, fee_absorbed,
+  service_fee, refund_amount, stripe_payment_intent_id, stripe_session_id,
+  minimum_spend, vip_status, zone_id, assigned_table_id,
+  created_at, checked_in_at, placed_at, finished_at, event_id,
+  placement_status, requested_table_id, placement_note,
+  pack_id, payment_mode, charged_total, placement_adjustment, placement_adjustment_amount`;
 
 export interface VipConsumptionRow {
   id: string; item_name: string; item_type: string; quantity: number;
@@ -185,21 +215,27 @@ export function useOwnerVipData() {
   const [reservations, setReservations] = useState<OwnerVipReservation[]>([]);
   const [consumptions, setConsumptions] = useState<OwnerVipConsumption[]>([]);
   const [orders, setOrders] = useState<OwnerVipOrder[]>([]);
+  // Erreur de lecture : affichée par la page, jamais une liste vide silencieuse.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const loadedOnce = useRef(false);
 
   const fetchData = useCallback(async () => {
     if (!venueId) return;
-    setLoading(true);
+    // Rafraîchissement silencieux après le premier chargement : pas de squelette qui clignote.
+    if (!loadedOnce.current) setLoading(true);
+    setLoadError(null);
 
     try {
       // Fetch all events that have table reservations for this venue.
       // Co-soirée org-led : le club est partner_venue_id — inclure ces events
       // sinon le service VIP du club ne voit pas la soirée co-organisée.
-      const { data: eventsData } = await supabase
+      const { data: eventsData, error: eventsError } = await supabase
         .from('events')
         .select('id, title, start_at, end_at, venue_id')
         .or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`)
         .eq('tables_enabled', true)
         .order('start_at', { ascending: false });
+      if (eventsError) throw eventsError;
 
       setEvents((eventsData || []).map(e => ({
         id: e.id,
@@ -209,20 +245,16 @@ export function useOwnerVipData() {
       })));
 
       // Fetch ALL paid reservations for this venue (no limit)
-      const { data: resData } = await supabase
+      const { data: resData, error: resError } = await supabase
         .from('table_reservations')
-        .select(`
-          id, full_name, user_email, phone, guest_count, deposit, total_price, management_fee, fee_absorbed,
-          service_fee, refund_amount, stripe_payment_intent_id, stripe_session_id,
-          minimum_spend, vip_status, zone_id, assigned_table_id,
-          created_at, checked_in_at, placed_at, finished_at, event_id,
-          placement_status, requested_table_id, placement_note,
+        .select(`${VIP_RESERVATION_COLUMNS},
           table_zones!inner(name, color, venue_id),
           events(title)
         `)
         .eq('status', 'paid')
         .eq('table_zones.venue_id', venueId)
         .order('created_at', { ascending: false });
+      if (resError) throw resError;
 
       const mapped = ((resData ?? []) as unknown as VipReservationRow[]).map(mapVipReservation);
 
@@ -265,7 +297,9 @@ export function useOwnerVipData() {
       }
     } catch (error) {
       console.error('Error fetching VIP data:', error);
+      setLoadError((error as { message?: string })?.message || 'load_failed');
     } finally {
+      loadedOnce.current = true;
       setLoading(false);
     }
   }, [venueId]);
@@ -274,6 +308,8 @@ export function useOwnerVipData() {
     if (venueId) fetchData();
   }, [venueId, fetchData]);
 
+  useVipLiveRefresh(!!venueId, fetchData, `v-${venueId}`);
+
   return {
     venueId,
     loading: loading || venueLoading,
@@ -281,6 +317,7 @@ export function useOwnerVipData() {
     reservations,
     consumptions,
     orders,
+    loadError,
     refresh: fetchData,
   };
 }

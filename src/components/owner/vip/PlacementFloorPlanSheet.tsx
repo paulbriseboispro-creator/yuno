@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,75 +9,138 @@ import { VenueFloorPlan, VipReservation } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
-import { Loader2, MapPin, MessageSquare, Check, ArrowRightLeft } from 'lucide-react';
+import { Loader2, MessageSquare, Check, ArrowRightLeft } from 'lucide-react';
+import { formatMoneyAuto } from '@/lib/money';
+import { setTablePlacement, sendTableChangedEmail } from '@/lib/vipTableApi';
+import {
+  adjustmentArgs, adjustmentNeed, freeTablesOfPack, vipErrorInfo, type PlacementAdjustment,
+} from '@/lib/vipTableRules';
+
+export interface PlacementSheetReservation {
+  id: string;
+  fullName: string;
+  guestCount: number;
+  zoneName?: string;
+  packId?: string;
+  requestedTableId?: string;
+  requestedTableName?: string;
+  assignedTableId?: string;
+  /** État de placement vu à l'écran : le serveur refuse si un collègue est déjà passé. */
+  placementStatus?: string;
+}
 
 interface PlacementFloorPlanSheetProps {
   open: boolean;
   onClose: () => void;
-  reservation: {
-    id: string;
-    fullName: string;
-    guestCount: number;
-    zoneName?: string;
-    requestedTableId?: string;
-    requestedTableName?: string;
-  } | null;
+  reservation: PlacementSheetReservation | null;
   floorPlan: VenueFloorPlan | null;
   reservations: VipReservation[];
   onRefresh: () => void;
+  /**
+   * `propose` : « Proposer une autre table », plan filtré sur les tables libres de la
+   * MÊME formule. `move` : déplacement libre ; une autre formule demande le choix
+   * « Surclassement offert » / « Différence à régler sur place ».
+   */
+  mode?: 'propose' | 'move';
 }
 
+type PackLite = { id: string; name: string; base_price: number };
+
 export function PlacementFloorPlanSheet({
-  open,
-  onClose,
-  reservation,
-  floorPlan,
-  reservations,
-  onRefresh,
+  open, onClose, reservation, floorPlan, reservations, onRefresh, mode = 'move',
 }: PlacementFloorPlanSheetProps) {
   const { t } = useLanguage();
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState(false);
+  const [packs, setPacks] = useState<Record<string, PackLite>>({});
+  const [choice, setChoice] = useState<PlacementAdjustment | null>(null);
+  const [amountInput, setAmountInput] = useState('');
 
-  const handleConfirmModification = async () => {
-    if (!reservation || !selectedTableId) return;
+  const planTables = floorPlan?.layout?.tables;
+  const packIds = useMemo(() => {
+    const ids = new Set<string>();
+    (planTables ?? []).forEach(tb => { if (tb.packId) ids.add(tb.packId); });
+    if (reservation?.packId) ids.add(reservation.packId);
+    return [...ids];
+  }, [planTables, reservation?.packId]);
+
+  // Prix des formules : sert à calculer l'écart proposé pour « différence à régler sur place ».
+  useEffect(() => {
+    if (!open || packIds.length === 0) return;
+    let alive = true;
+    supabase.from('table_packs').select('id, name, base_price').in('id', packIds).then(({ data }) => {
+      if (!alive) return;
+      const map: Record<string, PackLite> = {};
+      (data ?? []).forEach(p => { map[p.id] = p as PackLite; });
+      setPacks(map);
+    }, () => undefined);
+    return () => { alive = false; };
+  }, [open, packIds]);
+
+  useEffect(() => {
+    if (!open) { setSelectedTableId(null); setNote(''); setChoice(null); setAmountInput(''); }
+  }, [open]);
+
+  // Mode « proposer » : le plan ne montre que les tables libres de la même formule.
+  const shownPlan = useMemo(() => {
+    if (!floorPlan || mode !== 'propose' || !reservation) return floorPlan;
+    const allowed = new Set(freeTablesOfPack(planTables ?? [], reservations, reservation.packId, reservation.id));
+    return { ...floorPlan, layout: { ...floorPlan.layout, tables: (planTables ?? []).filter(tb => allowed.has(tb.id)) } };
+  }, [floorPlan, mode, reservation, reservations, planTables]);
+
+  const selectedTable = selectedTableId ? planTables?.find(tb => tb.id === selectedTableId) : undefined;
+  const need = useMemo(() => {
+    if (!reservation || !selectedTable) return { required: false, difference: 0 };
+    return adjustmentNeed({
+      reservationPackId: reservation.packId,
+      targetPackId: selectedTable.packId,
+      reservationPrice: packs[reservation.packId ?? '']?.base_price ?? 0,
+      targetPrice: packs[selectedTable.packId ?? '']?.base_price ?? 0,
+    });
+  }, [reservation, selectedTable, packs]);
+
+  // À chaque nouvelle table : le choix d'ajustement repart de zéro, l'écart est proposé.
+  useEffect(() => {
+    setChoice(null);
+    setAmountInput(need.required ? String(need.difference) : '');
+  }, [selectedTableId, need.required, need.difference]);
+
+  const adj = need.required ? adjustmentArgs(choice, parseFloat(amountInput.replace(',', '.')) || 0) : null;
+  const adjustmentMissing = need.required && !adj;
+
+  const handleConfirm = async () => {
+    if (!reservation || !selectedTableId || adjustmentMissing) return;
     setLoading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase
-        .from('table_reservations')
-        .update({
-          placement_status: 'modified',
-          assigned_table_id: selectedTableId,
-          placement_note: note.trim() || null,
-          placement_reviewed_by: user?.id,
-          placement_reviewed_at: new Date().toISOString(),
-        })
-        .eq('id', reservation.id);
-
-      if (error) throw error;
-
-      // Send VIP modification email
-      supabase.functions.invoke('send-vip-confirmation', {
-        body: { reservation_id: reservation.id, type: 'modified' },
-      }).catch(err => console.error('Error sending VIP email:', err));
-
-      toast.success(t('vipPlacement.modificationSuccess'));
-      onRefresh();
-      onClose();
-      setSelectedTableId(null);
-      setNote('');
-    } catch {
-      toast.error(t('common.error'));
-    } finally {
+    const res = await setTablePlacement({
+      reservationId: reservation.id,
+      action: 'assign',
+      tableId: selectedTableId,
+      adjustment: need.required ? adj : null,
+      expectedPlacementStatus: reservation.placementStatus ?? null,
+    });
+    if (!res.ok) {
       setLoading(false);
+      toast.error(t(res.error.key));
+      if (res.error.refresh) { onRefresh(); onClose(); }
+      return;
     }
+    // Remarque au client : champ de service, jamais un champ de placement.
+    if (note.trim()) {
+      await supabase.from('table_reservations').update({ placement_note: note.trim() }).eq('id', reservation.id);
+    }
+    // E-mail « ta table change » seulement si la table a réellement changé.
+    let emailError: ReturnType<typeof vipErrorInfo> | null = null;
+    if (res.changedTable) emailError = await sendTableChangedEmail(reservation.id);
+    setLoading(false);
+    toast.success(t('vipPlacement.modificationSuccess'));
+    if (emailError) toast.warning(`${t('tblg.emailNotSent')} ${t(emailError.key)}`);
+    onRefresh();
+    onClose();
   };
 
-  const tableName = selectedTableId
-    ? floorPlan?.layout?.tables?.find(tbl => tbl.id === selectedTableId)?.name || selectedTableId
-    : null;
+  const tableName = selectedTable?.name || selectedTableId;
+  const targetPack = selectedTable?.packId ? packs[selectedTable.packId] : undefined;
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
@@ -85,7 +148,7 @@ export function PlacementFloorPlanSheet({
         <SheetHeader className="pb-3">
           <SheetTitle className="flex items-center gap-2 text-base">
             <ArrowRightLeft className="w-5 h-5 text-primary" />
-            {t('vipPlacement.modifyPlacement')}
+            {t(mode === 'propose' ? 'tblg.proposeTitle' : 'vipPlacement.modifyPlacement')}
           </SheetTitle>
           {reservation && (
             <p className="text-sm text-muted-foreground">
@@ -93,13 +156,15 @@ export function PlacementFloorPlanSheet({
               {reservation.zoneName && ` • ${reservation.zoneName}`}
             </p>
           )}
+          {mode === 'propose' && (
+            <p className="text-xs text-muted-foreground">{t('tblg.proposeHint')}</p>
+          )}
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4 pb-32">
-          {/* Floor plan */}
-          {floorPlan && (
+          {shownPlan && (
             <VipFloorPlan
-              floorPlan={floorPlan}
+              floorPlan={shownPlan}
               reservations={reservations}
               mode="placement"
               selectedTableId={selectedTableId || undefined}
@@ -107,7 +172,36 @@ export function PlacementFloorPlanSheet({
             />
           )}
 
-          {/* Note to client */}
+          {need.required && (
+            <div className="space-y-3 rounded-xl border p-3 mx-1" role="group" aria-label={t('tblg.adj.title')}>
+              <p className="text-sm font-semibold">{t('tblg.adj.title')}</p>
+              <p className="text-xs text-muted-foreground">
+                {t('tblg.adj.intro').replace('{pack}', targetPack?.name ?? '')}
+              </p>
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <input type="radio" name="adj" checked={choice === 'upgrade_free'} onChange={() => setChoice('upgrade_free')} className="mt-1" />
+                <span>{t('tblg.adj.upgradeFreeOption')}</span>
+              </label>
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <input type="radio" name="adj" checked={choice === 'pay_on_site'} onChange={() => setChoice('pay_on_site')} className="mt-1" />
+                <span className="flex-1">
+                  {t('tblg.adj.payOnSiteOption').replace('{amount}', formatMoneyAuto(need.difference))}
+                </span>
+              </label>
+              {choice === 'pay_on_site' && (
+                <div className="flex items-center gap-2 pl-6">
+                  <Input
+                    type="number" min="0" step="1" inputMode="decimal" value={amountInput}
+                    onChange={(e) => setAmountInput(e.target.value)} className="h-9 w-28 text-right"
+                    aria-label={t('tblg.adj.amountLabel')}
+                  />
+                  <span className="text-sm">€</span>
+                </div>
+              )}
+              <p className="text-[11px] text-muted-foreground">{t('tblg.adj.noOnlineCharge')}</p>
+            </div>
+          )}
+
           <div className="space-y-2 px-1">
             <Label className="flex items-center gap-1.5 text-sm">
               <MessageSquare className="w-3.5 h-3.5" />
@@ -123,22 +217,22 @@ export function PlacementFloorPlanSheet({
           </div>
         </div>
 
-        {/* Action button */}
         <div className="absolute bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur border-t" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}>
           <Button
             className="w-full h-12 font-semibold gap-2"
-            disabled={!selectedTableId || loading}
-            onClick={handleConfirmModification}
+            disabled={!selectedTableId || loading || adjustmentMissing}
+            onClick={handleConfirm}
           >
             {loading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               <>
                 <Check className="w-4 h-4" />
-                {tableName
-                  ? `${t('vipPlacement.confirmTo')} ${tableName}`
-                  : t('vipPlacement.selectTableFirst')
-                }
+                {!tableName
+                  ? t('vipPlacement.selectTableFirst')
+                  : adjustmentMissing
+                    ? t('tblg.adj.chooseFirst')
+                    : `${t('vipPlacement.confirmTo')} ${tableName}`}
               </>
             )}
           </Button>

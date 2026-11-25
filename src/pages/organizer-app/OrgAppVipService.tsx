@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { VipLoadError } from '@/components/owner/vip/VipLoadError';
 import { VipEventSelector } from '@/components/owner/vip/VipEventSelector';
 import { VipOverviewTab } from '@/components/owner/vip/VipOverviewTab';
 import { VipReservationsTab } from '@/components/owner/vip/VipReservationsTab';
@@ -40,7 +41,7 @@ export default function OrgAppVipService() {
   const { organizerId } = useActingOrganizer();
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
-  const { loading, events, reservations, consumptions, orders, refresh } = useOrganizerVipData(organizerId);
+  const { loading, events, reservations, consumptions, orders, loadError, refresh } = useOrganizerVipData(organizerId);
 
   const [activeTab, setActiveTab] = useState<VipTab>('overview');
   const [selectedEventId, setSelectedEventId] = useState<string>(searchParams.get('event') || 'all');
@@ -104,6 +105,7 @@ export default function OrgAppVipService() {
       totalPrice: r.totalPrice,
       deposit: r.deposit,
       createdAt: r.createdAt,
+      reservation: r,
     })), [filteredReservations, floorPlan]);
 
   const pendingPlacements = placementRequests.filter(r => r.placementStatus === 'requested').length;
@@ -159,6 +161,8 @@ export default function OrgAppVipService() {
       <OrgPage>
         {loading ? (
           <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" style={{ color: T3 }} /></div>
+        ) : loadError && events.length === 0 ? (
+          <VipLoadError onRetry={refresh} />
         ) : events.length === 0 ? (
           <VipEmpty
             icon={Crown}
@@ -168,6 +172,7 @@ export default function OrgAppVipService() {
           />
         ) : (
           <div className="space-y-4">
+            {loadError && <VipLoadError onRetry={refresh} />}
             <VipEventSelector events={events} selectedEventId={selectedEventId} onSelect={setSelectedEventId} />
 
             <div className="flex gap-0.5 overflow-x-auto scrollbar-hide" style={{ borderBottom: `1px solid ${BORDER}` }}>
@@ -289,12 +294,16 @@ export default function OrgAppVipService() {
 
         <PlacementFloorPlanSheet
           open={!!modifyingReservation}
+          mode="move"
           onClose={() => setModifyingReservation(null)}
           reservation={modifyingReservation ? {
             id: modifyingReservation.id,
             fullName: modifyingReservation.fullName,
             guestCount: modifyingReservation.guestCount,
             zoneName: modifyingReservation.zoneName,
+            packId: modifyingReservation.packId,
+            assignedTableId: modifyingReservation.assignedTableId,
+            placementStatus: modifyingReservation.placementStatus,
             requestedTableId: modifyingReservation.requestedTableId || modifyingReservation.assignedTableId,
             requestedTableName: floorPlan?.layout?.tables?.find(tb => tb.id === (modifyingReservation.requestedTableId || modifyingReservation.assignedTableId))?.name,
           } : null}

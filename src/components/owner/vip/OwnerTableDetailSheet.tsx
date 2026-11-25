@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,10 @@ import { OwnerVipReservation, OwnerVipConsumption, OwnerVipOrder } from '@/hooks
 import { translate } from '@/i18n/orgTranslate';
 import { useCanRefund } from '@/hooks/useCanRefund';
 import { formatMoneyAuto } from '@/lib/money';
+import { TableCancelDialog } from './TableCancelDialog';
+import { useTableCancelRight } from '@/hooks/useTableCancelRight';
+import { PlacementAdjustmentLine, TableMoneyBlock } from './TableMoneyBlock';
+import { Ban } from 'lucide-react';
 
 interface OwnerTableDetailSheetProps {
   reservation: OwnerVipReservation | null;
@@ -53,24 +57,12 @@ export function OwnerTableDetailSheet({
   const { t, language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   // Même droit que la page Remboursements : un membre d'équipe ou un manager
-  // sans ce droit ne voit pas de bouton que le serveur lui refuserait.
+  // sans ce droit ne voit pas de bouton que le serveur lui refuserait. Payée en
+  // ligne : seul l'encaisseur (action `rights` d'owner-refund) ; sinon tout gestionnaire.
   const canRefund = useCanRefund();
-  // …et seulement si la table a été encaissée chez l'appelant : une table de
-  // collab encaissée par le partenaire se rembourse depuis SON compte Stripe.
-  const [collectorAllows, setCollectorAllows] = useState(false);
-  const reservationId = reservation?.id;
-  useEffect(() => {
-    setCollectorAllows(false);
-    if (!open || !reservationId || !canRefund) return;
-    let alive = true;
-    supabase.functions.invoke('owner-refund', {
-      body: { action: 'rights', items: [{ type: 'table_reservation', id: reservationId }] },
-    }).then(({ data }) => {
-      const right = (data as { rights?: Record<string, { allowed: boolean }> } | null)?.rights?.[reservationId];
-      if (alive) setCollectorAllows(!!right?.allowed);
-    }, () => undefined);
-    return () => { alive = false; };
-  }, [open, reservationId, canRefund]);
+  const cancelRight = useTableCancelRight(reservation, open);
+  const collectorAllows = cancelRight;
+  const [cancelOpen, setCancelOpen] = useState(false);
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundLoading, setRefundLoading] = useState(false);
   const [editingMin, setEditingMin] = useState(false);
@@ -186,14 +178,12 @@ export function OwnerTableDetailSheet({
 
           {/* Financial summary */}
           <Card className="p-4 border-0 bg-muted/30 space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">{t('ownerTable.depositPaid')}</span>
-              <span className="font-semibold">{formatMoneyAuto(reservation.deposit)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Total table</span>
-              <span className="font-semibold">{formatMoneyAuto(reservation.totalPrice)}</span>
-            </div>
+            <TableMoneyBlock reservation={reservation} />
+            {(reservation.placementAdjustment === 'upgrade_free' || reservation.placementAdjustment === 'pay_on_site') && (
+              <div className="text-sm font-medium">
+                <PlacementAdjustmentLine adjustment={reservation.placementAdjustment} amount={reservation.placementAdjustmentAmount} />
+              </div>
+            )}
 
             {/* Minimum spend — editable / waivable live */}
             <div className="flex items-center justify-between text-sm">
@@ -329,6 +319,16 @@ export function OwnerTableDetailSheet({
             <Edit className="w-4 h-4" />
             {t('ownerTable.modifyPlacement')}
           </Button>
+          {cancelRight && (
+            <Button
+              className="flex-1 h-12 font-semibold gap-2 text-destructive hover:text-destructive"
+              variant="outline"
+              onClick={() => setCancelOpen(true)}
+            >
+              <Ban className="w-4 h-4" />
+              {t(reservation.hasOnlinePayment ? 'tblg.cancelRefund' : 'tblg.cancelReservation')}
+            </Button>
+          )}
           {showRefund && (
             <Button
               className="flex-1 h-12 font-semibold gap-2 text-destructive hover:text-destructive"
@@ -341,6 +341,13 @@ export function OwnerTableDetailSheet({
           )}
         </div>
       </SheetContent>
+
+      <TableCancelDialog
+        reservation={reservation}
+        open={cancelOpen}
+        onClose={() => setCancelOpen(false)}
+        onChanged={() => { onChanged?.(); onClose(); }}
+      />
 
       <RefundReasonDialog
         open={refundOpen}
