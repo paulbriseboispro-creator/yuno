@@ -20,6 +20,7 @@ import {
 } from '@/components/org-ui';
 import { orgEventsOr } from '@/lib/coorg';
 import { formatMoneyAuto } from '@/lib/money';
+import { touchedNothing, applyRoomBlocker } from '@/lib/tablesConfig';
 
 interface OrgTableEvent {
   id: string;
@@ -64,7 +65,7 @@ type Tab = 'events' | 'rooms';
  */
 export default function OrgAppTables() {
   const { organizerId } = useActingOrganizer();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
@@ -164,6 +165,7 @@ export default function OrgAppTables() {
       supabase
         .from('organizer_vip_rooms')
         .select('id, name, location_name, location_address, zones, packs, layout, background_image_url, times_used, last_used_at, updated_at')
+        .eq('organizer_user_id', organizerId)
         .order('updated_at', { ascending: false }),
     ]);
     setEvents((evs ?? []) as OrgTableEvent[]);
@@ -209,15 +211,28 @@ export default function OrgAppTables() {
       return;
     }
     setToggling(e.id);
-    let { error } = e.tables_enabled
-      ? await supabase.from('events').update({ tables_enabled: false }).eq('id', e.id)
-      : await supabase.rpc('enable_collab_tables', { p_event_id: e.id });
-    if (!error && !e.tables_enabled && roomId) {
-      ({ error } = await supabase.rpc('apply_vip_room_to_event', { p_room_id: roomId, p_event_id: e.id }));
-      if (!error) await supabase.from('events').update({ vip_room_id: roomId }).eq('id', e.id);
+    let error: { message: string; code?: string } | null = null;
+    if (e.tables_enabled) {
+      const res = await supabase.from('events').update({ tables_enabled: false }).eq('id', e.id).select('id');
+      error = res.error;
+      if (!error && touchedNothing(res.data)) error = { message: t('tblp.err.notSaved') };
+    } else {
+      ({ error } = await supabase.rpc('enable_collab_tables', { p_event_id: e.id }));
+      if (!error && roomId) {
+        ({ error } = await supabase.rpc('apply_vip_room_to_event', { p_room_id: roomId, p_event_id: e.id }));
+        if (!error) {
+          const { error: linkErr } = await supabase.from('events').update({ vip_room_id: roomId }).eq('id', e.id);
+          if (linkErr) toast.error(linkErr.message);
+        }
+      }
     }
     setToggling(null);
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      // La vente a pu s'activer avant l'échec du rejeu de salle : on relit l'état réel.
+      await load();
+      toast.error(error.code === '23514' ? t('tblp.room.hasReservations') : error.message);
+      return;
+    }
     capturePosthog('pillar_toggled', { pillar: 'tables', enabled: !e.tables_enabled, scope: 'organizer', event_id: e.id, organizer_user_id: organizerId });
     toast.success(e.tables_enabled
       ? tt('Vente de tables désactivée', 'Table sales disabled', 'Venta de mesas desactivada')
@@ -232,7 +247,10 @@ export default function OrgAppTables() {
     if (!applyRoom || !applyTarget) return;
     setApplying(true);
     const { error } = await supabase.rpc('apply_vip_room_to_event', { p_room_id: applyRoom.id, p_event_id: applyTarget });
-    if (!error) await supabase.from('events').update({ vip_room_id: applyRoom.id }).eq('id', applyTarget);
+    if (!error) {
+      const { error: linkErr } = await supabase.from('events').update({ vip_room_id: applyRoom.id }).eq('id', applyTarget);
+      if (linkErr) toast.error(linkErr.message);
+    }
     setApplying(false);
     if (error) {
       toast.error(error.code === '23514'
@@ -257,6 +275,14 @@ export default function OrgAppTables() {
     toast.success(tt('Salle VIP supprimée de l’historique.', 'VIP room removed from history.', 'Sala VIP eliminada del historial.'));
     load();
   };
+
+  // Pourquoi « Utiliser pour une soirée » est grisé (sinon l'organisateur ne sait pas quoi faire).
+  const roomBlocker = applyRoomBlocker({
+    hasEligibleEvent: soloUpcoming.length > 0,
+    eventHasClub: soloUpcoming.length === 0 && events.length > 0,
+    eventHasReservations: false,
+  });
+  const roomBlockerText = roomBlocker === 'club' ? t('tblp.room.blockedClub') : roomBlocker === 'no_event' ? t('tblp.room.blockedNoEvent') : null;
 
   const roomStats = (r: VipRoom) => ({
     tables: r.layout?.tables?.length ?? 0,
@@ -381,6 +407,7 @@ export default function OrgAppTables() {
                 />
               ) : (
                 <div className="space-y-2">
+                  {roomBlockerText && <p style={{ color: T3, fontSize: 12 }}>{roomBlockerText}</p>}
                   {rooms.map((r) => {
                     const st = roomStats(r);
                     return (

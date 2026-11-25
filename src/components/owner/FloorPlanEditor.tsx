@@ -26,6 +26,8 @@ import { FloorPlanTableShape } from '@/types';
 import { renderTableShape, ShapeIcon } from '@/components/vip/floorPlanShapes';
 import { getFittedBackgroundRect } from '@/lib/floorPlanBackground';
 import { formatMoneyAuto } from '@/lib/money';
+import { useTableAvailability } from '@/hooks/useTableAvailability';
+import { parseTableServerError } from '@/lib/tablesConfig';
 
 interface FloorTable {
   id: string;
@@ -173,6 +175,7 @@ export function FloorPlanEditor({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const [saving, setSaving] = useState(false);
+  const [closeError, setCloseError] = useState<string | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const canvasWrapRef = useRef<HTMLDivElement | null>(null);
   // Le contenu du Sheet vit dans un Portal Radix, rendu au rendu SUIVANT
@@ -238,6 +241,23 @@ export function FloorPlanEditor({
   const hasScope = !!(eventId || venueId || roomId);
 
   type LiveState = typeof liveRef.current;
+  type SaveResult = { ok: boolean; code?: string; message?: string };
+
+  // Tables du plan qui portent une réservation active : on ne les supprime pas (le serveur le refuse aussi, YU003).
+  const { unavailableTableIds } = useTableAvailability(open && eventId ? eventId : undefined);
+
+  // Message clair pour un échec d'enregistrement (code stable du serveur, sinon « non enregistré »).
+  const saveErrorText = (res: SaveResult): string => {
+    const parsed = parseTableServerError({ code: res.code, message: res.message });
+    if (parsed?.kind === 'pack_cap') return t('vipHost.floorPlanPackLimit');
+    if (parsed?.kind === 'table_has_reservation') {
+      const name = liveRef.current.tables.find((x) => x.id === parsed.tableId)?.name;
+      return name ? t('tblp.plan.soldTable').replace('{name}', name) : t('tblp.plan.soldTableUnknown');
+    }
+    if (res.code === '23514') return t('vipHost.floorPlanTableInUse');
+    if (res.code === 'NO_ROW') return t('tblp.plan.notSaved');
+    return `${t('tblp.plan.notSaved')} ${t('tblp.plan.notSavedHint')}`;
+  };
 
   // Atomic write, via RPC and not a PostgREST upsert: the venue-level plan is now guarded by a
   // PARTIAL unique index (venue_id WHERE event_id IS NULL), so a club can hold both its venue plan
@@ -246,7 +266,7 @@ export function FloorPlanEditor({
   // spells the predicate out. It stays SECURITY INVOKER, so RLS and the seated-table guard (23514)
   // behave exactly as before. A null id back means the write was blocked (RLS / not the owner),
   // which we surface as an error instead of reporting a phantom success.
-  const writeLayout = async (live: LiveState): Promise<{ ok: boolean; code?: string }> => {
+  const writeLayout = async (live: LiveState): Promise<SaveResult> => {
     if (!live.venueId && !live.eventId && !live.roomId) return { ok: false, code: 'NO_VENUE' };
     const layout = buildLayout(live.tables, live.zoneAreas, live.bgOffset, live.bgScale, live.showTableLabels);
     const { data: id, error } = live.roomId
@@ -268,7 +288,7 @@ export function FloorPlanEditor({
         });
     if (error) {
       console.error('Error saving floor plan:', error);
-      return { ok: false, code: (error as { code?: string }).code };
+      return { ok: false, code: (error as { code?: string }).code, message: (error as { message?: string }).message };
     }
     if (!id) {
       console.error('Floor plan save persisted no row (RLS / ownership?)');
@@ -280,7 +300,7 @@ export function FloorPlanEditor({
   // Single-flight writer: every save (autosave, manual, close) joins one promise chain, so writes
   // never overlap and each link persists the LATEST state from liveRef. Redundant links no-op via
   // the snapshot guard. This is what makes "add tables → save" land the final layout, every time.
-  const persist = (): Promise<{ ok: boolean; code?: string }> => {
+  const persist = (): Promise<SaveResult> => {
     const run = writeChainRef.current.then(async () => {
       const live = liveRef.current;
       const snap = snapshotOf(live.tables, live.zoneAreas, live.bgOffset, live.bgScale, live.backgroundUrl, live.showTableLabels);
@@ -319,6 +339,7 @@ export function FloorPlanEditor({
     // Capture the just-loaded layout as the baseline so autosave doesn't fire on open.
     lastSavedSnapshotRef.current = snapshotOf(nextTables, nextZoneAreas, nextBgOffset, nextBgScale, nextBgUrl, nextLabels);
     setSaveState('saved');
+    setCloseError(null);
     errorToastShownRef.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existingLayout, existingBackgroundUrl, open]);
@@ -335,7 +356,7 @@ export function FloorPlanEditor({
       persist().then(res => {
         if (!res.ok && !errorToastShownRef.current) {
           errorToastShownRef.current = true;
-          toast.error(res.code === 'YU001' ? t('vipHost.floorPlanPackLimit') : res.code === '23514' ? t('vipHost.floorPlanTableInUse') : t('common.error'));
+          toast.error(saveErrorText(res));
         }
       });
     }, 1000);
@@ -473,6 +494,11 @@ export function FloorPlanEditor({
   };
 
   const removeTable = (tableId: string) => {
+    if (unavailableTableIds.has(tableId)) {
+      const name = tables.find(t => t.id === tableId)?.name ?? '';
+      toast.error(t('tblp.plan.soldTable').replace('{name}', name));
+      return;
+    }
     setTables(renumberTables(tables.filter(t => t.id !== tableId)));
     if (selectedTable === tableId) setSelectedTable(null);
   };
@@ -801,21 +827,50 @@ export function FloorPlanEditor({
       onClose();
     } else {
       // 23514 = the prevent_floor_plan_table_removal guard (table still seated).
-      toast.error(res.code === 'YU001' ? t('vipHost.floorPlanPackLimit') : res.code === '23514' ? t('vipHost.floorPlanTableInUse') : t('common.error'));
+      toast.error(saveErrorText(res));
     }
   };
 
-  // Closing via the X / overlay — flush any unsaved change through the chain, then refresh + close.
-  const requestClose = () => {
+  // Closing via the X / overlay — on attend la sauvegarde. Un échec garde l'éditeur ouvert
+  // avec l'erreur et « Réessayer » : on ne perd jamais un plan en silence.
+  const requestClose = async () => {
     if (autoSaveTimer.current) { clearTimeout(autoSaveTimer.current); autoSaveTimer.current = null; }
-    const snapshot = snapshotOf(tables, zoneAreas, bgOffset, bgScale, backgroundUrl);
+    const live = liveRef.current;
+    const snapshot = snapshotOf(live.tables, live.zoneAreas, live.bgOffset, live.bgScale, live.backgroundUrl, live.showTableLabels);
     if (hasScope && snapshot !== lastSavedSnapshotRef.current) {
-      persist().finally(() => onSave());
-    } else {
-      onSave();
+      setSaving(true);
+      const res = await persist();
+      setSaving(false);
+      if (!res.ok) {
+        setCloseError(saveErrorText(res));
+        return;
+      }
     }
+    setCloseError(null);
+    onSave();
     onClose();
   };
+
+  const retrySave = async () => {
+    setSaving(true);
+    const res = await persist();
+    setSaving(false);
+    if (res.ok) { setCloseError(null); toast.success(t('vipHost.floorPlanSaved')); onSave(); }
+    else setCloseError(saveErrorText(res));
+  };
+
+  // Tant qu'il reste des changements non enregistrés, fermer l'onglet demande confirmation.
+  useEffect(() => {
+    if (!open || !hasScope) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      const live = liveRef.current;
+      const snap = snapshotOf(live.tables, live.zoneAreas, live.bgOffset, live.bgScale, live.backgroundUrl, live.showTableLabels);
+      if (snap !== lastSavedSnapshotRef.current) { e.preventDefault(); e.returnValue = ''; }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, hasScope]);
 
   const selectedTableData = tables.find(t => t.id === selectedTable);
   const selectedZoneAreaData = zoneAreas.find(z => z.id === selectedZoneArea);
@@ -907,6 +962,14 @@ export function FloorPlanEditor({
             </div>
           </SheetTitle>
         </SheetHeader>
+        {(closeError || saveState === 'error') && (
+          <div role="alert" className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <span className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 shrink-0" />{closeError ?? t('tblp.plan.notSaved')}</span>
+            <Button size="sm" variant="outline" onClick={retrySave} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : t('tblp.plan.retry')}
+            </Button>
+          </div>
+        )}
 
         <div className="flex gap-4 h-[calc(100%-80px)]">
           {/* Canvas */}

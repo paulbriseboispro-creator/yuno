@@ -18,6 +18,12 @@ import { FloorPlanEditor } from '@/components/owner/FloorPlanEditor';
 import { useTableAvailability } from '@/hooks/useTableAvailability';
 import type { VenueFloorPlan } from '@/types';
 import { formatMoneyAuto } from '@/lib/money';
+import { useActingOrganizer } from '@/hooks/useActingOrganizer';
+import { TablesPaymentsBanner } from '@/components/tables/TablesPaymentsBanner';
+import {
+  validatePackForm, hasErrors, parseTableServerError, tablesWithoutPack, touchedNothing, tablesCollector,
+  type PackFormErrors,
+} from '@/lib/tablesConfig';
 
 interface OrgEventTablesPanelProps {
   eventId: string;
@@ -86,6 +92,7 @@ const daInputStyle: React.CSSProperties = {
 export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full', onChanged }: OrgEventTablesPanelProps) {
   const { language, t } = useLanguage();
   const navigate = useNavigate();
+  const { can: orgCan } = useActingOrganizer();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 
   const [loading, setLoading] = useState(true);
@@ -106,6 +113,8 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
   // affichait « 0 zones · 0 packs » à l'organisateur alors que quatre formules
   // se vendaient — il croyait les tables non configurées.
   const [clubHosted, setClubHosted] = useState(false);
+  // Club partenaire (soirée d'organisateur dont le club n'est que partenaire).
+  const [partnerClubId, setPartnerClubId] = useState<string | null>(null);
   const [clubPacksCount, setClubPacksCount] = useState<number | null>(null);
   // When true, the plan + zones come from the club and are read-only here —
   // the organizer only configures packs/prices on top of the club's layout.
@@ -160,6 +169,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
 
   // Pack dialog
   const [packOpen, setPackOpen] = useState(false);
+  const [packErrors, setPackErrors] = useState<PackFormErrors>({});
   const [editingPack, setEditingPack] = useState<BasicPack | null>(null);
   const [packForm, setPackForm] = useState({
     zone_id: '',
@@ -189,7 +199,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
         supabase.from('table_zones').select('id, name, color, tables_count, position').eq('event_id', eventId).order('position', { ascending: true, nullsFirst: false }),
         supabase.from('table_packs').select('id, zone_id, name, description, base_price, base_capacity, deposit, arrival_deadline, is_active, payment_mode, limit_tables, tables_count').eq('event_id', eventId),
         supabase.from('venue_floor_plans').select('id, venue_id, layout, background_image_url').eq('event_id', eventId).maybeSingle(),
-        supabase.from('organizer_vip_rooms').select('id, name, location_name').order('updated_at', { ascending: false }),
+        supabase.from('organizer_vip_rooms').select('id, name, location_name').eq('organizer_user_id', organizerUserId).order('updated_at', { ascending: false }),
       ]);
       setRooms((rms ?? []) as VipRoomOption[]);
       setLinkedRoomId(ev?.vip_room_id ?? null);
@@ -203,6 +213,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
       setResponsibilities(ev?.collab_responsibilities ?? null);
       setClubId(ev?.venue_id ?? ev?.partner_venue_id ?? null);
       setClubHosted(!!ev?.venue_id);
+      setPartnerClubId(ev?.partner_venue_id ?? null);
       if (ev?.venue_id) {
         const { count } = await supabase
           .from('table_packs')
@@ -232,7 +243,26 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
     }
   };
 
+  // Message clair pour une formule refusée par le serveur (YU002), sinon le message générique.
+  const packInvalidText = (reason: string): string => {
+    const k = `tblp.err.${reason}`;
+    const txt = t(k);
+    return txt === k ? t('tblp.err.pack_invalid') : txt;
+  };
+
+  // Avant d'ouvrir la vente d'une soirée élite : les tables du plan sans formule ne pourraient pas se vendre.
+  const confirmElitePlanReady = (): boolean => {
+    const planTables = (floorPlan?.layout?.tables ?? []) as { id: string; name?: string; packId?: string | null }[];
+    if (planTables.length === 0) return true;
+    const activePackIds = new Set(packs.filter((pk) => pk.is_active).map((pk) => pk.id));
+    const loose = tablesWithoutPack(planTables, activePackIds);
+    if (loose.length === 0) return true;
+    const names = loose.slice(0, 8).map((x) => x.name || x.id).join(', ') + (loose.length > 8 ? '…' : '');
+    return confirm(t('tblp.elite.looseTables').replace('{n}', String(loose.length)).replace('{names}', names));
+  };
+
   const enableTables = async () => {
+    if (!confirmElitePlanReady()) return;
     // RPC : avec un club → ÉLITE si le club a un plan interactif (le client
     // choisit sa table sur le plan du club), sinon BASIC (zones du club clonées
     // et verrouillées, l'orga règle ses packs/prix). Sans club → l'organisateur
@@ -252,7 +282,10 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
     if (!roomToApply) return;
     setApplyingRoom(true);
     const { error } = await supabase.rpc('apply_vip_room_to_event', { p_room_id: roomToApply, p_event_id: eventId });
-    if (!error) await supabase.from('events').update({ vip_room_id: roomToApply }).eq('id', eventId);
+    if (!error) {
+      const { error: linkErr } = await supabase.from('events').update({ vip_room_id: roomToApply }).eq('id', eventId);
+      if (linkErr) toast.error(linkErr.message);
+    }
     setApplyingRoom(false);
     if (error) {
       toast.error(error.code === '23514'
@@ -281,7 +314,10 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
       p_name: saveRoomName.trim() || null,
       p_room_id: saveRoomTarget === 'new' ? null : saveRoomTarget,
     });
-    if (!error && savedRoomId) await supabase.from('events').update({ vip_room_id: savedRoomId as string }).eq('id', eventId);
+    if (!error && savedRoomId) {
+      const { error: linkErr } = await supabase.from('events').update({ vip_room_id: savedRoomId as string }).eq('id', eventId);
+      if (linkErr) toast.error(linkErr.message);
+    }
     setSavingRoom(false);
     if (error) {
       toast.error(error.code === '23514'
@@ -298,14 +334,16 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
 
   const disableTables = async () => {
     if (!confirm(tt('Désactiver la vente de tables pour cet event ?', 'Disable table sales for this event?', '¿Desactivar la venta de mesas para este evento?'))) return;
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('events')
       .update({ tables_enabled: false })
-      .eq('id', eventId);
+      .eq('id', eventId)
+      .select('id');
     if (error) {
       toast.error(error.message);
       return;
     }
+    if (touchedNothing(data)) { toast.error(t('tblp.err.notSaved')); return; }
     toast.success(tt('Vente de tables désactivée', 'Table sales disabled', 'Venta de mesas desactivada'));
     loadAll();
     onChanged?.();
@@ -314,6 +352,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
   // Soirée sans club : basic (réservation d'une zone) ⇄ élite (le client
   // pointe sa table sur le plan). Le serveur refuse l'élite sans plan.
   const setMode = async (elite: boolean) => {
+    if (elite && !confirmElitePlanReady()) return;
     setModeSaving(true);
     const { error } = await supabase.rpc('set_event_tables_mode', { p_event_id: eventId, p_mode: elite ? 'elite' : 'basic' });
     setModeSaving(false);
@@ -356,7 +395,11 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
       if (n === undefined || pk.limit_tables) return [];
       return [supabase.from('table_packs').update({ tables_count: n, limit_tables: true }).eq('id', pk.id)];
     });
-    if (updates.length + packUpdates.length > 0) await Promise.all([...updates, ...packUpdates]);
+    if (updates.length + packUpdates.length > 0) {
+      const results = await Promise.all([...updates, ...packUpdates]);
+      const failed = results.find((r) => r.error);
+      if (failed?.error) toast.error(failed.error.message);
+    }
   };
 
   // ---- Zones ----
@@ -385,13 +428,14 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
       // (la zone est alors purement event-scopée).
       venue_id: clubId,
     };
-    const { error } = editingZone
-      ? await supabase.from('table_zones').update(payload).eq('id', editingZone.id)
-      : await supabase.from('table_zones').insert(payload);
+    const { data: savedZone, error } = editingZone
+      ? await supabase.from('table_zones').update(payload).eq('id', editingZone.id).select('id')
+      : await supabase.from('table_zones').insert(payload).select('id');
     if (error) {
       toast.error(error.message);
       return;
     }
+    if (touchedNothing(savedZone)) { toast.error(t('tblp.err.notSaved')); return; }
     toast.success(editingZone ? tt('Zone modifiée', 'Zone updated', 'Zona actualizada') : tt('Zone créée', 'Zone created', 'Zona creada'));
     setZoneOpen(false);
     loadAll();
@@ -438,6 +482,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
             tables_count: '1',
           },
     );
+    setPackErrors({});
     setPackOpen(true);
   };
 
@@ -446,6 +491,12 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
       toast.error(tt('Zone, nom et prix requis', 'Zone, name and price required', 'Zona, nombre y precio obligatorios'));
       return;
     }
+    const errs = validatePackForm({
+      basePrice: packForm.base_price, baseCapacity: packForm.base_capacity,
+      deposit: packForm.deposit, depositType: 'fixed', paymentMode: packForm.payment_mode,
+    });
+    setPackErrors(errs);
+    if (hasErrors(errs)) return;
     const payload = {
       zone_id: packForm.zone_id,
       name: packForm.name.trim(),
@@ -463,15 +514,21 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
       created_by_user_id: organizerUserId,
       venue_id: clubId,
     };
-    const { error } = editingPack
-      ? await supabase.from('table_packs').update(payload).eq('id', editingPack.id)
-      : await supabase.from('table_packs').insert(payload);
+    const { data: saved, error } = editingPack
+      ? await supabase.from('table_packs').update(payload).eq('id', editingPack.id).select('id')
+      : await supabase.from('table_packs').insert(payload).select('id');
     if (error) {
-      toast.error(error.code === 'YU001'
-        ? tt('Le plan lie déjà plus de tables à cette formule que ce plafond. Retirez d’abord des tables sur le plan.', 'The plan already pins more tables to this package than this cap. Remove tables from the plan first.', 'El plano ya vincula más mesas a esta fórmula que este tope. Quita primero mesas del plano.')
-        : error.message);
+      const parsed = parseTableServerError(error);
+      if (parsed?.kind === 'pack_cap') {
+        toast.error(tt('Le plan lie déjà plus de tables à cette formule que ce plafond. Retirez d’abord des tables sur le plan.', 'The plan already pins more tables to this package than this cap. Remove tables from the plan first.', 'El plano ya vincula más mesas a esta fórmula que este tope. Quita primero mesas del plano.'));
+      } else if (parsed?.kind === 'pack_invalid') {
+        toast.error(packInvalidText(parsed.reason));
+      } else {
+        toast.error(error.message);
+      }
       return;
     }
+    if (touchedNothing(saved)) { toast.error(t('tblp.err.notSaved')); return; }
     toast.success(editingPack ? tt('Pack modifié', 'Pack updated', 'Pack actualizado') : tt('Pack créé', 'Pack created', 'Pack creado'));
     setPackOpen(false);
     loadAll();
@@ -522,6 +579,21 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
 
   if (loading) return <OrgCard style={{ padding: 24 }}><p style={{ color: T3, fontSize: 13 }}>…</p></OrgCard>;
 
+  // « Paiements prêts » : qui encaisse les tables de la soirée, et si son Stripe peut encaisser.
+  // Les formules réglées sur place ne passent jamais par Stripe (le bandeau le dit).
+  const paymentsBanner = (
+    <TablesPaymentsBanner
+      eventId={eventId}
+      collector={tablesCollector({ venue_id: clubHosted ? clubId : null })}
+      viewer="organizer"
+      hasOnlinePacks={packs.length === 0 ? true : packs.some((pk) => pk.is_active && pk.payment_mode !== 'on_site')}
+      canManageStripe={orgCan.manageOrganization}
+      paymentsPath="/organizer-app/payments"
+      hasPartnerClub={!!partnerClubId}
+      onGoToPayments={() => navigate('/organizer-app/payments')}
+    />
+  );
+
   // Les OPÉRATIONS (tables, plan de salle) peuvent être confiées au club seul :
   // soit par le mode org_hosted, soit — depuis l'axe responsabilités — sur
   // n'importe quelle co-soirée où l'orga tient le design et le club la logistique.
@@ -544,6 +616,8 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
         {/* Lecture seule : le plan interactif du club (celui que voit le client) +
             les réservations VIP de la soirée. Savoir ce qui est en ligne sans y toucher. */}
         <div className="mt-3">
+          {paymentsBanner}
+          <p className="mb-2 flex items-center gap-1.5" style={{ color: T3, fontSize: 11.5 }}><Lock className="h-3.5 w-3.5" /> {t('tblp.club.packsLabel')}</p>
           <CollabTablesPreview eventId={eventId} />
         </div>
       </OrgCard>
@@ -555,10 +629,12 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
   // « Complet ». « Toutes les tables » prime sur le détail par formule.
   const toggleTablesSoldOut = async () => {
     const next = !tablesSoldOut;
-    const { error } = await supabase.from('events')
+    const { data, error } = await supabase.from('events')
       .update({ tables_sold_out: next, ...(next ? { sold_out_pack_ids: [] } : {}) })
-      .eq('id', eventId);
+      .eq('id', eventId)
+      .select('id');
     if (error) { toast.error(error.message); return; }
+    if (touchedNothing(data)) { toast.error(t('tblp.err.notSaved')); return; }
     setTablesSoldOut(next);
     if (next) setSoldOutPackIds([]);
     toast.success(next ? tt('Tables marquées complètes.', 'Tables marked sold out.', 'Mesas marcadas como agotadas.')
@@ -569,8 +645,9 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
     const next = soldOutPackIds.includes(packId)
       ? soldOutPackIds.filter((id) => id !== packId)
       : [...soldOutPackIds, packId];
-    const { error } = await supabase.from('events').update({ sold_out_pack_ids: next }).eq('id', eventId);
+    const { data, error } = await supabase.from('events').update({ sold_out_pack_ids: next }).eq('id', eventId).select('id');
     if (error) { toast.error(error.message); return; }
+    if (touchedNothing(data)) { toast.error(t('tblp.err.notSaved')); return; }
     setSoldOutPackIds(next);
   };
 
@@ -646,6 +723,10 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
             {tt('Désactiver', 'Disable', 'Desactivar')}
           </OrgButton>
         </div>
+        {paymentsBanner}
+        <p className="mb-3 flex items-center gap-1.5" style={{ color: T3, fontSize: 11.5 }}>
+          <Lock className="h-3.5 w-3.5" /> {t('tblp.club.readOnly')}
+        </p>
 
         {hasInteractivePlan ? (
           <>
@@ -730,6 +811,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
             {tt('Activer la vente de tables', 'Enable table sales', 'Activar la venta de mesas')}
           </OrgButton>
         </div>
+        <div className="mt-4">{paymentsBanner}</div>
         {/* Historique : rejouer une salle VIP déjà construite dans cet établissement. */}
         {soloOrganizer && rooms.length > 0 && (
           <div className="mt-4 flex flex-wrap items-end gap-2 rounded-xl p-3" style={{ border: `1px solid ${BORDER}`, background: INNER_BG }}>
@@ -766,6 +848,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
 
   return (
     <OrgCard style={{ padding: 24 }}>
+      {paymentsBanner}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2" style={{ color: T1, fontSize: 16, fontWeight: 600 }}>
@@ -1405,6 +1488,9 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
               <div><FieldLabel>{tt('Capacité', 'Guests', 'Capacidad')}</FieldLabel><input type="number" min="1" value={packForm.base_capacity} onChange={(e) => setPackForm({ ...packForm, base_capacity: e.target.value })} style={daInputStyle} /></div>
               <div><FieldLabel>{tt('Acompte €', 'Deposit €', 'Señal €')}</FieldLabel><input type="number" min="0" value={packForm.deposit} disabled={packForm.payment_mode === 'on_site'} onChange={(e) => setPackForm({ ...packForm, deposit: e.target.value })} style={{ ...daInputStyle, opacity: packForm.payment_mode === 'on_site' ? 0.4 : 1 }} /></div>
             </div>
+            {(['basePrice', 'baseCapacity', 'deposit'] as const).map((k) => packErrors[k] && (
+              <p key={k} role="alert" style={{ color: 'var(--acc-ff5c63)', fontSize: 11.5, marginTop: -4, lineHeight: 1.45 }}>{packInvalidText(packErrors[k] as string)}</p>
+            ))}
             {/* Acompte 0 = paiement INTÉGRAL au checkout : dit noir sur blanc,
                 sinon une table « 800 € sans acompte » débite 800 € sans prévenir. */}
             {packForm.payment_mode !== 'on_site' && <p style={{ color: (parseFloat(packForm.deposit) || 0) > 0 ? T3 : 'var(--acc-e8a019)', fontSize: 11, marginTop: -4, lineHeight: 1.45 }}>

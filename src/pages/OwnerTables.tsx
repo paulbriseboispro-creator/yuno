@@ -1,5 +1,8 @@
 import { useState, useEffect, type ComponentProps, type ComponentType } from 'react';
 import { Plus, Pencil, Trash2, Package, Layers, Save, FolderOpen, Zap, Calendar, Check, LayoutGrid, Clock, Ban } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { TablesPaymentsBanner } from '@/components/tables/TablesPaymentsBanner';
+import { validatePackForm, hasErrors, parseTableServerError, tablesWithoutPack, touchedNothing, type PackFormErrors } from '@/lib/tablesConfig';
 import { FloorPlanEditor } from '@/components/owner/FloorPlanEditor';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -73,7 +76,8 @@ type TabKey = 'events' | 'zones' | 'packs' | 'presets';
 
 export default function OwnerTables() {
   const { t, language } = useLanguage();
-  const { venueId, loading: venueLoading } = useVenueContext();
+  const navigate = useNavigate();
+  const { venueId, loading: venueLoading, mode: consoleMode } = useVenueContext();
   const { isReadOnly: collabReadOnly } = useCollabReadOnly();
 
   const [events, setEvents] = useState<(Event & { tablesEnabled: boolean; tablesSoldOut: boolean; soldOutPackIds: string[] })[]>([]);
@@ -93,6 +97,7 @@ export default function OwnerTables() {
   const [zoneFormData, setZoneFormData] = useState({ name: '', color: '#3b82f6', tablesCount: '1', lastTablesThreshold: '20' });
 
   const [isPackDialogOpen, setIsPackDialogOpen] = useState(false);
+  const [packErrors, setPackErrors] = useState<PackFormErrors>({});
   const [editingPack, setEditingPack] = useState<TablePack | null>(null);
   const [selectedZoneForPack, setSelectedZoneForPack] = useState('');
   const [packFormData, setPackFormData] = useState({ name: '', description: '', basePrice: '', baseCapacity: '6', maxExtraPersons: '0', extraPersonPrice: '0', deposit: '0', depositType: 'fixed' as 'fixed' | 'percentage', minimumSpend: '0', arrivalDeadline: '', tablesCount: '1', limitTables: false, isActive: true });
@@ -153,7 +158,9 @@ export default function OwnerTables() {
       return [supabase.from('table_packs').update({ tables_count: n, limit_tables: true }).eq('id', pk.id)];
     });
     if (updates.length === 0 && packUpdates.length === 0) return;
-    await Promise.all([...updates, ...packUpdates]);
+    const synced = await Promise.all([...updates, ...packUpdates]);
+    const syncFailed = synced.find(r => r.error);
+    if (syncFailed?.error) toast.error(syncFailed.error.message);
     fetchZones();
     if (packUpdates.length > 0) fetchPacks();
   };
@@ -209,9 +216,21 @@ export default function OwnerTables() {
   useEffect(() => { if (events.length > 0) fetchEventSettings(); }, [events.length]);
 
   const handleToggleTables = async (event: Event & { tablesEnabled: boolean }) => {
+    // Avant d'ouvrir la vente : les tables du plan du club sans formule liée ne pourraient pas se vendre.
+    if (!event.tablesEnabled) {
+      const planTables = ((floorPlan?.layout as { tables?: { id: string; name?: string; packId?: string | null }[] } | null)?.tables) ?? [];
+      if (planTables.length > 0) {
+        const loose = tablesWithoutPack(planTables, new Set(packs.filter(p => p.isActive).map(p => p.id)));
+        if (loose.length > 0) {
+          const names = loose.slice(0, 8).map(x => x.name || x.id).join(', ') + (loose.length > 8 ? '…' : '');
+          if (!confirm(t('tblp.elite.looseTables').replace('{n}', String(loose.length)).replace('{names}', names))) return;
+        }
+      }
+    }
     try {
-      const { error } = await supabase.from('events').update({ tables_enabled: !event.tablesEnabled }).eq('id', event.id);
+      const { data, error } = await supabase.from('events').update({ tables_enabled: !event.tablesEnabled }).eq('id', event.id).select('id');
       if (error) throw error;
+      if (touchedNothing(data)) { toast.error(t('tblp.err.notSaved')); return; }
       capturePosthog('pillar_toggled', { pillar: 'tables', enabled: !event.tablesEnabled, scope: 'venue', event_id: event.id, venue_id: venueId });
       toast.success(event.tablesEnabled ? t('tables.tablesDisabled') : t('tables.tablesEnabled'));
       fetchEvents();
@@ -225,10 +244,12 @@ export default function OwnerTables() {
   const handleToggleEventTablesSoldOut = async (event: { id: string; tablesSoldOut: boolean }) => {
     const next = !event.tablesSoldOut;
     try {
-      const { error } = await supabase.from('events')
+      const { data, error } = await supabase.from('events')
         .update({ tables_sold_out: next, ...(next ? { sold_out_pack_ids: [] } : {}) })
-        .eq('id', event.id);
+        .eq('id', event.id)
+        .select('id');
       if (error) throw error;
+      if (touchedNothing(data)) { toast.error(t('tblp.err.notSaved')); return; }
       toast.success(next ? t('soldOut.marked') : t('soldOut.cleared'));
       fetchEvents();
     } catch { toast.error(t('tables.errorSaving')); }
@@ -238,8 +259,9 @@ export default function OwnerTables() {
     const current = event.soldOutPackIds ?? [];
     const next = current.includes(packId) ? current.filter(id => id !== packId) : [...current, packId];
     try {
-      const { error } = await supabase.from('events').update({ sold_out_pack_ids: next }).eq('id', event.id);
+      const { data, error } = await supabase.from('events').update({ sold_out_pack_ids: next }).eq('id', event.id).select('id');
       if (error) throw error;
+      if (touchedNothing(data)) { toast.error(t('tblp.err.notSaved')); return; }
       setEvents(prev => prev.map(e => e.id === event.id ? { ...e, soldOutPackIds: next } : e));
     } catch { toast.error(t('tables.errorSaving')); }
   };
@@ -272,8 +294,8 @@ export default function OwnerTables() {
     } catch { toast.error(t('tables.errorSaving')); }
   };
 
-  const handleAddPack = (zoneId?: string) => { setEditingPack(null); setSelectedZoneForPack(zoneId || zones[0]?.id || ''); setPackFormData({ name: '', description: '', basePrice: '', baseCapacity: '6', maxExtraPersons: '0', extraPersonPrice: '0', deposit: '0', depositType: 'fixed', minimumSpend: '0', arrivalDeadline: '', tablesCount: '1', limitTables: false, isActive: true }); setIsPackDialogOpen(true); };
-  const handleEditPack = (pack: TablePack) => { setEditingPack(pack); setSelectedZoneForPack(pack.zoneId); setPackFormData({ name: pack.name, description: pack.description || '', basePrice: pack.basePrice.toString(), baseCapacity: pack.baseCapacity.toString(), maxExtraPersons: pack.maxExtraPersons.toString(), extraPersonPrice: pack.extraPersonPrice.toString(), deposit: pack.deposit.toString(), depositType: pack.depositType || 'fixed', minimumSpend: (pack.minimumSpend || 0).toString(), arrivalDeadline: pack.arrivalDeadline || '', tablesCount: pack.tablesCount.toString(), limitTables: !!pack.limitTables, isActive: pack.isActive }); setIsPackDialogOpen(true); };
+  const handleAddPack = (zoneId?: string) => { setEditingPack(null); setSelectedZoneForPack(zoneId || zones[0]?.id || ''); setPackFormData({ name: '', description: '', basePrice: '', baseCapacity: '6', maxExtraPersons: '0', extraPersonPrice: '0', deposit: '0', depositType: 'fixed', minimumSpend: '0', arrivalDeadline: '', tablesCount: '1', limitTables: false, isActive: true }); setPackErrors({}); setIsPackDialogOpen(true); };
+  const handleEditPack = (pack: TablePack) => { setEditingPack(pack); setSelectedZoneForPack(pack.zoneId); setPackFormData({ name: pack.name, description: pack.description || '', basePrice: pack.basePrice.toString(), baseCapacity: pack.baseCapacity.toString(), maxExtraPersons: pack.maxExtraPersons.toString(), extraPersonPrice: pack.extraPersonPrice.toString(), deposit: pack.deposit.toString(), depositType: pack.depositType || 'fixed', minimumSpend: (pack.minimumSpend || 0).toString(), arrivalDeadline: pack.arrivalDeadline || '', tablesCount: pack.tablesCount.toString(), limitTables: !!pack.limitTables, isActive: pack.isActive }); setPackErrors({}); setIsPackDialogOpen(true); };
   const handleDeletePack = async (packId: string) => {
     try { const { error } = await supabase.from('table_packs').delete().eq('id', packId); if (error) throw error; toast.success(t('tables.packDeleted')); fetchPacks(); }
     catch (e) { toast.error(deleteErrorMessage(e)); }
@@ -282,12 +304,28 @@ export default function OwnerTables() {
   const handleSavePack = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!venueId || !selectedZoneForPack || !packFormData.name || !packFormData.basePrice) { toast.error(t('tables.fillRequired')); return; }
+    const errs = validatePackForm({
+      basePrice: packFormData.basePrice, baseCapacity: packFormData.baseCapacity, maxExtraPersons: packFormData.maxExtraPersons,
+      extraPersonPrice: packFormData.extraPersonPrice, deposit: packFormData.deposit, depositType: packFormData.depositType,
+      minimumSpend: packFormData.minimumSpend, paymentMode: 'online',
+    });
+    setPackErrors(errs);
+    if (hasErrors(errs)) return;
     try {
       const data = { venue_id: venueId, zone_id: selectedZoneForPack, name: packFormData.name, description: packFormData.description || null, base_price: parseFloat(packFormData.basePrice), base_capacity: Math.max(1, parseInt(packFormData.baseCapacity) || 1), extra_person_price: Math.max(0, parseFloat(packFormData.extraPersonPrice) || 0), max_extra_persons: Math.max(0, parseInt(packFormData.maxExtraPersons) || 0), deposit: parseFloat(packFormData.deposit) || 0, deposit_type: packFormData.depositType, included_bottles_quota: 0, minimum_spend: parseFloat(packFormData.minimumSpend) || 0, arrival_deadline: packFormData.arrivalDeadline || null, tables_count: Math.max(1, parseInt(packFormData.tablesCount) || 1), limit_tables: packFormData.limitTables, is_active: packFormData.isActive, position: editingPack?.position ?? packs.filter(p => p.zoneId === selectedZoneForPack).length };
-      if (editingPack) { const { error } = await supabase.from('table_packs').update(data).eq('id', editingPack.id); if (error) throw error; toast.success(t('tables.packUpdated')); }
-      else { const { error } = await supabase.from('table_packs').insert(data); if (error) throw error; toast.success(t('tables.packCreated')); }
+      if (editingPack) {
+        const { data: saved, error } = await supabase.from('table_packs').update(data).eq('id', editingPack.id).select('id');
+        if (error) throw error;
+        if (touchedNothing(saved)) { toast.error(t('tblp.err.notSaved')); return; }
+        toast.success(t('tables.packUpdated'));
+      } else { const { error } = await supabase.from('table_packs').insert(data); if (error) throw error; toast.success(t('tables.packCreated')); }
       setIsPackDialogOpen(false); fetchPacks();
-    } catch (e) { toast.error((e as { code?: string })?.code === 'YU001' ? t('tables.packLimitBelowPlan') : t('tables.errorSaving')); }
+    } catch (e) {
+      const parsed = parseTableServerError(e as { code?: string; message?: string });
+      if (parsed?.kind === 'pack_cap') toast.error(t('tables.packLimitBelowPlan'));
+      else if (parsed?.kind === 'pack_invalid') { const k = `tblp.err.${parsed.reason}`; const txt = t(k); toast.error(txt === k ? t('tblp.err.pack_invalid') : txt); }
+      else toast.error(t('tables.errorSaving'));
+    }
   };
 
   const handleCreatePreset = () => { setEditingPreset(null); setPresetFormData({ name: '', selectedPacks: packs.map(p => ({ packId: p.id, customPrice: p.basePrice.toString(), useCustomPrice: false })) }); setIsPresetDialogOpen(true); };
@@ -362,6 +400,17 @@ export default function OwnerTables() {
 
       <main className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 pt-2 pb-4 space-y-4">
         <CollabReadOnlyBanner action={t('collab.action.manageTables')} />
+
+        {/* « Paiements prêts » : le club encaisse les acomptes de ses tables. */}
+        <TablesPaymentsBanner
+          venueId={venueId}
+          collector="club"
+          viewer="club"
+          hasOnlinePacks={packs.length === 0 ? true : packs.some(p => p.isActive)}
+          canManageStripe={consoleMode === 'owner'}
+          paymentsPath="/owner/billing"
+          onGoToPayments={() => navigate('/owner/billing')}
+        />
 
         {/* Floor Plan Card */}
         <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 20 }}>
@@ -765,6 +814,9 @@ export default function OwnerTables() {
                 <div className="flex-1"><DarkInput type="number" step={packFormData.depositType === 'percentage' ? '1' : '0.01'} min="0" max={packFormData.depositType === 'percentage' ? '100' : undefined} value={packFormData.deposit} onChange={v => setPackFormData({ ...packFormData, deposit: v })} placeholder={packFormData.depositType === 'percentage' ? '20' : '50'} /></div>
               </div>
             </div>
+            {(['basePrice', 'baseCapacity', 'maxExtraPersons', 'extraPersonPrice', 'minimumSpend', 'deposit'] as const).map(k => packErrors[k] && (
+              <p key={k} role="alert" style={{ color: 'var(--acc-ff5c63)', fontSize: 11.5, lineHeight: 1.45 }}>{(() => { const key = `tblp.err.${packErrors[k]}`; const txt = t(key); return txt === key ? t('tblp.err.pack_invalid') : txt; })()}</p>
+            ))}
             {/* Heure d'arrivée limite (optionnelle) — quand activée, affichée au client à la résa */}
             <div>
               <label className="flex items-center gap-3 p-3 rounded-xl cursor-pointer" style={{ background: packFormData.arrivalDeadline ? 'rgba(232,25,44,0.06)' : INNER_BG, border: `1px solid ${packFormData.arrivalDeadline ? 'rgba(232,25,44,0.18)' : BORDER}` }}>
