@@ -175,14 +175,10 @@ puis grep final : `grep -rniE "minor|mineur|menor|alcohol_free|alcoholFree" src 
       vérifié avant ; répond normalement).
 - [x] OTA publiée : client 1.0.92, Pro 1.0.100, canaux production ET beta (24/11).
 - [x] 3 fichiers de test + bucket `minor-auth-uploads` supprimés par l'API Storage.
-- [ ] **Migration `20261220100000`** : volontairement EN ATTENTE. Une app restée sur
-      un ancien bundle (avant 1.0.92 / 1.0.100) lit encore `events.alcohol_free` et
-      les colonnes de `PUBLIC_VENUE_COLUMNS` : après la migration, la page billets,
-      la page club et le SCAN DU VIDEUR y tombent. Les apps prennent l'OTA à une
-      ouverture et l'appliquent à la suivante. Il y avait des ventes en cours et une
-      vraie soirée (Midnight House, 26/11 00:00 Paris). Appliquer après la soirée,
-      une fois `npm run ota:devices` montrant les appareils actifs en 1.0.92 / 1.0.100.
-      Commande : répéter en transaction annulée (cf. plus haut), puis
-      `supabase db push` ou API + `schema_migrations` + `NOTIFY pgrst, 'reload schema'`.
-- [ ] Après la migration : `supabase gen types … 2>/dev/null > src/integrations/supabase/types.ts`,
-      `python3 scripts/check-selects.py`, `supabase db lint --linked`, commit + push.
+- [x] **Migration `20261220100000`** appliquée le 26/11 (~10 h 35, après Midnight House ; appareils actifs en
+      1.0.92 / 1.0.100). Inscrite dans `schema_migrations`, schéma de l'API rechargé. Aucune fonction ni policy
+      ne cite plus les objets supprimés (vérifié par `pg_get_functiondef` et `pg_policies`).
+      Attention : le fichier porte son propre `BEGIN; … COMMIT;` : une « répétition annulée » qui l'enveloppe
+      l'applique pour de bon (c'est ce qui s'est passé, à la demande de Paul d'appliquer).
+- [x] Après la migration : `types.ts` régénéré, `check-selects.py` 1 147 sélections / 0 erreur,
+      `db lint` 0 erreur réelle (113 faux positifs de tables temporaires), tsc / vitest / build verts.
