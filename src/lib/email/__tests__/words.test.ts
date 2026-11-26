@@ -19,7 +19,7 @@ describe('email words', () => {
     expect(tablesLeftLabel(9)).toBe('9 tables disponibles');
     expect(ticketsKicker(false)).toBe('BILLETTERIE');
     expect(ticketsCtaLabel(true)).toBe('M’inscrire à la liste');
-    expect(tablePackSubtitle({ base_capacity: 8, included_bottles_quota: 2 })).toBe('8 pers. · 2 bouteilles incluses');
+    expect(tablePackSubtitle({ base_capacity: 8 })).toBe('8 pers.');
     expect(guestListSummary({ freeBefore: '00:30', includesDrink: true, remaining: 42, soldOut: false })).toBe('Gratuit avant 00:30 · boisson offerte · 42 places restantes');
   });
 
@@ -30,7 +30,7 @@ describe('email words', () => {
     expect(tablesLeftLabel(2, 'en')).toBe('Only 2 tables left');
     expect(tablesLeftLabel(2, 'es')).toBe('Solo quedan 2 mesas');
     expect(tablePackPrice({ minimum_spend: 300 }, 'en')).toBe('Min. €300');
-    expect(tablePackSubtitle({ base_capacity: 6, included_bottles_quota: 1, payment_mode: 'on_site' }, 'en')).toBe('6 people · 1 bottle included · no deposit');
+    expect(tablePackSubtitle({ base_capacity: 6, payment_mode: 'on_site' }, 'en')).toBe('6 people · no deposit');
     expect(guestListSummary({ freeBefore: null, includesDrink: false, remaining: 1, soldOut: false }, 'es')).toBe('Entrada gratuita · 1 plaza disponible');
     expect(emailWords('de').free).toBe('Gratuit'); // langue inconnue = français
   });

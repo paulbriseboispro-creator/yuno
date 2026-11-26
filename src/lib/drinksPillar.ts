@@ -30,3 +30,15 @@ export const DRINKS_PILLAR_LIVE: boolean = import.meta.env.VITE_DRINKS_PILLAR_LI
 export function loyaltyRewardTypeVisible(type: string): boolean {
   return DRINKS_PILLAR_LIVE || type !== 'free_drink';
 }
+
+/**
+ * Carte BOUTEILLES d'une table VIP et sa précommande non payée (D8, 2026-11-26).
+ *
+ * Seule exception à la pause du pilier : elle rouvre UNIQUEMENT (1) la carte bouteilles proposée au
+ * checkout d'une table (RPC `get_table_menu`), (2) sa précommande à régler sur place, (3) l'écran de
+ * gestion de cette carte (`VipMenuManager`, onglet Carte du Service VIP, atelier Tables orga).
+ * Le bar, les commandes de boissons, `/vip-menu`, `/cart`, Click & Collect, le Mode Live et la vente
+ * solo de bouteilles restent fermés : ils dépendent toujours de `DRINKS_PILLAR_LIVE`.
+ * Une nouvelle surface « carte de table » se gate avec CETTE constante ; tout le reste avec l'autre.
+ */
+export const VIP_BOTTLES_LIVE = true;

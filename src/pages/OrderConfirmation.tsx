@@ -1,3 +1,5 @@
+import { parseReceiptPreorder, type ReceiptPreorder } from '@/lib/tableBottles';
+import { TablePreorderRecap } from '@/components/tables/TablePreorderRecap';
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -180,6 +182,7 @@ interface ConfirmationData {
     paidOnline: number;
     remaining: number;
     addressDeferred: boolean;
+    preorder: ReceiptPreorder | null;
   };
 }
 
@@ -216,6 +219,7 @@ function tableInfoFromReceipt(r: TableReceipt): NonNullable<ConfirmationData['ta
     // La différence d'un surclassement payant se règle au club, avec le reste.
     remaining: remainingOnSite(r) + (adjustment?.kind === 'pay_on_site' ? adjustment.amount : 0),
     addressDeferred: !!r.event?.address_deferred,
+    preorder: parseReceiptPreorder(r.preorder),
   };
 }
 
@@ -1359,6 +1363,7 @@ export default function OrderConfirmation() {
                   <span className="font-display font-bold" style={{ fontSize: '17px', color: '#E8192C', letterSpacing: '-0.01em' }}>{data.totalPrice.toFixed(2)} €</span>
                 </div>
               )}
+              {data.type === 'table' && <TablePreorderRecap preorder={data.tableInfo?.preorder} />}
             </div>
           </div>
         </motion.section>

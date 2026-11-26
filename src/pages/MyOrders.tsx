@@ -1,3 +1,5 @@
+import { parseReceiptPreorder } from '@/lib/tableBottles';
+import { TablePreorderRecap } from '@/components/tables/TablePreorderRecap';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
@@ -1980,6 +1982,7 @@ export default function MyOrders() {
                   {(selectedVipReservation.totalPrice - selectedVipReservation.deposit).toFixed(2)}€
                 </span>
               </div>
+              <TablePreorderRecap compact preorder={parseReceiptPreorder(vipReceipt?.preorder)} />
             </div>
           }
         />

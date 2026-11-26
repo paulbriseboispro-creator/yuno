@@ -3,6 +3,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useEventPaymentsReady, useVenuePaymentsReady } from '@/lib/paymentsReady';
 import { RED, T1, T3, BORDER, INNER_BG } from '@/components/org-ui';
 import { paymentsBannerKind, type TablesCollector } from '@/lib/tablesConfig';
+import { collectorBannerView, collectorPartyName, useEventTablesCollector } from '@/lib/tablesCollector';
 
 interface Props {
   /** Soirée (porte `event_payments_ready`). Absent : on lit le compte du club (`venueId`). */
@@ -33,28 +34,47 @@ export function TablesPaymentsBanner({ eventId, venueId, collector, viewer, hasO
   const { t } = useLanguage();
   const eventReady = useEventPaymentsReady(venueId ? null : eventId);
   const venueReady = useVenuePaymentsReady(venueId ?? null);
+  // Contrat serveur (D9) : qui encaisse VRAIMENT les tables (club partenaire compris) et si son Stripe est prêt.
+  // Sans soirée choisie, ou si la RPC refuse (droits, ancienne base), on garde l'ancienne lecture « club / organisateur ».
+  const info = useEventTablesCollector(venueId ? null : eventId);
   const ready = venueId ? venueReady : eventReady;
-  const kind = paymentsBannerKind({ ready, hasOnlinePacks, collector, viewer, canManageStripe });
-  const who = collector === 'club' ? t('tblp.pay.whoClub') : t('tblp.pay.whoOrg');
+  const legacyKind = paymentsBannerKind({ ready, hasOnlinePacks, collector, viewer, canManageStripe });
+  const legacyWho = collector === 'club' ? t('tblp.pay.whoClub') : t('tblp.pay.whoOrg');
+
+  const view = info
+    ? collectorBannerView({ info, viewer: viewer === 'club' ? 'venue' : 'organizer', hasOnlinePacks, canManageStripe })
+    : null;
+  const kind = view ? view.kind : legacyKind;
+  const nameOf = view && info ? collectorPartyName(info, view.party) : null;
+  const who = nameOf
+    ?? (view?.party === 'both' ? t('tblb.pay.whoBoth')
+      : view?.party === 'venue' ? t('tblp.pay.whoClub')
+      : view?.party === 'organizer' ? t('tblp.pay.whoOrg')
+      : legacyWho);
 
   const tone = kind === 'ready' ? 'ok' : kind === 'on_site_only' ? 'info' : 'warn';
   const Icon = tone === 'ok' ? CheckCircle2 : tone === 'warn' ? AlertTriangle : Info;
   const color = tone === 'ok' ? 'var(--acc-34d399)' : tone === 'warn' ? 'var(--acc-e8a019)' : T3;
 
+  const blockKey = view?.block === 'no_contract' ? 'noContract' : view?.block === 'pillar_disabled' ? 'pillarOff' : 'splitOff';
   const title = {
+    blocked: t(`tblb.pay.blocked.${blockKey}.title`),
     on_site_only: t('tblp.pay.onSiteOnlyTitle'),
     ready: t('tblp.pay.readyTitle').replace('{who}', who),
     viewer_connect: t('tblp.pay.notReadyTitle').replace('{who}', who),
     viewer_ask_owner: t('tblp.pay.notReadyTitle').replace('{who}', who),
     other_connect: t('tblp.pay.notReadyTitle').replace('{who}', who),
   }[kind];
+  const otherParty = view?.party ?? (collector === 'club' ? 'venue' : 'organizer');
   const body = {
+    blocked: t(`tblb.pay.blocked.${blockKey}.body`),
     on_site_only: t('tblp.pay.onSiteOnlyBody'),
     ready: t('tblp.pay.readyBody'),
     viewer_connect: t('tblp.pay.connectBody'),
     viewer_ask_owner: t('tblp.pay.askOwnerBody'),
-    other_connect: collector === 'club' ? t('tblp.pay.clubMustConnect') : t('tblp.pay.orgMustConnect'),
+    other_connect: otherParty === 'venue' ? t('tblp.pay.clubMustConnect') : t('tblp.pay.orgMustConnect'),
   }[kind];
+  const showOnSite = kind !== 'on_site_only' && kind !== 'ready' && kind !== 'blocked';
 
   return (
     <div
@@ -67,10 +87,10 @@ export function TablesPaymentsBanner({ eventId, venueId, collector, viewer, hasO
         <div className="min-w-0">
           <p style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{title}</p>
           <p style={{ color: T3, fontSize: 12, lineHeight: 1.45 }}>{body}</p>
-          {hasPartnerClub && collector === 'organizer' && (
+          {hasPartnerClub && collector === 'organizer' && !info && (
             <p style={{ color: T3, fontSize: 12, lineHeight: 1.45, marginTop: 2 }}>{t('tblp.pay.partnerClubNote')}</p>
           )}
-          {kind !== 'on_site_only' && kind !== 'ready' && (
+          {showOnSite && (
             <p style={{ color: T3, fontSize: 12, lineHeight: 1.45, marginTop: 2 }}>{t('tblp.pay.onSiteStillWorks')}</p>
           )}
         </div>

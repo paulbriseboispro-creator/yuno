@@ -22,6 +22,8 @@ export function useVipLiveRefresh(enabled: boolean, refresh: () => void, scopeKe
     const channel = supabase
       .channel(`vip-service-${scopeKey}-${id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'table_reservations' }, schedule)
+      // Précommandes de bouteilles : une soirée sans club n'a pas de venue_id sur ses commandes, la RLS filtre.
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'vip_table_orders' }, schedule)
       .subscribe();
     const onVisible = () => { if (document.visibilityState === 'visible') schedule(); };
     document.addEventListener('visibilitychange', onVisible);

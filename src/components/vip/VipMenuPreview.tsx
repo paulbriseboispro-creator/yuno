@@ -5,51 +5,24 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Wine, ChevronDown, ChevronRight, ChevronUp, Plus, Minus, Search, Trash2 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
-// Vitrine menu VIP dans le tunnel de réservation (idée #2).
-// Read-only. Respecte le réglage club `vip_menu_visibility` :
-//   'hidden'    -> ne rend rien
-//   'no_prices' -> bouteilles sans prix
-//   'full'      -> bouteilles + prix
-// Restreint aux items éligibles au pack/zone (vip_menu_eligibility) quand le club a curé,
-// sinon montre tout le menu actif du club.
+// Carte bouteilles d'une table + précommande SANS paiement (D8, vague C3a).
+// Carte = RPC get_table_menu(event). Le client coche, le total est indicatif et « à régler sur place ».
+// Rien n'entre dans le paiement en ligne ; le navigateur n'envoie que { menuItemId, quantity }.
 
-interface MenuItem {
-  id: string;
-  name: string;
-  category: string;
-  brand: string | null;
-  price: number;
-  image_url: string | null;
-  volume_cl: number | null;
-}
+import {
+  parseTableMenu, bumpBottleQty, clampBottleQty, preorderIndicativeTotal, toPreorderPayload,
+  type TableMenuItem as MenuItem, type PreorderSelection,
+} from '@/lib/tableBottles';
 
-interface Eligibility {
-  menu_item_id: string;
-  pack_id: string | null;
-  zone_id: string | null;
-  custom_price: number | null;
-  is_included: boolean | null;
-}
-
-export interface PreorderSelection {
-  menuItemId: string;
-  quantity: number;
-  unitPrice: number;
-  itemName: string;
-}
+export type { PreorderSelection };
 
 interface Props {
-  venueId: string;
-  packId?: string | null;
-  zoneId?: string | null;
-  visibility: string | null | undefined;
-  /** Quand le club autorise la pré-commande ET que les prix sont visibles, le client peut
-   *  sélectionner des bouteilles à préparer pour son arrivée. */
-  preorderEnabled?: boolean;
-  onPreorderChange?: (items: PreorderSelection[]) => void;
+  eventId: string;
+  /** Le client coche des bouteilles : { menuItemId, quantity } seulement, prix relus en base. */
+  onPreorderChange?: (items: PreorderSelection[], indicativeTotal: number) => void;
   /** 'text' = liste écrite (accordéon) ; 'visual' = bouton « Voir la carte » avec images. */
   displayMode?: 'text' | 'visual';
-  /** Minimum spend du pack, pour la barre de progression de pré-commande. */
+  /** Minimum spend du pack, pour la barre de progression. */
   minimumSpend?: number;
 }
 
@@ -62,11 +35,10 @@ const CAT_LABEL: Record<string, [string, string, string]> = {
   other: ['Autre', 'Other', 'Otro'],
 };
 
-export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEnabled, onPreorderChange, displayMode = 'text', minimumSpend }: Props) {
-  const { language } = useLanguage();
+export function VipMenuPreview({ eventId, onPreorderChange, displayMode = 'text', minimumSpend }: Props) {
+  const { language, t } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [items, setItems] = useState<MenuItem[]>([]);
-  const [elig, setElig] = useState<Eligibility[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   // Résumé de commande repliable (la « petite flèche ») dans le pied du Sheet visuel.
@@ -75,65 +47,38 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState<string>('all');
 
-  const showMenu = visibility === 'no_prices' || visibility === 'full';
-  const showPrices = visibility === 'full';
-  // Pré-commande possible seulement si le club l'autorise ET que les prix sont affichés
-  // (le client doit voir ce qu'il engage).
-  const preorderMode = !!preorderEnabled && showPrices && !!onPreorderChange;
+  // Carte lue par la RPC publique get_table_menu (club effectif, sinon carte de la soirée).
+  const preorderMode = !!onPreorderChange;
 
-  // Remonte la sélection de pré-commande au parent (TableCheckout) à chaque changement.
+  // Remonte la sélection au parent (TableCheckout) à chaque changement : quantités seulement.
   useEffect(() => {
-    if (!preorderMode || !onPreorderChange) return;
-    const scopedE = elig.filter(e => (packId && e.pack_id === packId) || (zoneId && e.zone_id === zoneId));
-    const eById = new Map(scopedE.map(e => [e.menu_item_id, e]));
-    const itemsById = new Map(items.map(i => [i.id, i]));
-    const sel: PreorderSelection[] = Object.entries(qty).flatMap(([id, q]) => {
-      const it = itemsById.get(id);
-      if (!it || q <= 0) return [];
-      const e = eById.get(id);
-      const price = e?.custom_price != null ? e.custom_price : it.price;
-      return [{ menuItemId: id, quantity: q, unitPrice: price, itemName: it.name }];
-    });
-    onPreorderChange(sel);
+    if (!onPreorderChange) return;
+    onPreorderChange(toPreorderPayload(qty, items), preorderIndicativeTotal(items, qty));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qty, preorderMode, items, elig]);
+  }, [qty, items]);
 
   useEffect(() => {
-    if (!showMenu || !venueId) { setLoading(false); return; }
+    if (!eventId) { setLoading(false); return; }
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const [itemsRes, eligRes] = await Promise.all([
-        supabase.from('vip_menu_items').select('id, name, category, brand, price, image_url, volume_cl')
-          .eq('venue_id', venueId).eq('is_active', true).order('category').order('position'),
-        supabase.from('vip_menu_eligibility').select('menu_item_id, pack_id, zone_id, custom_price, is_included'),
-      ]);
+      const { data, error } = await supabase.rpc('get_table_menu', { p_event_id: eventId });
       if (cancelled) return;
-      setItems((itemsRes.data as MenuItem[]) || []);
-      setElig((eligRes.data as Eligibility[]) || []);
+      setItems(error ? [] : parseTableMenu(data));
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [venueId, showMenu]);
+  }, [eventId]);
 
-  if (!showMenu || loading) return null;
+  if (loading) return null;
 
-  // Éligibilité : lignes qui ciblent CE pack ou CETTE zone.
-  const scoped = elig.filter(e => (packId && e.pack_id === packId) || (zoneId && e.zone_id === zoneId));
-  const eligIds = new Set(scoped.map(e => e.menu_item_id));
-  const eligById = new Map(scoped.map(e => [e.menu_item_id, e]));
-
-  // Si le club a curé pour ce pack/zone, on restreint ; sinon menu complet actif.
-  // On masque les diluants (softs + mixers) — la carte reste centrée bouteilles.
-  const visible = (eligIds.size > 0 ? items.filter(i => eligIds.has(i.id)) : items)
-    .filter(i => i.category !== 'soft' && i.category !== 'mixer');
+  // On masque les diluants (softs + mixers) : la carte reste centrée bouteilles.
+  const visible = items.filter(i => i.category !== 'soft' && i.category !== 'mixer');
   if (visible.length === 0) return null;
 
-  const priceOf = (i: MenuItem) => {
-    const e = eligById.get(i.id);
-    return e?.custom_price != null ? e.custom_price : i.price;
-  };
-  const isIncluded = (i: MenuItem) => eligById.get(i.id)?.is_included === true;
+  const priceOf = (i: MenuItem) => i.price;
+  const isIncluded = (_i: MenuItem) => false;
+  const showPrices = true;
 
   // Regroupement par catégorie, ordre canonique.
   const byCat = new Map<string, MenuItem[]>();
@@ -149,14 +94,7 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
   const catLabel = (c: string) => { const l = CAT_LABEL[c]; return l ? tt(l[0], l[1], l[2]) : c; };
   const fmt = (n: number) => (n % 1 === 0 ? `${n}€` : `${n.toFixed(2)}€`);
 
-  const bump = (id: string, delta: number) => {
-    setQty(prev => {
-      const nv = Math.max(0, (prev[id] || 0) + delta);
-      const next = { ...prev };
-      if (nv === 0) delete next[id]; else next[id] = nv;
-      return next;
-    });
-  };
+  const bump = (id: string, delta: number) => setQty(prev => bumpBottleQty(prev, id, delta));
   const removeItem = (id: string) => {
     setQty(prev => {
       const next = { ...prev };
@@ -164,11 +102,9 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
       return next;
     });
   };
-  const preorderTotal = preorderMode
-    ? visible.reduce((sum, it) => sum + priceOf(it) * (qty[it.id] || 0), 0)
-    : 0;
+  const preorderTotal = preorderMode ? preorderIndicativeTotal(visible, qty) : 0;
   const preorderCount = preorderMode
-    ? Object.values(qty).reduce((a, b) => a + b, 0)
+    ? Object.values(qty).reduce((a, b) => a + clampBottleQty(b), 0)
     : 0;
   // Bouteilles retenues dans le panier (ordre carte), pour le résumé avec photos.
   const selectedItems = preorderMode ? visible.filter(it => (qty[it.id] || 0) > 0) : [];
@@ -226,11 +162,7 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
   ) : null;
   const preorderNote = (
     <p className="text-[11px] leading-relaxed" style={{ color: 'var(--tx-6a6a6e)' }}>
-      {tt(
-        'Pré-commandez vos bouteilles : le club les prépare pour votre arrivée. Réglées à la table le soir même.',
-        'Pre-order your bottles: the club prepares them for your arrival. Settled at the table on the night.',
-        'Pre-pide tus botellas: el club las prepara para tu llegada. Se pagan en la mesa esa noche.',
-      )}
+      {t('tblb.preorder.note')}
     </p>
   );
   const preorderSummary = (
@@ -269,16 +201,6 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
         <Trash2 className="h-3.5 w-3.5" />
       </button>
     </div>
-  );
-
-  const readonlyNote = (
-    <p className="text-[11px] leading-relaxed pt-1" style={{ color: 'var(--tx-6a6a6e)' }}>
-      {tt(
-        'Aperçu de la carte. Vous commanderez vos bouteilles à table, le soir même.',
-        'Menu preview. You\'ll order your bottles at the table on the night.',
-        'Vista previa de la carta. Pedirás tus botellas en la mesa esa misma noche.',
-      )}
-    </p>
   );
 
   // === MODE VISUEL : bouton « Voir la carte » → Sheet avec images ===
@@ -425,7 +347,7 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
                     : { background: 'rgb(var(--ink)/0.08)' }}
                 >
                   {preorderCount > 0
-                    ? <>{tt('Précommander', 'Pre-order', 'Pre-pedir')}<span className="tabular-nums"> · {fmt(preorderTotal)}</span></>
+                    ? <>{t('tblb.preorder.cta')}<span className="tabular-nums"> · {fmt(preorderTotal)}</span></>
                     : tt('Fermer', 'Close', 'Cerrar')}
                 </button>
               </div>
@@ -479,7 +401,7 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
           ))}
           {preorderMode ? (
             <div className="pt-2" style={{ borderTop: '1px solid rgb(var(--ink)/0.06)' }}>{preorderSummary}</div>
-          ) : readonlyNote}
+          ) : null}
         </div>
       )}
     </div>

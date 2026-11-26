@@ -1804,7 +1804,6 @@ export interface TablePackOffer {
   name?: string | null;
   base_price?: number | null;
   base_capacity?: number | null;
-  included_bottles_quota?: number | null;
   included_items?: string | null;
   minimum_spend?: number | null;
   payment_mode?: string | null;
@@ -1820,8 +1819,6 @@ function tablePackSubtitle(p: TablePackOffer, lang: EmailWordsLang = 'fr'): stri
   const bits: string[] = [];
   const seats = Number(p.base_capacity || 0);
   if (seats > 0) bits.push(w.seats(seats));
-  const bottles = Number(p.included_bottles_quota || 0);
-  if (bottles > 0) bits.push(w.bottles(bottles));
   const extras = String(p.included_items || '').trim();
   if (extras) bits.push(extras.toLowerCase());
   if (String(p.payment_mode || '') === 'on_site') bits.push(w.noDeposit);
@@ -2120,7 +2117,7 @@ export async function fetchStudioLiveData(
       ].filter(Boolean).join(',');
       const { data: packsData } = await admin
         .from('table_packs')
-        .select('id, zone_id, event_id, venue_id, tables_count, is_active, name, base_price, base_capacity, included_bottles_quota, included_items, minimum_spend, payment_mode, position')
+        .select('id, zone_id, event_id, venue_id, tables_count, is_active, name, base_price, base_capacity, included_items, minimum_spend, payment_mode, position')
         .eq('is_active', true)
         .or(packScope);
       const packs = packsData as StudioPackRow[] | null;

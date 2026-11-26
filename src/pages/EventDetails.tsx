@@ -655,7 +655,6 @@ export default function EventDetails() {
         maxExtraPersons: p.max_extra_persons ?? 0,
         deposit: p.deposit ? Number(p.deposit) : 0,
         depositType: (p.deposit_type as 'fixed' | 'percentage') || 'fixed',
-        includedBottlesQuota: p.included_bottles_quota || 0,
         minimumSpend: Number(p.minimum_spend) || 0,
         paymentMode: (p.payment_mode as 'online' | 'on_site') || 'online',
         tablesCount: p.tables_count || 1,

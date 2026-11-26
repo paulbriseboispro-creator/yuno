@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatInTimeZone } from 'date-fns-tz';
 import { getEventTimezone } from '@/lib/timezone';
 import type { RosterDoc, RosterRow } from '@/lib/rosterExport';
+import { isPreorderOrder, preorderDueOnSite } from '@/lib/vipManualRules';
 
 export interface RosterEventInfo {
   id: string;
@@ -185,9 +186,9 @@ export async function buildGuestListRoster(
 // ── Tables VIP ───────────────────────────────────────────────────────────────
 
 const VIP_LABELS: Record<Lang, Record<string, string>> = {
-  fr: { kind: 'Tables VIP', client: 'Client', zone: 'Zone', table: 'Table', pack: 'Formule', guests: 'Pers.', arrival: 'Arrivée limite', minSpend: 'Min. dépense', deposit: 'Acompte', total: 'Total', payment: 'Paiement', onSite: 'Sur place', online: 'En ligne', manual: 'Manuel', remarks: 'Remarques', booked: 'Réservé le', phone: 'Téléphone', email: 'Email', code: 'Réf.', status: 'Statut', arrived: 'Arrivé', tables: 'tables', people: 'personnes' },
-  en: { kind: 'VIP tables', client: 'Guest', zone: 'Zone', table: 'Table', pack: 'Package', guests: 'Pax', arrival: 'Arrival cutoff', minSpend: 'Min. spend', deposit: 'Deposit', total: 'Total', payment: 'Payment', onSite: 'On site', online: 'Online', manual: 'Manual', remarks: 'Notes', booked: 'Booked on', phone: 'Phone', email: 'Email', code: 'Ref.', status: 'Status', arrived: 'Arrived', tables: 'tables', people: 'people' },
-  es: { kind: 'Mesas VIP', client: 'Cliente', zone: 'Zona', table: 'Mesa', pack: 'Fórmula', guests: 'Pers.', arrival: 'Hora límite', minSpend: 'Consumo mín.', deposit: 'Depósito', total: 'Total', payment: 'Pago', onSite: 'En el local', online: 'En línea', manual: 'Manual', remarks: 'Notas', booked: 'Reservado el', phone: 'Teléfono', email: 'Email', code: 'Ref.', status: 'Estado', arrived: 'Llegó', tables: 'mesas', people: 'personas' },
+  fr: { kind: 'Tables VIP', client: 'Client', zone: 'Zone', table: 'Table', pack: 'Formule', guests: 'Pers.', arrival: 'Arrivée limite', minSpend: 'Min. dépense', deposit: 'Acompte', total: 'Total', payment: 'Paiement', onSite: 'Sur place', online: 'En ligne', manual: 'Manuel', remarks: 'Remarques', preorder: 'Précommande bouteilles', preorderDue: 'À encaisser sur place', booked: 'Réservé le', phone: 'Téléphone', email: 'Email', code: 'Réf.', status: 'Statut', arrived: 'Arrivé', tables: 'tables', people: 'personnes' },
+  en: { kind: 'VIP tables', client: 'Guest', zone: 'Zone', table: 'Table', pack: 'Package', guests: 'Pax', arrival: 'Arrival cutoff', minSpend: 'Min. spend', deposit: 'Deposit', total: 'Total', payment: 'Payment', onSite: 'On site', online: 'Online', manual: 'Manual', remarks: 'Notes', preorder: 'Bottle pre-order', preorderDue: 'To collect on site', booked: 'Booked on', phone: 'Phone', email: 'Email', code: 'Ref.', status: 'Status', arrived: 'Arrived', tables: 'tables', people: 'people' },
+  es: { kind: 'Mesas VIP', client: 'Cliente', zone: 'Zona', table: 'Mesa', pack: 'Fórmula', guests: 'Pers.', arrival: 'Hora límite', minSpend: 'Consumo mín.', deposit: 'Depósito', total: 'Total', payment: 'Pago', onSite: 'En el local', online: 'En línea', manual: 'Manual', remarks: 'Notas', preorder: 'Pre-pedido de botellas', preorderDue: 'A cobrar en el local', booked: 'Reservado el', phone: 'Teléfono', email: 'Email', code: 'Ref.', status: 'Estado', arrived: 'Llegó', tables: 'mesas', people: 'personas' },
 };
 
 /**
@@ -234,8 +235,32 @@ export async function buildTableRoster(
     .eq('status', 'paid')
     .range(0, ROW_CAP - 1);
 
+  // Précommandes de bouteilles (D8) : rien n'est payé en ligne, le club les encaisse sur place.
+  const resaIds = (data ?? []).map((r) => r.id);
+  const preorders = new Map<string, { label: string; due: number }>();
+  if (resaIds.length > 0) {
+    type OrderRow = { table_reservation_id: string; status: string; notes: string | null; total_amount: number | null; vip_table_order_items: { quantity: number; vip_menu_items: { name: string | null } | null }[] | null };
+    const orderRows = await inChunks<OrderRow>(resaIds, 100, async (batch) => {
+      const { data: part } = await supabase
+        .from('vip_table_orders')
+        .select('table_reservation_id, status, notes, total_amount, vip_table_order_items(quantity, vip_menu_items(name))')
+        .in('table_reservation_id', batch)
+        .neq('status', 'cancelled');
+      return (part ?? []) as unknown as OrderRow[];
+    });
+    for (const o of orderRows) {
+      if (!isPreorderOrder({ status: o.status, notes: o.notes })) continue;
+      const cur = preorders.get(o.table_reservation_id) ?? { label: '', due: 0 };
+      const lines = (o.vip_table_order_items ?? []).map((it) => `${it.quantity}x ${it.vip_menu_items?.name ?? ''}`.trim()).join(', ');
+      cur.label = [cur.label, lines].filter(Boolean).join(', ');
+      cur.due += preorderDueOnSite({ reservationId: o.table_reservation_id, status: o.status, notes: o.notes, totalAmount: Number(o.total_amount) || 0 });
+      preorders.set(o.table_reservation_id, cur);
+    }
+  }
+
   const rows: RosterRow[] = (data ?? []).map((r) => {
     const zone = (r.table_zones as { name?: string } | null)?.name ?? '';
+    const po = preorders.get(r.id);
     const pack = r.table_packs as { name?: string; arrival_deadline?: string | null } | null;
     const name = r.full_name
       || [r.guest_first_name, r.guest_last_name].filter(Boolean).join(' ')
@@ -256,6 +281,8 @@ export async function buildTableRoster(
       total: money(r.total_price, lang),
       payment: paymentMode === 'on_site' ? L.onSite : paymentMode === 'manual' ? L.manual : L.online,
       remarks: (r as { remarks?: string | null }).remarks ?? '',
+      preorder: po?.label ?? '',
+      preorderDue: po && po.due > 0 ? money(po.due, lang) : '',
       phone: r.phone ?? r.guest_phone ?? '',
       email: r.user_email ?? '',
       code: r.reference_code ?? '',
@@ -272,6 +299,7 @@ export async function buildTableRoster(
   );
 
   const pax = rows.reduce((s, r) => s + (Number(r.guests) || 0), 0);
+  const preorderTotal = [...preorders.values()].reduce((s, p) => s + p.due, 0);
 
   return {
     kind: L.kind,
@@ -279,7 +307,7 @@ export async function buildTableRoster(
     eventSubtitle: eventSubtitle(ev, lang),
     nameKey: 'client',
     doorMetaKeys: ['zone', 'table', 'guests', 'arrival'],
-    summary: [`${rows.length} ${L.tables}`, `${pax} ${L.people}`],
+    summary: [`${rows.length} ${L.tables}`, `${pax} ${L.people}`, ...(preorderTotal > 0 ? [`${L.preorderDue} : ${money(preorderTotal, lang)}`] : [])],
     footnote: FOOTNOTE[lang],
     emptyLabel: EMPTY_LABEL[lang],
     columns: [
@@ -295,6 +323,8 @@ export async function buildTableRoster(
       { key: 'payment', label: L.payment, weight: 7 },
       { key: 'phone', label: L.phone, weight: 11 },
       { key: 'email', label: L.email, weight: 14 },
+      { key: 'preorder', label: L.preorder, weight: 14 },
+      { key: 'preorderDue', label: L.preorderDue, weight: 8, align: 'right' },
       { key: 'remarks', label: L.remarks, weight: 14 },
       { key: 'code', label: L.code, weight: 8 },
       { key: 'booked', label: L.booked, weight: 8 },

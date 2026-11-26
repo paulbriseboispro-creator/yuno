@@ -53,11 +53,10 @@ function renderOne(b: EmailBlock, overrides: Partial<RenderCtx> = {}): string {
 }
 
 describe('tables VIP — formules et rareté', () => {
-  it('la ligne de formule dit les couverts puis les bouteilles', () => {
-    expect(tablePackSubtitle({ base_capacity: 8, included_bottles_quota: 2 }))
-      .toBe('8 pers. · 2 bouteilles incluses');
-    expect(tablePackSubtitle({ base_capacity: 4, included_bottles_quota: 1, included_items: 'service dédié' }))
-      .toBe('4 pers. · 1 bouteille incluse · service dédié');
+  it('la ligne de formule dit les couverts puis ce qui est inclus (jamais un nombre de bouteilles)', () => {
+    expect(tablePackSubtitle({ base_capacity: 8 })).toBe('8 pers.');
+    expect(tablePackSubtitle({ base_capacity: 4, included_items: 'service dédié' }))
+      .toBe('4 pers. · service dédié');
   });
 
   it('le règlement au club est un ARGUMENT, jamais un prix', () => {

@@ -523,8 +523,19 @@ export function useVipNight() {
         scheduleRefetch
       )
       .subscribe();
+    // Commandes de la soirée par event_id : une précommande d'une soirée sans club n'a pas de venue_id,
+    // le filtre venue_id du canal de référence ne la verrait jamais.
+    const eventOrdersChannel = supabase
+      .channel(uniqueChannel('vip_night_event_orders'))
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'vip_table_orders', filter: `event_id=eq.${activeEventId}` },
+        scheduleRefetch
+      )
+      .subscribe();
     return () => {
       supabase.removeChannel(reservationsChannel);
+      supabase.removeChannel(eventOrdersChannel);
     };
   }, [venueId, activeEventId, scheduleRefetch]);
 

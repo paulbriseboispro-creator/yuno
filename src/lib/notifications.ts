@@ -46,6 +46,8 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   table_email_bounced: { icon: AlertTriangle, category: 'revenue', label: 'notif.type.table_email_bounced' },
   guest_list_email_bounced: { icon: AlertTriangle, category: 'people', label: 'notif.type.guest_list_email_bounced' },
   table_booked:   { icon: Crown,        category: 'revenue',    label: 'notif.type.table_booked' },
+  // Récap de la veille : tables vendues, convives, à placer, précommandes.
+  table_eve_recap: { icon: Crown,       category: 'capacity',   label: 'notif.type.table_eve_recap' },
   promoter_sale:  { icon: TrendingUp,   category: 'revenue',    label: 'notif.type.promoter_sale' },
   refund_issued:  { icon: Receipt,      category: 'revenue',    label: 'notif.type.refund_issued' },
   // 🎟️ Capacity
@@ -196,6 +198,9 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   admin_refund_failed:           { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_refund_failed' },
   admin_invoice_failed:          { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_invoice_failed' },
   admin_credit_note_failed:      { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_credit_note_failed' },
+  // E-mails de vente : quota Resend atteint (rejeu en file), table payée sans e-mail.
+  admin_sale_email_quota:        { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_sale_email_quota' },
+  admin_table_paid_no_email:     { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_table_paid_no_email' },
   admin_payment_disputed:        { icon: ShieldAlert, category: 'billing',  label: 'notif.type.admin_payment_disputed' },
   admin_indirect_charge_refused: { icon: AlertTriangle, category: 'billing', label: 'notif.type.admin_indirect_charge_refused' },
   // Arbitrage : ce sur quoi Yuno doit trancher.
@@ -406,6 +411,12 @@ export function getFeedConfig(params: {
 // dashboard. Returns `null` when there is no good destination for this scope,
 // in which case a click just marks the notification as read without navigating.
 
+/** Service VIP de la Console du destinataire (club, manager, organisateur). */
+export function vipServiceLink(basePath: string, eventId?: string | null): string {
+  const base = `${basePath}/vip-service`;
+  return eventId ? `${base}?event=${eventId}` : base;
+}
+
 export function notifLink(n: AppNotif, config: FeedConfig): string | null {
   const basePath = config.basePath;
   const isOrganizer = config.table === 'organizer_notifications';
@@ -519,8 +530,12 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
     case 'ticket_round_sold_out':
       return `${basePath}/ticketing`;
 
-    // VIP table booked → the orders page, VIP tab, opened on the new reservation.
+    // Nouvelle table / récap de la veille → le Service VIP de la soirée : c'est
+    // la page que voit tout gestionnaire (Commandes exige l'accès aux finances).
     case 'table_booked':
+    case 'table_eve_recap':
+      return vipServiceLink(basePath, eventId);
+    // E-mail de table non livré : la fiche est dans Commandes › Tables VIP.
     case 'table_email_bounced':
       return `${basePath}/orders?tab=vip${orderFocus}`;
     // VIP capacity alerts (owner has a tables page; organizer has no such surface).
@@ -755,6 +770,7 @@ function adminNotifLinkLegacy(n: AppNotif): string | null {
     case 'admin_ticket_email_bounced':
     case 'admin_table_email_bounced':
     case 'admin_guest_list_email_bounced':
+    case 'admin_sale_email_quota':
       return '/admin/money/orders';
 
     // Ce qui demande une action d'argent : Argent › À régler (lot 4).
@@ -762,6 +778,7 @@ function adminNotifLinkLegacy(n: AppNotif): string | null {
     case 'admin_refund_failed':
     case 'admin_invoice_failed':
     case 'admin_credit_note_failed':
+    case 'admin_table_paid_no_email':
     case 'admin_payment_disputed':
       return '/admin/money/issues#alerts';
 

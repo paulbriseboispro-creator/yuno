@@ -410,7 +410,6 @@ export interface TablePackOffer {
   name?: string | null;
   base_price?: number | null;
   base_capacity?: number | null;
-  included_bottles_quota?: number | null;
   included_items?: string | null;
   minimum_spend?: number | null;
   payment_mode?: string | null;
@@ -439,8 +438,6 @@ export function tablePackSubtitle(p: TablePackOffer, lang: EmailWordsLang = 'fr'
   const bits: string[] = [];
   const seats = Number(p.base_capacity || 0);
   if (seats > 0) bits.push(w.seats(seats));
-  const bottles = Number(p.included_bottles_quota || 0);
-  if (bottles > 0) bits.push(w.bottles(bottles));
   const extras = String(p.included_items || '').trim();
   if (extras) bits.push(extras.toLowerCase());
   if (String(p.payment_mode || '') === 'on_site') bits.push(w.noDeposit);

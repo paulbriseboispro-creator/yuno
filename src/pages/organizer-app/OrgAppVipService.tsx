@@ -4,6 +4,7 @@ import { VipLoadError } from '@/components/owner/vip/VipLoadError';
 import { VipEventSelector } from '@/components/owner/vip/VipEventSelector';
 import { VipOverviewTab } from '@/components/owner/vip/VipOverviewTab';
 import { VipReservationsTab } from '@/components/owner/vip/VipReservationsTab';
+import { isPreorderOrder } from '@/lib/vipManualRules';
 import { ManualReservationDialog } from '@/components/owner/vip/ManualReservationDialog';
 import { VipPlacementRequests } from '@/components/owner/vip/VipPlacementRequests';
 import { VipFloorPlan } from '@/components/vip-host/VipFloorPlan';
@@ -128,10 +129,7 @@ export default function OrgAppVipService() {
 
   const preorderReservationIds = useMemo(() => {
     const set = new Set<string>();
-    filteredOrders.forEach(o => {
-      const n = (o.notes || '').toLowerCase();
-      if (n.includes('pré-commande') || n.includes('pre-order') || n.includes('preorder')) set.add(o.reservationId);
-    });
+    filteredOrders.forEach(o => { if (isPreorderOrder(o) && o.status !== 'cancelled') set.add(o.reservationId); });
     return set;
   }, [filteredOrders]);
 

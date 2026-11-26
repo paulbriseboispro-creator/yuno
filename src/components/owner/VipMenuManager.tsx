@@ -81,11 +81,13 @@ interface TablePack {
   id: string;
   name: string;
   zone_id: string;
-  included_bottles_quota: number;
 }
 
 interface VipMenuManagerProps {
-  venueId: string;
+  /** Carte d'un club. */
+  venueId?: string;
+  /** Carte d'UNE soirée sans club (vip_menu_items.event_id, venue_id NULL). Exactement l'un des deux. */
+  eventId?: string;
 }
 
 const CATEGORIES = [
@@ -100,9 +102,15 @@ const CATEGORIES = [
   { value: 'mixer', labelKey: 'vipMenu.mixerDiluent', icon: '🧊' },
 ];
 
+// Éligibilité par zone / formule (prix propre, bouteilles incluses) : la précommande de la carte (D8) ne lit que
+// le prix de la carte, donc ce réglage n'a plus d'effet et reste caché (code conservé).
+const SHOW_ELIGIBILITY = false;
+
 const isMixerCategory = (category: string) => category === 'mixer';
 
-export function VipMenuManager({ venueId }: VipMenuManagerProps) {
+export function VipMenuManager({ venueId, eventId }: VipMenuManagerProps) {
+  const scopeId = (venueId ?? eventId) as string;
+  const eventMode = !venueId && !!eventId;
   const { t, language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [loading, setLoading] = useState(true);
@@ -111,11 +119,7 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
   const [zones, setZones] = useState<TableZone[]>([]);
   const [packs, setPacks] = useState<TablePack[]>([]);
   // Réglages club (idée #2 / #3) : vitrine menu dans le tunnel + pré-commande.
-  const [menuVisibility, setMenuVisibility] = useState<'hidden' | 'no_prices' | 'full'>('hidden');
-  const [preorderEnabled, setPreorderEnabled] = useState(false);
   const [menuDisplayMode, setMenuDisplayMode] = useState<'text' | 'visual'>('text');
-  // Vente de bouteilles SANS table (Mode Live) — venues.solo_bottle_sale_enabled.
-  const [soloSaleEnabled, setSoloSaleEnabled] = useState(false);
 
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEligibilityDialog, setShowEligibilityDialog] = useState(false);
@@ -147,30 +151,31 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
 
   useEffect(() => {
     fetchData();
-  }, [venueId]);
+  }, [venueId, eventId]);
 
   const fetchData = async () => {
-    if (!venueId) return;
+    if (!scopeId) return;
     setLoading(true);
 
     try {
+      // Carte d'un club (venue_id) ou d'une soirée sans club (event_id). Les réglages de vitrine du
+      // club (visibilité, précommande, Mode Live) ne sont plus lus : la carte s'affiche toujours (D8).
+      const itemsQuery = supabase.from('vip_menu_items').select('*');
       const [itemsRes, eligRes, zonesRes, packsRes, venueRes] = await Promise.all([
-        supabase.from('vip_menu_items').select('*').eq('venue_id', venueId).order('category').order('position'),
-        supabase.from('vip_menu_eligibility').select('*'),
-        supabase.from('table_zones').select('id, name, color').eq('venue_id', venueId),
-        supabase.from('table_packs').select('id, name, zone_id, included_bottles_quota').eq('venue_id', venueId),
-        supabase.from('venues').select('vip_menu_visibility, vip_preorder_enabled, vip_menu_display_mode, solo_bottle_sale_enabled').eq('id', venueId).single(),
+        (eventMode ? itemsQuery.eq('event_id', scopeId) : itemsQuery.eq('venue_id', scopeId)).order('category').order('position'),
+        eventMode ? Promise.resolve({ data: [] as VipMenuEligibility[] }) : supabase.from('vip_menu_eligibility').select('*'),
+        eventMode ? Promise.resolve({ data: [] as TableZone[] }) : supabase.from('table_zones').select('id, name, color').eq('venue_id', scopeId),
+        eventMode ? Promise.resolve({ data: [] as TablePack[] }) : supabase.from('table_packs').select('id, name, zone_id').eq('venue_id', scopeId),
+        eventMode ? Promise.resolve({ data: null }) : supabase.from('venues').select('vip_menu_display_mode').eq('id', scopeId).single(),
       ]);
+      if (itemsRes.error) throw itemsRes.error;
 
       setItems(itemsRes.data || []);
       setEligibilities(eligRes.data || []);
       setZones(zonesRes.data || []);
       setPacks(packsRes.data || []);
       if (venueRes.data) {
-        setMenuVisibility((venueRes.data.vip_menu_visibility as 'hidden' | 'no_prices' | 'full') || 'hidden');
-        setPreorderEnabled(!!venueRes.data.vip_preorder_enabled);
         setMenuDisplayMode((venueRes.data.vip_menu_display_mode as 'text' | 'visual') || 'text');
-        setSoloSaleEnabled(!!(venueRes.data as { solo_bottle_sale_enabled?: boolean }).solo_bottle_sale_enabled);
       }
     } catch (error) {
       console.error('Error fetching VIP menu data:', error);
@@ -225,7 +230,7 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
       if (shouldCompose) {
         try {
           const blob = await composeBottleBlob(imagePreview, imageTransform);
-          const fileName = `vip-menu/${venueId}/${Date.now()}.webp`;
+          const fileName = `vip-menu/${scopeId}/${Date.now()}.webp`;
           const { error: uploadError } = await supabase.storage
             .from('drink-images')
             .upload(fileName, blob, { contentType: 'image/webp' });
@@ -255,7 +260,7 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
         toast.success(t('vipMenu.itemUpdated'));
       } else {
         const { error } = await supabase.from('vip_menu_items').insert({
-          venue_id: venueId, name: formData.name, description: formData.description || null,
+          ...(eventMode ? { event_id: scopeId } : { venue_id: scopeId }), name: formData.name, description: formData.description || null,
           category: formData.category, brand: formData.brand || null, volume_cl: formData.volume_cl || null,
           price: formData.price, image_url: imageUrl || null, needs_mixer: needsMixer, max_mixers: maxMixers,
           position: items.length,
@@ -386,50 +391,13 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
     );
   }
 
-  const saveVisibility = async (v: 'hidden' | 'no_prices' | 'full') => {
-    const prev = menuVisibility;
-    setMenuVisibility(v);
-    const { error } = await supabase.from('venues').update({ vip_menu_visibility: v }).eq('id', venueId);
-    if (error) { setMenuVisibility(prev); toast.error(t('common.error')); }
-    else toast.success(tt('Vitrine menu mise à jour', 'Menu preview updated', 'Vista del menú actualizada'));
-  };
-
-  const savePreorder = async (val: boolean) => {
-    setPreorderEnabled(val);
-    const { error } = await supabase.from('venues').update({ vip_preorder_enabled: val }).eq('id', venueId);
-    if (error) { setPreorderEnabled(!val); toast.error(t('common.error')); }
-  };
-
-  // Vente solo (Mode Live) : toggle venue + opt-out par bouteille.
-  const saveSoloSale = async (val: boolean) => {
-    setSoloSaleEnabled(val);
-    const { error } = await supabase.from('venues').update({ solo_bottle_sale_enabled: val } as never).eq('id', venueId);
-    if (error) { setSoloSaleEnabled(!val); toast.error(t('common.error')); }
-  };
-
-  const toggleItemSoloSale = async (item: VipMenuItem) => {
-    const newValue = item.solo_sale_enabled === false;
-    const { error } = await supabase
-      .from('vip_menu_items')
-      .update({ solo_sale_enabled: newValue } as never)
-      .eq('id', item.id);
-    if (error) { toast.error(t('common.error')); return; }
-    setItems(prev => prev.map(i => (i.id === item.id ? { ...i, solo_sale_enabled: newValue } : i)));
-  };
-
   const saveDisplayMode = async (m: 'text' | 'visual') => {
     const prev = menuDisplayMode;
     setMenuDisplayMode(m);
-    const { error } = await supabase.from('venues').update({ vip_menu_display_mode: m }).eq('id', venueId);
+    const { error } = await supabase.from('venues').update({ vip_menu_display_mode: m }).eq('id', scopeId);
     if (error) { setMenuDisplayMode(prev); toast.error(t('common.error')); }
     else toast.success(tt('Affichage de la carte mis à jour', 'Menu display updated', 'Visualización de la carta actualizada'));
   };
-
-  const VIS_OPTS: { v: 'hidden' | 'no_prices' | 'full'; label: string; desc: string }[] = [
-    { v: 'hidden', label: tt('Masquée', 'Hidden', 'Oculta'), desc: tt('Le client ne voit pas la carte avant de payer.', "Guests can't see the menu before paying.", 'El cliente no ve la carta antes de pagar.') },
-    { v: 'no_prices', label: tt('Sans prix', 'No prices', 'Sin precios'), desc: tt('Le client voit les bouteilles, sans les prix.', 'Guests see the bottles, without prices.', 'El cliente ve las botellas, sin precios.') },
-    { v: 'full', label: tt('Complète', 'Full', 'Completa'), desc: tt('Le client voit bouteilles et prix.', 'Guests see bottles and prices.', 'El cliente ve botellas y precios.') },
-  ];
 
   const DISPLAY_OPTS: { m: 'text' | 'visual'; label: string; desc: string }[] = [
     { m: 'text', label: tt('Liste écrite', 'Written list', 'Lista escrita'), desc: tt('Carte compacte en texte.', 'Compact text menu.', 'Carta compacta en texto.') },
@@ -453,28 +421,11 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
         </Button>
       </div>
 
-      {/* Réglages vitrine — idée #2 / #3 */}
+      {/* La carte s'affiche à chaque client qui réserve une table ; il précommande, tu encaisses sur place. */}
       <div className="rounded-xl border border-border/60 bg-card/40 p-4 space-y-4">
-        <div>
-          <p className="text-sm font-medium mb-0.5">{tt('Carte visible pendant la réservation', 'Menu visible during booking', 'Carta visible durante la reserva')}</p>
-          <p className="text-xs text-muted-foreground">{tt("Laissez le client découvrir votre carte bouteilles dans le tunnel de réservation de table.", 'Let guests discover your bottle menu inside the table booking flow.', 'Deja que el cliente descubra tu carta de botellas en el flujo de reserva.')}</p>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {VIS_OPTS.map(opt => (
-            <button
-              key={opt.v}
-              type="button"
-              onClick={() => saveVisibility(opt.v)}
-              className={`text-left rounded-lg border p-3 transition-colors ${menuVisibility === opt.v ? 'border-primary bg-primary/10' : 'border-border/60 hover:bg-muted/40'}`}
-            >
-              <span className="text-sm font-semibold">{opt.label}</span>
-              <span className="block text-[11px] text-muted-foreground mt-0.5 leading-snug">{opt.desc}</span>
-            </button>
-          ))}
-        </div>
-        {/* Mode d'affichage — pertinent seulement si la carte est visible */}
-        {menuVisibility !== 'hidden' && (
-          <div className="pt-1">
+        <p className="text-xs text-muted-foreground">{t(eventMode ? 'tblb.menu.eventHint' : 'tblb.menu.venueHint')}</p>
+        {!eventMode && (
+          <div>
             <p className="text-sm font-medium mb-2">{tt('Comment afficher la carte', 'How to show the menu', 'Cómo mostrar la carta')}</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {DISPLAY_OPTS.map(opt => (
@@ -491,21 +442,6 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
             </div>
           </div>
         )}
-        <div className="flex items-center justify-between pt-1">
-          <div>
-            <p className="text-sm font-medium">{tt('Pré-commande de bouteilles', 'Bottle pre-ordering', 'Pre-pedido de botellas')}</p>
-            <p className="text-xs text-muted-foreground">{tt('Le client peut réserver ses bouteilles dès le paiement de la table.', 'Guests can reserve their bottles when they pay for the table.', 'El cliente puede reservar sus botellas al pagar la mesa.')}</p>
-          </div>
-          <Switch checked={preorderEnabled} onCheckedChange={savePreorder} />
-        </div>
-        {/* Vente de bouteilles sans table (Mode Live) — retrait au bar via QR */}
-        <div className="flex items-center justify-between pt-1">
-          <div>
-            <p className="text-sm font-medium">{t('vipMenu.soloSale.title')}</p>
-            <p className="text-xs text-muted-foreground">{t('vipMenu.soloSale.hint')}</p>
-          </div>
-          <Switch checked={soloSaleEnabled} onCheckedChange={saveSoloSale} />
-        </div>
       </div>
 
       {/* Category Tabs */}
@@ -586,21 +522,12 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
                   </div>
                 </div>
                 <div className="flex items-center justify-end gap-1 mt-3 pt-3 border-t border-border">
-                  {soloSaleEnabled && !isMixerCategory(item.category) && (
-                    <label className="flex items-center gap-1.5 mr-auto cursor-pointer select-none">
-                      <Switch
-                        checked={item.solo_sale_enabled !== false}
-                        onCheckedChange={() => toggleItemSoloSale(item)}
-                      />
-                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                        {t('vipMenu.soloSale.itemLabel')}
-                      </span>
-                    </label>
+                  {SHOW_ELIGIBILITY && (
+                    <Button variant="ghost" size="sm" onClick={() => openEligibilityDialog(item)}>
+                      <Settings2 className="h-4 w-4 mr-1" />
+                      {t('vipMenu.eligibility')}
+                    </Button>
                   )}
-                  <Button variant="ghost" size="sm" onClick={() => openEligibilityDialog(item)}>
-                    <Settings2 className="h-4 w-4 mr-1" />
-                    {t('vipMenu.eligibility')}
-                  </Button>
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(item)}>
                     <Edit2 className="h-4 w-4" />
                   </Button>
@@ -942,30 +869,13 @@ function EligibilityEditor({ item, eligibilities, zones, packs, onSave, onRemove
                     <SelectItem value="_none">{t('vipMenu.unspecified')}</SelectItem>
                     {packsForZone.map(pack => (
                       <SelectItem key={pack.id} value={pack.id}>
-                        {pack.name} {pack.included_bottles_quota > 0 && `(${pack.included_bottles_quota} slots)`}
+                        {pack.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
-
-            {selectedPack && (() => {
-              const pack = packs.find(p => p.id === selectedPack);
-              if (pack && pack.included_bottles_quota > 0) {
-                return (
-                  <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                    <p className="text-sm text-blue-400">
-                      ℹ️ <strong>{t('vipMenu.packOffersSlots').replace('{name}', pack.name).replace('{count}', String(pack.included_bottles_quota))}</strong>
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {t('vipMenu.packSlotExplain').replace('{count}', String(pack.included_bottles_quota))}
-                    </p>
-                  </div>
-                );
-              }
-              return null;
-            })()}
 
             {(!selectedZone && !selectedPack) && (
               <p className="text-xs text-amber-500">⚠️ {t('vipMenu.selectRequired')}</p>

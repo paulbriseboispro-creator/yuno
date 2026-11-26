@@ -214,7 +214,7 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
       ].filter(Boolean).join(',');
       const [{ data: packs }, { data: reservations }] = await Promise.all([
         supabase.from('table_packs')
-          .select('id,zone_id,event_id,venue_id,tables_count,name,base_price,base_capacity,included_bottles_quota,included_items,minimum_spend,payment_mode,position')
+          .select('id,zone_id,event_id,venue_id,tables_count,name,base_price,base_capacity,included_items,minimum_spend,payment_mode,position')
           .eq('is_active', true)
           .or(packScope),
         supabase.from('table_reservations')

@@ -28,6 +28,20 @@ relancer `npm run dev`. Tout réapparaît (routes, navigation, onglets, sections
 
 ## Ce qui reste en ligne, par décision
 
+- **La carte BOUTEILLES d'une table VIP et sa précommande non payée** (D8, 26/11, vague C3a) :
+  porte dédiée `VIP_BOTTLES_LIVE` (`src/lib/drinksPillar.ts`, `true`), distincte de
+  `DRINKS_PILLAR_LIVE` (qui reste `false`). Elle rouvre seulement : la carte proposée au checkout
+  d'une table (RPC `get_table_menu`, `VipMenuPreview`), la précommande « à régler sur place »
+  (`vip_table_orders` statut `preorder`, relue en base, rien en ligne), son récap (confirmation,
+  Mes commandes), l'écran de gestion de la carte (`VipMenuManager` : onglet Carte du Service VIP club,
+  onglet « Carte bouteilles » de l'atelier Tables orga pour une soirée sans club, `vip_menu_items.event_id`).
+  **Restent fermés** : le bar, les commandes de boissons, `/vip-menu`, `/cart`, Click & Collect, le
+  Mode Live et la vente solo de bouteilles (retirés de `VipMenuManager`), `VipQRCodeSection` (QR vers
+  `/vip-menu`). Une nouvelle surface « carte de table » se gate par `VIP_BOTTLES_LIVE` ; tout autre
+  chose de ce document par `DRINKS_PILLAR_LIVE`. Les réglages club `vip_menu_visibility` /
+  `vip_preorder_enabled` ne sont plus lus (la carte s'affiche toujours) ; l'éligibilité par formule
+  et `included_bottles_quota` ne sont plus lus non plus (colonnes conservées).
+
 - La **boisson offerte** d'un billet ou d'une part de guest list (`includes_drink`,
   `quota_drink`, `drink_deadline_*`, `drink_cutoff_time`) : c'est un attribut de
   l'offre billetterie (mode Libre du 30/09), pas le système de commande. **Elle se

@@ -18,6 +18,7 @@ import {
 import { tint } from '@/lib/proTheme';
 import { formatMoneyAuto } from '@/lib/money';
 import { PlacementAdjustmentLine, TableMoneyBlock } from './TableMoneyBlock';
+import { isPreorderOrder, preorderOfReservation, preorderTotals } from '@/lib/vipManualRules';
 
 interface Props {
   reservations: OwnerVipReservation[];
@@ -35,18 +36,6 @@ const STATUS_TONE: Record<string, PillTone> = {
 };
 
 const GOLD = 'var(--acc-e7c15a)';
-
-// Une pré-commande = order dont la note marque la pré-commande (créée au checkout).
-function isPreorderNote(notes?: string | null): boolean {
-  const n = (notes || '').toLowerCase();
-  return n.includes('pré-commande') || n.includes('pre-order') || n.includes('preorder');
-}
-// Nombre de bouteilles pré-commandées pour une réservation.
-function preorderBottleCount(orders: OwnerVipOrder[], reservationId: string): number {
-  return orders
-    .filter(o => o.reservationId === reservationId && isPreorderNote(o.notes))
-    .reduce((sum, o) => sum + o.items.reduce((s, it) => s + it.quantity, 0), 0);
-}
 
 export function VipReservationsTab({ reservations, consumptions, orders, events, selectedEventId }: Props) {
   const { t, language } = useLanguage();
@@ -80,6 +69,12 @@ export function VipReservationsTab({ reservations, consumptions, orders, events,
     const minRate = withMin.length > 0 ? (reached.length / withMin.length) * 100 : 0;
     return { tables: filtered.length, totalGuests, totalRevenue, minRate };
   }, [filtered, consumptions]);
+
+  // Précommandes de la sélection : « à encaisser sur place » (rien n'est payé en ligne).
+  const preorderSummary = useMemo(() => {
+    const ids = new Set(filtered.map(r => r.id));
+    return preorderTotals(orders.filter(o => ids.has(o.reservationId)));
+  }, [filtered, orders]);
 
   const grouped = useMemo(() => {
     if (selectedEventId !== 'all') return [{ eventId: selectedEventId, title: '', date: '', items: filtered }];
@@ -121,6 +116,20 @@ export function VipReservationsTab({ reservations, consumptions, orders, events,
         <VipStatTile icon={Target} label={t('vipOwner.minSpendLabel')} value={`${summary.minRate.toFixed(0)}%`} tone="pos" />
       </div>
 
+      {preorderSummary.total > 0 && (
+        <div
+          className="flex flex-wrap items-center justify-between gap-2"
+          style={{ background: 'rgba(231,193,90,0.08)', border: '1px solid rgba(231,193,90,0.25)', borderRadius: 14, padding: '10px 14px' }}
+        >
+          <span style={{ color: GOLD, fontSize: 12.5, fontWeight: 600 }}>
+            {t('tblm.preorder.nightTitle').replace('{n}', String(preorderSummary.tables))}
+          </span>
+          <span className="tabular-nums" style={{ color: GOLD, fontSize: 14, fontWeight: 700 }}>
+            {t('tblm.preorder.toCollect').replace('{amount}', formatMoneyAuto(preorderSummary.total))}
+          </span>
+        </div>
+      )}
+
       {/* Reservations list */}
       {filtered.length === 0 ? (
         <VipEmpty icon={Crown} title={t('vipHost.noReservations')} />
@@ -141,7 +150,8 @@ export function VipReservationsTab({ reservations, consumptions, orders, events,
               const total = res.deposit + consumed;
               const minProgress = res.minimumSpend > 0 ? Math.min(100, (total / res.minimumSpend) * 100) : 0;
               const credit = res.deposit - consumed;
-              const poBottles = preorderBottleCount(orders, res.id);
+              const po = preorderOfReservation(orders, res.id);
+              const poBottles = po.bottles;
 
               return (
                 <VipCard key={res.id} onClick={() => setSelectedRes(res)} style={{ padding: 16 }}>
@@ -182,6 +192,7 @@ export function VipReservationsTab({ reservations, consumptions, orders, events,
                     {poBottles > 0 ? (
                       <span className="font-semibold" style={{ color: GOLD }}>
                         {poBottles} {tt('bouteille(s) à préparer', 'bottle(s) to prepare', 'botella(s) a preparar')}
+                        {po.due > 0 && <> · {t('tblm.preorder.toCollect').replace('{amount}', formatMoneyAuto(po.due))}</>}
                       </span>
                     ) : (
                       <span style={{ color: T3 }}>{tt('Non', 'No', 'No')}</span>
@@ -236,10 +247,6 @@ function ReservationDetailDialog({ reservation, consumptions, orders, onClose, l
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   if (!reservation) return null;
 
-  const isPreorder = (notes?: string | null) => {
-    const n = (notes || '').toLowerCase();
-    return n.includes('pré-commande') || n.includes('pre-order') || n.includes('preorder');
-  };
 
   const consumed = consumptions.reduce((s, c) => s + c.totalPrice, 0);
   const total = reservation.deposit + consumed;
@@ -328,8 +335,8 @@ function ReservationDetailDialog({ reservation, consumptions, orders, onClose, l
                 {orders.map(o => (
                   <div key={o.id} className="rounded-lg p-2.5" style={{ background: INNER_BG }}>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: isPreorder(o.notes) ? 'var(--acc-e7c15a)' : T2 }}>
-                        {isPreorder(o.notes)
+                      <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: isPreorderOrder(o) ? 'var(--acc-e7c15a)' : T2 }}>
+                        {isPreorderOrder(o)
                           ? tt('Pré-commande', 'Pre-order', 'Pre-pedido')
                           : tt('Commande', 'Order', 'Pedido')}
                       </span>

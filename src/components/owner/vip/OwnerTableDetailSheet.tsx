@@ -18,6 +18,8 @@ import { TableCancelDialog } from './TableCancelDialog';
 import { useTableCancelRight } from '@/hooks/useTableCancelRight';
 import { PlacementAdjustmentLine, TableMoneyBlock } from './TableMoneyBlock';
 import { Ban } from 'lucide-react';
+import { GuestCountEditor } from './GuestCountEditor';
+import { isPreorderOrder, preorderOfReservation } from '@/lib/vipManualRules';
 
 interface OwnerTableDetailSheetProps {
   reservation: OwnerVipReservation | null;
@@ -28,11 +30,6 @@ interface OwnerTableDetailSheetProps {
   onModifyPlacement: (reservation: OwnerVipReservation) => void;
   onChanged?: () => void;
   tableName?: string;
-}
-
-function isPreorderNote(notes?: string | null): boolean {
-  const n = (notes || '').toLowerCase();
-  return n.includes('pré-commande') || n.includes('pre-order') || n.includes('preorder');
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
@@ -185,6 +182,13 @@ export function OwnerTableDetailSheet({
               </div>
             )}
 
+            <GuestCountEditor
+              reservationId={reservation.id}
+              guestCount={reservation.guestCount}
+              editable={!['finished', 'no_show', 'denied'].includes(reservation.vipStatus)}
+              onChanged={onChanged}
+            />
+
             {/* Minimum spend — editable / waivable live */}
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">{t('ownerTable.minSpend')}</span>
@@ -248,7 +252,7 @@ export function OwnerTableDetailSheet({
           </Card>
 
           {/* Pré-commandes — bouteilles réservées au checkout, à préparer / valider par le staff */}
-          {orders.filter(o => isPreorderNote(o.notes)).length > 0 && (
+          {orders.filter(o => isPreorderOrder(o)).length > 0 && (
             <Card className="p-4 border-0" style={{ background: 'rgba(231,193,90,0.08)', border: '1px solid rgba(231,193,90,0.25)' }}>
               <div className="flex items-center justify-between mb-3">
                 <h4 className="font-semibold text-sm flex items-center gap-1.5" style={{ color: 'var(--acc-e7c15a)' }}>
@@ -256,17 +260,23 @@ export function OwnerTableDetailSheet({
                   {tt('Pré-commandes', 'Pre-orders', 'Pre-pedidos')}
                 </h4>
                 <span className="text-sm font-bold" style={{ color: 'var(--acc-e7c15a)' }}>
-                  {orders.filter(o => isPreorderNote(o.notes)).reduce((s, o) => s + o.items.reduce((a, it) => a + it.quantity, 0), 0)} {tt('bouteille(s)', 'bottle(s)', 'botella(s)')}
+                  {orders.filter(o => isPreorderOrder(o)).reduce((s, o) => s + o.items.reduce((a, it) => a + it.quantity, 0), 0)} {tt('bouteille(s)', 'bottle(s)', 'botella(s)')}
                 </span>
               </div>
               <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                {orders.filter(o => isPreorderNote(o.notes)).flatMap(o => o.items).map((it, i) => (
+                {orders.filter(o => isPreorderOrder(o)).flatMap(o => o.items).map((it, i) => (
                   <div key={i} className="flex justify-between text-sm">
                     <span className="text-muted-foreground">{it.quantity}x {it.name}</span>
                     <span className="font-medium">{formatMoneyAuto(it.unitPrice * it.quantity)}</span>
                   </div>
                 ))}
               </div>
+              {preorderOfReservation(orders, reservation.id).due > 0 && (
+                <div className="flex justify-between text-sm font-semibold mt-3 pt-2" style={{ borderTop: '1px solid rgba(231,193,90,0.25)', color: 'var(--acc-e7c15a)' }}>
+                  <span>{t('tblm.preorder.toCollectLabel')}</span>
+                  <span className="tabular-nums">{formatMoneyAuto(preorderOfReservation(orders, reservation.id).due)}</span>
+                </div>
+              )}
               <p className="text-[11px] text-muted-foreground mt-2">
                 {tt("À préparer pour l'arrivée du client. Le serveur VIP valide et lance l'envoi à l'arrivée.", "To prepare for the guest's arrival. The VIP host validates and sends on arrival.", 'A preparar para la llegada del cliente. El host VIP valida y envía a la llegada.')}
               </p>

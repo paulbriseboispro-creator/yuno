@@ -7,7 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Pencil, Trash2, Layers, Package, Image as ImageIcon, Upload, Sparkles, Lock, Map as MapIcon, Clock, LayoutGrid, MousePointerClick, Save, Building2, Crown, ArrowRight, Play, Maximize2, Ruler, Ban } from 'lucide-react';
+import { Plus, Pencil, Trash2, Layers, Package, Image as ImageIcon, Upload, Sparkles, Lock, Map as MapIcon, Clock, LayoutGrid, MousePointerClick, Save, Building2, Crown, ArrowRight, Play, Maximize2, Ruler, Ban, Wine } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   OrgCard, OrgButton, OrgPill, OrgTabs, FieldLabel, DarkInput, DarkTextarea,
@@ -20,6 +20,8 @@ import type { VenueFloorPlan } from '@/types';
 import { formatMoneyAuto } from '@/lib/money';
 import { useActingOrganizer } from '@/hooks/useActingOrganizer';
 import { TablesPaymentsBanner } from '@/components/tables/TablesPaymentsBanner';
+import { EventBottleMenu } from '@/components/tables/EventBottleMenu';
+import { VIP_BOTTLES_LIVE } from '@/lib/drinksPillar';
 import {
   validatePackForm, hasErrors, parseTableServerError, tablesWithoutPack, touchedNothing, tablesCollector,
   type PackFormErrors,
@@ -37,6 +39,29 @@ interface OrgEventTablesPanelProps {
   variant?: 'summary' | 'full';
   /** Appelé après tout changement d'état de la soirée (activation, mode…). */
   onChanged?: () => void;
+}
+
+function ClubPacksReadOnly({ packs }: { packs: { id: string; name: string; base_price: number; base_capacity: number; deposit: number | null; deposit_type?: string | null; payment_mode: string | null }[] }) {
+  const { t } = useLanguage();
+  if (packs.length === 0) return null;
+  return (
+    <div className="mb-4">
+      <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t('tblb.clubPacks.title')}</p>
+      <p className="mb-2" style={{ color: T3, fontSize: 11.5 }}>{t('tblb.clubPacks.hint')}</p>
+      <div className="space-y-2">
+        {packs.map((p) => (
+          <div key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl p-3" style={{ border: `1px solid ${BORDER}`, background: INNER_BG }}>
+            <div style={{ color: T1, fontSize: 13, fontWeight: 560 }}>
+              {p.name} <span style={{ color: T3 }}>— {formatMoneyAuto(Number(p.base_price))}</span>
+            </div>
+            <div style={{ color: T3, fontSize: 11.5 }}>
+              {p.base_capacity} {t('tblb.clubPacks.guests')} · {p.payment_mode === 'on_site' ? t('tblb.clubPacks.onSite') : Number(p.deposit) > 0 ? `${t('tblb.clubPacks.deposit')} ${p.deposit_type === 'percentage' ? `${Number(p.deposit)} %` : formatMoneyAuto(Number(p.deposit))}` : t('tblb.clubPacks.noDeposit')}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 interface VipRoomOption {
@@ -116,6 +141,8 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
   // Club partenaire (soirée d'organisateur dont le club n'est que partenaire).
   const [partnerClubId, setPartnerClubId] = useState<string | null>(null);
   const [clubPacksCount, setClubPacksCount] = useState<number | null>(null);
+  // Formules du club (lecture seule) : soirée menée par le club OU club partenaire d'une soirée d'organisateur (P3.7).
+  const [clubPacks, setClubPacks] = useState<{ id: string; name: string; base_price: number; base_capacity: number; deposit: number | null; deposit_type?: string | null; payment_mode: string | null }[]>([]);
   // When true, the plan + zones come from the club and are read-only here —
   // the organizer only configures packs/prices on top of the club's layout.
   const [lockedToVenue, setLockedToVenue] = useState(false);
@@ -125,7 +152,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
   // Full plan object (with interactive layout) — used in elite mode.
   const [floorPlan, setFloorPlan] = useState<VenueFloorPlan | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [tab, setTab] = useState<'zones' | 'packs' | 'plan'>('zones');
+  const [tab, setTab] = useState<'zones' | 'packs' | 'plan' | 'menu'>('zones');
   const [planEditorOpen, setPlanEditorOpen] = useState(false);
   // Lightbox de l'image illustrative (mode basic).
   const [planPreviewOpen, setPlanPreviewOpen] = useState(false);
@@ -194,13 +221,16 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [{ data: ev }, { data: zs }, { data: ps }, { data: fp }, { data: rms }] = await Promise.all([
+      const [{ data: ev, error: evErr }, { data: zs, error: zsErr }, { data: ps, error: psErr }, { data: fp, error: fpErr }, { data: rms }] = await Promise.all([
         supabase.from('events').select('tables_enabled, tables_mode, tables_owner_user_id, event_mode, tables_locked_to_venue, collab_responsibilities, venue_id, partner_venue_id, location_name, tables_sold_out, sold_out_pack_ids, vip_room_id').eq('id', eventId).maybeSingle(),
         supabase.from('table_zones').select('id, name, color, tables_count, position').eq('event_id', eventId).order('position', { ascending: true, nullsFirst: false }),
         supabase.from('table_packs').select('id, zone_id, name, description, base_price, base_capacity, deposit, arrival_deadline, is_active, payment_mode, limit_tables, tables_count').eq('event_id', eventId),
         supabase.from('venue_floor_plans').select('id, venue_id, layout, background_image_url').eq('event_id', eventId).maybeSingle(),
         supabase.from('organizer_vip_rooms').select('id, name, location_name').eq('organizer_user_id', organizerUserId).order('updated_at', { ascending: false }),
       ]);
+      // Une lecture qui échoue ne doit jamais se lire « tables non activées » : on le dit.
+      const loadErr = evErr ?? zsErr ?? psErr ?? fpErr;
+      if (loadErr) { toast.error(loadErr.message); return; }
       setRooms((rms ?? []) as VipRoomOption[]);
       setLinkedRoomId(ev?.vip_room_id ?? null);
       if (!saveRoomName) setSaveRoomName(ev?.location_name ?? '');
@@ -214,15 +244,20 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
       setClubId(ev?.venue_id ?? ev?.partner_venue_id ?? null);
       setClubHosted(!!ev?.venue_id);
       setPartnerClubId(ev?.partner_venue_id ?? null);
-      if (ev?.venue_id) {
-        const { count } = await supabase
+      const clubForPacks = ev?.venue_id ?? ev?.partner_venue_id ?? null;
+      if (clubForPacks) {
+        const { data: cp, error: cpErr } = await supabase
           .from('table_packs')
-          .select('id', { count: 'exact', head: true })
-          .eq('venue_id', ev.venue_id)
+          .select('id, name, base_price, base_capacity, deposit, deposit_type, payment_mode')
+          .eq('venue_id', clubForPacks)
           .is('event_id', null)
-          .eq('is_active', true);
-        setClubPacksCount(count ?? 0);
+          .eq('is_active', true)
+          .order('position', { ascending: true, nullsFirst: false });
+        if (cpErr) toast.error(cpErr.message);
+        setClubPacks((cp ?? []) as typeof clubPacks);
+        setClubPacksCount(ev?.venue_id ? (cp ?? []).length : null);
       } else {
+        setClubPacks([]);
         setClubPacksCount(null);
       }
       setLockedToVenue(!!ev?.tables_locked_to_venue);
@@ -292,6 +327,12 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
         ? tt('Cette soirée a déjà des réservations : ses tables ne peuvent plus être remplacées.', 'This event already has reservations: its tables can no longer be replaced.', 'Esta noche ya tiene reservas: sus mesas ya no pueden reemplazarse.')
         : error.message);
       return;
+    }
+    // Les « Complet » de la soirée visaient les anciennes formules : ils repartent à zéro (filet côté écran,
+    // la fonction serveur ne le fait pas elle-même).
+    if (tablesSoldOut || soldOutPackIds.length > 0) {
+      const { error: soErr } = await supabase.from('events').update({ tables_sold_out: false, sold_out_pack_ids: [] }).eq('id', eventId);
+      if (soErr) toast.error(soErr.message);
     }
     toast.success(tt('Salle VIP appliquée : zones, packs et plan sont en place.', 'VIP room applied: zones, packs and plan are in place.', 'Sala VIP aplicada: zonas, packs y plano están listos.'));
     loadAll();
@@ -727,6 +768,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
         <p className="mb-3 flex items-center gap-1.5" style={{ color: T3, fontSize: 11.5 }}>
           <Lock className="h-3.5 w-3.5" /> {t('tblp.club.readOnly')}
         </p>
+        <ClubPacksReadOnly packs={clubPacks} />
 
         {hasInteractivePlan ? (
           <>
@@ -756,6 +798,13 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
               'El club aún no ha publicado un plano de sala interactivo.',
             )}
           </p>
+        )}
+
+        {VIP_BOTTLES_LIVE && (
+          <div className="mt-5">
+            <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t('tblb.menu.tab')}</p>
+            <EventBottleMenu eventId={eventId} hasClub canEdit={false} />
+          </div>
         )}
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-2 rounded-xl p-3" style={{ border: `1px solid ${BORDER}`, background: INNER_BG }}>
@@ -893,15 +942,21 @@ export function OrgEventTablesPanel({ eventId, organizerUserId, variant = 'full'
         </div>
       )}
 
-      <OrgTabs<'zones' | 'packs' | 'plan'>
+      <OrgTabs<'zones' | 'packs' | 'plan' | 'menu'>
         value={tab}
         onChange={setTab}
         tabs={[
           { value: 'zones', label: tt('Zones', 'Zones', 'Zonas'), icon: <Layers className="h-3.5 w-3.5" /> },
           { value: 'packs', label: tt('Packs', 'Packs', 'Packs'), icon: <Package className="h-3.5 w-3.5" /> },
           { value: 'plan', label: tt('Plan de salle', 'Floor plan', 'Plano de sala'), icon: <ImageIcon className="h-3.5 w-3.5" /> },
+          ...(VIP_BOTTLES_LIVE ? [{ value: 'menu' as const, label: t('tblb.menu.tab'), icon: <Wine className="h-3.5 w-3.5" /> }] : []),
         ]}
       />
+
+      {/* CARTE BOUTEILLES (D8) : celle de la soirée sans club ; celle du club en lecture seule sinon. */}
+      {VIP_BOTTLES_LIVE && tab === 'menu' && (
+        <EventBottleMenu eventId={eventId} hasClub={!soloOrganizer} canEdit={canEdit} />
+      )}
 
       {/* ZONES */}
       {tab === 'zones' && (

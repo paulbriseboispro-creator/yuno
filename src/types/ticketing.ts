@@ -154,7 +154,6 @@ export type TablePack = {
   maxExtraPersons: number;
   deposit: number;
   depositType: 'fixed' | 'percentage';
-  includedBottlesQuota: number;
   minimumSpend: number;
   /** Heure d'arrivée limite optionnelle (HH:MM, 24 h). undefined/null = pas de limite. */
   arrivalDeadline?: string | null;

@@ -90,6 +90,8 @@ export interface TableReceipt {
   remaining_on_site: number | null;
   holder: { full_name: string | null; email: string | null };
   guests: TableReceiptGuest[];
+  /** Précommande de bouteilles (D8) : brute, à lire par `parseReceiptPreorder` ; à régler sur place. */
+  preorder?: unknown;
 }
 
 interface RpcClient {
@@ -197,6 +199,7 @@ export function checkoutErrorKey(code: unknown): string | null {
   switch (code) {
     case 'invalid_pack': return 'tblc.err.invalidPack';
     case 'invalid_guest_count': return 'tblc.err.invalidGuestCount';
+    case 'invalid_preorder': return 'tblb.err.invalidPreorder';
     case 'promo_not_applicable_to_deposit': return 'tblc.err.promoNotApplicable';
     case 'table_taken':
     case 'table_unavailable': return 'tblc.err.tableTaken';

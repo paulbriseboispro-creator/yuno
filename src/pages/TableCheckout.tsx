@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { usePreviewNavigate } from '@/contexts/OwnerPreviewContext';
 import { useEventRoute } from '@/hooks/useEventRoute';
@@ -28,6 +28,7 @@ import {
 } from '@/hooks/useMarketingConsent';
 import { ClientFloorPlanPicker } from '@/components/vip/ClientFloorPlanPicker';
 import { VipMenuPreview, type PreorderSelection } from '@/components/vip/VipMenuPreview';
+import { toPreorderPayload } from '@/lib/tableBottles';
 import { VipTableWaitlistDialog } from '@/components/vip/VipTableWaitlistDialog';
 import { useTableAvailability } from '@/hooks/useTableAvailability';
 import { soldOutFlags, isPackSoldOut, type SoldOutEvent } from '@/lib/soldOut';
@@ -61,7 +62,7 @@ import { marketProps } from '@/lib/geo';
 import { checkoutFailReason } from '@/lib/checkoutFailure';
 import { PromoCodeField } from '@/components/checkout/PromoCodeField';
 import { bestDiscount, forgetPromoForEvent, normalizePromoCode, promoDiscountAmount, promoReasonKey, recallPromoForEvent, rememberPromoForEvent, type AppliedPromo } from '@/lib/promoCode';
-import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
+import { VIP_BOTTLES_LIVE } from '@/lib/drinksPillar';
 
 interface PromoterDiscount {
   promoterId: string;
@@ -204,6 +205,9 @@ export default function TableCheckout() {
   
   const [guestCount, setGuestCount] = useState(1);
   const [preOrderBottles, setPreOrderBottles] = useState<PreorderSelection[]>([]);
+  // Total INDICATIF de la précommande (prix de la carte) : à régler sur place, jamais dans le montant en ligne.
+  const [preOrderTotal, setPreOrderTotal] = useState(0);
+  const onPreorderChange = useCallback((items: PreorderSelection[], total: number) => { setPreOrderBottles(items); setPreOrderTotal(total); }, []);
   const [waitlistOpen, setWaitlistOpen] = useState(false);
   const { unavailableTableIds, reservationsByZone, reservationsByPack } = useTableAvailability(eventId);
 
@@ -422,7 +426,6 @@ export default function TableCheckout() {
         maxExtraPersons: packData.max_extra_persons ?? 0,
         deposit: packData.deposit ? Number(packData.deposit) : 0,
         depositType: (packData.deposit_type as 'fixed' | 'percentage') || 'fixed',
-        includedBottlesQuota: packData.included_bottles_quota || 0,
         minimumSpend: Number(packData.minimum_spend) || 0,
         arrivalDeadline: packData.arrival_deadline,
         paymentMode: (packData.payment_mode as 'online' | 'on_site') || 'online',
@@ -473,7 +476,6 @@ export default function TableCheckout() {
               maxExtraPersons: p.max_extra_persons ?? 0,
               deposit: p.deposit ? Number(p.deposit) : 0,
               depositType: (p.deposit_type as 'fixed' | 'percentage') || 'fixed',
-              includedBottlesQuota: p.included_bottles_quota || 0,
               minimumSpend: Number(p.minimum_spend) || 0,
               arrivalDeadline: p.arrival_deadline,
               paymentMode: (p.payment_mode as 'online' | 'on_site') || 'online',
@@ -902,9 +904,8 @@ export default function TableCheckout() {
           placementStatus: placementStatus,
           ageDeclaration: { confirmed: true, birthDate: declaredBirthDate ?? undefined },
           // Pré-commande bouteilles (préparées pour l'arrivée, réglées à la table)
-          preOrderBottles: preOrderBottles.map(b => ({
-            menuItemId: b.menuItemId, quantity: b.quantity, unitPrice: b.unitPrice, itemName: b.itemName,
-          })),
+          // Seuls l'article et la quantité partent : le serveur relit prix et noms en base.
+          preOrderBottles: VIP_BOTTLES_LIVE ? toPreorderPayload(Object.fromEntries(preOrderBottles.map(b => [b.menuItemId, b.quantity]))) : [],
           ...guestCheckout,
         }
       });
@@ -1217,6 +1218,11 @@ export default function TableCheckout() {
                             {t('tableCheckout.remainingAtClub').replace('{amount}', money(remaining))}
                           </p>
                         )}
+                        {VIP_BOTTLES_LIVE && preOrderTotal > 0 && (
+                          <p className="text-[12px] leading-[1.45] text-[#9A9A9A]">
+                            {t('tblb.checkout.preorderLine').replace('{amount}', money(preOrderTotal))}
+                          </p>
+                        )}
                       </>
                     )}
                   </div>
@@ -1240,18 +1246,13 @@ export default function TableCheckout() {
                   )}
                 </section>
 
-                {/* Vitrine carte bouteilles (idée #2) — pilotée par le réglage club.
-                    Pilier boissons en pause (src/lib/drinksPillar.ts) : la précommande de
-                    bouteilles dort avec lui (les bouteilles INCLUSES dans la formule restent). */}
-                {DRINKS_PILLAR_LIVE && venue?.id && (
+                {/* Carte bouteilles de la table (D8) : porte VIP_BOTTLES_LIVE, pas celle du pilier boissons
+                    (le bar reste en pause). Carte = get_table_menu(event) ; précommande à régler sur place. */}
+                {VIP_BOTTLES_LIVE && eventId && (
                   <VipMenuPreview
-                    venueId={venue.id}
-                    packId={pack?.id}
-                    zoneId={activeZoneId}
-                    visibility={venue.vip_menu_visibility}
-                    displayMode={venue.vip_menu_display_mode === 'visual' ? 'visual' : 'text'}
-                    preorderEnabled={!!venue.vip_preorder_enabled}
-                    onPreorderChange={setPreOrderBottles}
+                    eventId={eventId}
+                    displayMode={venue?.vip_menu_display_mode === 'visual' ? 'visual' : 'text'}
+                    onPreorderChange={onPreorderChange}
                     minimumSpend={pack?.minimumSpend}
                   />
                 )}
@@ -1359,6 +1360,9 @@ export default function TableCheckout() {
                     ) : remaining > 0 ? (
                       <PriceRow label={t('tableCheckout.remainingLabel')} value={money(remaining)} />
                     ) : null}
+                    {VIP_BOTTLES_LIVE && preOrderTotal > 0 && (
+                      <PriceRow label={t('tblb.checkout.preorderLabel')} value={money(preOrderTotal)} />
+                    )}
                     {pricing.discount > 0 && (
                       <p className="flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.04em] text-emerald-400">
                         <Tag className="h-3 w-3 shrink-0" aria-hidden />

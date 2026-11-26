@@ -283,7 +283,6 @@ export default function TicketSelection() {
           extraPersonPrice: p.extra_person_price ? Number(p.extra_person_price) : 0,
           maxExtraPersons: p.max_extra_persons ?? 0, deposit: p.deposit ? Number(p.deposit) : 0,
           depositType: (p.deposit_type as 'fixed' | 'percentage') || 'fixed',
-          includedBottlesQuota: p.included_bottles_quota || 0,
           minimumSpend: Number(p.minimum_spend) || 0, arrivalDeadline: p.arrival_deadline || undefined, tablesCount: p.tables_count || 1, limitTables: !!p.limit_tables,
           position: p.position, isActive: p.is_active, createdAt: p.created_at, updatedAt: p.updated_at,
         })));
@@ -1358,8 +1357,8 @@ function PackCard({
             réserver, et renvoyait un groupe de quatre vers la billetterie. */}
         <p className="text-[12px] text-white/60">
           {tableCapacityLabel(pack, t)}
-          {pack.includedBottlesQuota > 0 && <> · {pack.includedBottlesQuota} {pack.includedBottlesQuota > 1 ? t('ticketSel.bottles') : t('ticketSel.bottle')}</>}
         </p>
+        {pack.description && <p className="text-[12px] text-white/50">{pack.description}</p>}
         {pack.minimumSpend > 0 && (
           <p className="text-[12px] text-amber-400/70 font-medium">{t('ticketSel.minSpend')} {pack.minimumSpend} €</p>
         )}

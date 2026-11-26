@@ -8,7 +8,8 @@ import { RosterExportDialog } from '@/components/roster/RosterExportDialog';
 import { buildTableRoster } from '@/lib/rosterBuilders';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
-import { tableRevenue } from '@/utils/fees';
+import { tableRevenue, clubAmount } from '@/utils/fees';
+import { TableCreditNotes } from '@/components/owner/vip/TableCreditNotes';
 import { formatMoneyAuto } from '@/lib/money';
 import { SaleSourceCard, SaleSourceChip } from '@/components/orders/SaleSource';
 
@@ -52,6 +53,8 @@ interface VipOrder {
   serviceFee: number;
   managementFee: number | null;
   feeAbsorbed?: boolean;
+  /** Remboursé au client, en euros (partiel ou total) : déduit du revenu affiché. */
+  refundAmount: number;
   minimumSpend: number | null;
   status: string;
   vipStatus: string | null;
@@ -157,6 +160,7 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
         serviceFee: r.service_fee,
         managementFee: r.management_fee,
         feeAbsorbed: !!r.fee_absorbed,
+        refundAmount: Number(r.refund_amount) || 0,
         minimumSpend: r.minimum_spend,
         status: r.status,
         vipStatus: r.vip_status,
@@ -196,8 +200,9 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
   // Totaux sur les réservations VENDUES seulement : la liste montre aussi les
   // annulées et remboursées (filtre « Tous »), les totaux jamais.
   const soldReservations = filteredReservations.filter((r) => r.status === 'paid' || r.status === 'confirmed');
+  // Remboursements partiels déduits : même règle que les analyses (fees.ts, clubAmount).
   const totalRevenue = soldReservations.reduce(
-    (s, r) => s + tableRevenue({ total_price: r.totalPrice, service_fee: r.serviceFee, management_fee: r.managementFee, fee_absorbed: r.feeAbsorbed }).gross,
+    (s, r) => s + clubAmount(tableRevenue({ total_price: r.totalPrice, service_fee: r.serviceFee, management_fee: r.managementFee, fee_absorbed: r.feeAbsorbed, refund_amount: r.refundAmount })),
     0,
   );
   const totalGuests = soldReservations.reduce((s, r) => s + (r.guestCount ?? 0), 0);
@@ -382,6 +387,8 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
                 )}
               </div>
 
+              {selectedReservation.refundAmount > 0 && <TableCreditNotes reservationId={selectedReservation.id} />}
+
               <SaleSourceCard channel={selectedReservation.sourceChannel} label={selectedReservation.sourceLabel} email={selectedReservation.userEmail} />
 
               <div>
@@ -408,6 +415,12 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
                     <div className="flex justify-between px-3 py-2.5 rounded-xl" style={{ background: INNER_BG }}>
                       <span style={{ color: T2, fontSize: 13 }}>{t('owner.managementFee')}</span>
                       <span style={{ color: T2, fontSize: 13 }} className="tabular-nums">{formatMoneyAuto(selectedReservation.managementFee!)}</span>
+                    </div>
+                  )}
+                  {selectedReservation.refundAmount > 0 && (
+                    <div className="flex justify-between px-3 py-2.5 rounded-xl" style={{ background: INNER_BG }}>
+                      <span style={{ color: 'var(--acc-ff5c63)', fontSize: 13 }}>{t('tblm.orders.refunded')}</span>
+                      <span style={{ color: 'var(--acc-ff5c63)', fontSize: 13 }} className="tabular-nums">-{formatMoneyAuto(selectedReservation.refundAmount)}</span>
                     </div>
                   )}
                   {selectedReservation.minimumSpend && (

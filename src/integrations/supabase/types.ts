@@ -25632,7 +25632,8 @@ export type Database = {
           price: number
           solo_sale_enabled: boolean
           updated_at: string | null
-          venue_id: string
+          venue_id: string | null
+          event_id: string | null
           volume_cl: number | null
         }
         Insert: {
@@ -25650,7 +25651,8 @@ export type Database = {
           price?: number
           solo_sale_enabled?: boolean
           updated_at?: string | null
-          venue_id: string
+          venue_id?: string | null
+          event_id?: string | null
           volume_cl?: number | null
         }
         Update: {
@@ -25668,7 +25670,8 @@ export type Database = {
           price?: number
           solo_sale_enabled?: boolean
           updated_at?: string | null
-          venue_id?: string
+          venue_id?: string | null
+          event_id?: string | null
           volume_cl?: number | null
         }
         Relationships: [
@@ -33080,6 +33083,12 @@ export type Database = {
         }[]
       }
       event_payments_ready: { Args: { p_event_id: string }; Returns: boolean }
+      event_pillar_payments_ready: {
+        Args: { p_event_id: string; p_pillar: string }
+        Returns: boolean
+      }
+      get_event_tables_collector: { Args: { p_event_id: string }; Returns: Json }
+      get_table_menu: { Args: { p_event_id: string }; Returns: Json }
       exchange_ticket_round: {
         Args: {
           p_actor: string

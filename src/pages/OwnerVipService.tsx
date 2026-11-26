@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { VipMenuManager } from '@/components/owner/VipMenuManager';
 import { VipQRCodeSection } from '@/components/owner/VipQRCodeSection';
 import { VipLoadError } from '@/components/owner/vip/VipLoadError';
 import { VipEventSelector } from '@/components/owner/vip/VipEventSelector';
 import { VipOverviewTab } from '@/components/owner/vip/VipOverviewTab';
 import { VipReservationsTab } from '@/components/owner/vip/VipReservationsTab';
+import { isPreorderOrder } from '@/lib/vipManualRules';
 import { ManualReservationDialog } from '@/components/owner/vip/ManualReservationDialog';
 import { VipPlacementRequests } from '@/components/owner/vip/VipPlacementRequests';
 import { VipFloorPlan } from '@/components/vip-host/VipFloorPlan';
@@ -28,7 +29,7 @@ import {
   RED, T1, T2, T3, BORDER, F_BORDER, C_FAINT, INNER_BG,
 } from '@/components/owner/vip/vip-ui';
 import { formatMoneyAuto } from '@/lib/money';
-import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
+import { VIP_BOTTLES_LIVE } from '@/lib/drinksPillar';
 import { defaultVipNightId } from '@/lib/vipNights';
 
 interface QuickItem {
@@ -53,11 +54,12 @@ type VipTab = 'overview' | 'reservations' | 'placement' | 'menu' | 'staff' | 'se
 
 export default function OwnerVipService() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { t } = useLanguage();
   const { venueId, loading, events, reservations, consumptions, orders, loadError, refresh } = useOwnerVipData();
 
   const [activeTab, setActiveTab] = useState<VipTab>('overview');
-  const [selectedEventId, setSelectedEventId] = useState<string>('all');
+  const [selectedEventId, setSelectedEventId] = useState<string>(searchParams.get('event') || 'all'); // ?event= : lien d'une notification (table vendue, récap de la veille)
   const [showManualRes, setShowManualRes] = useState(false);
   const [vipHosts, setVipHosts] = useState<VipHostRow[]>([]);
   const [quickItems, setQuickItems] = useState<QuickItem[]>([]);
@@ -197,10 +199,7 @@ export default function OwnerVipService() {
   // Réservations qui ont une pré-commande en attente -> pastille dorée sur le floor plan.
   const preorderReservationIds = useMemo(() => {
     const set = new Set<string>();
-    filteredOrders.forEach(o => {
-      const n = (o.notes || '').toLowerCase();
-      if (n.includes('pré-commande') || n.includes('pre-order') || n.includes('preorder')) set.add(o.reservationId);
-    });
+    filteredOrders.forEach(o => { if (isPreorderOrder(o) && o.status !== 'cancelled') set.add(o.reservationId); });
     return set;
   }, [filteredOrders]);
 
@@ -252,7 +251,7 @@ export default function OwnerVipService() {
     { id: 'reservations', label: t('tables.reservations'), icon: Crown },
     { id: 'placement', label: t('vipCheckout.step.placement'), icon: MapPin, badge: pendingPlacements },
     // Pilier boissons en pause (src/lib/drinksPillar.ts) : la carte VIP à table dort.
-    ...(DRINKS_PILLAR_LIVE ? [{ id: 'menu' as const, label: t('vipMenu.menuTab'), icon: Wine }] : []),
+    ...(VIP_BOTTLES_LIVE ? [{ id: 'menu' as const, label: t('vipMenu.menuTab'), icon: Wine }] : []),
     { id: 'staff', label: t('owner.staff'), icon: UserCheck },
     { id: 'settings', label: t('owner.settings') || 'Settings', icon: Settings },
   ];

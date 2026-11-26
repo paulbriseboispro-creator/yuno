@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { isQueuedEmail, manualReservationError, guestCountError, type CodedError } from '@/lib/vipManualRules';
 import { vipErrorInfo, type PlacementAdjustment, type VipErrorInfo } from '@/lib/vipTableRules';
 
 /**
@@ -97,12 +98,82 @@ export async function saveReservationNote(reservationId: string, note: string): 
   return !error && !!data && data.length > 0;
 }
 
-/** E-mail client « ta réservation tient, ta table change » (jamais bloquant pour le geste). */
-export async function sendTableChangedEmail(reservationId: string): Promise<VipApiError | null> {
-  const { error } = await supabase.functions.invoke('send-vip-confirmation', {
-    body: { reservation_id: reservationId, type: 'table_changed' },
+/**
+ * E-mail client d'une réservation de table. 200 = parti ; 202 `{queued:true}` = refusé par Resend, mis en file
+ * et rejoué (D6) : c'est un SUCCÈS, `queued` dit seulement qu'il partira dans quelques minutes.
+ */
+export async function sendVipEmail(
+  reservationId: string,
+  type: 'table_changed' | 'confirmed' | 'cancelled' | 'cancelled_refunded',
+): Promise<{ error: VipApiError | null; queued: boolean }> {
+  const { data, error } = await supabase.functions.invoke('send-vip-confirmation', {
+    body: { reservation_id: reservationId, type },
   });
-  return error ? edgeError(error) : null;
+  if (error) return { error: await edgeError(error), queued: false };
+  return { error: null, queued: isQueuedEmail(data) };
+}
+
+/** E-mail client « ta réservation tient, ta table change » (jamais bloquant pour le geste ; un 202 est un succès). */
+export async function sendTableChangedEmail(reservationId: string): Promise<VipApiError | null> {
+  return (await sendVipEmail(reservationId, 'table_changed')).error;
+}
+
+export interface ManualReservationInput {
+  eventId: string;
+  zoneId: string;
+  packId?: string | null;
+  tableId?: string | null;
+  fullName?: string;
+  phone?: string;
+  email?: string;
+  guestCount: number;
+  totalPrice: number;
+  minimumSpend: number;
+  sendConfirmation: boolean;
+}
+
+export interface ManualReservationResult {
+  ok: boolean;
+  id: string | null;
+  error: CodedError | null;
+  /** Confirmation demandée : parti / mis en file (202) / en échec (la réservation existe quand même). */
+  email: 'none' | 'sent' | 'queued' | 'failed';
+}
+
+/** Réservation à la main, puis (si demandé) e-mail de confirmation avec QR. */
+export async function createManualReservation(i: ManualReservationInput): Promise<ManualReservationResult> {
+  const { data, error } = await rpc('create_manual_table_reservation', {
+    p_event_id: i.eventId,
+    p_zone_id: i.zoneId,
+    p_full_name: i.fullName?.trim() || null,
+    p_phone: i.phone?.trim() || null,
+    p_email: i.email?.trim() || null,
+    p_guest_count: Math.max(1, Math.round(i.guestCount) || 1),
+    p_total_price: Math.max(0, i.totalPrice || 0),
+    p_minimum_spend: Math.max(0, i.minimumSpend || 0),
+    p_assigned_table_id: i.tableId ?? null,
+    p_remarks: null,
+    p_send_confirmation: i.sendConfirmation,
+    p_pack_id: i.packId ?? null,
+  });
+  if (error) return { ok: false, id: null, error: manualReservationError(error), email: 'none' };
+  const id = typeof data === 'string' ? data : null;
+  if (!i.sendConfirmation || !id) return { ok: true, id, error: null, email: 'none' };
+  const sent = await sendVipEmail(id, 'confirmed');
+  return { ok: true, id, error: null, email: sent.error ? 'failed' : sent.queued ? 'queued' : 'sent' };
+}
+
+export interface GuestCountResult { ok: boolean; error: CodedError | null; guestCount: number | null }
+
+/** Change le nombre de convives (`vip_set_table_guest_count`) ; `expected` = la valeur vue à l'écran (YU014 sinon). */
+export async function setGuestCount(reservationId: string, count: number, expected: number | null): Promise<GuestCountResult> {
+  const { data, error } = await rpc('vip_set_table_guest_count', {
+    p_reservation_id: reservationId,
+    p_guest_count: count,
+    p_expected_guest_count: expected,
+  });
+  if (error) return { ok: false, error: guestCountError(error), guestCount: null };
+  return { ok: true, error: null, guestCount: Number((data as { guest_count?: number } | null)?.guest_count) || count };
 }
 
 export interface CancelResult { ok: boolean; error: VipApiError | null; amount: number }
