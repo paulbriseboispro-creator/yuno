@@ -2390,7 +2390,7 @@ function helpSystemPrompt(scope: string, language: string, docs: HelpDoc[], curr
   const excerpts = docs.length
     ? docs.map((d) => `### [${d.title}](${d.path})\n${d.text}`).join("\n\n")
     : "(aucun extrait ne correspond à la question)";
-  return `Tu es l'assistant du mode d'emploi de Yuno, la plateforme nightlife : billets, tables VIP (bottle service), commandes de boissons, guest list, marketing, promoteurs. Tu parles à un ${HELP_SCOPE_LABEL[scope] ?? HELP_SCOPE_LABEL.owner}.
+  return `Tu es l'assistant du mode d'emploi de Yuno, la plateforme nightlife : billets, tables VIP, guest list, marketing, promoteurs. Tu parles à un ${HELP_SCOPE_LABEL[scope] ?? HELP_SCOPE_LABEL.owner}.
 Tu réponds en ${langName}, ${register}.${currentArticle ? `\nLa personne lit en ce moment l'article « ${currentArticle} ».` : ""}
 
 RÈGLES
