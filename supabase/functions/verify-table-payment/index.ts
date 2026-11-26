@@ -201,6 +201,8 @@ serve(async (req) => {
             success: true,
             paid: true,
             alreadyProcessed: true,
+            // Statut réel : une réservation annulée / remboursée ne se lit jamais « confirmée » sur la page de retour.
+            reservationStatus: String(reservation.status),
             isGuest: isGuestReservation,
             guestEmail: isGuestReservation && receiptAuthorized ? reservation.user_email : undefined,
             // Page de confirmation d'un acheteur sans compte : le QR de la table, avec le jeton de reçu seulement.

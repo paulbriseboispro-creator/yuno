@@ -497,13 +497,13 @@ export function buildVipStatus(d: {
       }),
     },
     table_changed: {
-      subject: p(lang, { en: 'Your table changed', fr: 'Ta table a changé', es: 'Tu mesa ha cambiado' }),
+      subject: p(lang, { en: 'Your table placement changed', fr: 'Le placement de ta table a changé', es: 'La ubicación de tu mesa ha cambiado' }),
       label: p(lang, { en: 'Table updated', fr: 'Table modifiée', es: 'Mesa modificada' }),
       title: p(lang, { en: 'heads up', fr: 'à noter', es: 'atención' }),
       body: p(lang, {
-        en: `Your booking for ${ev} at ${vn} still stands, but your table changed.${d.changes ? ' Here is the update:' : ''}`,
-        fr: `Ta réservation pour ${ev} chez ${vn} tient toujours, mais ta table change.${d.changes ? ' Voici le détail :' : ''}`,
-        es: `Tu reserva para ${ev} en ${vn} sigue en pie, pero tu mesa cambia.${d.changes ? ' Este es el detalle:' : ''}`,
+        en: `Your booking for ${ev} at ${vn} still stands, but your table placement changed.${d.changes ? ' Here is the update:' : ''}`,
+        fr: `Ta réservation pour ${ev} chez ${vn} tient toujours, mais le placement de ta table change.${d.changes ? ' Voici le détail :' : ''}`,
+        es: `Tu reserva para ${ev} en ${vn} sigue en pie, pero la ubicación de tu mesa cambia.${d.changes ? ' Este es el detalle:' : ''}`,
       }),
     },
     cancelled_refunded: {

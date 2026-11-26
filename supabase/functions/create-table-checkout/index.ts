@@ -1,3 +1,4 @@
+import { stripeCheckoutResponseBody } from "../_shared/table-checkout-response.ts";
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
@@ -1462,7 +1463,7 @@ serve(async (req) => {
     });
 
     // `receiptToken` : à garder dans le navigateur de l'acheteur (jamais dans une URL) pour relire le QR au retour de paiement.
-    return new Response(JSON.stringify({ success: true, sessionId: session.id, url: session.url, receiptToken }), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
+    return new Response(JSON.stringify(stripeCheckoutResponseBody({ reservationId: reservation.id, sessionId: session.id, url: session.url, receiptToken })), { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: errorMessage });
