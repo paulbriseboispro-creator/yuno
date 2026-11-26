@@ -21,6 +21,8 @@ export interface TableMoneyInput {
   chargedTotal?: number | null;
   /** Paiement Stripe passé par Yuno (intent ou session). */
   hasOnlinePayment: boolean;
+  /** « Différence à régler sur place » posée par un déplacement vers une autre formule (D3). */
+  onSiteAdjustment?: number | null;
 }
 
 export interface TableMoney {
@@ -34,7 +36,8 @@ export interface TableMoney {
 
 /** Trois chiffres nommés : une table sur place à 800 € = 0 / 800 / 800. */
 export function tableMoney(r: TableMoneyInput): TableMoney {
-  const commitment = round2(Math.max(0, r.totalPrice || 0));
+  const adj = Math.max(0, Number(r.onSiteAdjustment) || 0);
+  const commitment = round2(Math.max(0, r.totalPrice || 0) + adj);
   if (!r.hasOnlinePayment) return { paidOnline: 0, remainingOnSite: commitment, commitment };
   const charged = r.chargedTotal != null && r.chargedTotal > 0
     ? r.chargedTotal

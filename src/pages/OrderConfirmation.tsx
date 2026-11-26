@@ -206,12 +206,14 @@ type RpcClientLike = Parameters<typeof fetchTableReceipt>[0];
 
 /** Champs de confirmation que le reçu serveur apporte (placement, montants, adresse différée). */
 function tableInfoFromReceipt(r: TableReceipt): NonNullable<ConfirmationData['tableInfo']> {
+  const adjustment = placementAdjustmentView(r);
   return {
     status: r.status,
     placement: placementView(r),
-    adjustment: placementAdjustmentView(r),
+    adjustment,
     paidOnline: paidOnline(r),
-    remaining: remainingOnSite(r),
+    // La différence d'un surclassement payant se règle au club, avec le reste.
+    remaining: remainingOnSite(r) + (adjustment?.kind === 'pay_on_site' ? adjustment.amount : 0),
     addressDeferred: !!r.event?.address_deferred,
   };
 }

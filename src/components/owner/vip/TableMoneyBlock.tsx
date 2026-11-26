@@ -10,6 +10,7 @@ export function TableMoneyBlock({ reservation, compact = false }: { reservation:
   const m = tableMoney({
     totalPrice: reservation.totalPrice, deposit: reservation.deposit, managementFee: reservation.managementFee, feeAbsorbed: reservation.feeAbsorbed,
     chargedTotal: reservation.chargedTotal, hasOnlinePayment: reservation.hasOnlinePayment,
+    onSiteAdjustment: reservation.placementAdjustment === 'pay_on_site' ? reservation.placementAdjustmentAmount : null,
   });
   const rows: [string, number][] = [
     ['tblg.money.paidOnline', m.paidOnline],

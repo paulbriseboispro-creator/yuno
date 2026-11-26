@@ -17881,6 +17881,7 @@ const es: Record<string, string> = {
   "tblc.closed.title": "Esta reserva de mesa está cancelada",
   "tblc.closed.body": "La reserva fue cancelada, por lo que no está confirmada. Si pagaste en línea, revisa tu email para ver el detalle del reembolso.",
   "tblp.plan.discard": "Descartar mis cambios",
+  "ticketSel.tableLeft": "mesa restante",
 };
 
 export default es;

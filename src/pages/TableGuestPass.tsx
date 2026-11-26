@@ -103,7 +103,7 @@ export default function TableGuestPass() {
         {valid ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
         {stateLabel}
       </div>
-      <p style={{ marginTop: 14, fontSize: 13, lineHeight: 1.5, color: '#9A9A9A' }}>{t('tblc.pass.hint')}</p>
+      {valid && !used && <p style={{ marginTop: 14, fontSize: 13, lineHeight: 1.5, color: '#9A9A9A' }}>{t('tblc.pass.hint')}</p>}
       <p style={{ ...mono(10), marginTop: 14, letterSpacing: '0.18em' }}>{pass.qr_code.slice(-8)}</p>
     </div>,
   );

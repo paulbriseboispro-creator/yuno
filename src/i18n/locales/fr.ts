@@ -17513,6 +17513,7 @@ const fr: Record<string, string> = {
   "tblc.closed.title": "Cette réservation de table est annulée",
   "tblc.closed.body": "La réservation a été annulée, elle n'est donc pas confirmée. Si tu as payé en ligne, regarde ton e-mail pour le détail du remboursement.",
   "tblp.plan.discard": "Annuler mes changements",
+  "ticketSel.tableLeft": "table restante",
 };
 
 export default fr;

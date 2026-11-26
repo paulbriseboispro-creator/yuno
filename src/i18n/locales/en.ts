@@ -17540,6 +17540,7 @@ const en: Record<string, string> = {
   "tblc.closed.title": "This table reservation is cancelled",
   "tblc.closed.body": "The reservation was cancelled, so it is not confirmed. If you paid online, check your email for the refund details.",
   "tblp.plan.discard": "Discard my changes",
+  "ticketSel.tableLeft": "table left",
 };
 
 export default en;

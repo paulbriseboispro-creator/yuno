@@ -87,3 +87,14 @@ describe('vipErrorInfo', () => {
     expect(vipErrorInfo(new Error('boom'))).toEqual({ key: 'tblg.err.generic', refresh: true });
   });
 });
+
+describe('tableMoney — différence de surclassement (D3)', () => {
+  it('ajoute la différence à régler sur place au reste et à l\'engagement', () => {
+    expect(tableMoney({ totalPrice: 250, deposit: 60, managementFee: 2.4, hasOnlinePayment: true, onSiteAdjustment: 200 }))
+      .toEqual({ paidOnline: 62.4, remainingOnSite: 390, commitment: 450 });
+  });
+  it('table sur place : la différence entre aussi dans le reste', () => {
+    expect(tableMoney({ totalPrice: 800, deposit: 0, hasOnlinePayment: false, onSiteAdjustment: 100 }))
+      .toEqual({ paidOnline: 0, remainingOnSite: 900, commitment: 900 });
+  });
+});

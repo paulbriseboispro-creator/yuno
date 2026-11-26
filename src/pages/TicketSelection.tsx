@@ -1377,7 +1377,7 @@ function PackCard({
       </div>
       {pack.limitTables && !isSoldOut && remaining > 0 && remaining <= 3 && (
         <span className="inline-flex items-center rounded-full border border-amber-400/35 bg-amber-400/[0.12] px-2.5 py-1 text-[11.5px] font-semibold tabular-nums text-amber-300">
-          {remaining} {t('ticketSel.tablesLeft')}
+          {remaining} {t(remaining === 1 ? 'ticketSel.tableLeft' : 'ticketSel.tablesLeft')}
         </span>
       )}
     </OfferCard>
