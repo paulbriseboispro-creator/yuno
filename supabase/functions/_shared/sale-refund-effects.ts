@@ -252,6 +252,46 @@ export async function decrementCustomerSpent(admin: SupabaseClient, ctx: SaleRef
   } catch (e) { console.error("[SALE-REFUND] stats (amount) error:", e); }
 }
 
+/**
+ * Avoir (D15) du remboursement CONFIRMÉ d'une vente qui a une facture : `issue_credit_note` lit le cumul remboursé de la vente, avoire la
+ * différence avec ce qui l'est déjà, et ne fait rien pour une vente sans facture (démo, table sur place). Idempotente. Ne lève jamais :
+ * l'argent est parti, un avoir raté est rattrapé par le filet horaire (issue_missing_invoices) et signalé au super admin.
+ * Rend le numéro et le lien public du PDF quand un avoir vient d'être émis.
+ */
+export async function issueCreditNoteForRefund(
+  admin: SupabaseClient,
+  ctx: Pick<SaleRefundContext, "kind" | "id">,
+): Promise<{ number: string; url: string } | null> {
+  try {
+    const { data, error } = await admin.rpc("issue_credit_note", {
+      p_ticket_id: ctx.kind === "ticket" ? ctx.id : null,
+      p_table_reservation_id: ctx.kind === "table_reservation" ? ctx.id : null,
+      p_order_id: ctx.kind === "order" ? ctx.id : null,
+      p_source: "edge",
+    });
+    if (error) throw error;
+    const r = data as { credit_number?: string; public_token?: string } | null;
+    if (!r?.credit_number || !r.public_token) return null;
+    const origin = Deno.env.get("APP_BASE_URL") || "https://yunoapp.eu";
+    return { number: r.credit_number, url: `${origin.replace(/\/$/, "")}/avoir/${r.public_token}` };
+  } catch (e) {
+    console.error("[SALE-REFUND] credit note error:", e);
+    try {
+      await admin.rpc("emit_admin_notification", {
+        p_type: "admin_credit_note_failed",
+        p_title: "Remboursement sans avoir",
+        p_message: `L'avoir du remboursement de la vente ${ctx.kind} ${ctx.id} n'a pas pu être émis : ${e instanceof Error ? e.message : String(e)}. Le rattrapage horaire réessaie.`.slice(0, 480),
+        p_priority: "high",
+        p_reference_type: ctx.kind,
+        p_reference_id: ctx.id,
+        p_metadata: { kind: ctx.kind, sale_id: ctx.id, source: "edge" },
+        p_dedup_key: `credit_note_failed:${ctx.kind}:${ctx.id}`,
+      });
+    } catch { /* l'alerte est un confort, le filet horaire suit */ }
+    return null;
+  }
+}
+
 const TYPE_LABELS_FR: Record<SaleKind, string> = { order: "commande", ticket: "billet", table_reservation: "table VIP" };
 
 /**
@@ -275,6 +315,9 @@ export async function applyRefundAmountEffects(
 
   await decrementCustomerSpent(admin, ctx, amountCents);
 
+  // L'avoir part AVANT l'e-mail : le client y trouve son lien. Seule une vente facturée en a un.
+  const creditNote = await issueCreditNoteForRefund(admin, ctx);
+
   if (ctx.customerEmail && !opts.skipEmail) {
     try {
       const resendApiKey = Deno.env.get("RESEND_API_KEY");
@@ -285,6 +328,7 @@ export async function applyRefundAmountEffects(
           venueName: ctx.venueName,
           amount: `${amount.toFixed(2)} €`,
           reason: opts.reason?.trim() || undefined,
+          creditNote: creditNote ?? undefined,
         });
         const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@yunoapp.eu";
         await fetch("https://api.resend.com/emails", {

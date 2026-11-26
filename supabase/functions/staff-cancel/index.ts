@@ -9,7 +9,7 @@ import {
   alreadyRefundedCents, doorPlaceRefundCents, doorStripeFeeCents, fromCents, refundCapCents, toCents,
 } from "../_shared/sale-refund.ts";
 import {
-  applyFullRefundEffects, customerEmailLanguage, decrementCustomerSpent, loadSaleRefundContext,
+  applyFullRefundEffects, customerEmailLanguage, decrementCustomerSpent, issueCreditNoteForRefund, loadSaleRefundContext,
   refundSaleOnStripe, type SaleRefundContext,
 } from "../_shared/sale-refund-effects.ts";
 
@@ -76,7 +76,9 @@ const PLACE_REFUSALS: Record<string, string> = {
 /** Email + push « remboursement » au client — seulement pour de l'argent réellement rendu. */
 async function notifyCustomerRefund(
   adminClient: SupabaseClient,
-  p: { email: string; userId: string; firstName: string; eventTitle: string; venueName: string; amount: number; reason: string | null },
+  p: { email: string; userId: string; firstName: string; eventTitle: string; venueName: string; amount: number; reason: string | null;
+    /** Avoir émis pour ce remboursement (D15) : son numéro et son lien entrent dans l'e-mail. */
+    creditNote?: { number: string; url: string } | null },
 ): Promise<void> {
   if (p.amount <= 0) return;
   if (p.email) {
@@ -88,6 +90,7 @@ async function notifyCustomerRefund(
         venueName: p.venueName,
         amount: `${p.amount.toFixed(2)} €`,
         reason: p.reason || undefined,
+        creditNote: p.creditNote ?? undefined,
       });
       const resendApiKey = Deno.env.get("RESEND_API_KEY");
       const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@yunoapp.eu";
@@ -394,6 +397,8 @@ serve(async (req) => {
       const placeCtx = await loadSaleRefundContext(adminClient, 'ticket', ticket);
       await decrementCustomerSpent(adminClient, placeCtx, refundedCents);
       if (fullyRefunded) await applyFullRefundEffects(adminClient, placeCtx);
+      // Avoir (D15) : seulement si l'argent est réellement parti.
+      const placeCreditNote = refundedCents > 0 ? await issueCreditNoteForRefund(adminClient, placeCtx) : null;
 
       const customerReason = scope === 'place' ? reasonFor(placeName) : reason || null;
       await notifyCustomerRefund(adminClient, {
@@ -404,6 +409,7 @@ serve(async (req) => {
         venueName: ticket.events?.venues?.name || '',
         amount: fromCents(refundedCents),
         reason: customerReason,
+        creditNote: placeCreditNote,
       });
 
       const placeVenueId: string = ticket.events?.venue_id || '';
@@ -786,6 +792,8 @@ serve(async (req) => {
     // Montant réellement rendu sur la vente annulée.
     const refundedNow = mainRefundOk ? refundAmount : 0;
 
+    let mainCreditNote: { number: string; url: string } | null = null;
+
     // Money is back (or there was nothing to refund): now record the refund.
     // Guarded by status='paid' so a retry / double-scan can't refund twice.
     if (type === 'order' && orderId) {
@@ -807,6 +815,7 @@ serve(async (req) => {
       } else if (saleCtx) {
         await decrementCustomerSpent(adminClient, saleCtx, toCents(refundedNow));
         await applyFullRefundEffects(adminClient, saleCtx);
+        if (refundedNow > 0) mainCreditNote = await issueCreditNoteForRefund(adminClient, saleCtx);
       }
     }
 
@@ -815,10 +824,12 @@ serve(async (req) => {
     if (type === 'ticket' && saleCtx) {
       await decrementCustomerSpent(adminClient, saleCtx, toCents(refundedNow));
       await applyFullRefundEffects(adminClient, saleCtx);
+      if (refundedNow > 0) mainCreditNote = await issueCreditNoteForRefund(adminClient, saleCtx);
     }
     for (const linked of linkedRefunded) {
       await decrementCustomerSpent(adminClient, linked.ctx, linked.cents);
       await applyFullRefundEffects(adminClient, linked.ctx);
+      if (linked.cents > 0) await issueCreditNoteForRefund(adminClient, linked.ctx);
     }
 
     // Include linked orders info for email
@@ -833,6 +844,7 @@ serve(async (req) => {
       venueName,
       amount: totalEmailRefund,
       reason: reason || null,
+      creditNote: mainCreditNote,
     });
 
     // Create incident record

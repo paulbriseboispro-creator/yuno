@@ -47,8 +47,8 @@ const generateQRCode = () => {
   return `VP-${crypto.randomUUID()}`;
 };
 
-// Bouteille pré-commandée telle qu'envoyée par le client dans le body JSON
-// (valeurs non fiables : chaque champ repasse par Number()/truthiness ci-dessous).
+// Bouteille pré-commandée telle qu'envoyée par le client dans le body JSON (valeurs non fiables). Seuls `menuItemId` et
+// `quantity` sont lus ; `unitPrice` est IGNORÉ (le prix vient de la carte, relue en base).
 interface PreOrderBottlePayload {
   menuItemId?: string;
   quantity?: number | string;
@@ -295,6 +295,21 @@ serve(async (req) => {
     if (!packInScope(pack, { eventId, eventScoped: eventScopedTables, clubId: effectiveVenueId ?? null })) {
       logStep("Pack outside the event scope", { packId: pack.id, packVenue: pack.venue_id, packEvent: pack.event_id, effectiveVenueId });
       throw new CheckoutRefusal(t("table.invalidPack", lang), "invalid_pack");
+    }
+
+    // Précommande de bouteilles (D8) : le navigateur n'envoie que {menuItemId, quantity}. Prix, noms et périmètre (carte du club
+    // effectif, sinon carte de la soirée) sont relus EN BASE par table_preorder_check, AVANT toute réservation : un article d'un
+    // autre périmètre, inactif ou inconnu, ou une quantité hors bornes, refuse le paiement (aucun débit, rien d'écrit).
+    // La précommande se règle sur place : elle n'entre ni dans la session Stripe, ni dans le CA en ligne, ni dans la facture.
+    const preOrderItems: Array<{ menuItemId: string; quantity: number }> = Array.isArray(preOrderBottles)
+      ? (preOrderBottles as PreOrderBottlePayload[]).slice(0, 100).map((b) => ({ menuItemId: String(b?.menuItemId ?? ""), quantity: Number(b?.quantity) }))
+      : [];
+    if (preOrderItems.length > 0) {
+      const { error: preOrderErr } = await supabaseAdmin.rpc("table_preorder_check", { p_event_id: eventId, p_items: preOrderItems });
+      if (preOrderErr) {
+        logStep("Pre-order refused", { error: preOrderErr.message });
+        throw new CheckoutRefusal(t("table.invalidPreorder", lang), "invalid_preorder");
+      }
     }
 
     // Nombre de convives : entier borné par la formule, jamais pris tel quel du
@@ -878,23 +893,36 @@ serve(async (req) => {
       try {
         const packName = pack.name || 'Table VIP';
         const notifMessage = `${packName} · ${fullName || 'Client'} · ${validGuestCount || 1} pers. — règlement sur place`;
-        const notifMeta = { pack_name: packName, guest_count: validGuestCount, deposit: 0, total_price: onSiteTotal, full_name: fullName, payment_mode: 'on_site' };
+        // `link: 'vip_service'` : la cloche ouvre le Service VIP de la soirée ; dedup par réservation.
+        const notifMeta = { pack_name: packName, guest_count: validGuestCount, deposit: 0, total_price: onSiteTotal, full_name: fullName, payment_mode: 'on_site', link: 'vip_service' };
         if (effectiveVenueId) {
-          await supabaseAdmin.from('staff_notifications').insert({
-            venue_id: effectiveVenueId, target_role: 'owner', notification_type: 'table_booked',
-            title: 'Nouvelle réservation VIP', message: notifMessage, priority: 'high',
-            reference_type: 'table_reservation', reference_id: onSiteReservationId, event_id: eventId ?? null, metadata: notifMeta,
+          await supabaseAdmin.rpc('emit_staff_notification', {
+            p_venue_id: effectiveVenueId, p_target_role: 'owner', p_type: 'table_booked',
+            p_title: 'Nouvelle réservation VIP', p_message: notifMessage, p_priority: 'high',
+            p_reference_type: 'table_reservation', p_reference_id: onSiteReservationId, p_event_id: eventId ?? null,
+            p_metadata: notifMeta, p_dedup_key: `table_booked:${onSiteReservationId}`,
           });
         }
         if (effectiveOrganizerId) {
-          await supabaseAdmin.from('organizer_notifications').insert({
-            organizer_user_id: effectiveOrganizerId, notification_type: 'table_booked',
-            title: 'Nouvelle réservation VIP', message: notifMessage, priority: 'high',
-            reference_type: 'table_reservation', reference_id: onSiteReservationId, event_id: eventId ?? null, metadata: notifMeta,
+          await supabaseAdmin.rpc('emit_organizer_notification', {
+            p_organizer_user_id: effectiveOrganizerId, p_type: 'table_booked',
+            p_title: 'Nouvelle réservation VIP', p_message: notifMessage, p_priority: 'high',
+            p_reference_type: 'table_reservation', p_reference_id: onSiteReservationId, p_event_id: eventId ?? null,
+            p_metadata: notifMeta, p_dedup_key: `table_booked:${onSiteReservationId}`,
           });
         }
       } catch (notifErr) {
         console.error('VIP reservation notif error (on-site, non-blocking):', notifErr);
+      }
+
+      // Pré-commande de bouteilles (D8) sur une table réglée sur place : mêmes règles (carte relue en base, rien en ligne).
+      if (preOrderItems.length > 0) {
+        try {
+          const { error: poErr } = await supabaseAdmin.rpc("create_table_preorder", { p_reservation_id: onSiteReservationId, p_items: preOrderItems });
+          if (poErr) logStep("Pre-order insert failed (on-site, non-blocking)", { error: poErr.message });
+        } catch (e) {
+          logStep("Pre-order exception (on-site, non-blocking)", { error: String(e) });
+        }
       }
 
       try {
@@ -982,37 +1010,12 @@ serve(async (req) => {
         });
       }
 
-      // Pré-commande : enregistre les bouteilles choisies au checkout comme commande table
-      // (préparée pour l'arrivée, réglée à la table). Non bloquant.
-      if (Array.isArray(preOrderBottles) && preOrderBottles.length > 0 && effectiveVenueId) {
+      // Pré-commande (D8) : écrite en base à partir de la carte, payée sur place. Non bloquant (validée plus haut).
+      if (preOrderItems.length > 0) {
         try {
-          const poTotal = preOrderBottles.reduce((s: number, b: PreOrderBottlePayload) => s + (Number(b.unitPrice) || 0) * (Number(b.quantity) || 0), 0);
-          const { data: poOrder, error: poErr } = await supabaseAdmin
-            .from("vip_table_orders")
-            .insert({
-              table_reservation_id: reservation.id,
-              venue_id: effectiveVenueId,
-              user_id: user?.id ?? null,
-              status: "preorder",
-              total_amount: poTotal,
-              notes: "Pré-commande (checkout)",
-            })
-            .select("id")
-            .single();
-          if (!poErr && poOrder) {
-            const poItems = preOrderBottles
-              .filter((b: PreOrderBottlePayload) => b.menuItemId && (Number(b.quantity) || 0) > 0)
-              .map((b: PreOrderBottlePayload) => ({
-                order_id: poOrder.id,
-                menu_item_id: b.menuItemId,
-                quantity: Number(b.quantity),
-                unit_price: Number(b.unitPrice) || 0,
-                is_included: false,
-              }));
-            if (poItems.length > 0) await supabaseAdmin.from("vip_table_order_items").insert(poItems);
-          } else if (poErr) {
-            logStep("Pre-order insert failed (non-blocking)", { error: poErr.message });
-          }
+          const { data: poOrder, error: poErr } = await supabaseAdmin.rpc("create_table_preorder", { p_reservation_id: reservation.id, p_items: preOrderItems });
+          if (poErr) logStep("Pre-order insert failed (non-blocking)", { error: poErr.message });
+          else logStep("Pre-order recorded", poOrder);
         } catch (e) {
           logStep("Pre-order exception (non-blocking)", { error: String(e) });
         }
@@ -1105,6 +1108,7 @@ serve(async (req) => {
           deposit: discountedDeposit,
           total_price: finalTotalPrice,
           full_name: fullName,
+          link: 'vip_service',
         };
         if (effectiveVenueId) {
           await supabaseAdmin.from('staff_notifications').insert({
@@ -1257,37 +1261,12 @@ serve(async (req) => {
       });
     }
 
-    // Pré-commande : enregistre les bouteilles choisies au checkout comme commande table
-    // (préparée pour l'arrivée, réglée à la table). Non bloquant ; survit au pending->paid.
-    if (Array.isArray(preOrderBottles) && preOrderBottles.length > 0 && effectiveVenueId) {
+    // Pré-commande (D8) : écrite en base à partir de la carte, payée sur place ; survit au pending->paid. Non bloquant.
+    if (preOrderItems.length > 0) {
       try {
-        const poTotal = preOrderBottles.reduce((s: number, b: PreOrderBottlePayload) => s + (Number(b.unitPrice) || 0) * (Number(b.quantity) || 0), 0);
-        const { data: poOrder, error: poErr } = await supabaseAdmin
-          .from("vip_table_orders")
-          .insert({
-            table_reservation_id: reservation.id,
-            venue_id: effectiveVenueId,
-            user_id: user?.id ?? null,
-            status: "preorder",
-            total_amount: poTotal,
-            notes: "Pré-commande (checkout)",
-          })
-          .select("id")
-          .single();
-        if (!poErr && poOrder) {
-          const poItems = preOrderBottles
-            .filter((b: PreOrderBottlePayload) => b.menuItemId && (Number(b.quantity) || 0) > 0)
-            .map((b: PreOrderBottlePayload) => ({
-              order_id: poOrder.id,
-              menu_item_id: b.menuItemId,
-              quantity: Number(b.quantity),
-              unit_price: Number(b.unitPrice) || 0,
-              is_included: false,
-            }));
-          if (poItems.length > 0) await supabaseAdmin.from("vip_table_order_items").insert(poItems);
-        } else if (poErr) {
-          logStep("Pre-order insert failed (non-blocking)", { error: poErr.message });
-        }
+        const { data: poOrder, error: poErr } = await supabaseAdmin.rpc("create_table_preorder", { p_reservation_id: reservation.id, p_items: preOrderItems });
+        if (poErr) logStep("Pre-order insert failed (non-blocking)", { error: poErr.message });
+        else logStep("Pre-order recorded", poOrder);
       } catch (e) {
         logStep("Pre-order exception (non-blocking)", { error: String(e) });
       }

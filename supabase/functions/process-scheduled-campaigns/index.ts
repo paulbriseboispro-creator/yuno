@@ -21,6 +21,7 @@ import { syncMetaInsights, syncMetaAudiences, processMetaLeads, ensureAppWebhook
 import { dispatchProSignupAlerts } from "../_shared/pro-signup-alerts.ts";
 import { dispatchOpsTelegram, handleOpsTelegramWebhook, opsWebhookSecret, setOpsTelegramWebhook } from "../_shared/ops-telegram.ts";
 import { syncGmailPostmaster } from "../_shared/gmail-postmaster.ts";
+import { dispatchSaleEmailQueue } from "../_shared/sale-email-queue.ts";
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type' };
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -313,6 +314,15 @@ Deno.serve(async (req) => {
       console.error('[CRM-SIGNUP] dispatch failed:', String(e));
     }
 
+    // E-mails de vente refusés par Resend (file D6, +15 min / +1 h / demain 8 h), effets d'une table payée à relancer
+    // et alerte « table payée sans e-mail » (P6.6). La base décide de tout ; file vide = presque rien.
+    let saleEmails: unknown = null;
+    try {
+      saleEmails = await dispatchSaleEmailQueue(admin, SUPABASE_URL, SERVICE_KEY, { timeBudgetMs: 25_000 });
+    } catch (e) {
+      console.error('[SALE-EMAIL-QUEUE] dispatch failed:', String(e));
+    }
+
     // Alertes d'inscription pro : filet sous l'appel immédiat du déclencheur
     // (Cockpit injoignable, fonction coupée). Ne fait rien quand la file est vide.
     let proSignups: unknown = null;
@@ -357,7 +367,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ processed, followups, automations, resends, emailSweep, smsProcessed, smsSweep, pushProcessed, pushEngine, embeddings, djEmbeddings, liveOps, promoterPush, weeklyRecap,
-        weeklyDigest, nightRecap, guestNotif, crmLifecycle, crmSignup, proSignups, opsTelegram, metaCapi }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        weeklyDigest, nightRecap, guestNotif, crmLifecycle, crmSignup, saleEmails, proSignups, opsTelegram, metaCapi }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }

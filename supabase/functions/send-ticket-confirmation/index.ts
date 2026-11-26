@@ -14,6 +14,7 @@ import { handleWalletRequest, ensureWalletPass, walletPassUrl } from "../_shared
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
 import { isDemoEmail } from "../_shared/demo-scope.ts";
 import { ticketDisplayName } from "../_shared/ticket-name.ts";
+import { enqueueSaleEmail, isResendNetworkError, isRetryableResend, isSaleEmailReplay } from "../_shared/sale-email.ts";
 
 // Fetch a remote image into a base64 data URL (jsPDF addImage needs bytes, not a URL).
 async function fetchImageDataUrl(url?: string | null): Promise<string | undefined> {
@@ -632,23 +633,49 @@ serve(async (req) => {
       });
     }
 
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${resendApiKey}`,
-      },
-      // Tags relus par resend-webhook : un rebond se rattache à CE billet.
-      body: JSON.stringify({
-        from, to: [email], subject, html,
-        tags: [{ name: "sale_kind", value: "ticket" }, { name: "sale_id", value: ticketId }],
-        ...(attachments.length ? { attachments } : {}),
-      }),
-      signal: AbortSignal.timeout(10000),
-    });
+    // Resend refuse (quota, panne, délai) : la vente entre dans la file des e-mails de vente (D6), rejouée par
+    // process-scheduled-campaigns. Un rejeu (en-tête posé par le passage) ne remet rien en file : 503, le passage compte.
+    // Les e-mails des personnes invitées (friends) partent au rejeu, avec le principal.
+    const refused = async (status: number, detail: string): Promise<Response> => {
+      const message = `Resend ${status || "network"}: ${detail}`.slice(0, 500);
+      if (isSaleEmailReplay(req)) {
+        return new Response(JSON.stringify({ error: message, retry: true }), {
+          status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const queued = await enqueueSaleEmail(supabaseAdmin, "ticket", ticketId, "confirmation", {
+        ticketId, email, firstName, isGuest, qrCode: body.qrCode, lang: body.lang,
+      }, message);
+      logStep("Resend refused — sale e-mail queued", { ticketId, status, queued });
+      if (!queued) throw new Error(message);
+      return new Response(JSON.stringify({ success: true, queued: true }), {
+        status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    };
+    let res: Response;
+    try {
+      res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${resendApiKey}`,
+        },
+        // Tags relus par resend-webhook : un rebond se rattache à CE billet.
+        body: JSON.stringify({
+          from, to: [email], subject, html,
+          tags: [{ name: "sale_kind", value: "ticket" }, { name: "sale_id", value: ticketId }],
+          ...(attachments.length ? { attachments } : {}),
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
+    } catch (netErr) {
+      if (!isResendNetworkError(netErr)) throw netErr;
+      return await refused(0, String((netErr as Error)?.message ?? netErr));
+    }
 
     if (!res.ok) {
       const errData = await res.text();
+      if (isRetryableResend(res.status, errData)) return await refused(res.status, errData);
       throw new Error(`Resend error: ${errData}`);
     }
 

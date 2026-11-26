@@ -18,27 +18,17 @@ const logStep = (step: string, details?: unknown) => {
 
 
 /**
- * Tables mises en vente pour une soirée : même calcul que `_event_tables_left`
- * (formules actives de la soirée, ou du club pour une formule sans soirée,
- * formules marquées complètes exclues). `table_zones.max_tables` n'existe pas :
- * l'ancien calcul échouait en silence et aucune alerte de remplissage ne partait.
+ * Tables mises en vente pour une soirée : la règle unique de la base, `_event_table_capacity` (migration 20261226110000) —
+ * élite : tables du plan liées à une formule ouverte ; basic : somme des tables_count si toutes les formules sont limitées ;
+ * 0 = illimité / inconnu (pas d'alerte de remplissage).
  */
 async function eventTableCapacity(admin: SupabaseClient, eventId: string): Promise<number> {
-  const { data: ev } = await admin
-    .from('events')
-    .select('id, venue_id, partner_venue_id, sold_out_pack_ids')
-    .eq('id', eventId)
-    .maybeSingle();
-  if (!ev) return 0;
-  const evRow = ev as unknown as { venue_id: string | null; partner_venue_id: string | null; sold_out_pack_ids: string[] | null };
-  const vid = evRow.venue_id ?? evRow.partner_venue_id ?? null;
-  const closed = new Set<string>((evRow.sold_out_pack_ids ?? []) as string[]);
-  const { data: packs } = await admin
-    .from('table_packs')
-    .select('id, tables_count, event_id, venue_id')
-    .eq('is_active', true)
-    .or(vid ? `event_id.eq.${eventId},and(event_id.is.null,venue_id.eq.${vid})` : `event_id.eq.${eventId}`);
-  return (packs ?? []).reduce((sum: number, p: { id: string; tables_count: number | null }) => (closed.has(p.id) ? sum : sum + (p.tables_count ?? 0)), 0);
+  const { data, error } = await admin.rpc('_event_table_capacity', { p_event_id: eventId });
+  if (error) {
+    console.error('[VERIFY-TABLE-PAYMENT] _event_table_capacity failed:', error.message);
+    return 0;
+  }
+  return typeof data === 'number' ? data : 0;
 }
 
 serve(async (req) => {
@@ -163,6 +153,312 @@ serve(async (req) => {
       || (!!userId && !!reservation.user_id && reservation.user_id === userId)
     ));
 
+    // ── Effets rejouables après paiement (P2.7, migration 20261226100000) ───────────────────────────────────────────────
+    // Chaque effet réussi pose un marqueur (table_effects). Un rejeu (webhook, cron) qui trouve la table `paid` avec un
+    // marqueur « started » et des effets manquants relance SEULEMENT ceux-là ; les tables payées avant le déploiement n'ont
+    // pas de « started » et ne sont jamais rejouées. Les effets restants (facture, stats, Meta, PostHog) ont leurs propres
+    // garde-fous (issue-missing-invoices, outbox Meta, idempotence PostHog).
+    const effectScope = async () => {
+      const { data: ev } = await supabaseAdmin
+        .from('events')
+        .select('venue_id, partner_venue_id, organizer_user_id, partner_organizer_id')
+        .eq('id', reservation.event_id)
+        .single();
+      return {
+        event: ev,
+        venueId: ev?.venue_id ?? ev?.partner_venue_id ?? null,
+        organizerId: ev?.organizer_user_id ?? ev?.partner_organizer_id ?? null,
+      };
+    };
+    const markEffect = async (key: string) => {
+      const { error: markErr } = await supabaseAdmin.rpc('table_effect_done', { p_reservation_id: reservationId, p_key: key });
+      if (markErr) console.error(`[VERIFY-TABLE-PAYMENT] table_effect_done(${key}):`, markErr.message);
+    };
+    const runEffect = async (key: string, fn: () => Promise<boolean>) => {
+      try {
+        if (await fn()) await markEffect(key);
+      } catch (effectErr) {
+        console.error(`[VERIFY-TABLE-PAYMENT] effect ${key} failed (non-blocking):`, effectErr);
+      }
+    };
+    // Effet « promoter » : attribution du promoteur (la conversion est idempotente côté base : index unique sur la table).
+    const effectPromoter = async (): Promise<boolean> => {
+      let ok = true;
+      const { event } = await effectScope();
+      // Promoter attribution
+      const metaPromoterId = session.metadata?.promoterId;
+      const metaPromoCode = session.metadata?.promoCode;
+      if (metaPromoterId || metaPromoCode) {
+        try {
+          let resolvedPromoterId = metaPromoterId;
+          if (!resolvedPromoterId && metaPromoCode) {
+            // Même correctif que verify-ticket-payment : périmètre complet
+            // (club hôte, club partenaire, organisateur, organisateur partenaire)
+            // et comparaison insensible à la casse.
+            const scopeOr: string[] = [];
+            if (event?.venue_id) scopeOr.push(`venue_id.eq.${event.venue_id}`);
+            if (event?.partner_venue_id) scopeOr.push(`venue_id.eq.${event.partner_venue_id}`);
+            if (event?.organizer_user_id) scopeOr.push(`organizer_user_id.eq.${event.organizer_user_id}`);
+            if (event?.partner_organizer_id) scopeOr.push(`organizer_user_id.eq.${event.partner_organizer_id}`);
+            if (scopeOr.length > 0) {
+              const { data: pByCode, error: pErr } = await supabaseAdmin
+                .from('promoters')
+                .select('id')
+                .or(scopeOr.join(','))
+                .ilike('promo_code', metaPromoCode)
+                .eq('is_active', true)
+                .limit(1);
+              if (pErr) logStep("Promoter lookup failed", { error: pErr.message, metaPromoCode });
+              resolvedPromoterId = pByCode?.[0]?.id;
+            }
+            if (!resolvedPromoterId) logStep("Promoter not resolved from code", { metaPromoCode });
+          }
+          if (resolvedPromoterId) {
+            const metaDiscount = Number(session.metadata?.promoDiscount || 0);
+            const { data: convResult, error: convError } = await supabaseAdmin.rpc('record_promoter_conversion', {
+              p_promoter_id: resolvedPromoterId,
+              p_conversion_type: 'table',
+              // Base BRUT (valeur faciale avant remise), cohérent avec les
+              // billets. total_price est le NET (la remise a déjà été retirée au
+              // checkout) → on rajoute la remise. service_fee vaut toujours 0 sur
+              // une résa (le vrai frais est management_fee), donc on ne le
+              // soustrait plus. La remise est reportée à part via p_discount.
+              p_amount: (reservation.total_price || 0) + metaDiscount,
+              p_event_id: reservation.event_id,
+              p_table_reservation_id: reservation.id,
+              p_discount: metaDiscount,
+            });
+            if (convError) { logStep("Promoter conversion FAILED", { error: convError.message }); ok = false; }
+            else logStep("Promoter conversion recorded", convResult);
+          }
+        } catch (promoError) {
+          console.error('Error recording promoter conversion:', promoError);
+          ok = false;
+        }
+      }
+
+      return ok;
+    };
+    // Effet « notify » : cloche du club et de l'organisateur (`table_booked` dédoublonné par réservation) + alertes de remplissage.
+    const effectNotify = async (): Promise<boolean> => {
+      let ok = true;
+      const { venueId: resolvedVenueId, organizerId: resolvedOrganizerId } = await effectScope();
+      // ── Owner notifications ──────────────────────────────────────────────
+      if (resolvedVenueId) {
+        try {
+          // 1. table_booked — every confirmed reservation
+          const depositFormatted = Number(reservation.deposit ?? reservation.total_price ?? 0).toFixed(2);
+          await supabaseAdmin.rpc('emit_staff_notification', {
+            p_venue_id: resolvedVenueId,
+            p_target_role: 'owner',
+            p_type: 'table_booked',
+            p_title: 'Nouvelle réservation VIP',
+            p_message: `${packName} · ${reservation.full_name ?? 'Client'} · ${reservation.guest_count ?? 1} pers. — ${depositFormatted} €`,
+            p_priority: 'high',
+            p_reference_type: 'table_reservation',
+            p_reference_id: reservationId,
+            p_event_id: reservation.event_id ?? null,
+            // `link: 'vip_service'` : la cloche ouvre le Service VIP de la soirée (visible de tout gestionnaire).
+            p_metadata: {
+              pack_name: packName,
+              guest_count: reservation.guest_count,
+              deposit: reservation.deposit,
+              total_price: reservation.total_price,
+              full_name: reservation.full_name,
+              link: 'vip_service',
+            },
+            p_dedup_key: `table_booked:${reservationId}`,
+          });
+
+          // 2. Table capacity threshold checks
+          if (reservation.event_id) {
+            // Count total table capacity and confirmed reservations for this event
+            const totalCapacity = await eventTableCapacity(supabaseAdmin, reservation.event_id);
+
+            if (totalCapacity > 0) {
+              const { count: confirmedCount } = await supabaseAdmin
+                .from('table_reservations')
+                .select('id', { count: 'exact', head: true })
+                .eq('event_id', reservation.event_id)
+                .in('status', ['paid', 'confirmed']);
+
+              const booked = confirmedCount ?? 0;
+              const pct = booked / totalCapacity;
+
+              if (booked >= totalCapacity) {
+                const { count: soCount } = await supabaseAdmin
+                  .from('staff_notifications')
+                  .select('id', { count: 'exact', head: true })
+                  .eq('venue_id', resolvedVenueId)
+                  .eq('notification_type', 'tables_sold_out')
+                  .eq('event_id', reservation.event_id)
+                  .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+                if ((soCount ?? 0) === 0) {
+                  await supabaseAdmin.from('staff_notifications').insert({
+                    venue_id: resolvedVenueId,
+                    target_role: 'owner',
+                    notification_type: 'tables_sold_out',
+                    title: 'Tables VIP épuisées 🥂',
+                    message: `Toutes les tables sont réservées pour cette soirée (${booked}/${totalCapacity})`,
+                    priority: 'high',
+                    reference_type: 'event',
+                    reference_id: reservation.event_id,
+                    event_id: reservation.event_id,
+                    metadata: { booked, total_capacity: totalCapacity },
+                  });
+                }
+              } else if (pct >= 0.8) {
+                const { count: warnCount } = await supabaseAdmin
+                  .from('staff_notifications')
+                  .select('id', { count: 'exact', head: true })
+                  .eq('venue_id', resolvedVenueId)
+                  .eq('notification_type', 'tables_warning')
+                  .eq('event_id', reservation.event_id)
+                  .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+                if ((warnCount ?? 0) === 0) {
+                  await supabaseAdmin.from('staff_notifications').insert({
+                    venue_id: resolvedVenueId,
+                    target_role: 'owner',
+                    notification_type: 'tables_warning',
+                    title: 'Tables VIP presque complètes',
+                    message: `${booked}/${totalCapacity} tables réservées (${Math.round(pct * 100)}%)`,
+                    priority: 'high',
+                    reference_type: 'event',
+                    reference_id: reservation.event_id,
+                    event_id: reservation.event_id,
+                    metadata: { booked, total_capacity: totalCapacity, pct: Math.round(pct * 100) },
+                  });
+                }
+              }
+            }
+          }
+
+          logStep("Owner notifications sent for table payment");
+        } catch (notifErr) {
+          console.error('Owner notif error (table):', notifErr);
+          ok = false;
+        }
+      }
+
+      // ── Organizer notifications ──────────────────────────────────────────
+      // Mirror of the owner block, into the organizer's own inbox.
+      if (resolvedOrganizerId) {
+        try {
+          const depositFormatted = Number(reservation.deposit ?? reservation.total_price ?? 0).toFixed(2);
+          await supabaseAdmin.rpc('emit_organizer_notification', {
+            p_organizer_user_id: resolvedOrganizerId,
+            p_type: 'table_booked',
+            p_title: 'Nouvelle réservation VIP',
+            p_message: `${packName} · ${reservation.full_name ?? 'Client'} · ${reservation.guest_count ?? 1} pers. — ${depositFormatted} €`,
+            p_priority: 'high',
+            p_reference_type: 'table_reservation',
+            p_reference_id: reservationId,
+            p_event_id: reservation.event_id ?? null,
+            p_metadata: {
+              pack_name: packName,
+              guest_count: reservation.guest_count,
+              deposit: reservation.deposit,
+              total_price: reservation.total_price,
+              full_name: reservation.full_name,
+              link: 'vip_service',
+            },
+            p_dedup_key: `table_booked:${reservationId}`,
+          });
+
+          // Table capacity threshold checks (dedup once per event / 24h)
+          if (reservation.event_id) {
+            const totalCapacity = await eventTableCapacity(supabaseAdmin, reservation.event_id);
+
+            if (totalCapacity > 0) {
+              const { count: confirmedCount } = await supabaseAdmin
+                .from('table_reservations')
+                .select('id', { count: 'exact', head: true })
+                .eq('event_id', reservation.event_id)
+                .in('status', ['paid', 'confirmed']);
+              const booked = confirmedCount ?? 0;
+              const pct = booked / totalCapacity;
+              const sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+              if (booked >= totalCapacity) {
+                const { count: soCount } = await supabaseAdmin
+                  .from('organizer_notifications')
+                  .select('id', { count: 'exact', head: true })
+                  .eq('organizer_user_id', resolvedOrganizerId)
+                  .eq('notification_type', 'tables_sold_out')
+                  .eq('event_id', reservation.event_id)
+                  .gte('created_at', sinceIso);
+                if ((soCount ?? 0) === 0) {
+                  await supabaseAdmin.from('organizer_notifications').insert({
+                    organizer_user_id: resolvedOrganizerId,
+                    notification_type: 'tables_sold_out',
+                    title: 'Tables VIP épuisées 🥂',
+                    message: `Toutes les tables sont réservées pour cette soirée (${booked}/${totalCapacity})`,
+                    priority: 'high',
+                    reference_type: 'event',
+                    reference_id: reservation.event_id,
+                    event_id: reservation.event_id,
+                    metadata: { booked, total_capacity: totalCapacity },
+                  });
+                }
+              } else if (pct >= 0.8) {
+                const { count: warnCount } = await supabaseAdmin
+                  .from('organizer_notifications')
+                  .select('id', { count: 'exact', head: true })
+                  .eq('organizer_user_id', resolvedOrganizerId)
+                  .eq('notification_type', 'tables_warning')
+                  .eq('event_id', reservation.event_id)
+                  .gte('created_at', sinceIso);
+                if ((warnCount ?? 0) === 0) {
+                  await supabaseAdmin.from('organizer_notifications').insert({
+                    organizer_user_id: resolvedOrganizerId,
+                    notification_type: 'tables_warning',
+                    title: 'Tables VIP presque complètes',
+                    message: `${booked}/${totalCapacity} tables réservées (${Math.round(pct * 100)}%)`,
+                    priority: 'high',
+                    reference_type: 'event',
+                    reference_id: reservation.event_id,
+                    event_id: reservation.event_id,
+                    metadata: { booked, total_capacity: totalCapacity, pct: Math.round(pct * 100) },
+                  });
+                }
+              }
+            }
+          }
+
+          logStep("Organizer notifications sent for table payment");
+        } catch (notifErr) {
+          console.error('Organizer notif error (table):', notifErr);
+          ok = false;
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────────
+      return ok;
+    };
+    // Effet « email » : e-mail « confirmée » (QR + Wallet). Déjà parti ou en file (D6) = fait.
+    const effectEmail = async (): Promise<boolean> => {
+      const { data: already } = await supabaseAdmin.from('sale_email_deliveries')
+        .select('sale_id').eq('kind', 'table').eq('sale_id', reservationId).maybeSingle();
+      if (already) return true;
+      const { data: queued } = await supabaseAdmin.from('sale_email_queue')
+        .select('id').eq('kind', 'table').eq('sale_id', reservationId).eq('status', 'pending').limit(1);
+      if (queued && queued.length > 0) return true;
+      try {
+        const mailRes = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-vip-confirmation`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
+          body: JSON.stringify({ reservation_id: reservationId, type: 'confirmed' })
+        });
+        // 2xx = parti, ou mis en file par la fonction (202, D6). Sinon l'effet reste « à faire » : le rejeu le relance.
+        const okMail = mailRes.ok;
+        await mailRes.body?.cancel();
+        if (okMail) logStep("VIP confirmed email sent");
+        return okMail;
+      } catch (vipEmailError) {
+        console.error('Error sending VIP confirmation email:', vipEmailError);
+        return false;
+      }
+    };
+
     if (session.payment_status === 'paid') {
       // IDEMPOTENCE. On bascule pending/confirmed → paid de façon ATOMIQUE et un
       // seul appelant gagne la transition ; lui seul exécute les effets de bord
@@ -195,6 +491,19 @@ serve(async (req) => {
         // + client en course) : on ne rejoue AUCUN effet de bord, mais on répond
         // paid:true pour que la page de confirmation s'affiche normalement.
         logStep("Already processed — skipping side effects (idempotent)", { reservationId });
+        // Rejeu (webhook / cron, clé service) d'une table payée il y a plus de 10 min sous le nouveau code : seuls les effets
+        // MANQUANTS repartent. Jamais depuis le navigateur (un rechargement de la page de succès ne rejoue rien).
+        if (isServiceCaller && String(reservation.status) === 'paid' && reservation.paid_at
+            && Date.now() - new Date(String(reservation.paid_at)).getTime() > 10 * 60 * 1000) {
+          const { data: doneKeys } = await supabaseAdmin.rpc('table_effects_done', { p_reservation_id: reservationId });
+          const done = new Set<string>(Array.isArray(doneKeys) ? (doneKeys as string[]) : []);
+          if (done.has('started')) {
+            if (!done.has('promoter')) await runEffect('promoter', effectPromoter);
+            if (!done.has('notify')) await runEffect('notify', effectNotify);
+            if (!done.has('email')) await runEffect('email', effectEmail);
+            logStep("Missing effects replayed", { reservationId, alreadyDone: [...done] });
+          }
+        }
         const isGuestReservation = session.metadata?.isGuest === 'true' || reservation.is_guest === true;
         return new Response(
           JSON.stringify({
@@ -214,6 +523,7 @@ serve(async (req) => {
       }
 
       logStep("Reservation marked as paid", { reservationId });
+      await markEffect('started');
 
       const effectiveUserId = userId || reservation.user_id;
 
@@ -398,253 +708,12 @@ serve(async (req) => {
         }
       }
 
-      // Promoter attribution
-      const metaPromoterId = session.metadata?.promoterId;
-      const metaPromoCode = session.metadata?.promoCode;
-      if (metaPromoterId || metaPromoCode) {
-        try {
-          let resolvedPromoterId = metaPromoterId;
-          if (!resolvedPromoterId && metaPromoCode) {
-            // Même correctif que verify-ticket-payment : périmètre complet
-            // (club hôte, club partenaire, organisateur, organisateur partenaire)
-            // et comparaison insensible à la casse.
-            const scopeOr: string[] = [];
-            if (event?.venue_id) scopeOr.push(`venue_id.eq.${event.venue_id}`);
-            if (event?.partner_venue_id) scopeOr.push(`venue_id.eq.${event.partner_venue_id}`);
-            if (event?.organizer_user_id) scopeOr.push(`organizer_user_id.eq.${event.organizer_user_id}`);
-            if (event?.partner_organizer_id) scopeOr.push(`organizer_user_id.eq.${event.partner_organizer_id}`);
-            if (scopeOr.length > 0) {
-              const { data: pByCode, error: pErr } = await supabaseAdmin
-                .from('promoters')
-                .select('id')
-                .or(scopeOr.join(','))
-                .ilike('promo_code', metaPromoCode)
-                .eq('is_active', true)
-                .limit(1);
-              if (pErr) logStep("Promoter lookup failed", { error: pErr.message, metaPromoCode });
-              resolvedPromoterId = pByCode?.[0]?.id;
-            }
-            if (!resolvedPromoterId) logStep("Promoter not resolved from code", { metaPromoCode });
-          }
-          if (resolvedPromoterId) {
-            const metaDiscount = Number(session.metadata?.promoDiscount || 0);
-            const { data: convResult, error: convError } = await supabaseAdmin.rpc('record_promoter_conversion', {
-              p_promoter_id: resolvedPromoterId,
-              p_conversion_type: 'table',
-              // Base BRUT (valeur faciale avant remise), cohérent avec les
-              // billets. total_price est le NET (la remise a déjà été retirée au
-              // checkout) → on rajoute la remise. service_fee vaut toujours 0 sur
-              // une résa (le vrai frais est management_fee), donc on ne le
-              // soustrait plus. La remise est reportée à part via p_discount.
-              p_amount: (reservation.total_price || 0) + metaDiscount,
-              p_event_id: reservation.event_id,
-              p_table_reservation_id: reservation.id,
-              p_discount: metaDiscount,
-            });
-            if (convError) logStep("Promoter conversion FAILED", { error: convError.message });
-            else logStep("Promoter conversion recorded", convResult);
-          }
-        } catch (promoError) {
-          console.error('Error recording promoter conversion:', promoError);
-        }
-      }
+      await runEffect('promoter', effectPromoter);
 
-      // ── Owner notifications ──────────────────────────────────────────────
-      if (resolvedVenueId) {
-        try {
-          // 1. table_booked — every confirmed reservation
-          const depositFormatted = Number(reservation.deposit ?? reservation.total_price ?? 0).toFixed(2);
-          await supabaseAdmin.from('staff_notifications').insert({
-            venue_id: resolvedVenueId,
-            target_role: 'owner',
-            notification_type: 'table_booked',
-            title: 'Nouvelle réservation VIP',
-            message: `${packName} · ${reservation.full_name ?? 'Client'} · ${reservation.guest_count ?? 1} pers. — ${depositFormatted} €`,
-            priority: 'high',
-            reference_type: 'table_reservation',
-            reference_id: reservationId,
-            event_id: reservation.event_id ?? null,
-            metadata: {
-              pack_name: packName,
-              guest_count: reservation.guest_count,
-              deposit: reservation.deposit,
-              total_price: reservation.total_price,
-              full_name: reservation.full_name,
-            },
-          });
+      await runEffect('notify', effectNotify);
 
-          // 2. Table capacity threshold checks
-          if (reservation.event_id) {
-            // Count total table capacity and confirmed reservations for this event
-            const totalCapacity = await eventTableCapacity(supabaseAdmin, reservation.event_id);
-
-            if (totalCapacity > 0) {
-              const { count: confirmedCount } = await supabaseAdmin
-                .from('table_reservations')
-                .select('id', { count: 'exact', head: true })
-                .eq('event_id', reservation.event_id)
-                .in('status', ['paid', 'confirmed']);
-
-              const booked = confirmedCount ?? 0;
-              const pct = booked / totalCapacity;
-
-              if (booked >= totalCapacity) {
-                const { count: soCount } = await supabaseAdmin
-                  .from('staff_notifications')
-                  .select('id', { count: 'exact', head: true })
-                  .eq('venue_id', resolvedVenueId)
-                  .eq('notification_type', 'tables_sold_out')
-                  .eq('event_id', reservation.event_id)
-                  .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
-                if ((soCount ?? 0) === 0) {
-                  await supabaseAdmin.from('staff_notifications').insert({
-                    venue_id: resolvedVenueId,
-                    target_role: 'owner',
-                    notification_type: 'tables_sold_out',
-                    title: 'Tables VIP épuisées 🥂',
-                    message: `Toutes les tables sont réservées pour cette soirée (${booked}/${totalCapacity})`,
-                    priority: 'high',
-                    reference_type: 'event',
-                    reference_id: reservation.event_id,
-                    event_id: reservation.event_id,
-                    metadata: { booked, total_capacity: totalCapacity },
-                  });
-                }
-              } else if (pct >= 0.8) {
-                const { count: warnCount } = await supabaseAdmin
-                  .from('staff_notifications')
-                  .select('id', { count: 'exact', head: true })
-                  .eq('venue_id', resolvedVenueId)
-                  .eq('notification_type', 'tables_warning')
-                  .eq('event_id', reservation.event_id)
-                  .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
-                if ((warnCount ?? 0) === 0) {
-                  await supabaseAdmin.from('staff_notifications').insert({
-                    venue_id: resolvedVenueId,
-                    target_role: 'owner',
-                    notification_type: 'tables_warning',
-                    title: 'Tables VIP presque complètes',
-                    message: `${booked}/${totalCapacity} tables réservées (${Math.round(pct * 100)}%)`,
-                    priority: 'high',
-                    reference_type: 'event',
-                    reference_id: reservation.event_id,
-                    event_id: reservation.event_id,
-                    metadata: { booked, total_capacity: totalCapacity, pct: Math.round(pct * 100) },
-                  });
-                }
-              }
-            }
-          }
-
-          logStep("Owner notifications sent for table payment");
-        } catch (notifErr) {
-          console.error('Owner notif error (table):', notifErr);
-        }
-      }
-
-      // ── Organizer notifications ──────────────────────────────────────────
-      // Mirror of the owner block, into the organizer's own inbox.
-      if (resolvedOrganizerId) {
-        try {
-          const depositFormatted = Number(reservation.deposit ?? reservation.total_price ?? 0).toFixed(2);
-          await supabaseAdmin.from('organizer_notifications').insert({
-            organizer_user_id: resolvedOrganizerId,
-            notification_type: 'table_booked',
-            title: 'Nouvelle réservation VIP',
-            message: `${packName} · ${reservation.full_name ?? 'Client'} · ${reservation.guest_count ?? 1} pers. — ${depositFormatted} €`,
-            priority: 'high',
-            reference_type: 'table_reservation',
-            reference_id: reservationId,
-            event_id: reservation.event_id ?? null,
-            metadata: {
-              pack_name: packName,
-              guest_count: reservation.guest_count,
-              deposit: reservation.deposit,
-              total_price: reservation.total_price,
-              full_name: reservation.full_name,
-            },
-          });
-
-          // Table capacity threshold checks (dedup once per event / 24h)
-          if (reservation.event_id) {
-            const totalCapacity = await eventTableCapacity(supabaseAdmin, reservation.event_id);
-
-            if (totalCapacity > 0) {
-              const { count: confirmedCount } = await supabaseAdmin
-                .from('table_reservations')
-                .select('id', { count: 'exact', head: true })
-                .eq('event_id', reservation.event_id)
-                .in('status', ['paid', 'confirmed']);
-              const booked = confirmedCount ?? 0;
-              const pct = booked / totalCapacity;
-              const sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
-              if (booked >= totalCapacity) {
-                const { count: soCount } = await supabaseAdmin
-                  .from('organizer_notifications')
-                  .select('id', { count: 'exact', head: true })
-                  .eq('organizer_user_id', resolvedOrganizerId)
-                  .eq('notification_type', 'tables_sold_out')
-                  .eq('event_id', reservation.event_id)
-                  .gte('created_at', sinceIso);
-                if ((soCount ?? 0) === 0) {
-                  await supabaseAdmin.from('organizer_notifications').insert({
-                    organizer_user_id: resolvedOrganizerId,
-                    notification_type: 'tables_sold_out',
-                    title: 'Tables VIP épuisées 🥂',
-                    message: `Toutes les tables sont réservées pour cette soirée (${booked}/${totalCapacity})`,
-                    priority: 'high',
-                    reference_type: 'event',
-                    reference_id: reservation.event_id,
-                    event_id: reservation.event_id,
-                    metadata: { booked, total_capacity: totalCapacity },
-                  });
-                }
-              } else if (pct >= 0.8) {
-                const { count: warnCount } = await supabaseAdmin
-                  .from('organizer_notifications')
-                  .select('id', { count: 'exact', head: true })
-                  .eq('organizer_user_id', resolvedOrganizerId)
-                  .eq('notification_type', 'tables_warning')
-                  .eq('event_id', reservation.event_id)
-                  .gte('created_at', sinceIso);
-                if ((warnCount ?? 0) === 0) {
-                  await supabaseAdmin.from('organizer_notifications').insert({
-                    organizer_user_id: resolvedOrganizerId,
-                    notification_type: 'tables_warning',
-                    title: 'Tables VIP presque complètes',
-                    message: `${booked}/${totalCapacity} tables réservées (${Math.round(pct * 100)}%)`,
-                    priority: 'high',
-                    reference_type: 'event',
-                    reference_id: reservation.event_id,
-                    event_id: reservation.event_id,
-                    metadata: { booked, total_capacity: totalCapacity, pct: Math.round(pct * 100) },
-                  });
-                }
-              }
-            }
-          }
-
-          logStep("Organizer notifications sent for table payment");
-        } catch (notifErr) {
-          console.error('Organizer notif error (table):', notifErr);
-        }
-      }
-      // ─────────────────────────────────────────────────────────────────────
-
-      // Payé = confirmé : le client reçoit tout de suite l'e-mail « confirmée »
-      // (QR + pass Wallet), sans attendre une action du club. Si une table précise
-      // a été demandée, l'e-mail le dit (le placement reste une étape du club).
-      try {
-        await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-vip-confirmation`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
-          body: JSON.stringify({ reservation_id: reservationId, type: 'confirmed' })
-        });
-        logStep("VIP confirmed email sent");
-      } catch (vipEmailError) {
-        console.error('Error sending VIP confirmation email:', vipEmailError);
-      }
+      // Payé = confirmé : le client reçoit tout de suite l'e-mail « confirmée » (QR + pass Wallet).
+      await runEffect('email', effectEmail);
 
       // Push confirmation table VIP — registre auto (clé 'purchase_table') :
       // gate super admin + texte dans la langue du client + tracking ?an=.

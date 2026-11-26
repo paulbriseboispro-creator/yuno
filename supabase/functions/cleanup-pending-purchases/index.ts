@@ -10,6 +10,11 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 // supprimait des lignes encore payables — client débité, plus rien à valider.
 // 45 min laisse la session expirer ET le webhook de rattrapage arriver.
 const PENDING_TIMEOUT_MINUTES = 45;
+// Cohérence des seuils d'une table en attente (P6.4) : la session Stripe vit 31 min, la base retient la table 35 min
+// (`_table_resa_holds`), le nettoyage supprime à 45 min (+ jusqu'à 15 min de cadence du cron). Un paiement arrivé entre 35 et 45 min
+// est rattrapé par `table_resolve_paid_conflict` ; au-delà, plus rien ne retient la table. Le nettoyage ne doit JAMAIS passer sous 35.
+const TABLE_HOLD_MINUTES = 35;
+if (PENDING_TIMEOUT_MINUTES < TABLE_HOLD_MINUTES) throw new Error('PENDING_TIMEOUT_MINUTES must be >= TABLE_HOLD_MINUTES');
 
 Deno.serve(async (req) => {
     // SECURITY: scheduled function — require shared cron secret or super-admin JWT

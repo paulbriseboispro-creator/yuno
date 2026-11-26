@@ -469,6 +469,8 @@ export function buildVipStatus(d: {
   manageUrl?: string; claimUrl?: string;
   /** Montant rendu, déjà formaté (`cancelled_refunded`). */
   refundAmount?: string;
+  /** Lien public de l'avoir (`/avoir/<jeton>`), s'il existe (`cancelled_refunded`). */
+  creditNoteUrl?: string;
 }): BuiltEmail {
   const lang = L(d.lang || 'en');
   const hi = d.firstName ? `${esc(d.firstName)}, ` : '';
@@ -545,6 +547,8 @@ export function buildVipStatus(d: {
   const cta = d.kind === 'cancelled' ? '' : d.manageUrl
     ? ctaPill(p(lang, { en: 'View my booking', fr: 'Voir ma réservation', es: 'Ver mi reserva' }), d.manageUrl)
     : d.claimUrl ? ctaPill(p(lang, { en: 'Find my booking', fr: 'Retrouver ma réservation', es: 'Encontrar mi reserva' }), d.claimUrl) : '';
+  const creditCta = d.kind === 'cancelled_refunded' && d.creditNoteUrl
+    ? ctaPill(p(lang, { en: 'View my credit note', fr: 'Voir mon avoir', es: 'Ver mi abono' }), d.creditNoteUrl) : '';
   const html = shell({
     title: subject,
     preheader: `${d.day} ${d.month}${d.arrivalTime ? ` · ${d.arrivalTime}` : ''} · ${d.venueName}`,
@@ -556,6 +560,7 @@ export function buildVipStatus(d: {
       ...(cancelledKind ? [] : [section(bigDate({ day: d.day, month: d.month, dateLabel: lbl(lang, 'date'), timeLabel: lbl(lang, 'arrival'), timeValue: d.arrivalTime || '—' }))]),
       section(infoRows(rows) + (d.addressDeferred && !d.address ? `<div style="height:12px"></div>${mono(deferred, C.gray3, 11)}` : ''), { border: !!cta }),
       ...(cta ? [section(cta, { border: false })] : []),
+      ...(creditCta ? [section(creditCta, { border: false })] : []),
       footer({ lang, venueName: d.venueName }),
     ].join(''),
   });
@@ -1328,6 +1333,8 @@ export function buildSplitProposal(d: {
 // ── 17. Remboursement (owner-refund / staff-cancel) ──────────────────────────
 export function buildRefund(d: {
   lang?: Lang; firstName?: string; eventTitle?: string; venueName: string; amount: string; reference?: string; reason?: string;
+  /** Avoir émis pour ce remboursement (D15) : numéro et lien public du PDF. */
+  creditNote?: { number: string; url: string };
 }): BuiltEmail {
   const lang = L(d.lang || 'en');
   const hi = d.firstName ? `${d.firstName}, ` : '';
@@ -1348,7 +1355,9 @@ export function buildRefund(d: {
         { k: lbl(lang, 'amount'), v: d.amount },
         ...(d.eventTitle ? [{ k: lbl(lang, 'event'), v: d.eventTitle }] : []),
         ...(d.reference ? [{ k: lbl(lang, 'reference'), v: d.reference }] : []),
+        ...(d.creditNote ? [{ k: p(lang, { en: 'Credit note', fr: 'Avoir', es: 'Abono' }), v: d.creditNote.number }] : []),
       ]), { border: false }),
+      ...(d.creditNote ? [section(ctaPill(p(lang, { en: 'Download my credit note', fr: 'Télécharger mon avoir', es: 'Descargar mi abono' }), d.creditNote.url), { border: false })] : []),
       footer({ lang, venueName: d.venueName }),
     ].join(''),
   });

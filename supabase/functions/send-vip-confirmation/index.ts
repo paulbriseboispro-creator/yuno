@@ -5,7 +5,9 @@ import { EmailLanguage, escapeHtml } from "../_shared/email-branding.ts";
 import { buildVipConfirmation, buildVipStatus, buildWalkinSummary, fmtDateParts } from "../_shared/email-templates.ts";
 import { ensureWalletPass, walletPassUrl } from "../_shared/wallet/router.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
-import { recordSaleEmailSent, resendEmailId, saleEmailTags } from "../_shared/sale-email.ts";
+import {
+  enqueueSaleEmail, isResendNetworkError, isRetryableResend, isSaleEmailReplay, recordSaleEmailSent, resendEmailId, saleEmailTags,
+} from "../_shared/sale-email.ts";
 import { vipEmailStateOk } from "../_shared/vip-email-state.ts";
 
 const corsHeaders = {
@@ -424,6 +426,18 @@ serve(async (req) => {
         ].filter(Boolean).join(' ')
         : changes || '';
       const refundNum = Number(reservation.refund_amount) || 0;
+      // Avoir de l'annulation (vague C2, credit_notes) : le plus récent de la réservation, lien public /avoir/<jeton>. Absent = pas de lien.
+      let creditNoteUrl: string | undefined;
+      if (statusType === 'cancelled_refunded') {
+        try {
+          const { data: cn } = await supabaseAdmin.from('credit_notes')
+            .select('public_token').eq('table_reservation_id', reservationId)
+            .order('created_at', { ascending: false }).limit(1).maybeSingle();
+          if (cn?.public_token) creditNoteUrl = `${appBaseUrl}/avoir/${cn.public_token}`;
+        } catch (cnErr) {
+          console.error('[SEND-VIP-CONFIRMATION] credit note lookup skipped:', cnErr);
+        }
+      }
       const cancelled = statusType === 'cancelled' || statusType === 'cancelled_refunded';
       const mail = buildVipStatus({
         lang,
@@ -443,6 +457,7 @@ serve(async (req) => {
         manageUrl: !isGuest ? `${appBaseUrl}/my-orders` : undefined,
         claimUrl: isGuest && reservationRef && !cancelled ? `${appBaseUrl}/claim?type=table&ref=${encodeURIComponent(reservationRef)}` : undefined,
         refundAmount: statusType === 'cancelled_refunded' && refundNum > 0 ? euro(refundNum) : undefined,
+        creditNoteUrl,
       });
       html = mail.html;
       finalSubject = mail.subject;
@@ -453,25 +468,45 @@ serve(async (req) => {
       ? (rawFrom.includes('<') ? rawFrom : `Yuno <${rawFrom}>`)
       : 'Yuno <noreply@yunoapp.eu>';
 
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${resendApiKey}`,
-      },
-      // Tags relus par resend-webhook : un rebond se rattache à CETTE
-      // réservation et prévient le club / l'organisateur (le récap walk-in, lui,
-      // part après la soirée et n'est pas suivi).
-      body: JSON.stringify({
-        from, to: [customerEmail], subject: finalSubject, html,
-        ...(attachments ? { attachments } : {}),
-        tags: saleEmailTags('table', reservationId),
-      }),
-      signal: AbortSignal.timeout(10000),
-    });
+    async function resendRefused(status: number, detail: string): Promise<Response> {
+      const message = `Resend ${status || 'network'}: ${detail}`.slice(0, 500);
+      if (replay) {
+        return new Response(JSON.stringify({ error: message, retry: true }), { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      const queued = await enqueueSaleEmail(supabaseAdmin, 'table', reservationId!, type, changes ? { changes } : {}, message);
+      logStep("Resend refused — sale e-mail queued", { reservationId, type, status, queued });
+      if (!queued) throw new Error(message);
+      return new Response(JSON.stringify({ success: true, queued: true, type, email: customerEmail }), { status: 202, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    // Resend refuse (quota, panne, délai) : la vente entre dans la file des e-mails de vente (D6), rejouée par
+    // process-scheduled-campaigns. Un rejeu (en-tête posé par le passage) ne remet rien en file : 503, le passage compte.
+    const replay = isSaleEmailReplay(req);
+    let res: Response;
+    try {
+      res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${resendApiKey}`,
+        },
+        // Tags relus par resend-webhook : un rebond se rattache à CETTE
+        // réservation et prévient le club / l'organisateur (le récap walk-in, lui,
+        // part après la soirée et n'est pas suivi).
+        body: JSON.stringify({
+          from, to: [customerEmail], subject: finalSubject, html,
+          ...(attachments ? { attachments } : {}),
+          tags: saleEmailTags('table', reservationId),
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
+    } catch (netErr) {
+      if (!isResendNetworkError(netErr)) throw netErr;
+      return await resendRefused(0, String((netErr as Error)?.message ?? netErr));
+    }
 
     if (!res.ok) {
       const errData = await res.text();
+      if (isRetryableResend(res.status, errData)) return await resendRefused(res.status, errData);
       throw new Error(`Resend error: ${errData}`);
     }
 

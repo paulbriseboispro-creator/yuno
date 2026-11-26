@@ -383,6 +383,196 @@ export function drawReceipt(doc: PdfDoc, data: ReceiptData): void {
   text(doc, `${L.generatedOn} ${fmtDate(data.receiptDate, loc)}`, right, fy, { size: 7, font: MONO, color: MUTED, align: 'right' });
 }
 
+// ── AVOIR (credit note) ──────────────────────────────────────────────────────
+const CREDIT_L: Record<DocLang, Record<string, string>> = {
+  fr: {
+    title: 'AVOIR', number: 'Avoir n°', date: 'Date', origin: 'Facture d\'origine', originOn: 'du',
+    seller: 'ÉMETTEUR', buyer: 'CLIENT', event: 'ÉVÉNEMENT', reason: 'Motif',
+    article: 'Article', ht: 'HT', vatRate: 'Taux TVA', vat: 'TVA', ttc: 'TTC',
+    ticket: 'Billet', table: 'Table VIP', order: 'Commande', fee: 'Frais de service',
+    total: 'Total de l\'avoir', refunded: 'Montant remboursé au client',
+    note: 'Cet avoir annule, à hauteur du montant indiqué, la facture d\'origine. Les montants sont portés en négatif.',
+    vatNote: 'Les calculs de TVA peuvent différer de quelques centimes en raison des arrondis.',
+    siret: 'SIRET', vatNo: 'TVA', generatedVia: 'Édité via Yuno · yunoapp.eu', generatedOn: 'Généré le',
+  },
+  en: {
+    title: 'CREDIT NOTE', number: 'Credit note no.', date: 'Date', origin: 'Original invoice', originOn: 'dated',
+    seller: 'ISSUER', buyer: 'CUSTOMER', event: 'EVENT', reason: 'Reason',
+    article: 'Item', ht: 'Net', vatRate: 'VAT rate', vat: 'VAT', ttc: 'Gross',
+    ticket: 'Ticket', table: 'VIP table', order: 'Order', fee: 'Service fee',
+    total: 'Credit note total', refunded: 'Amount refunded to the customer',
+    note: 'This credit note cancels the original invoice up to the amount shown. Amounts are shown as negatives.',
+    vatNote: 'VAT totals may differ by a few cents due to rounding.',
+    siret: 'Reg. no.', vatNo: 'VAT', generatedVia: 'Issued via Yuno · yunoapp.eu', generatedOn: 'Generated on',
+  },
+  es: {
+    title: 'ABONO', number: 'Abono n.º', date: 'Fecha', origin: 'Factura de origen', originOn: 'del',
+    seller: 'EMISOR', buyer: 'CLIENTE', event: 'EVENTO', reason: 'Motivo',
+    article: 'Artículo', ht: 'Base', vatRate: 'Tipo IVA', vat: 'IVA', ttc: 'Total',
+    ticket: 'Entrada', table: 'Mesa VIP', order: 'Pedido', fee: 'Gastos de servicio',
+    total: 'Total del abono', refunded: 'Importe reembolsado al cliente',
+    note: 'Este abono anula, hasta el importe indicado, la factura de origen. Los importes se muestran en negativo.',
+    vatNote: 'Los importes de IVA pueden variar unos céntimos por redondeo.',
+    siret: 'CIF/NIF', vatNo: 'IVA', generatedVia: 'Emitido vía Yuno · yunoapp.eu', generatedOn: 'Generado el',
+  },
+};
+
+export interface CreditNoteLine {
+  label: string;
+  /** Montants de l'avoir, POSITIFS (le document les dessine en négatif). */
+  ttc: number;
+  ht: number;
+  vat: number;
+  vatRate: number;
+}
+
+export interface CreditNoteData {
+  lang?: DocLang;
+  creditNumber: string;
+  creditDate: Date;
+  invoiceNumber: string;
+  invoiceDate?: Date;
+  reason?: string;
+  sellerName: string;
+  sellerAddress?: string;
+  sellerSiret?: string;
+  sellerVatNumber?: string;
+  sellerRna?: string;
+  /** Mention légale de TVA du vendeur (franchise 293 B, association 261-7-1°). */
+  vatMention?: string;
+  sellerLogo?: string;
+  customerName: string;
+  customerEmail: string;
+  eventTitle?: string;
+  eventDate?: Date;
+  lines: CreditNoteLine[];
+}
+
+/**
+ * Lignes d'un avoir à partir de ce que la base a figé : la base (billet, acompte) et les frais, chacun à son taux. Le HT de la
+ * dernière ligne absorbe l'arrondi pour que la somme des lignes retombe EXACTEMENT sur le HT de l'avoir.
+ */
+export function creditNoteLines(a: {
+  lang?: DocLang; kind: 'ticket' | 'table' | 'order';
+  base: number; fees: number; vatRate: number; feeVatRate: number; totalHt: number;
+}): CreditNoteLine[] {
+  const L = CREDIT_L[a.lang || 'fr'];
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const parts: { label: string; ttc: number; rate: number }[] = [];
+  if (a.base > 0) parts.push({ label: a.kind === 'ticket' ? L.ticket : a.kind === 'table' ? L.table : L.order, ttc: r2(a.base), rate: a.vatRate });
+  if (a.fees > 0) parts.push({ label: L.fee, ttc: r2(a.fees), rate: a.feeVatRate });
+  let htLeft = r2(a.totalHt);
+  return parts.map((p, i) => {
+    const last = i === parts.length - 1;
+    const ht = last ? htLeft : Math.min(htLeft, r2(htOf(p.ttc, p.rate)));
+    htLeft = r2(htLeft - ht);
+    return { label: p.label, ttc: p.ttc, ht, vat: r2(p.ttc - ht), vatRate: p.rate };
+  });
+}
+
+/** AVOIR : annule (en tout ou partie) une facture. Montants dessinés en négatif ; mêmes émetteur, taux et mentions que la facture. */
+export function drawCreditNote(doc: PdfDoc, data: CreditNoteData): void {
+  const lang: DocLang = data.lang || 'fr';
+  const L = CREDIT_L[lang];
+  const loc = LOCALES[lang];
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+  const M = 16;
+  const right = W - M;
+  const neg = (n: number) => eur(n === 0 ? 0 : -Math.abs(n));
+  let y = 20;
+
+  if (data.sellerLogo) {
+    try { doc.addImage(data.sellerLogo, /^data:image\/png/i.test(data.sellerLogo) ? 'PNG' : 'JPEG', M, y - 4, 26, 26); } catch { /* skip */ }
+  } else {
+    text(doc, data.sellerName, M, y + 4, { size: 13, style: 'bold' });
+  }
+  text(doc, L.title, right, y, { size: 11, font: MONO, style: 'bold', color: RED, align: 'right' });
+  text(doc, `${L.number} ${data.creditNumber}`, right, y + 6, { size: 9, font: MONO, color: SUB, align: 'right' });
+  text(doc, `${L.date} ${fmtDate(data.creditDate, loc)}`, right, y + 11, { size: 8.5, font: MONO, color: MUTED, align: 'right' });
+  text(doc, `${L.origin} ${data.invoiceNumber}${data.invoiceDate ? ` ${L.originOn} ${fmtDate(data.invoiceDate, loc)}` : ''}`, right, y + 16, { size: 8.5, font: MONO, color: SUB, align: 'right' });
+  y += 30;
+
+  if (data.eventTitle) {
+    const titleLines = wrap(doc, data.eventTitle, W - M * 2 - 14, 13, DISPLAY, 'bold').slice(0, 2);
+    const panelH = 18 + titleLines.length * 6;
+    doc.setFillColor(PANEL[0], PANEL[1], PANEL[2]);
+    doc.roundedRect(M, y, W - M * 2, panelH, 2, 2, 'F');
+    text(doc, L.event, M + 7, y + 8, { size: 7.5, font: MONO, style: 'bold', color: RED });
+    let ey = y + 15;
+    for (const ln of titleLines) { text(doc, ln, M + 7, ey, { size: 13, style: 'bold' }); ey += 6; }
+    if (data.eventDate) text(doc, fmtLongDate(data.eventDate, loc), M + 7, ey + 0.5, { size: 8.5, font: MONO, color: SUB });
+    y += panelH + 10;
+  }
+
+  const col2 = W / 2 + 4;
+  const topY = y;
+  text(doc, L.seller, M, y, { size: 7.5, font: MONO, style: 'bold', color: MUTED }); y += 6;
+  text(doc, data.sellerName, M, y, { size: 10, style: 'bold' }); y += 5;
+  if (data.sellerAddress) {
+    for (const ln of wrap(doc, data.sellerAddress, W / 2 - M - 6, 8.5)) { text(doc, ln, M, y, { size: 8.5, color: SUB }); y += 4.2; }
+  }
+  if (data.sellerSiret) { text(doc, `${L.siret} : ${data.sellerSiret}`, M, y, { size: 8.5, color: MUTED }); y += 4.2; }
+  if (data.sellerRna) { text(doc, `RNA : ${data.sellerRna}`, M, y, { size: 8.5, color: MUTED }); y += 4.2; }
+  if (data.sellerVatNumber) { text(doc, `${L.vatNo} : ${data.sellerVatNumber}`, M, y, { size: 8.5, color: MUTED }); y += 4.2; }
+  const leftEnd = y;
+  let cy = topY;
+  text(doc, L.buyer, col2, cy, { size: 7.5, font: MONO, style: 'bold', color: MUTED }); cy += 6;
+  text(doc, data.customerName || '—', col2, cy, { size: 10, style: 'bold' }); cy += 5;
+  if (data.customerEmail) { text(doc, data.customerEmail, col2, cy, { size: 8.5, color: SUB }); cy += 4.2; }
+  y = Math.max(leftEnd, cy) + 6;
+
+  if (data.reason) {
+    text(doc, `${L.reason} : ${data.reason}`, M, y, { size: 8.5, font: MONO, color: SUB }); y += 8;
+  } else { y += 4; }
+
+  const cArticle = M, cHt = M + 112, cRate = M + 134, cVat = M + 156, cTtc = right;
+  doc.setFillColor(PANEL[0], PANEL[1], PANEL[2]);
+  doc.rect(M, y - 4, W - M * 2, 8, 'F');
+  const hOpt = { size: 7.5, font: MONO, style: 'bold', color: MUTED } as const;
+  text(doc, L.article, cArticle + 2, y + 1, hOpt);
+  text(doc, L.ht, cHt, y + 1, { ...hOpt, align: 'right' });
+  text(doc, L.vatRate, cRate, y + 1, { ...hOpt, align: 'right' });
+  text(doc, L.vat, cVat, y + 1, { ...hOpt, align: 'right' });
+  text(doc, L.ttc, cTtc, y + 1, { ...hOpt, align: 'right' });
+  y += 9;
+
+  let sumHt = 0, sumVat = 0, sumTtc = 0;
+  for (const ln of data.lines) {
+    if (!ln || !ln.ttc) continue;
+    sumHt += ln.ht; sumVat += ln.vat; sumTtc += ln.ttc;
+    text(doc, String(doc.splitTextToSize(ln.label || '—', 100)[0] || '—'), cArticle + 2, y, { size: 9 });
+    text(doc, neg(ln.ht), cHt, y, { size: 9, color: SUB, align: 'right' });
+    text(doc, `${ln.vatRate.toString().replace('.', ',')} %`, cRate, y, { size: 9, color: SUB, align: 'right' });
+    text(doc, neg(ln.vat), cVat, y, { size: 9, color: SUB, align: 'right' });
+    text(doc, neg(ln.ttc), cTtc, y, { size: 9, style: 'bold', align: 'right' });
+    y += 7;
+  }
+  doc.setDrawColor(LINE[0], LINE[1], LINE[2]); doc.setLineWidth(0.3);
+  doc.line(M, y - 1, right, y - 1); y += 5;
+  text(doc, neg(sumHt), cHt, y, { size: 9, style: 'bold', align: 'right' });
+  text(doc, neg(sumVat), cVat, y, { size: 9, style: 'bold', align: 'right' });
+  y += 8;
+
+  doc.setFillColor(RED[0], RED[1], RED[2]);
+  doc.roundedRect(cHt - 24, y - 5, right - cHt + 24, 11, 2, 2, 'F');
+  text(doc, L.total, cHt - 20, y + 2, { size: 10, style: 'bold', color: WHITE });
+  text(doc, neg(sumTtc), cTtc - 3, y + 2, { size: 11, style: 'bold', color: WHITE, align: 'right' });
+  y += 12;
+  text(doc, `${L.refunded} : ${neg(sumTtc)}`, M, y, { size: 8.5, font: MONO, color: SUB });
+
+  let fy = H - 30;
+  doc.setDrawColor(LINE[0], LINE[1], LINE[2]); doc.setLineWidth(0.3);
+  doc.line(M, fy, right, fy); fy += 5;
+  const legal = [L.note, ...(data.vatMention ? [data.vatMention] : []), L.vatNote];
+  for (const lnTxt of legal) {
+    for (const part of wrap(doc, lnTxt, W - M * 2, 7, MONO)) { text(doc, part, M, fy, { size: 7, font: MONO, color: MUTED }); fy += 3.6; }
+  }
+  fy += 2;
+  text(doc, L.generatedVia, M, fy, { size: 7, font: MONO, color: MUTED });
+  text(doc, `${L.generatedOn} ${fmtDate(data.creditDate, loc)}`, right, fy, { size: 7, font: MONO, color: MUTED, align: 'right' });
+}
+
 // ── BILLET (entry ticket) ────────────────────────────────────────────────────
 export function drawBillet(doc: PdfDoc, data: BilletData): void {
   const lang: DocLang = data.lang || 'fr';
