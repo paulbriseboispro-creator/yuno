@@ -2377,6 +2377,8 @@ const help: Record<string, string> = {
   "ohelp.org.analytics.s10b": "• «Vino» solo cuenta las fiestas en las que se midió la puerta (al menos 10 entradas escaneadas y el 10 % de las entradas válidas).\n• Ningún porcentaje por debajo de 10 personas: la pantalla muestra entonces los números.\n• Un importe solo aparece para los roles que ven el dinero.",
   "ohelp.org.analytics.s11h": "En directo",
   "ohelp.org.analytics.s11b": "La pestaña En directo es su pantalla de la noche de lanzamiento: un globo enciende un punto por cada visitante en sus páginas de fiesta ahora mismo, y las ventas aparecen a medida que llegan.",
+  "ohelp.pg.invoices.s7b": "Cada reembolso, total o parcial, de una venta con factura emite automáticamente un **abono**: un documento numerado en la serie de abonos de tu estructura (por ejemplo FAC-AV-2026-00001) que remite a la factura original y lleva el mismo IVA. Lo encuentras bajo la lista de facturas, con el neto (facturas menos abonos), y en las exportaciones CSV y PDF. El cliente recibe el enlace de su abono en el correo de reembolso. Una mesa pagada en el local no tiene factura ni abono.",
+  "ohelp.pg.invoices.s7h": "Reembolsos y abonos",
 };
 
 export default help;

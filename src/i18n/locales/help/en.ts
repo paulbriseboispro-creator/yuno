@@ -2377,6 +2377,8 @@ const help: Record<string, string> = {
   "ohelp.org.analytics.s10b": "• \"Came\" only counts nights where the door was measured (at least 10 scanned entries and 10 % of valid entries).\n• No percentage under 10 people: the screen shows the numbers instead.\n• Amounts only appear for roles that can see money.",
   "ohelp.org.analytics.s11h": "Live",
   "ohelp.org.analytics.s11b": "The Live tab is your release-night screen: a globe lights a dot for each visitor on your night pages right now, and sales show up as they come in.",
+  "ohelp.pg.invoices.s7b": "Every refund, full or partial, of a sale that has an invoice automatically issues a **credit note**: a numbered document in your own credit-note sequence (for example FAC-AV-2026-00001) that refers to the original invoice and carries the same VAT. You find it under the invoice list, with the net (invoices minus credit notes), and in the CSV and PDF exports. The customer gets the link to the credit note in the refund email. A table settled on site has no invoice and no credit note.",
+  "ohelp.pg.invoices.s7h": "Refunds and credit notes",
 };
 
 export default help;

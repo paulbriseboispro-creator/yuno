@@ -2473,6 +2473,8 @@ const help: Record<string, string> = {
   "ohelp.org.analytics.s10b": "• « Venu » ne compte que les soirées dont la porte a été mesurée (au moins 10 entrées scannées et 10 % des entrées valides).\n• Aucun pourcentage sous 10 personnes : l'écran montre alors les nombres.\n• Un montant n'apparaît que pour les rôles qui voient l'argent.",
   "ohelp.org.analytics.s11h": "En direct",
   "ohelp.org.analytics.s11b": "L'onglet En direct est ta écran de soir de release : un globe allume un point par visiteur en ce moment sur tes pages de soirée, et les ventes s'affichent à mesure qu'elles arrivent.",
+  "ohelp.pg.invoices.s7b": "Chaque remboursement, total ou partiel, d'une vente qui a une facture émet automatiquement un **avoir** : un document numéroté dans la suite d'avoirs de votre structure (par exemple FAC-AV-2026-00001), qui renvoie à la facture d'origine et porte la même TVA qu'elle. Vous le retrouvez sous la liste des factures, avec le net (factures moins avoirs) et dans l'export CSV et PDF. Le client reçoit le lien de son avoir dans l'e-mail de remboursement. Une table réglée sur place n'a ni facture ni avoir.",
+  "ohelp.pg.invoices.s7h": "Remboursements et avoirs",
 };
 
 export default help;

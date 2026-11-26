@@ -17,6 +17,9 @@ import { buildInvoicePdfModel, type StoredInvoiceItem } from '@/lib/invoicePdfMo
 import { resolveVatRegime, sellerVat, type VatRegime } from '@/lib/generateDocuments';
 import { PDFDocument } from 'pdf-lib';
 import { DRINKS_PILLAR_LIVE } from '@/lib/drinksPillar';
+import { creditedOn, netTotals, type AccountingCreditNote, type CreditNoteDoc } from '@/lib/creditNote';
+import { deliverCreditNote, generateCreditNotePDF } from '@/lib/generateCreditNotePDF';
+import type { DocLang } from '@/lib/generateDocuments';
 
 type InvoiceType = 'ticket' | 'table' | 'order';
 type ExportPeriod = 'week' | 'month' | 'quarter' | 'semester' | 'year';
@@ -109,6 +112,9 @@ interface Invoice {
   created_at: string;
   type: InvoiceType;
   amount: number;
+  /** HT et TVA figés à l'émission (export comptable). */
+  total_ht: number;
+  tva: number;
   customer_email: string;
   customer_name: string | null;
   customer_phone: string | null;
@@ -135,6 +141,9 @@ export default function OwnerInvoices() {
   // organizer's own legal profile instead of the venue's.
   const allowExport = isOrganizerScope ? true : canExport;
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  // Avoirs (D15) des factures listées : un par remboursement d'une vente facturée.
+  const [credits, setCredits] = useState<AccountingCreditNote[]>([]);
+  const [downloadingCreditId, setDownloadingCreditId] = useState<string | null>(null);
   const [orgIssuer, setOrgIssuer] = useState<{
     name: string; legalName?: string; address?: string; siret?: string; vatNumber?: string; email?: string;
     rna?: string; vatRegime?: VatRegime;
@@ -222,6 +231,8 @@ export default function OwnerInvoices() {
         created_at: inv.created_at,
         type: inv.type as InvoiceType,
         amount: Number(inv.amount) || 0,
+        total_ht: Number(inv.total_ht) || 0,
+        tva: Number(inv.tva) || 0,
         customer_email: inv.customer_email || '',
         customer_name: inv.customer_name,
         customer_phone: inv.customer_phone,
@@ -235,6 +246,17 @@ export default function OwnerInvoices() {
       }));
 
       setInvoices(mappedInvoices);
+
+      // Les avoirs de ces factures. Une lecture qui échoue ne cache pas les factures : la liste des avoirs reste vide et le dit dans la console.
+      const { data: creditRows, error: creditErr } = await supabase.rpc('get_accounting_credit_notes', {
+        p_venue_id: isOrganizerScope ? undefined : venueId ?? undefined,
+        p_organizer_user_id: isOrganizerScope ? organizerUserId ?? undefined : undefined,
+      });
+      if (creditErr) console.error('Error fetching credit notes:', creditErr);
+      const ids = new Set(mappedInvoices.map((i) => i.id));
+      setCredits(((Array.isArray(creditRows) ? creditRows : []) as unknown as AccountingCreditNote[])
+        .filter((c) => ids.has(c.invoice_id))
+        .map((c) => ({ ...c, amount: Number(c.amount) || 0, total_ht: Number(c.total_ht) || 0, tva: Number(c.tva) || 0 })));
     } catch (error) {
       console.error('Error fetching invoices:', error);
       toast.error(t('invoices.loadError'));
@@ -263,6 +285,24 @@ export default function OwnerInvoices() {
     });
   }, [invoices, typeFilter, searchQuery]);
 
+  const handleDownloadCredit = async (credit: AccountingCreditNote) => {
+    setDownloadingCreditId(credit.id);
+    try {
+      const { data, error } = await supabase.rpc('get_credit_note_doc', { p_id: credit.id });
+      if (error || !data) throw error ?? new Error('credit_note_unavailable');
+      const outcome = await deliverCreditNote(data as unknown as CreditNoteDoc, language as DocLang);
+      if (outcome === 'failed') toast.error(t('credit.downloadError'));
+    } catch (error) {
+      console.error('Error downloading credit note:', error);
+      toast.error(t('credit.downloadError'));
+    } finally {
+      setDownloadingCreditId(null);
+    }
+  };
+
+  const net = useMemo(() => netTotals(invoices, credits), [invoices, credits]);
+  const money = (n: number) => `${n.toFixed(2)} €`;
+
   const getDateRangeForPeriod = (period: ExportPeriod) => {
     const now = new Date();
     switch (period) {
@@ -287,24 +327,52 @@ export default function OwnerInvoices() {
       return date >= start && date <= end;
     });
 
-    if (periodInvoices.length === 0) {
+    const periodCredits = credits.filter(c => {
+      const date = new Date(c.created_at);
+      return date >= start && date <= end;
+    });
+
+    if (periodInvoices.length === 0 && periodCredits.length === 0) {
       toast.error(t('invoices.noInvoicesPeriod'));
       return;
     }
 
-    // Generate CSV
-    const headers = [t('invoices.csv.number'), t('invoices.csv.date'), t('invoices.csv.type'), t('invoices.csv.amount'), t('invoices.csv.client'), t('invoices.csv.email'), t('invoices.csv.event')];
-    const rows = periodInvoices.map(inv => [
-      inv.invoice_number,
-      format(new Date(inv.created_at), 'dd/MM/yyyy HH:mm'),
-      inv.type === 'ticket' ? t('invoices.ticket') : inv.type === 'table' ? t('invoices.vipTable') : t('invoices.drink'),
-      `${inv.amount.toFixed(2)} €`,
-      inv.customer_name || '-',
-      inv.customer_email,
-      inv.event_name || '-',
-    ]);
+    // Generate CSV : les factures, puis les avoirs en négatif (avec la facture d'origine et le motif), puis le net.
+    const typeLabel = (type: InvoiceType) => type === 'ticket' ? t('invoices.ticket') : type === 'table' ? t('invoices.vipTable') : t('invoices.drink');
+    const eur = (n: number) => `${n.toFixed(2)} €`;
+    const headers = [t('invoices.csv.number'), t('invoices.csv.date'), t('invoices.csv.type'), t('invoices.csv.amount'), t('credit.csv.ht'), t('credit.csv.vat'), t('invoices.csv.client'), t('invoices.csv.email'), t('invoices.csv.event'), t('credit.csv.invoiceRef'), t('credit.csv.reason')];
+    const clean = (v: string) => v.replace(/[;\r\n]+/g, ' ');
+    const rows = [
+      ...periodInvoices.map(inv => [
+        inv.invoice_number,
+        format(new Date(inv.created_at), 'dd/MM/yyyy HH:mm'),
+        typeLabel(inv.type),
+        eur(inv.amount), eur(inv.total_ht), eur(inv.tva),
+        inv.customer_name || '-',
+        inv.customer_email,
+        inv.event_name || '-',
+        '', '',
+      ]),
+      ...periodCredits.map(c => [
+        c.credit_number,
+        format(new Date(c.created_at), 'dd/MM/yyyy HH:mm'),
+        `${t('credit.csv.type')} (${typeLabel(c.type)})`,
+        eur(-c.amount), eur(-c.total_ht), eur(-c.tva),
+        c.customer_name || '-',
+        c.customer_email || '',
+        c.event_name || '-',
+        c.invoice_number,
+        c.reason || '',
+      ]),
+    ].map(r => r.map(clean));
+    const net = netTotals(periodInvoices, periodCredits);
+    const totals = periodCredits.length === 0 ? [] : [
+      ['', '', t('invoices.totalInvoices'), eur(net.invoices), eur(net.invoicesHt), eur(net.invoices - net.invoicesHt)],
+      ['', '', t('credit.csv.credits'), eur(-net.credits), eur(-net.creditsHt), eur(-(net.credits - net.creditsHt))],
+      ['', '', t('credit.csv.net'), eur(net.net), eur(net.netHt), eur(net.net - net.netHt)],
+    ].map(r => r.map(clean));
 
-    const csv = [headers.join(';'), ...rows.map(r => r.join(';'))].join('\n');
+    const csv = [headers.join(';'), ...rows.map(r => r.join(';')), ...totals.map(r => r.join(';'))].join('\n');
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -322,7 +390,7 @@ export default function OwnerInvoices() {
     link.click();
     URL.revokeObjectURL(url);
 
-    toast.success(t('invoices.exportedCSV').replace('{{count}}', String(periodInvoices.length)));
+    toast.success(t('invoices.exportedCSV').replace('{{count}}', String(periodInvoices.length + periodCredits.length)));
   };
 
   const exportInvoicesPDF = async (period: ExportPeriod) => {
@@ -333,13 +401,18 @@ export default function OwnerInvoices() {
       return date >= start && date <= end;
     });
 
-    if (periodInvoices.length === 0) {
+    const periodCredits = credits.filter(c => {
+      const date = new Date(c.created_at);
+      return date >= start && date <= end;
+    });
+
+    if (periodInvoices.length === 0 && periodCredits.length === 0) {
       toast.error(t('invoices.noInvoicesPeriod'));
       return;
     }
 
     setExportingPeriod(period);
-    toast.info(t('invoices.generating').replace('{{count}}', String(periodInvoices.length)));
+    toast.info(t('invoices.generating').replace('{{count}}', String(periodInvoices.length + periodCredits.length)));
 
     try {
       // Create merged PDF
@@ -355,6 +428,16 @@ export default function OwnerInvoices() {
           const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
           copiedPages.forEach((page) => mergedPdf.addPage(page));
         }
+      }
+
+      // Les avoirs de la période, à la suite des factures.
+      for (const credit of periodCredits) {
+        const { data: creditDoc } = await supabase.rpc('get_credit_note_doc', { p_id: credit.id });
+        if (!creditDoc) continue;
+        const pdfBlob = await generateCreditNotePDF(creditDoc as unknown as CreditNoteDoc, language as DocLang);
+        const pdf = await PDFDocument.load(await pdfBlob.arrayBuffer());
+        const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+        copiedPages.forEach((page) => mergedPdf.addPage(page));
       }
 
       // Download merged PDF
@@ -376,7 +459,7 @@ export default function OwnerInvoices() {
       link.click();
       URL.revokeObjectURL(url);
 
-      toast.success(t('invoices.exportedPDF').replace('{{count}}', String(periodInvoices.length)));
+      toast.success(t('invoices.exportedPDF').replace('{{count}}', String(periodInvoices.length + periodCredits.length)));
     } catch (error) {
       console.error('Error exporting PDF:', error);
       toast.error(t('invoices.exportError'));
@@ -552,6 +635,23 @@ export default function OwnerInvoices() {
           ))}
         </div>
 
+        {/* Net = factures − avoirs (D15) : seulement quand un avoir existe. */}
+        {credits.length > 0 && (
+          <div className="grid grid-cols-3 gap-3 mb-6">
+            {([
+              { label: t('credit.kpi.invoices'), value: money(net.invoices), color: T1 },
+              { label: t('credit.kpi.credits'), value: money(-net.credits), color: RED },
+              { label: t('credit.kpi.net'), value: money(net.net), color: T1 },
+            ] as const).map((k, i) => (
+              <div key={i} title={i === 2 ? t('credit.net.hint') : undefined}
+                style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 14, boxShadow: CARD_SHADOW, padding: '14px 16px' }}>
+                <p style={{ color: T3, fontSize: 11.5, marginBottom: 4 }}>{k.label}</p>
+                <p style={{ color: k.color, fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>{k.value}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Filters & Export */}
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <div className="relative flex-1">
@@ -634,6 +734,11 @@ export default function OwnerInvoices() {
                   <Chip label={cfg.label_key ? t(cfg.label_key) : invoice.type} color={cfg.color} bg={cfg.bg} border={cfg.border}
                     icon={<Icon className="h-3 w-3" />} />
                   <p style={{ color: T1, fontSize: 13, fontWeight: 600, margin: 0, minWidth: 60 }}>{invoice.amount.toFixed(2)} €</p>
+                  {creditedOn(invoice.id, credits) > 0 && (
+                    <span style={{ color: RED, fontSize: 11.5, fontWeight: 600 }}>
+                      {t('credit.credited').replace('{amount}', money(-creditedOn(invoice.id, credits)))}
+                    </span>
+                  )}
                   <div className="flex-1 min-w-0">
                     {invoice.customer_name && <p className="truncate" style={{ color: T1, fontSize: 13, fontWeight: 500, margin: 0 }}>{invoice.customer_name}</p>}
                     <p className="truncate" style={{ color: T3, fontSize: 12, margin: 0 }}>{invoice.customer_email}</p>
@@ -662,6 +767,45 @@ export default function OwnerInvoices() {
             {filteredInvoices.length} {t('invoices.invoiceCount')} &bull;{' '}
             {filteredInvoices.reduce((sum, inv) => sum + inv.amount, 0).toFixed(2)} €
           </p>
+        )}
+
+        {/* Avoirs (D15) : un par remboursement d'une vente facturée, avec la facture d'origine. */}
+        {credits.length > 0 && (
+          <section className="mt-8">
+            <h2 style={{ color: T1, fontSize: 15, fontWeight: 600, margin: '0 0 4px' }}>{t('credit.list.title')}</h2>
+            <p style={{ color: T3, fontSize: 12.5, margin: '0 0 12px' }}>{t('credit.list.reason')}</p>
+            <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, overflow: 'hidden' }}>
+              {credits.map((credit, idx) => (
+                <div key={credit.id} className="flex items-center gap-3 flex-wrap"
+                  style={{ padding: '12px 16px', borderBottom: idx < credits.length - 1 ? `1px solid ${F_BORDER}` : 'none' }}>
+                  <p style={{ color: T2, fontSize: 12, fontFamily: 'monospace', margin: 0, minWidth: 80 }}>{credit.credit_number}</p>
+                  <p style={{ color: T3, fontSize: 12, margin: 0, minWidth: 120 }}>
+                    {format(new Date(credit.created_at), 'dd/MM/yyyy HH:mm', { locale: dateLocale })}
+                  </p>
+                  <p style={{ color: RED, fontSize: 13, fontWeight: 600, margin: 0, minWidth: 60 }}>{money(-credit.amount)}</p>
+                  <p style={{ color: T2, fontSize: 12, fontFamily: 'monospace', margin: 0 }} title={t('credit.col.invoice')}>
+                    {t('credit.col.invoice')} {credit.invoice_number}
+                  </p>
+                  <div className="flex-1 min-w-0">
+                    {credit.customer_name && <p className="truncate" style={{ color: T1, fontSize: 13, fontWeight: 500, margin: 0 }}>{credit.customer_name}</p>}
+                    <p className="truncate" style={{ color: T3, fontSize: 12, margin: 0 }}>{credit.customer_email}</p>
+                  </div>
+                  <p className="hidden sm:block truncate" style={{ color: T2, fontSize: 12, margin: 0, maxWidth: 140 }}>{credit.event_name || '—'}</p>
+                  <button
+                    onClick={() => handleDownloadCredit(credit)}
+                    disabled={downloadingCreditId === credit.id}
+                    title={t('invoices.downloadPDF')}
+                    className="w-9 h-9 flex items-center justify-center rounded-lg cursor-pointer transition-all duration-150 ml-auto"
+                    style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T3 }}
+                  >
+                    {downloadingCreditId === credit.id
+                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : <Download className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
         )}
       </div>
     </div>

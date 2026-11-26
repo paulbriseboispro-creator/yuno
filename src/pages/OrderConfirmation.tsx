@@ -33,6 +33,7 @@ import {
 import { PostPurchaseAppCard } from '@/components/install/PostPurchaseAppCard';
 import { capturePosthog } from '@/lib/posthog';
 import { marketProps } from '@/lib/geo';
+import { SaleCreditNotes } from '@/components/orders/SaleCreditNotes';
 import { PublicPage } from '@/components/PublicPage';
 import { OrderConfirmationSkeleton } from '@/components/skeletons/OrderConfirmationSkeleton';
 import { publicUrl } from '@/lib/native';
@@ -1599,6 +1600,8 @@ export default function OrderConfirmation() {
               )}
               {t('confirmation.downloadReceipt') || 'Télécharger le reçu'}
             </button>}
+            {/* Avoirs (D15) : un par remboursement d'une vente facturée ; rien tant qu'il n'y en a pas. */}
+            <SaleCreditNotes kind={data.type} id={data.id} />
           </div>
 
           <div className="mt-6 text-center">

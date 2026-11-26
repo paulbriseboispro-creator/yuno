@@ -11,7 +11,7 @@
 // '/stats/' = page de stats d'un partenaire de soirée (lien partenaire, sans compte).
 // '/t/' = QR d'un invité de table (lien partagé par le titulaire, sans compte).
 // '/h/' = invitation à l'espace d'une soirée, '/invite/' = l'espace lui-même (compte rattaché).
-const LINKTREE_PREFIXES = ['/p/', '/promo/', '/promoteur/', '/rp/', '/l/', '/j/', '/go/', '/stats/', '/h/', '/invite/', '/t/'];
+const LINKTREE_PREFIXES = ['/p/', '/promo/', '/promoteur/', '/rp/', '/l/', '/j/', '/go/', '/stats/', '/h/', '/invite/', '/t/', '/avoir/'];
 
 export function isPublicLinktreePath(pathname: string): boolean {
   if (pathname === '/links') return true;

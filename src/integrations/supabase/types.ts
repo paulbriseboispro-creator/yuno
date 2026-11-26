@@ -15011,6 +15011,8 @@ export type Database = {
           organizer_user_id: string | null
           qr_code: string | null
           remaining_on_site: number | null
+          vat_rate: number | null
+          fee_vat_rate: number | null
           seller_kind: string | null
           service_fee: number | null
           table_reservation_id: string | null
@@ -15041,6 +15043,8 @@ export type Database = {
           organizer_user_id?: string | null
           qr_code?: string | null
           remaining_on_site?: number | null
+          vat_rate?: number | null
+          fee_vat_rate?: number | null
           seller_kind?: string | null
           service_fee?: number | null
           table_reservation_id?: string | null
@@ -15071,6 +15075,8 @@ export type Database = {
           organizer_user_id?: string | null
           qr_code?: string | null
           remaining_on_site?: number | null
+          vat_rate?: number | null
+          fee_vat_rate?: number | null
           seller_kind?: string | null
           service_fee?: number | null
           table_reservation_id?: string | null
@@ -33284,6 +33290,25 @@ export type Database = {
           p_organizer_user_id?: string
           p_to?: string
           p_venue_id?: string
+        }
+        Returns: Json
+      }
+      get_accounting_credit_notes: {
+        Args: {
+          p_from?: string
+          p_organizer_user_id?: string
+          p_to?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
+      get_credit_note_by_token: { Args: { p_token: string }; Returns: Json }
+      get_credit_note_doc: { Args: { p_id: string }; Returns: Json }
+      get_sale_credit_notes: {
+        Args: {
+          p_order_id?: string
+          p_table_reservation_id?: string
+          p_ticket_id?: string
         }
         Returns: Json
       }
