@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useId } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 /** Une ligne d'occupation : même forme que la lecture directe historique de
@@ -35,6 +35,7 @@ export function useTableAvailability(eventId: string | undefined) {
   /** Réservations actives par formule — sert le plafond `limit_tables` d'un pack. */
   const [reservationsByPack, setReservationsByPack] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const instanceId = useId();
 
   useEffect(() => {
     if (!eventId) {
@@ -108,7 +109,9 @@ export function useTableAvailability(eventId: string | undefined) {
     // qu'aux rôles pro (owner/orga/staff). Un visiteur anonyme ne recevra RIEN
     // par ce canal ; c'est le polling ci-dessous qui fait vivre le grisage.
     const channel = supabase
-      .channel(`table-availability-${eventId}`)
+      // Un canal PAR INSTANCE : le résumé du plan et l'éditeur montent ce hook pour la même soirée ;
+      // un nom partagé renvoie le canal déjà abonné et `.on()` lève (« after subscribe() »).
+      .channel(`table-availability-${eventId}-${instanceId}`)
       .on(
         'postgres_changes',
         {
@@ -143,7 +146,7 @@ export function useTableAvailability(eventId: string | undefined) {
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
     };
-  }, [eventId]);
+  }, [eventId, instanceId]);
 
   return { unavailableTableIds, unplacedReservationCount, reservationsByZone, reservationsByPack, loading };
 }
