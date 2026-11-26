@@ -108,7 +108,7 @@ BEGIN
   -- 4. P1.1 / 1.2 : reçu et laissez-passer sans compte.
   j := pg_temp.try_anon(format('public.get_table_receipt(%L, %L)', ra, 'smk12-a@t'))::jsonb;
   IF j->>'status' <> 'paid' OR jsonb_array_length(j->'guests') <> 3 OR j->>'requested_table_id' <> t[1] THEN RAISE EXCEPTION 'SMOKE_FAIL reçu : %', j; END IF;
-  j := pg_temp.try_anon(format('public.get_table_guest_pass(%L)', 'smk12-a@t-2'))::jsonb;
+  j := pg_temp.try_anon(format('public.get_table_guest_pass(%L)', (SELECT qr_code FROM table_reservation_guests WHERE reservation_id = ra AND guest_number = 1)))::jsonb;
   IF (j->>'scannable')::boolean IS NOT TRUE THEN RAISE EXCEPTION 'SMOKE_FAIL laissez-passer : %', j; END IF;
   -- 5. P4.1 : attribution ; P3.2 : la table vendue ne quitte pas le plan.
   j := pg_temp.try_q(v_owner, format('public.vip_set_table_placement(%L, ''assign'', %L, NULL, NULL, ''requested'')', ra, t[1]))::jsonb;

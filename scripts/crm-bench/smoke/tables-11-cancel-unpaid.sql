@@ -139,7 +139,7 @@ BEGIN
   UPDATE table_reservation_guests SET entry_scanned = true WHERE reservation_id = r1 AND guest_number = 1;
   SELECT count(*) INTO n FROM table_reservation_guests WHERE reservation_id = r1 AND entry_scanned;
   IF n <> 0 THEN RAISE EXCEPTION 'SMOKE_FAIL un QR invité d''une table annulée a été scanné'; END IF;
-  j := pg_temp.try_anon(format('public.get_table_guest_pass(%L)', 'smk11-1-2'))::jsonb;
+  j := pg_temp.try_anon(format('public.get_table_guest_pass(%L)', (SELECT qr_code FROM table_reservation_guests WHERE reservation_id = r1 AND guest_number = 1)))::jsonb;
   IF (j->>'scannable')::boolean IS NOT FALSE THEN RAISE EXCEPTION 'SMOKE_FAIL scannable : %', j; END IF;
   -- Contrôle : la même manipulation sur une résa payée passe.
   UPDATE table_reservation_guests SET entry_scanned = true WHERE reservation_id = r8 AND guest_number = 0;
