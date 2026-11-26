@@ -1,7 +1,7 @@
 /**
  * Tickets d'une table : un par personne d'une réservation de 2 à 50 personnes
  * (table `table_reservation_guests`, créés par la base). N° 0 = le titulaire,
- * sous son nom ; n° k = « Invité k ». QR = QR de la réservation + « -<n°+1> ».
+ * sous son nom ; n° k = « Invité k ». QR aléatoire et indépendant de celui de la réservation (D12, `TG-…`).
  * Une table d'une personne n'a pas de ticket à part : son QR est son ticket.
  *
  * PUR : partagé par la porte (videur, scan web), la liste de porte et l'écran

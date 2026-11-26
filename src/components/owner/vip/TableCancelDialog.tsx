@@ -25,17 +25,19 @@ export function TableCancelDialog({ reservation, open, onClose, onChanged }: Pro
   const [loading, setLoading] = useState(false);
   if (!reservation) return null;
   const money = tableMoney({
-    totalPrice: reservation.totalPrice, deposit: reservation.deposit, serviceFee: reservation.serviceFee,
+    totalPrice: reservation.totalPrice, deposit: reservation.deposit, managementFee: reservation.managementFee, feeAbsorbed: reservation.feeAbsorbed,
     chargedTotal: reservation.chargedTotal, hasOnlinePayment: reservation.hasOnlinePayment,
   });
-  const refundsMoney = reservation.hasOnlinePayment && money.paidOnline > 0;
+  // Ce que le serveur rendra : l'encaissé moins ce qui a déjà été remboursé (remboursements partiels précédents).
+  const toRefund = Math.max(money.paidOnline - (reservation.refundedAmount || 0), 0);
+  const refundsMoney = reservation.hasOnlinePayment && toRefund > 0;
 
   const confirm = async () => {
     setLoading(true);
     const res = await cancelTable(reservation.id);
     setLoading(false);
     if (res.ok) {
-      toast.success(t(refundsMoney ? 'tblg.cancel.doneRefunded' : 'tblg.cancel.done'));
+      toast.success(t(refundsMoney ? 'tblg.cancel.doneRefunded' : 'tblg.cancel.done').replace('{amount}', formatMoneyAuto(res.amount > 0 ? res.amount : toRefund)));
       onChanged();
       onClose();
     } else {
@@ -56,7 +58,7 @@ export function TableCancelDialog({ reservation, open, onClose, onChanged }: Pro
               <p>{reservation.fullName} · {reservation.guestCount} {t('tblg.guests')}</p>
               {refundsMoney ? (
                 <p>
-                  {t('tblg.cancel.refundBody').replace('{amount}', formatMoneyAuto(money.paidOnline))}
+                  {t('tblg.cancel.refundBody').replace('{amount}', formatMoneyAuto(toRefund))}
                 </p>
               ) : (
                 <p>{t('tblg.cancel.noMoneyBody')}</p>

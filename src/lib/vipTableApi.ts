@@ -47,9 +47,11 @@ export interface PlacementResult {
   previousTable: string | null;
   newTable: string | null;
   placementStatus: string | null;
+  /** Décidé par le serveur : 'table_changed' = le client doit être prévenu par e-mail, null = rien à dire. */
+  notify: 'table_changed' | null;
 }
 const placementFailure = (error: VipApiError): PlacementResult =>
-  ({ ok: false, error, changedTable: false, previousTable: null, newTable: null, placementStatus: null });
+  ({ ok: false, error, changedTable: false, previousTable: null, newTable: null, placementStatus: null, notify: null });
 
 export interface PlacementArgs {
   reservationId: string;
@@ -72,6 +74,7 @@ export async function setTablePlacement(a: PlacementArgs): Promise<PlacementResu
   if (error) return placementFailure(toApiError(error));
   const r = (data ?? {}) as {
     changed_table?: boolean; previous_table?: string | null; new_table?: string | null; placement_status?: string | null;
+    notify?: string | null;
   };
   return {
     ok: true,
@@ -80,7 +83,18 @@ export async function setTablePlacement(a: PlacementArgs): Promise<PlacementResu
     previousTable: r.previous_table ?? null,
     newTable: r.new_table ?? null,
     placementStatus: r.placement_status ?? null,
+    notify: r.notify === 'table_changed' ? 'table_changed' : null,
   };
+}
+
+/** Remarque au client : champ de service, jamais un champ de placement. Rend false si rien n'a été écrit (RLS, erreur). */
+export async function saveReservationNote(reservationId: string, note: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('table_reservations')
+    .update({ placement_note: note })
+    .eq('id', reservationId)
+    .select('id');
+  return !error && !!data && data.length > 0;
 }
 
 /** E-mail client « ta réservation tient, ta table change » (jamais bloquant pour le geste). */

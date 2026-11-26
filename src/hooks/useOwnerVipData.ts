@@ -22,6 +22,9 @@ export interface OwnerVipReservation {
   deposit: number;
   /** Frais de gestion Yuno absorbés par le club (0 sinon) : sortent de sa part de l'acompte. */
   absorbedFee: number;
+  /** Frais de gestion de la réservation et leur prise en charge (repli du montant encaissé en ligne). */
+  managementFee: number;
+  feeAbsorbed: boolean;
   /** Déjà rendu au client (remboursements partiels précédents). */
   refundedAmount: number;
   /** Reste remboursable en ligne — même règle que le serveur (`refundCapCents`). */
@@ -123,6 +126,8 @@ export function mapVipReservation(r: VipReservationRow): OwnerVipReservation {
     guestCount: r.guest_count || 1,
     deposit: Number(r.deposit) || 0,
     absorbedFee: r.fee_absorbed ? Number(r.management_fee || 0) : 0,
+    managementFee: Number(r.management_fee) || 0,
+    feeAbsorbed: !!r.fee_absorbed,
     ...vipRefundFields(r),
     totalPrice: Number(r.total_price) || 0,
     minimumSpend: Number(r.minimum_spend) || 0,

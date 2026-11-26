@@ -588,7 +588,8 @@ export default function MyOrders() {
         eventEndAt: r.events.end_at,
         eventPosterUrl: r.events.poster_url,
         // Soirée sans club : le lieu est celui que l'organisateur a saisi sur la soirée.
-        venueName: v?.name || r.events.location_name || '',
+        // Adresse différée : le nom du lieu non plus (get_table_receipt, e-mail).
+        venueName: hideAddress ? '' : (v?.name || r.events.location_name || ''),
         venueAddress: hideAddress ? null : (v?.address ?? r.events.location_address ?? null),
         venueCity: v?.city ?? r.events.location_city ?? null,
         venueLat: hideAddress ? null : (v?.latitude ?? null),
@@ -1899,7 +1900,7 @@ export default function MyOrders() {
           instant={restoring}
           kind="vip"
           title={selectedVipReservation.eventTitle}
-          venueName={`${selectedVipReservation.venueName} · ${selectedVipReservation.zoneName || selectedVipReservation.packName}`}
+          venueName={[selectedVipReservation.venueName, selectedVipReservation.zoneName || selectedVipReservation.packName].filter(Boolean).join(' · ')}
           qrImage={qrImages[selectedVipReservation.id]}
           // Table de plusieurs personnes : un QR par personne à envoyer à chacun.
           slides={vipGuestSlides ?? undefined}

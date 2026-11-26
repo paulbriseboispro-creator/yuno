@@ -83,6 +83,7 @@ export default function OwnerTables() {
   const [events, setEvents] = useState<(Event & { tablesEnabled: boolean; tablesSoldOut: boolean; soldOutPackIds: string[] })[]>([]);
   const [zones, setZones] = useState<TableZone[]>([]);
   const [packs, setPacks] = useState<TablePack[]>([]);
+  const [packsLoaded, setPacksLoaded] = useState(false);
   const [presets, setPresets] = useState<TablePackPreset[]>([]);
   const [eventSettings, setEventSettings] = useState<EventTableSettings[]>([]);
   const [loading, setLoading] = useState(true);
@@ -189,8 +190,9 @@ export default function OwnerTables() {
     try {
       const { data, error } = await supabase.from('table_packs').select('*').eq('venue_id', venueId).order('position', { ascending: true });
       if (error) throw error;
-      setPacks((data || []).map(p => ({ id: p.id, zoneId: p.zone_id, venueId: p.venue_id, name: p.name, description: p.description || undefined, basePrice: Number(p.base_price), baseCapacity: p.base_capacity, extraPersonPrice: Number(p.extra_person_price) || 0, maxExtraPersons: p.max_extra_persons || 0, deposit: Number(p.deposit) || 0, depositType: (p.deposit_type as 'fixed' | 'percentage') || 'fixed', includedBottlesQuota: p.included_bottles_quota || 0, minimumSpend: Number(p.minimum_spend) || 0, arrivalDeadline: p.arrival_deadline || undefined, tablesCount: p.tables_count || 1, limitTables: !!p.limit_tables, position: p.position, isActive: p.is_active, createdAt: p.created_at, updatedAt: p.updated_at })));
+      setPacks((data || []).map(p => ({ id: p.id, zoneId: p.zone_id, venueId: p.venue_id, name: p.name, description: p.description || undefined, basePrice: Number(p.base_price), baseCapacity: p.base_capacity, extraPersonPrice: Number(p.extra_person_price) || 0, maxExtraPersons: p.max_extra_persons || 0, deposit: Number(p.deposit) || 0, depositType: (p.deposit_type as 'fixed' | 'percentage') || 'fixed', includedBottlesQuota: p.included_bottles_quota || 0, minimumSpend: Number(p.minimum_spend) || 0, arrivalDeadline: p.arrival_deadline || undefined, tablesCount: p.tables_count || 1, limitTables: !!p.limit_tables, paymentMode: p.payment_mode === 'on_site' ? 'on_site' : 'online', position: p.position, isActive: p.is_active, createdAt: p.created_at, updatedAt: p.updated_at })));
     } catch { /* best-effort : les packs restent en l’état */ }
+    finally { setPacksLoaded(true); }
   };
 
   const fetchPresets = async () => {
@@ -402,15 +404,16 @@ export default function OwnerTables() {
         <CollabReadOnlyBanner action={t('collab.action.manageTables')} />
 
         {/* « Paiements prêts » : le club encaisse les acomptes de ses tables. */}
-        <TablesPaymentsBanner
+        {/* Jamais avant d'avoir lu les formules : sinon « pas prêt » clignote pour un club qui ne vend que sur place. */}
+        {packsLoaded && <TablesPaymentsBanner
           venueId={venueId}
           collector="club"
           viewer="club"
-          hasOnlinePacks={packs.length === 0 ? true : packs.some(p => p.isActive)}
+          hasOnlinePacks={packs.length === 0 ? true : packs.some(p => p.isActive && p.paymentMode !== 'on_site')}
           canManageStripe={consoleMode === 'owner'}
           paymentsPath="/owner/billing"
           onGoToPayments={() => navigate('/owner/billing')}
-        />
+        />}
 
         {/* Floor Plan Card */}
         <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 20 }}>

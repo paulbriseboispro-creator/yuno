@@ -47,6 +47,9 @@ describe('placement et montants', () => {
     expect(placementView({ ...base, assigned_table_id: 't', assigned_table_name: 'A1', requested_table_id: 'x' })).toEqual({ kind: 'assigned', name: 'A1' });
     expect(placementView({ ...base, requested_table_id: 'x', requested_table_name: 'B2', placement_status: 'requested' })).toEqual({ kind: 'requested', name: 'B2' });
     expect(placementView({ ...base, placement_status: 'on_arrival' })).toEqual({ kind: 'on_arrival' });
+    // Valeur réellement écrite par le serveur, avec une table demandée : « à l'arrivée » l'emporte sur « demandée ».
+    expect(placementView({ ...base, requested_table_id: 'x', requested_table_name: 'T4', placement_status: 'assign_on_arrival' })).toEqual({ kind: 'on_arrival' });
+    expect(placementView({ ...base, placement_status: 'assign_on_arrival' })).toEqual({ kind: 'on_arrival' });
     expect(placementView({ ...base, requested_table_id: 'x', placement_status: 'rejected' })).toEqual({ kind: 'on_arrival' });
     expect(placementView(base)).toEqual({ kind: 'none' });
   });

@@ -17804,7 +17804,7 @@ const es: Record<string, string> = {
   "tblg.cancel.confirm": "Cancelar la reserva",
   "tblg.cancel.confirmRefund": "Cancelar y reembolsar",
   "tblg.cancel.done": "Reserva cancelada.",
-  "tblg.cancel.doneRefunded": "Reserva cancelada y cliente reembolsado.",
+  "tblg.cancel.doneRefunded": "Reserva cancelada, {amount} reembolsados al cliente.",
   "tblg.cancel.emailBody": "El cliente recibe un correo que le anuncia la cancelación. Esta acción es definitiva.",
   "tblg.cancel.keep": "Mantener la reserva",
   "tblg.cancel.noMoneyBody": "No se pagó nada en línea, así que no hay nada que reembolsar. La mesa queda libre.",
@@ -17873,6 +17873,14 @@ const es: Record<string, string> = {
   "tblp.room.blockedClub": "No disponible: tus próximas noches tienen un club, que usa su propio plano. Una sala solo se reutiliza en una noche sin club.",
   "tblp.room.blockedNoEvent": "No disponible: crea primero una noche próxima sin club.",
   "tblp.room.hasReservations": "Esta noche ya tiene reservas: sus mesas ya no pueden reemplazarse.",
+  "tblg.noteNotSaved": "La mesa está asignada, pero la nota para el cliente no se guardó.",
+  "tblg.hostAdj.intro": "Esta mesa es de otra fórmula distinta a la reservada. Elige cómo tratar la diferencia. Al cliente nunca se le cobra de nuevo en línea.",
+  "tblg.hostAdj.payOnSiteOption": "Diferencia a pagar en el local",
+  "tblg.hostAdj.confirm": "Confirmar ubicación",
+  "tblg.hostAdj.cancel": "Cancelar",
+  "tblc.closed.title": "Esta reserva de mesa está cancelada",
+  "tblc.closed.body": "La reserva fue cancelada, por lo que no está confirmada. Si pagaste en línea, revisa tu email para ver el detalle del reembolso.",
+  "tblp.plan.discard": "Descartar mis cambios",
 };
 
 export default es;

@@ -8,7 +8,7 @@ import { T1, T3, F_BORDER } from './vip-ui';
 export function TableMoneyBlock({ reservation, compact = false }: { reservation: OwnerVipReservation; compact?: boolean }) {
   const { t } = useLanguage();
   const m = tableMoney({
-    totalPrice: reservation.totalPrice, deposit: reservation.deposit, serviceFee: reservation.serviceFee,
+    totalPrice: reservation.totalPrice, deposit: reservation.deposit, managementFee: reservation.managementFee, feeAbsorbed: reservation.feeAbsorbed,
     chargedTotal: reservation.chargedTotal, hasOnlinePayment: reservation.hasOnlinePayment,
   });
   const rows: [string, number][] = [

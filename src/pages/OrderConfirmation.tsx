@@ -686,7 +686,8 @@ export default function OrderConfirmation() {
           eventDate: reservation.events.start_at,
           ...tablePlace,
           eventPosterUrl: reservation.events.poster_url,
-          venueName: venue?.name ?? receipt?.event?.location_name ?? undefined,
+          // Adresse secrète différée : ni l'adresse, ni le nom du lieu, ni l'itinéraire (même règle que l'e-mail).
+          venueName: tableDeferred ? undefined : (venue?.name ?? receipt?.event?.location_name ?? undefined),
           // Adresse secrète que l'organisateur ne dévoile pas avant la soirée : jamais montrée ici (comme l'e-mail).
           venueAddress: tableDeferred ? undefined : (venue?.address ?? receipt?.event?.location_address ?? undefined),
           venueLegalName: venue?.legal_name,
@@ -855,7 +856,7 @@ export default function OrderConfirmation() {
   };
 
   // Maps deep-link to the venue (same pattern used across EventDetails / VenuePage).
-  const directionsUrl = data?.venueAddress
+  const directionsUrl = data?.tableInfo?.addressDeferred ? null : data?.venueAddress
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(data.venueAddress)}`
     : data?.venueName
       ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(data.venueName)}`

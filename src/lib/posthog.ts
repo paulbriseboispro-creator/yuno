@@ -25,6 +25,7 @@
 import type { PostHog } from 'posthog-js';
 import { CONSENT_CHANGE_EVENT, hasAnalyticsConsent } from '@/lib/consent';
 import { isNative, isProApp, isProPath } from '@/lib/native';
+import { isGuestPassPath, scrubGuestPassProps } from '@/lib/posthogScrub';
 import { isSupportSessionActive } from '@/lib/supportSession';
 import { currentSurface, purchaseSurface } from '@/lib/posthogSurface';
 import { mirrorFunnelEvent, saleTrackingIds } from '@/lib/eventFunnel';
@@ -214,6 +215,9 @@ async function load(): Promise<PostHog | null> {
           if (!event) return null;
           if (isSupportSessionActive()) return null;
           if (event.event === '$snapshot' && onProSurface()) return null;
+          // /t/<qr> : un QR d'entrée dans l'adresse. Pas de replay, et l'URL part sans le QR.
+          if (event.event === '$snapshot' && typeof window !== 'undefined' && isGuestPassPath(window.location.pathname)) return null;
+          event.properties = scrubGuestPassProps(event.properties);
           // Surface recalculée à CHAQUE envoi : une session passe de
           // `web_app` à `console` en ouvrant /owner (src/lib/posthogSurface.ts).
           event.properties = {

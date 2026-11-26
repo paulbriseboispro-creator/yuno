@@ -65,7 +65,7 @@ export function TablesPaymentsBanner({ eventId, venueId, collector, viewer, hasO
       <div className="flex min-w-0 items-start gap-2.5">
         <Icon className="mt-0.5 h-4 w-4 shrink-0" style={{ color }} />
         <div className="min-w-0">
-          <p style={{ color: 'T1', fontSize: 13, fontWeight: 600 }}>{title}</p>
+          <p style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{title}</p>
           <p style={{ color: T3, fontSize: 12, lineHeight: 1.45 }}>{body}</p>
           {hasPartnerClub && collector === 'organizer' && (
             <p style={{ color: T3, fontSize: 12, lineHeight: 1.45, marginTop: 2 }}>{t('tblp.pay.partnerClubNote')}</p>

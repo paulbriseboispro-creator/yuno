@@ -38,7 +38,7 @@ export default function VerifyTablePayment() {
   const { t } = useLanguage();
   const { user } = useAuth();
 
-  const [status, setStatus] = useState<'verifying' | 'success' | 'error' | 'nativeReturn' | 'receiptRequired'>('verifying');
+  const [status, setStatus] = useState<'verifying' | 'success' | 'error' | 'nativeReturn' | 'receiptRequired' | 'closed'>('verifying');
   // Checkout lancé depuis l'app iOS : cette page tourne dans SafariVC côté web,
   // le retour se fait par deep link yuno:// vers la confirmation in-app.
   const isNativeReturn = searchParams.get('native') === '1';
@@ -110,6 +110,12 @@ export default function VerifyTablePayment() {
           firePurchase({ eventID: `table:${reservationId}`, ...data.metaPurchase });
         }
 
+        // Annulée ou remboursée entre-temps (conflit au paiement, annulation du club) : on le dit, jamais « table confirmée ».
+        if (data.alreadyProcessed && ['cancelled', 'refunded'].includes(String(data.reservationStatus))) {
+          setStatus('closed');
+          return;
+        }
+
         // QR de la réservation : gardé pour la page de confirmation (rechargement compris).
         if (reservationId && data.qrCode) {
           saveReceiptQr(sessionStorage, reservationId, data.qrCode);
@@ -172,6 +178,19 @@ export default function VerifyTablePayment() {
               <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
               <h2 className="text-xl font-bold mb-2">{t('verify.reservationConfirmed')}</h2>
               <p className="text-muted-foreground mb-4">{t('verify.reservationRedirecting')}</p>
+            </>
+          )}
+
+          {status === 'closed' && (
+            <>
+              <XCircle className="h-16 w-16 text-destructive mx-auto mb-4" />
+              <h2 className="text-xl font-bold mb-2">{t('tblc.closed.title')}</h2>
+              <p className="text-muted-foreground mb-4">{t('tblc.closed.body')}</p>
+              {user ? (
+                <Button onClick={() => navigate('/my-orders?tab=tables')}>{t('tblc.findReservation')}</Button>
+              ) : (
+                <Button variant="outline" onClick={() => navigate('/')}>{t('tblc.receipt.home')}</Button>
+              )}
             </>
           )}
 

@@ -11,7 +11,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 import { Loader2, MessageSquare, Check, ArrowRightLeft } from 'lucide-react';
 import { formatMoneyAuto } from '@/lib/money';
-import { setTablePlacement, sendTableChangedEmail } from '@/lib/vipTableApi';
+import { setTablePlacement, sendTableChangedEmail, saveReservationNote } from '@/lib/vipTableApi';
 import {
   adjustmentArgs, adjustmentNeed, freeTablesOfPack, vipErrorInfo, type PlacementAdjustment,
 } from '@/lib/vipTableRules';
@@ -44,7 +44,7 @@ interface PlacementFloorPlanSheetProps {
   mode?: 'propose' | 'move';
 }
 
-type PackLite = { id: string; name: string; base_price: number };
+type PackLite = { id: string; name: string; base_price: number; event_id: string | null; venue_id: string | null };
 
 export function PlacementFloorPlanSheet({
   open, onClose, reservation, floorPlan, reservations, onRefresh, mode = 'move',
@@ -65,18 +65,36 @@ export function PlacementFloorPlanSheet({
     return [...ids];
   }, [planTables, reservation?.packId]);
 
-  // Prix des formules : sert à calculer l'écart proposé pour « différence à régler sur place ».
+  // Prix des formules POUR CETTE SOIRÉE (preset ou prix personnalisés, comme le checkout) : sert à proposer l'écart
+  // de « différence à régler sur place ». Sans prix de soirée, le prix catalogue de la formule.
   useEffect(() => {
-    if (!open || packIds.length === 0) return;
+    if (!open || packIds.length === 0 || !reservation) return;
     let alive = true;
-    supabase.from('table_packs').select('id, name, base_price').in('id', packIds).then(({ data }) => {
+    (async () => {
+      const [{ data: packRows }, { data: resaRow }] = await Promise.all([
+        supabase.from('table_packs').select('id, name, base_price, event_id, venue_id').in('id', packIds),
+        supabase.from('table_reservations').select('event_id').eq('id', reservation.id).maybeSingle(),
+      ]);
+      const overrides = new Map<string, number>();
+      const collect = (list: { packId: string; customPrice: number | null }[] | null | undefined) => {
+        for (const o of list ?? []) if (o.customPrice != null) overrides.set(o.packId, Number(o.customPrice));
+      };
+      if (resaRow?.event_id) {
+        const { data: settings } = await supabase.from('event_table_settings').select('preset_id, custom_prices').eq('event_id', resaRow.event_id).maybeSingle();
+        if (settings?.preset_id) {
+          const { data: preset } = await supabase.from('table_pack_presets').select('packs').eq('id', settings.preset_id).maybeSingle();
+          collect(preset?.packs as { packId: string; customPrice: number | null }[] | undefined);
+        } else {
+          collect(settings?.custom_prices as { packId: string; customPrice: number | null }[] | undefined);
+        }
+      }
       if (!alive) return;
       const map: Record<string, PackLite> = {};
-      (data ?? []).forEach(p => { map[p.id] = p as PackLite; });
+      (packRows ?? []).forEach(p => { map[p.id] = { ...(p as PackLite), base_price: overrides.get(p.id) ?? Number(p.base_price) }; });
       setPacks(map);
-    }, () => undefined);
+    })().catch(() => undefined);
     return () => { alive = false; };
-  }, [open, packIds]);
+  }, [open, packIds, reservation]);
 
   useEffect(() => {
     if (!open) { setSelectedTableId(null); setNote(''); setChoice(null); setAmountInput(''); }
@@ -92,11 +110,18 @@ export function PlacementFloorPlanSheet({
   const selectedTable = selectedTableId ? planTables?.find(tb => tb.id === selectedTableId) : undefined;
   const need = useMemo(() => {
     if (!reservation || !selectedTable) return { required: false, difference: 0 };
+    const resaPack = packs[reservation.packId ?? ''];
+    const target = packs[selectedTable.packId ?? ''];
+    // Même règle que le serveur : le choix n'est demandé que si la formule liée à la table vit dans le MÊME périmètre
+    // (soirée / club) que la formule de la réservation ; sinon la liaison ne s'applique pas.
+    if (resaPack && target && (resaPack.event_id !== target.event_id || resaPack.venue_id !== target.venue_id)) {
+      return { required: false, difference: 0 };
+    }
     return adjustmentNeed({
       reservationPackId: reservation.packId,
       targetPackId: selectedTable.packId,
-      reservationPrice: packs[reservation.packId ?? '']?.base_price ?? 0,
-      targetPrice: packs[selectedTable.packId ?? '']?.base_price ?? 0,
+      reservationPrice: resaPack?.base_price ?? 0,
+      targetPrice: target?.base_price ?? 0,
     });
   }, [reservation, selectedTable, packs]);
 
@@ -126,14 +151,13 @@ export function PlacementFloorPlanSheet({
       return;
     }
     // Remarque au client : champ de service, jamais un champ de placement.
-    if (note.trim()) {
-      await supabase.from('table_reservations').update({ placement_note: note.trim() }).eq('id', reservation.id);
-    }
-    // E-mail « ta table change » seulement si la table a réellement changé.
+    const noteSaved = note.trim() ? await saveReservationNote(reservation.id, note.trim()) : true;
+    // E-mail « ta table change » seulement quand le serveur le décide.
     let emailError: ReturnType<typeof vipErrorInfo> | null = null;
-    if (res.changedTable) emailError = await sendTableChangedEmail(reservation.id);
+    if (res.notify === 'table_changed') emailError = await sendTableChangedEmail(reservation.id);
     setLoading(false);
     toast.success(t('vipPlacement.modificationSuccess'));
+    if (!noteSaved) toast.warning(t('tblg.noteNotSaved'));
     if (emailError) toast.warning(`${t('tblg.emailNotSent')} ${t(emailError.key)}`);
     onRefresh();
     onClose();

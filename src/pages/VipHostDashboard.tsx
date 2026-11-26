@@ -20,6 +20,8 @@ import { ServiceOrdersTab } from '@/components/vip-service/ServiceOrdersTab';
 import { ServiceNightTab } from '@/components/vip-service/ServiceNightTab';
 import { TableServiceSheet } from '@/components/vip-service/TableServiceSheet';
 import { SeatPickerSheet } from '@/components/vip-service/SeatPickerSheet';
+import { HostAdjustmentSheet } from '@/components/vip-service/HostAdjustmentSheet';
+import type { PlacementArgs } from '@/lib/vipTableApi';
 import { OrderComposerSheet } from '@/components/vip-service/OrderComposerSheet';
 import { VipEventBar } from '@/components/vip-service/VipEventBar';
 import { VipHomeTab } from '@/components/vip-service/VipHomeTab';
@@ -68,6 +70,7 @@ export default function VipHostDashboard() {
   // Le sélecteur de place garde l'ID, jamais une copie de la résa : un
   // collègue peut l'installer pendant que la feuille est ouverte.
   const [seatPicker, setSeatPicker] = useState<{ reservationId: string; moveMode: boolean } | null>(null);
+  const [adjustFor, setAdjustFor] = useState<{ reservationId: string; tableId: string; moveMode: boolean } | null>(null);
   const [composerId, setComposerId] = useState<string | null>(null);
   // Point de vente en table (panier → relier/walk-in → addition → paiement).
   // Démarré depuis la carte du plan live ; un article touché amorce le panier.
@@ -191,6 +194,8 @@ export default function VipHostDashboard() {
     if (message.includes('menu item unavailable')) return t('vipnight.itemUnavailable');
     if (message.includes('reservation closed')) return t('vipnight.reservationClosed');
     if (code === '42501') return t('vipnight.forbidden');
+    const vipKey = (error as { vipKey?: string } | null)?.vipKey;
+    if (vipKey) return t(vipKey);
     return t('vipnight.error');
   };
 
@@ -208,24 +213,26 @@ export default function VipHostDashboard() {
   const tableName = (tableId: string) =>
     floorPlan?.layout?.tables?.find(tb => tb.id === tableId)?.name || tableId;
 
-  const handleSeatConfirm = async (tableId: string) => {
+  const handleSeatConfirm = async (tableId: string, adjustment?: PlacementArgs['adjustment']) => {
     if (!seatPicker || !seatFor) return;
     const reservation = seatFor;
     const { moveMode } = seatPicker;
     // Table promise à un autre client pas encore arrivé : c'est à l'hôte de
     // décider de la lui reprendre, jamais en silence.
     const holder = heldByTable.get(tableId);
-    if (holder && holder.id !== reservation.id
+    if (holder && holder.id !== reservation.id && !adjustment
         && !window.confirm(t('vipnight.tableHeldConfirm').replace('{name}', holder.fullName))) {
       return;
     }
     setActionBusy(true);
     try {
+      // Règle de la Console : une table promise se libère d'abord (son client repasse « à l'arrivée »).
+      if (holder && holder.id !== reservation.id && !adjustment) await night.releasePromisedTable(holder.id);
       if (moveMode) {
-        await night.moveGuest(reservation.id, tableId);
+        await night.moveGuest(reservation.id, tableId, adjustment);
         toast.success(t('vipnight.guestMoved').replace('{name}', reservation.fullName).replace('{table}', tableName(tableId)));
       } else {
-        const outcome = await night.seatGuest(reservation.id, tableId);
+        const outcome = await night.seatGuest(reservation.id, tableId, adjustment);
         if (outcome === 'preassigned') {
           toast.success(t('vipnight.preassigned').replace('{name}', reservation.fullName).replace('{table}', tableName(tableId)));
         } else {
@@ -239,6 +246,11 @@ export default function VipHostDashboard() {
       haptics.success();
       setSeatPicker(null);
     } catch (error) {
+      // Table d'une autre formule : le serveur demande le choix surclassement offert / différence à régler sur place.
+      if ((error as { code?: string } | null)?.code === 'YU005') {
+        setAdjustFor({ reservationId: reservation.id, tableId, moveMode });
+        return;
+      }
       if (isAlreadyHandled(error)) setSeatPicker(null);
       reportError(error);
     } finally {
@@ -802,6 +814,13 @@ export default function VipHostDashboard() {
         onConfirm={handleSeatConfirm}
         onMarkAbsent={handleMarkAbsent}
         onClose={() => setSeatPicker(null)}
+      />
+
+      <HostAdjustmentSheet
+        open={!!adjustFor}
+        busy={actionBusy}
+        onCancel={() => setAdjustFor(null)}
+        onConfirm={async (adj) => { setAdjustFor(null); await handleSeatConfirm(adjustFor!.tableId, adj); }}
       />
 
       {/* Point de vente en table : panier → relier/walk-in → addition → paiement */}

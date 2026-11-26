@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { uniqueChannel } from '@/lib/realtime';
+import { setTablePlacement, sendTableChangedEmail, type PlacementArgs, type PlacementResult } from '@/lib/vipTableApi';
 import type { Tables, TablesUpdate } from '@/integrations/supabase/types';
 import { VipConsumption, VenueFloorPlan } from '@/types';
 import { useStaffVenue } from './useStaffVenue';
@@ -602,55 +603,82 @@ export function useVipNight() {
   );
 
   /**
+   * Table d'un client : TOUJOURS par `vip_set_table_placement`, la même règle que la Console (table libre, verrou partagé,
+   * surclassement offert / différence à régler sur place quand la table est d'une autre formule, D13). Jamais d'écriture directe.
+   * Une erreur de la RPC est relancée avec `code` (YU005 = choix de surclassement à faire) et `vipKey` (libellé).
+   */
+  const assignTable = useCallback(
+    async (reservationId: string, tableId: string, adjustment?: PlacementArgs['adjustment']): Promise<PlacementResult> => {
+      // Un collègue est déjà passé (installé, terminé, absent) : on ne lui reprend pas sa table en silence.
+      const { data: cur } = await supabase.from('table_reservations').select('vip_status').eq('id', reservationId).maybeSingle();
+      if (!cur || !['waiting', 'placed', 'active'].includes(cur.vip_status || 'waiting')) throw new AlreadyHandledError();
+      const res = await setTablePlacement({ reservationId, action: 'assign', tableId, adjustment: adjustment ?? null });
+      if (!res.ok) {
+        throw Object.assign(new Error(res.error.message || 'placement_failed'), { code: res.error.code, vipKey: res.error.key });
+      }
+      return res;
+    },
+    []
+  );
+
+  /**
    * Installe le client à une table. Avant la soirée (client pas encore arrivé),
    * c'est un PRÉ-PLACEMENT : la table lui est promise, il reste « en attente »
    * — il n'est pas compté arrivé, et à la porte il n'y a plus qu'à confirmer.
-   * Rend 'seated' ou 'preassigned'.
+   * Rend 'seated' ou 'preassigned'. Plus d'e-mail « confirmée » à l'installation (D13) : le client n'est prévenu
+   * que si le serveur le décide (table différente de celle qu'il attendait), et seulement avant son arrivée.
    */
   const seatGuest = useCallback(
-    async (reservationId: string, tableId: string): Promise<'seated' | 'preassigned'> => {
+    async (reservationId: string, tableId: string, adjustment?: PlacementArgs['adjustment']): Promise<'seated' | 'preassigned'> => {
       const r = dataRef.current.reservations.find(x => x.id === reservationId);
       const ev = dataRef.current.activeEvent;
       const planning = !!ev && new Date(ev.startAt).getTime() > Date.now() && !r?.hasArrived;
-      const uid = await currentUserId();
-      const now = new Date().toISOString();
-      // Revue de la demande de table du client : approved si on l'installe à la
-      // table demandée, modified sinon.
-      const review: TablesUpdate<'table_reservations'> =
-        r && r.placementStatus === 'requested'
-          ? {
-              placement_status: r.requestedTableId === tableId ? 'approved' : 'modified',
-              placement_reviewed_by: uid,
-              placement_reviewed_at: now,
-            }
-          : r && !r.assignedTableId && planning
-            ? { placement_status: 'approved', placement_reviewed_by: uid, placement_reviewed_at: now }
-            : {};
-
+      const placement = await assignTable(reservationId, tableId, adjustment);
       if (planning) {
-        await guardedUpdate(reservationId, { assigned_table_id: tableId, ...review }, { vipStatus: ['waiting'] });
+        await fetchData();
+        if (placement.notify === 'table_changed') {
+          sendTableChangedEmail(reservationId).catch(err => console.error('send-vip-confirmation failed:', err));
+        }
         return 'preassigned';
       }
-
+      const uid = await currentUserId();
       await guardedUpdate(
         reservationId,
-        { vip_status: 'placed', assigned_table_id: tableId, placed_at: now, placed_by: uid, ...review },
+        { vip_status: 'placed', placed_at: new Date().toISOString(), placed_by: uid },
         { vipStatus: ['waiting'] }
       );
-      // Email de confirmation de placement (l'edge attend `reservationId`).
-      supabase.functions
-        .invoke('send-vip-confirmation', { body: { reservationId, type: 'confirmed' } })
-        .catch(err => console.error('send-vip-confirmation failed:', err));
       return 'seated';
     },
-    [guardedUpdate]
+    [assignTable, guardedUpdate, fetchData]
+  );
+
+  /**
+   * L'hôte reprend la table promise à un client pas encore installé : celui-ci repasse « placement à l'arrivée »
+   * (même règle que la Console), et le serveur dit s'il doit être prévenu.
+   */
+  const releasePromisedTable = useCallback(
+    async (reservationId: string) => {
+      const res = await setTablePlacement({ reservationId, action: 'on_arrival' });
+      if (!res.ok) throw Object.assign(new Error(res.error.message || 'placement_failed'), { code: res.error.code, vipKey: res.error.key });
+      if (res.notify === 'table_changed') {
+        sendTableChangedEmail(reservationId).catch(err => console.error('send-vip-confirmation failed:', err));
+      }
+    },
+    []
   );
 
   /** Change de table un client installé (ou la table promise d'un pré-placé). */
   const moveGuest = useCallback(
-    (reservationId: string, tableId: string) =>
-      guardedUpdate(reservationId, { assigned_table_id: tableId }, { vipStatus: ['placed', 'active', 'waiting'] }),
-    [guardedUpdate]
+    async (reservationId: string, tableId: string, adjustment?: PlacementArgs['adjustment']) => {
+      const r = dataRef.current.reservations.find(x => x.id === reservationId);
+      const placement = await assignTable(reservationId, tableId, adjustment);
+      await fetchData();
+      // Un client déjà installé voit sa table changer sous ses yeux : pas d'e-mail. Un pré-placé est prévenu si le serveur le décide.
+      if (placement.notify === 'table_changed' && (r?.vipStatus ?? 'waiting') === 'waiting') {
+        sendTableChangedEmail(reservationId).catch(err => console.error('send-vip-confirmation failed:', err));
+      }
+    },
+    [assignTable, fetchData]
   );
 
   const markArrived = useCallback(
@@ -921,6 +949,7 @@ export function useVipNight() {
     createWalkin,
     seatGuest,
     moveGuest,
+    releasePromisedTable,
     markArrived,
     markAbsent,
     finishService,

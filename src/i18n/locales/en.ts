@@ -17463,7 +17463,7 @@ const en: Record<string, string> = {
   "tblg.cancel.confirm": "Cancel the reservation",
   "tblg.cancel.confirmRefund": "Cancel and refund",
   "tblg.cancel.done": "Reservation cancelled.",
-  "tblg.cancel.doneRefunded": "Reservation cancelled and client refunded.",
+  "tblg.cancel.doneRefunded": "Reservation cancelled, {amount} refunded to the client.",
   "tblg.cancel.emailBody": "The client receives an e-mail telling them the reservation is cancelled. This cannot be undone.",
   "tblg.cancel.keep": "Keep the reservation",
   "tblg.cancel.noMoneyBody": "Nothing was paid online, so there is nothing to refund. The table is freed.",
@@ -17532,6 +17532,14 @@ const en: Record<string, string> = {
   "tblp.room.blockedClub": "Unavailable: your upcoming events have a club, which uses its own floor plan. A room can only be replayed on an event without a club.",
   "tblp.room.blockedNoEvent": "Unavailable: create an upcoming event without a club first.",
   "tblp.room.hasReservations": "This event already has bookings: its tables can no longer be replaced.",
+  "tblg.noteNotSaved": "The table is placed, but the note for the client was not saved.",
+  "tblg.hostAdj.intro": "This table belongs to another package than the one booked. Choose how to handle the gap. The client is never charged online again.",
+  "tblg.hostAdj.payOnSiteOption": "Difference to pay on site",
+  "tblg.hostAdj.confirm": "Confirm placement",
+  "tblg.hostAdj.cancel": "Cancel",
+  "tblc.closed.title": "This table reservation is cancelled",
+  "tblc.closed.body": "The reservation was cancelled, so it is not confirmed. If you paid online, check your email for the refund details.",
+  "tblp.plan.discard": "Discard my changes",
 };
 
 export default en;

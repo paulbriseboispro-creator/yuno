@@ -13,7 +13,7 @@ import {
   T1, T3, F_BORDER, INNER_BG, BORDER,
 } from './vip-ui';
 import type { OwnerVipReservation } from '@/hooks/useOwnerVipData';
-import { setTablePlacement, sendTableChangedEmail } from '@/lib/vipTableApi';
+import { setTablePlacement, sendTableChangedEmail, saveReservationNote } from '@/lib/vipTableApi';
 
 export interface PlacementRequest {
   id: string;
@@ -73,12 +73,11 @@ export function VipPlacementRequests({ requests, onRefresh, floorPlan, reservati
         return;
       }
       const note = noteInputs[request.id]?.trim();
-      if (note) {
-        await supabase.from('table_reservations').update({ placement_note: note }).eq('id', request.id);
-      }
-      // E-mail « ta table change » : seulement si la table a réellement changé.
-      const emailError = res.changedTable ? await sendTableChangedEmail(request.id) : null;
+      const noteSaved = note ? await saveReservationNote(request.id, note) : true;
+      // E-mail « ta table change » : seulement quand le serveur le décide (table finale ≠ celle que le client croit avoir).
+      const emailError = res.notify === 'table_changed' ? await sendTableChangedEmail(request.id) : null;
       toast.success(t('vipPlacement.actionSuccess'));
+      if (!noteSaved) toast.warning(t('tblg.noteNotSaved'));
       if (emailError) toast.warning(`${t('tblg.emailNotSent')} ${t(emailError.key)}`);
       setShowNoteFor(null);
       setNoteInputs(prev => { const { [request.id]: _drop, ...rest } = prev; return rest; });

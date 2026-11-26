@@ -12,9 +12,10 @@ describe('tableMoney', () => {
     expect(tableMoney({ totalPrice: 500, deposit: 140, chargedTotal: 145.6, hasOnlinePayment: true }))
       .toEqual({ paidOnline: 145.6, remainingOnSite: 360, commitment: 500 });
   });
-  it('sans charged_total : acompte + frais de service', () => {
-    expect(tableMoney({ totalPrice: 300, deposit: 300, serviceFee: 12, hasOnlinePayment: true }))
+  it('sans charged_total : acompte + frais de gestion (comme le serveur), sauf frais absorbés', () => {
+    expect(tableMoney({ totalPrice: 300, deposit: 300, managementFee: 12, hasOnlinePayment: true }))
       .toEqual({ paidOnline: 312, remainingOnSite: 0, commitment: 300 });
+    expect(tableMoney({ totalPrice: 300, deposit: 300, managementFee: 12, feeAbsorbed: true, hasOnlinePayment: true }).paidOnline).toBe(300);
   });
   it('un acompte manuel sans Stripe ne compte pas comme encaissé en ligne', () => {
     expect(tableMoney({ totalPrice: 400, deposit: 100, hasOnlinePayment: false }).paidOnline).toBe(0);

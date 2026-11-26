@@ -17436,7 +17436,7 @@ const fr: Record<string, string> = {
   "tblg.cancel.confirm": "Annuler la réservation",
   "tblg.cancel.confirmRefund": "Annuler et rembourser",
   "tblg.cancel.done": "Réservation annulée.",
-  "tblg.cancel.doneRefunded": "Réservation annulée et client remboursé.",
+  "tblg.cancel.doneRefunded": "Réservation annulée, {amount} remboursés au client.",
   "tblg.cancel.emailBody": "Le client reçoit un e-mail qui lui annonce l'annulation. Cette action est définitive.",
   "tblg.cancel.keep": "Garder la réservation",
   "tblg.cancel.noMoneyBody": "Rien n'a été payé en ligne, il n'y a donc rien à rembourser. La table est libérée.",
@@ -17505,6 +17505,14 @@ const fr: Record<string, string> = {
   "tblp.room.blockedClub": "Indisponible : tes soirées à venir ont un club, qui utilise son propre plan. Une salle ne se rejoue que sur une soirée sans club.",
   "tblp.room.blockedNoEvent": "Indisponible : crée d'abord une soirée à venir sans club.",
   "tblp.room.hasReservations": "Cette soirée a déjà des réservations : ses tables ne peuvent plus être remplacées.",
+  "tblg.noteNotSaved": "La table est placée, mais la note au client n'a pas été enregistrée.",
+  "tblg.hostAdj.intro": "Cette table est d'une autre formule que celle réservée. Choisis comment traiter l'écart. Le client n'est jamais débité de nouveau en ligne.",
+  "tblg.hostAdj.payOnSiteOption": "Différence à régler sur place",
+  "tblg.hostAdj.confirm": "Valider le placement",
+  "tblg.hostAdj.cancel": "Annuler",
+  "tblc.closed.title": "Cette réservation de table est annulée",
+  "tblc.closed.body": "La réservation a été annulée, elle n'est donc pas confirmée. Si tu as payé en ligne, regarde ton e-mail pour le détail du remboursement.",
+  "tblp.plan.discard": "Annuler mes changements",
 };
 
 export default fr;

@@ -143,7 +143,8 @@ export type PlacementView =
 export function placementView(r: Pick<TableReceipt,
   'assigned_table_id' | 'assigned_table_name' | 'requested_table_id' | 'requested_table_name' | 'placement_status'>): PlacementView {
   if (r.assigned_table_id) return { kind: 'assigned', name: r.assigned_table_name || null };
-  if (r.placement_status === 'on_arrival') return { kind: 'on_arrival' };
+  // Le serveur écrit 'assign_on_arrival' (vip_set_table_placement, checkout) ; 'on_arrival' est gardé par tolérance.
+  if (r.placement_status === 'assign_on_arrival' || r.placement_status === 'on_arrival') return { kind: 'on_arrival' };
   if (r.requested_table_id && r.placement_status !== 'rejected') return { kind: 'requested', name: r.requested_table_name || null };
   if (r.placement_status === 'rejected') return { kind: 'on_arrival' };
   return { kind: 'none' };

@@ -13,7 +13,10 @@ const round2 = (n: number) => Math.round((Number.isFinite(n) ? n : 0) * 100) / 1
 export interface TableMoneyInput {
   totalPrice: number;
   deposit: number;
-  serviceFee?: number | null;
+  /** Frais de gestion payés en plus par le client (ce qui s'ajoute à l'acompte chez Stripe). */
+  managementFee?: number | null;
+  /** Frais absorbés par le club : le client ne les paie pas. */
+  feeAbsorbed?: boolean | null;
   /** Ce que Stripe a réellement pris (acompte + frais), stocké au checkout. */
   chargedTotal?: number | null;
   /** Paiement Stripe passé par Yuno (intent ou session). */
@@ -35,7 +38,7 @@ export function tableMoney(r: TableMoneyInput): TableMoney {
   if (!r.hasOnlinePayment) return { paidOnline: 0, remainingOnSite: commitment, commitment };
   const charged = r.chargedTotal != null && r.chargedTotal > 0
     ? r.chargedTotal
-    : (r.deposit || 0) + (r.serviceFee || 0);
+    : (r.deposit || 0) + (r.feeAbsorbed ? 0 : (r.managementFee || 0));
   return {
     paidOnline: round2(Math.max(0, charged)),
     remainingOnSite: round2(Math.max(0, commitment - Math.max(0, r.deposit || 0))),

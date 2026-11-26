@@ -320,7 +320,7 @@ export function FloorPlanEditor({
     return run;
   };
 
-  useEffect(() => {
+  const loadBaseline = () => {
     const nextTables: FloorTable[] = existingLayout?.tables
       ? existingLayout.tables.map(t => ({ ...t, maxExtraPersons: t.maxExtraPersons ?? 0, extraPersonPrice: t.extraPersonPrice ?? 0 }))
       : [];
@@ -341,8 +341,19 @@ export function FloorPlanEditor({
     setSaveState('saved');
     setCloseError(null);
     errorToastShownRef.current = false;
+  };
+  useEffect(() => {
+    loadBaseline();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existingLayout, existingBackgroundUrl, open]);
+
+  // Échec définitif d'enregistrement (plan du club vendu, droits) : on rend le dernier plan enregistré et on ferme,
+  // sans rien écrire. Sans cette issue, « Réessayer » refaisait le même envoi.
+  const discardChanges = () => {
+    if (autoSaveTimer.current) { clearTimeout(autoSaveTimer.current); autoSaveTimer.current = null; }
+    loadBaseline();
+    onClose();
+  };
 
   // Debounced autosave: persists ~1s after the last change to any saved field.
   // Snapshot equality keeps it from writing when nothing actually changed.
@@ -968,6 +979,7 @@ export function FloorPlanEditor({
             <Button size="sm" variant="outline" onClick={retrySave} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : t('tblp.plan.retry')}
             </Button>
+            <Button size="sm" variant="ghost" onClick={discardChanges} disabled={saving}>{t('tblp.plan.discard')}</Button>
           </div>
         )}
 
