@@ -201,7 +201,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Crown',
         actionLink: { labelKey: OPEN, path: '/tables' },
         relatedArticleIds: ['org-events', 'org-ticketing', 'org-checkin', 'org-payments'],
-        keywords: ['tables', 'vip', 'bottle service', 'table vip', 'mesas', 'zones', 'packs', 'plan de salle', 'floor plan', 'plano', 'formule', 'formule fixée', 'nombre de tables', 'tables par formule', 'package per table', 'fórmula', 'salle vip', 'vip room', 'sala vip'],
+        keywords: ['tables', 'vip', 'bottle service', 'table vip', 'mesas', 'zones', 'packs', 'plan de salle', 'floor plan', 'plano', 'formule', 'formule fixée', 'nombre de tables', 'tables par formule', 'package per table', 'fórmula', 'salle vip', 'vip room', 'sala vip', 'carte bouteilles', 'bottle menu', 'carta de botellas', 'précommande', 'pre-order', 'pre-pedido', 'réservation manuelle', 'convives'],
         sections: [
           { headingKey: 'ohelp.org.tables.s1h', bodyKey: 'ohelp.org.tables.s1b', screenshotUrl: '/help/org-org-tables.webp' },
           { headingKey: 'ohelp.org.tables.s2h', bodyKey: 'ohelp.org.tables.s2b' },
@@ -210,6 +210,8 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.org.tables.s5h', bodyKey: 'ohelp.org.tables.s5b' },
           { headingKey: 'ohelp.org.tables.s6h', bodyKey: 'ohelp.org.tables.s6b', type: 'tip' },
           { headingKey: 'ohelp.org.tables.s7h', bodyKey: 'ohelp.org.tables.s7b', type: 'warning' },
+          { headingKey: 'ohelp.org.tables.s8h', bodyKey: 'ohelp.org.tables.s8b' },
+          { headingKey: 'ohelp.org.tables.s9h', bodyKey: 'ohelp.org.tables.s9b' },
         ],
       },
       {
@@ -534,13 +536,14 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Receipt',
         actionLink: { labelKey: OPEN, path: '/invoices' },
         relatedArticleIds: ['org-accounting', 'org-payments'],
-        keywords: ['invoices', 'factures', 'facturas', 'csv', 'export', 'exportar', 'vat', 'tva', 'iva', 'pdf'],
+        keywords: ['invoices', 'factures', 'facturas', 'avoir', 'credit note', 'abono', 'csv', 'export', 'exportar', 'vat', 'tva', 'iva', 'pdf'],
         sections: [
           { headingKey: 'ohelp.org.invoices.s1h', bodyKey: 'ohelp.org.invoices.s1b' },
           { headingKey: 'ohelp.org.invoices.s2h', bodyKey: 'ohelp.org.invoices.s2b', screenshotUrl: '/help/org-invoices.webp' },
           { headingKey: 'ohelp.org.invoices.s3h', bodyKey: 'ohelp.org.invoices.s3b', type: 'steps' },
           { headingKey: 'ohelp.org.invoices.s4h', bodyKey: 'ohelp.org.invoices.s4b', type: 'tip' },
           { headingKey: 'ohelp.org.invoices.s5h', bodyKey: 'ohelp.org.invoices.s5b' },
+          { headingKey: 'ohelp.org.invoices.s6h', bodyKey: 'ohelp.org.invoices.s6b' },
         ],
       },
       {

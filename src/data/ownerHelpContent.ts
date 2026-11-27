@@ -402,6 +402,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.ev.tables.s6h', bodyKey: 'ohelp.ev.tables.s6b' },
           { headingKey: 'ohelp.ev.tables.s7h', bodyKey: 'ohelp.ev.tables.s7b', type: 'tip' },
           { headingKey: 'ohelp.ev.tables.s8h', bodyKey: 'ohelp.ev.tables.s8b', type: 'example' },
+          { headingKey: 'ohelp.ev.tables.s9h', bodyKey: 'ohelp.ev.tables.s9b' },
         ],
       },
       {
@@ -780,7 +781,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'FileText',
         actionLink: { labelKey: 'ohelp.action.goToInvoices', path: '/invoices' },
         relatedArticleIds: ['stripe-connect', 'refund-management', 'understand-analytics'],
-        keywords: ['invoice', 'facture', 'factura', 'export', 'csv', 'pdf', 'comptable', 'accounting', 'contable', 'tva', 'vat', 'iva', 'legal', 'historique', 'historial'],
+        keywords: ['invoice', 'facture', 'factura', 'avoir', 'credit note', 'abono', 'export', 'csv', 'pdf', 'comptable', 'accounting', 'contable', 'tva', 'vat', 'iva', 'legal', 'historique', 'historial'],
         sections: [
           { headingKey: 'ohelp.pg.invoices.s1h', bodyKey: 'ohelp.pg.invoices.s1b' },
           { headingKey: 'ohelp.pg.invoices.s2h', bodyKey: 'ohelp.pg.invoices.s2b', screenshotUrl: '/help/owner-invoices.webp' },
@@ -880,6 +881,9 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.pg.vipservice.s4h', bodyKey: 'ohelp.pg.vipservice.s4b' },
           { headingKey: 'ohelp.pg.vipservice.s5h', bodyKey: 'ohelp.pg.vipservice.s5b' },
           { headingKey: 'ohelp.pg.vipservice.s6h', bodyKey: 'ohelp.pg.vipservice.s6b', type: 'tip' },
+          { headingKey: 'ohelp.pg.vipservice.s7h', bodyKey: 'ohelp.pg.vipservice.s7b' },
+          { headingKey: 'ohelp.pg.vipservice.s8h', bodyKey: 'ohelp.pg.vipservice.s8b' },
+          { headingKey: 'ohelp.pg.vipservice.s9h', bodyKey: 'ohelp.pg.vipservice.s9b' },
         ],
       },
       // Pilier boissons en pause : articles upsell boissons / offres masqués (voir src/lib/drinksPillar.ts).

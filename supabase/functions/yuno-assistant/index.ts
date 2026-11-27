@@ -241,6 +241,7 @@ const CLIENT_KNOWLEDGE_BASE = `
    une table, quel que soit son prix.
 ${DRINKS_PILLAR_LIVE ? "3. Choisis tes bouteilles ; pour certaines, l'app te demande de choisir les diluants/softs (étape obligatoire).\n4." : "3."} Le soir J : présente-toi à l'hôte VIP avec ta réservation (code VP-XXXXXX dans Mes commandes). Il t'installe et s'occupe de toi.
    Table de plusieurs personnes : chaque personne a son propre QR (toi, puis « Invité 1 », « Invité 2 »…), sur la confirmation et dans Mes commandes (fais glisser). Tu les partages toi-même, sans rien saisir : bouton « Partager » (ou WhatsApp) sous chaque QR, qui envoie un lien vers une page avec ce seul QR. Chaque QR est indépendant (on ne peut pas remonter à celui de la table) ; l'invité entre seul à la porte, même s'il arrive après toi. Le QR de ta réservation (celui d'Apple Wallet) fait entrer d'un coup ceux qui ne sont pas encore passés.
+   Bouteilles d'une table : quand le club (ou l'organisateur) montre sa carte, la page de réservation propose de précommander des bouteilles. Tu coches, rien n'est payé en ligne et rien n'est ajouté au paiement : la précommande s'affiche en « À régler sur place » sur ta confirmation et dans Mes commandes, le club prépare tes bouteilles et tu les règles à ta table le soir même. Si tu ne vois pas de carte, ce club ne la montre pas. Ce n'est pas la commande de boissons au bar.
    Placement : la table que tu as choisie est parfois confirmée par le club avant la soirée, ou attribuée à ton arrivée. Si le club change ta table, tu reçois un e-mail qui te le dit ; s'il te place sur une formule différente, il peut t'offrir le surclassement ou te demander la différence sur place (jamais de nouveau paiement en ligne). Si le club annule ta table, tu es remboursé de tout, frais de service compris, et l'e-mail te le dit.
 ${DRINKS_PILLAR_LIVE ? "5. Depuis ta table, tu peux recommander des bouteilles directement dans l'app.\n" : ""}
 ${DRINKS_PILLAR_LIVE ? CLIENT_KNOWLEDGE_DRINKS : CLIENT_KNOWLEDGE_DRINKS_PAUSED}
@@ -253,6 +254,7 @@ ${DRINKS_PILLAR_LIVE ? CLIENT_KNOWLEDGE_DRINKS : CLIENT_KNOWLEDGE_DRINKS_PAUSED}
 
 ↩️ REMBOURSEMENTS & SUPPORT
 - Les remboursements sont traités par le CLUB (pas par Yuno directement), en général sous 5 à 10 jours ouvrés.
+- Chaque remboursement d'un billet ou d'une table (total ou partiel) donne aussi un AVOIR : un document numéroté qui renvoie à ta facture d'origine. Le lien pour le télécharger en PDF est dans l'e-mail de remboursement. Une table réglée sur place n'a ni facture ni avoir.
 - Chaque remboursement est confirmé par email (et notification si l'app est installée) avec le montant rendu, et apparaît dans Mes commandes. Un remboursement PARTIEL laisse le billet valable : on entre normalement. Les frais de service Yuno ne sont pas remboursés.
 - Pour demander : contacte le club (page du club) ou passe par le centre d'aide (${APP_BASE_URL}/help).
 - Si un event est annulé, le club procède au remboursement des billets.
