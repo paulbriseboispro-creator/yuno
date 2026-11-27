@@ -251,7 +251,7 @@ serve(async (req) => {
     let prevRefundCents = 0;
     let saleCtx: SaleRefundContext | null = null;
     // Les ventes liées (consos du billet refusé) remboursées ici, pour les stats.
-    const linkedRefunded: { ctx: SaleRefundContext; cents: number }[] = [];
+    const linkedRefunded: { ctx: SaleRefundContext; cents: number; cumulativeCents: number }[] = [];
 
     /**
      * Portée du staff, vérifiée AVANT toute écriture et tout remboursement.
@@ -398,7 +398,7 @@ serve(async (req) => {
       await decrementCustomerSpent(adminClient, placeCtx, refundedCents);
       if (fullyRefunded) await applyFullRefundEffects(adminClient, placeCtx);
       // Avoir (D15) : seulement si l'argent est réellement parti.
-      const placeCreditNote = refundedCents > 0 ? await issueCreditNoteForRefund(adminClient, placeCtx) : null;
+      const placeCreditNote = refundedCents > 0 ? await issueCreditNoteForRefund(adminClient, placeCtx, cumulativeCents) : null;
 
       const customerReason = scope === 'place' ? reasonFor(placeName) : reason || null;
       await notifyCustomerRefund(adminClient, {
@@ -669,7 +669,7 @@ serve(async (req) => {
             linkedOrdersCancelled++;
             linkedOrdersRefundTotal += orderRefund;
             if (linkedDone && linkedDone.length > 0) {
-              linkedRefunded.push({ ctx: await loadSaleRefundContext(adminClient, 'order', linkedOrder), cents: orderRefundCents });
+              linkedRefunded.push({ ctx: await loadSaleRefundContext(adminClient, 'order', linkedOrder), cents: orderRefundCents, cumulativeCents: orderCumulativeCents });
             }
           }
 
@@ -815,7 +815,7 @@ serve(async (req) => {
       } else if (saleCtx) {
         await decrementCustomerSpent(adminClient, saleCtx, toCents(refundedNow));
         await applyFullRefundEffects(adminClient, saleCtx);
-        if (refundedNow > 0) mainCreditNote = await issueCreditNoteForRefund(adminClient, saleCtx);
+        if (refundedNow > 0) mainCreditNote = await issueCreditNoteForRefund(adminClient, saleCtx, prevRefundCents + toCents(refundedNow));
       }
     }
 
@@ -824,12 +824,12 @@ serve(async (req) => {
     if (type === 'ticket' && saleCtx) {
       await decrementCustomerSpent(adminClient, saleCtx, toCents(refundedNow));
       await applyFullRefundEffects(adminClient, saleCtx);
-      if (refundedNow > 0) mainCreditNote = await issueCreditNoteForRefund(adminClient, saleCtx);
+      if (refundedNow > 0) mainCreditNote = await issueCreditNoteForRefund(adminClient, saleCtx, prevRefundCents + toCents(refundedNow));
     }
     for (const linked of linkedRefunded) {
       await decrementCustomerSpent(adminClient, linked.ctx, linked.cents);
       await applyFullRefundEffects(adminClient, linked.ctx);
-      if (linked.cents > 0) await issueCreditNoteForRefund(adminClient, linked.ctx);
+      if (linked.cents > 0) await issueCreditNoteForRefund(adminClient, linked.ctx, linked.cumulativeCents);
     }
 
     // Include linked orders info for email

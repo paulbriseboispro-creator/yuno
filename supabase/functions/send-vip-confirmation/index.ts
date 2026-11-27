@@ -5,6 +5,7 @@ import { EmailLanguage, escapeHtml } from "../_shared/email-branding.ts";
 import { buildVipConfirmation, buildVipStatus, buildWalkinSummary, fmtDateParts } from "../_shared/email-templates.ts";
 import { ensureWalletPass, walletPassUrl } from "../_shared/wallet/router.ts";
 import { demoPreviewGuard } from "../_shared/demo-guard.ts";
+import { isDemoEmail, loadDemoEventIds } from "../_shared/demo-scope.ts";
 import {
   enqueueSaleEmail, isResendNetworkError, isRetryableResend, isSaleEmailReplay, recordSaleEmailSent, resendEmailId, saleEmailTags,
 } from "../_shared/sale-email.ts";
@@ -181,6 +182,19 @@ serve(async (req) => {
     const addressDeferred = isSecret && !revealInEmail;
 
     if (!customerEmail) throw new Error("No customer email");
+
+    // Périmètre démo : AUCUN e-mail réel, quelle que soit la session (Paul, l'agent, un prospect, un cron). Une soirée démo ou une
+    // adresse démo ne reçoit rien ; sans la liste des soirées démo on n'envoie rien non plus (un e-mail perdu vaut mieux qu'un envoi réel).
+    {
+      const demoEvents = await loadDemoEventIds(supabaseAdmin);
+      if (demoEvents === null || (event?.id && demoEvents.has(String(event.id))) || isDemoEmail(customerEmail)) {
+        logStep("Demo scope — no e-mail sent", { reservationId, type, listLoaded: demoEvents !== null });
+        return new Response(
+          JSON.stringify({ success: true, skipped: "demo", type }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
     let lang: EmailLanguage = 'en';
     let firstName = '';
@@ -507,7 +521,11 @@ serve(async (req) => {
     if (!res.ok) {
       const errData = await res.text();
       if (isRetryableResend(res.status, errData)) return await resendRefused(res.status, errData);
-      throw new Error(`Resend error: ${errData}`);
+      // Refus DÉFINITIF (validation, adresse, domaine) : 422, jamais rejoué par la file (voir isRetryableResend).
+      return new Response(
+        JSON.stringify({ error: `Resend error: ${errData}`, definitive: true }),
+        { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     logStep("Email sent", { type, to: customerEmail });

@@ -68,6 +68,18 @@ export async function dispatchSaleEmailQueue(
         if (res.ok) result = "sent";
         else if (res.status === 409 || res.status === 410 || res.status === 403) result = "dropped";
         else if (res.status === 400 && !/Resend|network/i.test(text)) result = "dropped";
+        // 422 = refus DÉFINITIF de Resend (validation, adresse, domaine) : rien à rejouer, mais une vente sans e-mail se signale tout de suite.
+        else if (res.status === 422) {
+          result = "dropped";
+          await admin.rpc("emit_admin_notification", {
+            p_type: "admin_sale_email_quota",
+            p_title: "E-mail de vente refusé par Resend (définitif)",
+            p_message: `L'e-mail ${row.email_type} (${row.kind} ${row.sale_id}) est refusé définitivement : ${text.slice(0, 200)}. À corriger puis renvoyer à la main (le client a son QR sur la page de confirmation).`.slice(0, 480),
+            p_priority: "high", p_reference_type: "sale_email", p_reference_id: row.sale_id,
+            p_metadata: { kind: row.kind, sale_id: row.sale_id, email_type: row.email_type },
+            p_dedup_key: `sale_email_definitive:${row.id}`, p_event_id: null,
+          }).then(() => undefined, () => undefined);
+        }
         await admin.rpc("finish_sale_email_queue", { p_id: row.id, p_result: result, p_error: result === "sent" ? null : `${res.status} ${text}`.slice(0, 400) });
         out[result]++;
       } catch (e) {

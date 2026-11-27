@@ -163,6 +163,10 @@ END;
 $$;
 
 -- Écriture atomique (service_role : create-table-checkout). Idempotente : une réservation n'a qu'UNE précommande.
+-- Une seule précommande par réservation.
+CREATE UNIQUE INDEX IF NOT EXISTS vip_table_orders_one_preorder_uidx
+  ON public.vip_table_orders (table_reservation_id) WHERE status = 'preorder';
+
 CREATE OR REPLACE FUNCTION public.create_table_preorder(p_reservation_id uuid, p_items jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -189,6 +193,8 @@ BEGIN
     RETURN jsonb_build_object('order_id', NULL, 'total', 0, 'lines', '[]'::jsonb);
   END IF;
 
+  -- Deux appels simultanés : le second attend le premier, puis voit sa précommande (l'index unique ci-dessous est le filet).
+  PERFORM pg_advisory_xact_lock(hashtextextended('yuno_table_preorder:' || r.id::text, 0));
   SELECT id INTO v_order FROM public.vip_table_orders WHERE table_reservation_id = r.id AND status = 'preorder' LIMIT 1;
   IF v_order IS NOT NULL THEN
     RETURN jsonb_build_object('order_id', v_order, 'total', (SELECT total_amount FROM public.vip_table_orders WHERE id = v_order),

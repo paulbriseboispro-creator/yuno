@@ -406,7 +406,7 @@ serve(async (req) => {
 
       // L'e-mail du client est `cancelled_refunded` (envoyé plus bas) : pas le
       // message de remboursement générique.
-      await applyRefundAmountEffects(supabaseAdmin, ctx, plan.amountCents, { reason: CANCEL_REASON, source: "yuno", skipEmail: true });
+      await applyRefundAmountEffects(supabaseAdmin, ctx, plan.amountCents, { reason: CANCEL_REASON, source: "yuno", skipEmail: true, cumulativeCents: plan.cumulativeCents });
       try {
         if (await markSaleFullyRefunded(supabaseAdmin, kind, reservationId)) {
           await applyFullRefundEffects(supabaseAdmin, ctx);
@@ -570,7 +570,7 @@ serve(async (req) => {
         }
         logStep("Stripe refund done", { paymentIntentId, amountCents: plan.amountCents, direct: !!connectedAccountId });
 
-        await applyRefundAmountEffects(supabaseAdmin, ctx, plan.amountCents, { reason: cleanReason, source: "yuno" });
+        await applyRefundAmountEffects(supabaseAdmin, ctx, plan.amountCents, { reason: cleanReason, source: "yuno", cumulativeCents: plan.cumulativeCents });
 
         if (plan.isFull) {
           try {

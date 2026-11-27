@@ -1,5 +1,5 @@
 -- Smoke ANNULÉ — tables vague C2 : D15 (avoirs : total, partiels, billet, franchise, plafond, rejeu, filet, droits) et D14 (TVA des frais absorbés).
---   node scripts/crm-bench/rehearse.mjs scripts/crm-bench/smoke/tables-18-credit-notes.sql 20261227100000_invoice_fee_vat_seller_rate.sql 20261227110000_credit_notes.sql 20261227120000_credit_notes_sweep_accounting.sql
+--   node scripts/crm-bench/rehearse.mjs scripts/crm-bench/smoke/tables-18-credit-notes.sql 20261227100000_invoice_fee_vat_seller_rate.sql 20261227110000_credit_notes.sql 20261227120000_credit_notes_sweep_accounting.sql 20261228110000_refund_confirmation_trace.sql
 -- ── Prélude commun des smokes « tables » (fonctions TEMPORAIRES, annulées avec la transaction) ───────────────
 -- try_dml(uid, sql) : joue une écriture EN TANT QUE uid (rôle authenticated, claims posés) → 'OK:<lignes>' ou 'ERR:<code>:<message>'.
 -- try_q(uid, expr)  : évalue une expression scalaire EN TANT QUE uid → le texte du résultat ou 'ERR:<code>:<message>'.
@@ -252,6 +252,7 @@ BEGIN
   PERFORM issue_sale_invoice(NULL, r6, NULL);
   UPDATE table_reservations SET refund_amount = 30, refunded_at = now() - interval '1 hour' WHERE id = r5;
   UPDATE table_reservations SET refund_amount = 30, refunded_at = now() WHERE id = r6;
+  PERFORM confirm_sale_refund('table', r5, 3000);  -- remboursement confirmé par Stripe (trace posée par l'edge)
   res := issue_missing_invoices();
   IF (res->'credit_notes'->>'issued')::int < 1 OR (res->'credit_notes'->>'failed')::int <> 0 THEN RAISE EXCEPTION 'SMOKE_FAIL cas 13 : %', res; END IF;
   IF NOT EXISTS (SELECT 1 FROM credit_notes WHERE table_reservation_id = r5 AND source = 'sweep') THEN RAISE EXCEPTION 'SMOKE_FAIL cas 13 : vente ancienne non rattrapée'; END IF;

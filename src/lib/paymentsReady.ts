@@ -44,6 +44,21 @@ export async function fetchEventPaymentsReady(eventId: string): Promise<boolean>
   return data === true;
 }
 
+/**
+ * Porte PAR PILIER (`event_pillar_payments_ready`) : le compte qui encaisse CE pilier doit être prêt, jamais celui de l'autre partie
+ * (tables au club + billets à l'organisateur sans Stripe : les tables restent vendables). Même fail-open et même exception démo.
+ */
+export async function fetchEventPillarPaymentsReady(eventId: string, pillar: 'tables' | 'tickets'): Promise<boolean> {
+  if (await currentUserIsDemo()) return true;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await supabase.rpc('event_pillar_payments_ready' as any, {
+    p_event_id: eventId,
+    p_pillar: pillar,
+  });
+  if (error) return true;
+  return data === true;
+}
+
 export async function fetchVenuePaymentsReady(venueId: string): Promise<boolean> {
   if (await currentUserIsDemo()) return true;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -65,6 +80,18 @@ export function useEventPaymentsReady(eventId: string | null | undefined): boole
   const query = useQuery({
     queryKey: ['event-payments-ready', eventId, demo],
     queryFn: () => (demo ? Promise.resolve(true) : fetchEventPaymentsReady(eventId as string)),
+    enabled: !!eventId,
+    staleTime: 5 * 60 * 1000,
+  });
+  return query.data ?? true;
+}
+
+export function useEventPillarPaymentsReady(eventId: string | null | undefined, pillar: 'tables' | 'tickets'): boolean {
+  const { user } = useAuth();
+  const demo = isDemoBuyerEmail(user?.email);
+  const query = useQuery({
+    queryKey: ['event-pillar-payments-ready', eventId, pillar, demo],
+    queryFn: () => (demo ? Promise.resolve(true) : fetchEventPillarPaymentsReady(eventId as string, pillar)),
     enabled: !!eventId,
     staleTime: 5 * 60 * 1000,
   });

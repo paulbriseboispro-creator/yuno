@@ -442,6 +442,9 @@ serve(async (req) => {
       const { data: queued } = await supabaseAdmin.from('sale_email_queue')
         .select('id').eq('kind', 'table').eq('sale_id', reservationId).eq('status', 'pending').limit(1);
       if (queued && queued.length > 0) return true;
+      // Bail de 3 min : un autre appelant (webhook relivré, rejeu du cron) est peut-être en train d'envoyer ; l'effet reste « à faire » pour lui.
+      const { data: claimed } = await supabaseAdmin.rpc('claim_sale_email_send', { p_kind: 'table', p_sale_id: reservationId });
+      if (claimed === false) return false;
       try {
         const mailRes = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-vip-confirmation`, {
           method: 'POST',

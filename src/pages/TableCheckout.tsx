@@ -34,7 +34,7 @@ import { useTableAvailability } from '@/hooks/useTableAvailability';
 import { soldOutFlags, isPackSoldOut, type SoldOutEvent } from '@/lib/soldOut';
 import { supabase } from '@/integrations/supabase/client';
 import { PUBLIC_VENUE_COLUMNS } from '@/integrations/supabase/publicColumns';
-import { fetchEventPaymentsReady } from '@/lib/paymentsReady';
+import { fetchEventPillarPaymentsReady } from '@/lib/paymentsReady';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { saveReceiptToken, saveReceiptQr, checkoutErrorKey, isAvailabilityRefusal } from '@/lib/tableReceipt';
 import { launchCheckout } from '@/lib/native';
@@ -338,7 +338,7 @@ export default function TableCheckout() {
       // ne s'applique pas (c'est ce qui permet une soirée sans Stripe).
       const { data: packModeRow } = await supabase.from('table_packs').select('payment_mode').eq('id', packId).maybeSingle();
       const packOnSite = packModeRow?.payment_mode === 'on_site';
-      if (!packOnSite && !(await fetchEventPaymentsReady(eventId!))) {
+      if (!packOnSite && !(await fetchEventPillarPaymentsReady(eventId!, 'tables'))) {
         toast(t('salesStatus.salesNotOpenYet'));
         navigate(basePath, { replace: true });
         return;

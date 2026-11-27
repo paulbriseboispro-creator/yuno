@@ -140,7 +140,7 @@ CREATE TRIGGER guard_credit_note_immutable_trigger
   FOR EACH ROW EXECUTE FUNCTION public.guard_credit_note_immutable();
 
 -- ── Lecture : mêmes personnes que la facture d'origine + le client de la vente ──────────────────────────────
-CREATE OR REPLACE FUNCTION public.credit_note_visible(p_id uuid, p_uid uuid)
+CREATE OR REPLACE FUNCTION public._credit_note_visible_to(p_id uuid, p_uid uuid)
 RETURNS boolean
 LANGUAGE sql
 STABLE
@@ -161,14 +161,25 @@ AS $$
        )
   );
 $$;
-REVOKE ALL ON FUNCTION public.credit_note_visible(uuid, uuid) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.credit_note_visible(uuid, uuid) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public._credit_note_visible_to(uuid, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._credit_note_visible_to(uuid, uuid) TO service_role;
+
+-- Porte publique : la session de l'APPELANT seule (jamais un uid fourni : pas d'oracle « tel compte voit tel avoir »). Lue par la policy RLS.
+CREATE OR REPLACE FUNCTION public.credit_note_visible(p_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$ SELECT public._credit_note_visible_to(p_id, auth.uid()) $$;
+REVOKE ALL ON FUNCTION public.credit_note_visible(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.credit_note_visible(uuid) TO authenticated, service_role;
 
 ALTER TABLE public.credit_notes ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Credit notes visible to their parties" ON public.credit_notes;
 CREATE POLICY "Credit notes visible to their parties" ON public.credit_notes
   FOR SELECT TO authenticated
-  USING (public.credit_note_visible(id, auth.uid()));
+  USING (public.credit_note_visible(id));
 REVOKE ALL ON public.credit_notes FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.credit_notes TO authenticated;
 GRANT ALL ON public.credit_notes TO service_role;
@@ -360,7 +371,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  IF auth.uid() IS NULL OR NOT public.credit_note_visible(p_id, auth.uid()) THEN
+  IF auth.uid() IS NULL OR NOT public.credit_note_visible(p_id) THEN
     RETURN NULL;
   END IF;
   RETURN public._credit_note_doc(p_id);
@@ -388,7 +399,7 @@ $$;
 REVOKE ALL ON FUNCTION public.get_credit_note_by_token(text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_credit_note_by_token(text) TO anon, authenticated, service_role;
 
--- Avoirs d'une vente, pour la page de confirmation / Mes commandes (le client prouve avec sa session, ou le QR de la vente).
+-- Avoirs d'une vente, pour la page de confirmation / Mes commandes (le client connecté prouve avec sa session ; un invité sans compte a le lien /avoir/<jeton> de l'e-mail de remboursement).
 CREATE OR REPLACE FUNCTION public.get_sale_credit_notes(p_ticket_id uuid DEFAULT NULL, p_table_reservation_id uuid DEFAULT NULL, p_order_id uuid DEFAULT NULL)
 RETURNS jsonb
 LANGUAGE sql
@@ -404,7 +415,7 @@ AS $$
      AND ((p_ticket_id IS NOT NULL AND c.ticket_id = p_ticket_id)
        OR (p_table_reservation_id IS NOT NULL AND c.table_reservation_id = p_table_reservation_id)
        OR (p_order_id IS NOT NULL AND c.order_id = p_order_id))
-     AND public.credit_note_visible(c.id, auth.uid());
+     AND public.credit_note_visible(c.id);
 $$;
 REVOKE ALL ON FUNCTION public.get_sale_credit_notes(uuid, uuid, uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_sale_credit_notes(uuid, uuid, uuid) TO authenticated, service_role;

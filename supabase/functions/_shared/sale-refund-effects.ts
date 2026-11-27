@@ -261,9 +261,19 @@ export async function decrementCustomerSpent(admin: SupabaseClient, ctx: SaleRef
 export async function issueCreditNoteForRefund(
   admin: SupabaseClient,
   ctx: Pick<SaleRefundContext, "kind" | "id">,
+  /** Cumul remboursé CONFIRMÉ par Stripe : borne haute de l'avoir (jamais un cumul seulement réservé). */
+  confirmedCumulativeCents: number,
 ): Promise<{ number: string; url: string } | null> {
   try {
+    // Trace durable de l'argent réellement parti : c'est elle, et elle seule, qui autorise le filet horaire à émettre un avoir.
+    const ref = await admin.rpc("confirm_sale_refund", {
+      p_kind: ctx.kind === "table_reservation" ? "table" : ctx.kind,
+      p_sale_id: ctx.id,
+      p_cumulative_cents: confirmedCumulativeCents,
+    });
+    if (ref.error) throw ref.error;
     const { data, error } = await admin.rpc("issue_credit_note", {
+      p_up_to_cents: confirmedCumulativeCents,
       p_ticket_id: ctx.kind === "ticket" ? ctx.id : null,
       p_table_reservation_id: ctx.kind === "table_reservation" ? ctx.id : null,
       p_order_id: ctx.kind === "order" ? ctx.id : null,
@@ -306,6 +316,8 @@ export async function applyRefundAmountEffects(
   opts: {
     reason?: string | null;
     source: "yuno" | "stripe_dashboard";
+    /** Cumul remboursé sur la vente une fois ce remboursement passé, CONFIRMÉ chez Stripe. */
+    cumulativeCents: number;
     /** L'appelant envoie son propre e-mail (annulation d'une table : `cancelled_refunded`). */
     skipEmail?: boolean;
   },
@@ -316,7 +328,7 @@ export async function applyRefundAmountEffects(
   await decrementCustomerSpent(admin, ctx, amountCents);
 
   // L'avoir part AVANT l'e-mail : le client y trouve son lien. Seule une vente facturée en a un.
-  const creditNote = await issueCreditNoteForRefund(admin, ctx);
+  const creditNote = await issueCreditNoteForRefund(admin, ctx, opts.cumulativeCents);
 
   if (ctx.customerEmail && !opts.skipEmail) {
     try {
@@ -480,7 +492,7 @@ export async function recordChargeRefund(
       if (error) throw error;
       if (won && won.length > 0) {
         recorded++;
-        await applyRefundAmountEffects(admin, await context(), plan.deltaCents, { source: "stripe_dashboard" });
+        await applyRefundAmountEffects(admin, await context(), plan.deltaCents, { source: "stripe_dashboard", cumulativeCents: plan.cumulativeCents });
       }
     }
 

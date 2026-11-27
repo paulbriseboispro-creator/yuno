@@ -384,6 +384,29 @@ serve(async (req) => {
         }
       }
 
+      // Vendeur = celui qui a ENCAISSÉ cette vente : la règle unique est celle de la base (`get_event_seller`, comme la facture stockée et le
+      // reçu de la page de confirmation). Elle l'emporte sur la lecture ci-dessus ; sans réponse (club qui encaisse, démo), le club reste le vendeur.
+      if (event?.id && ticket.qr_code) {
+        const { data: sellerRows } = await supabaseAdmin.rpc("get_event_seller", { p_event_id: event.id, p_qr_code: ticket.qr_code });
+        const sr = (Array.isArray(sellerRows) ? sellerRows[0] : sellerRows) as {
+          name: string | null; legal_address: string | null; siret: string | null; rna_number: string | null;
+          vat_number: string | null; vat_regime: string | null; bde_verified: boolean | null; logo_url: string | null;
+          sole_seller: boolean | null;
+        } | null | undefined;
+        if (sr?.name) {
+          seller = {
+            name: sr.name,
+            address: sr.legal_address || undefined,
+            siret: sr.siret || undefined,
+            vat: sr.vat_number || undefined,
+            rna: sr.rna_number || undefined,
+            logoUrl: sr.logo_url || undefined,
+          };
+          // Vendeur seul (organisateur) : son régime de TVA ; club partenaire qui encaisse : 20 %.
+          vatRegime = sr.sole_seller ? resolveVatRegime(sr) : "subject";
+        }
+      }
+
       // Best-effort canonical order number from the invoice row.
       const { data: inv } = await supabaseAdmin
         .from("invoices").select("invoice_number").eq("ticket_id", ticketId).maybeSingle();
@@ -676,7 +699,11 @@ serve(async (req) => {
     if (!res.ok) {
       const errData = await res.text();
       if (isRetryableResend(res.status, errData)) return await refused(res.status, errData);
-      throw new Error(`Resend error: ${errData}`);
+      // Refus DÉFINITIF (validation, adresse, domaine) : 422, jamais rejoué par la file.
+      return new Response(JSON.stringify({ error: `Resend error: ${errData}`, definitive: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 422,
+      });
     }
 
     const data = await res.json();

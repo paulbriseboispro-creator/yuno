@@ -164,7 +164,7 @@ serve(async (req) => {
     // Passage unique à « refunded » : places rendues à la jauge et crédits
     // boissons supprimés par le trigger `trg_release_refunded_ticket`.
     const ctx = await loadSaleRefundContext(adminClient, 'ticket', ticket);
-    if (plan) await applyRefundAmountEffects(adminClient, ctx, plan.amountCents, { source: 'yuno' });
+    if (plan) await applyRefundAmountEffects(adminClient, ctx, plan.amountCents, { source: 'yuno', cumulativeCents: plan.cumulativeCents });
     if (await markSaleFullyRefunded(adminClient, 'ticket', ticketId)) {
       if (!plan) await adminClient.from('tickets').update({ cancelled_at: now.toISOString(), refunded_by: user.id }).eq('id', ticketId);
       await applyFullRefundEffects(adminClient, ctx);

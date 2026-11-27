@@ -45,7 +45,7 @@ import { usePromoterTracking } from '@/hooks/usePromoterTracking';
 import { useResolvePurchaseSource, useResolveTrackedLink } from '@/hooks/usePurchaseSourceTracking';
 import { useStore } from '@/store/useStore';
 import { useVisitorTracking } from '@/hooks/useVisitorTracking';
-import { useEventPaymentsReady } from '@/lib/paymentsReady';
+import { useEventPaymentsReady, useEventPillarPaymentsReady } from '@/lib/paymentsReady';
 import { useMetaPixel } from '@/hooks/useMetaPixel';
 import { rememberPromoForEvent } from '@/lib/promoCode';
 import { trackGuestArtistClick, type GuestArtist } from '@/lib/guestArtists';
@@ -813,6 +813,7 @@ export default function EventDetails() {
   // « bientôt disponible ».
   // Les comptes démo @womber.fr passent (checkout simulé côté serveur).
   const paymentsReady = useEventPaymentsReady(eventId);
+  const tablesPaymentsReady = useEventPillarPaymentsReady(eventId, 'tables');
   const paidBlocked = !paymentsReady;
   // Liste invités publique de la soirée : requête légère, hors du gros bundle
   // (elle n'est jamais dans le chemin critique du premier pixel). Même filtre
@@ -888,7 +889,7 @@ export default function EventDetails() {
   // « Complet » posé à la main sur cette soirée : l'inventaire continue d'exister,
   // il ne se vend plus. Une formule marquée complète quitte donc `activePacks`
   // (rien à proposer) sans disparaître de l'offre (`offeredPacks` la porte encore).
-  const offeredPacks = packs.filter(p => p.isActive && (paymentsReady || p.paymentMode === 'on_site'));
+  const offeredPacks = packs.filter(p => p.isActive && (tablesPaymentsReady || p.paymentMode === 'on_site'));
   const activePacks = offeredPacks.filter(p => !isPackSoldOut(soldOut, p.id));
   const tablesSoldOutLabel = !!event?.tablesEnabled && offeredPacks.length > 0 && areAllPacksSoldOut(soldOut, offeredPacks.map(p => p.id));
   const hasTickets = !!event?.ticketingEnabled && activeRounds.length > 0 && paymentsReady && !soldOut.ticketsSoldOut;
@@ -916,8 +917,10 @@ export default function EventDetails() {
   // Un pack « règlement sur place » est vendable sans Stripe : il tient la
   // page ouverte au même titre qu'une guest list gratuite.
   const hasOnSitePacks = !!event?.tablesEnabled && packs.some(p => p.isActive && p.paymentMode === 'on_site' && !isPackSoldOut(soldOut, p.id));
+  // Tables dont le compte qui les encaisse est prêt (porte par pilier) : elles tiennent aussi la page ouverte.
+  const hasPayableTables = !!event?.tablesEnabled && tablesPaymentsReady && packs.some(p => p.isActive && !isPackSoldOut(soldOut, p.id));
   const paymentsGateClosed =
-    paidBlocked && !hasPublicGuestList && !hasOnSitePacks && (rawSalesStatus === 'public_sale' || rawSalesStatus === 'presale');
+    paidBlocked && !hasPublicGuestList && !hasOnSitePacks && !hasPayableTables && (rawSalesStatus === 'public_sale' || rawSalesStatus === 'presale');
   const eventSalesStatus = paymentsGateClosed ? 'coming_soon' : rawSalesStatus;
 
   // Cette page pose son propre CTA d'achat collant en bas d'écran dès qu'il y a

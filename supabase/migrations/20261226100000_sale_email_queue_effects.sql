@@ -272,9 +272,39 @@ BEGIN
 END;
 $$;
 
+-- ── 2 bis. Un seul envoi à la fois par vente (rejeu des effets) ─────────────────────────────────────────────────────
+-- Webhook relivré + passage du cron en même temps : les deux voient « pas encore parti » puis envoient. Un bail de 3 min par (vente, type d'e-mail),
+-- pris atomiquement, ferme la fenêtre ; si l'envoi échoue, le bail expire et le rejeu suivant reprend.
+CREATE TABLE IF NOT EXISTS public.sale_email_claims (
+  kind text NOT NULL,
+  sale_id uuid NOT NULL,
+  claimed_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (kind, sale_id)
+);
+ALTER TABLE public.sale_email_claims ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.sale_email_claims FROM PUBLIC, anon, authenticated;
+GRANT ALL ON public.sale_email_claims TO service_role;
+
+CREATE OR REPLACE FUNCTION public.claim_sale_email_send(p_kind text, p_sale_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+DECLARE v_n integer;
+BEGIN
+  INSERT INTO public.sale_email_claims (kind, sale_id, claimed_at) VALUES (p_kind, p_sale_id, now())
+  ON CONFLICT (kind, sale_id) DO UPDATE SET claimed_at = now() WHERE public.sale_email_claims.claimed_at < now() - interval '3 minutes';
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  RETURN v_n > 0;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.claim_sale_email_send(text, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_sale_email_send(text, uuid) TO service_role;
+
 -- ── 3. P6.6 : une table payée sans e-mail au bout de 30 min ───────────────────────────────────────────────────────────
--- Une alerte par vente (dedup). Ni la démo, ni une réservation sans adresse (ajout manuel), ni un e-mail en file (l'alerte de
--- quota le dit déjà). Appelée par process-scheduled-campaigns (aucun nouveau cron).
+-- Une alerte par vente (dedup). Ni la démo, ni une réservation sans adresse (ajout manuel), ni un e-mail passé par la file, quel que
+-- soit son état (l'alerte de quota ou de refus définitif le dit déjà). Appelée par process-scheduled-campaigns (aucun nouveau cron).
 CREATE OR REPLACE FUNCTION public.sale_effects_sweep()
 RETURNS integer
 LANGUAGE plpgsql
@@ -294,7 +324,7 @@ BEGIN
        AND tr.payment_mode = 'online'
        AND tr.stripe_session_id IS NOT NULL            -- paiement en ligne seulement (jamais un ajout manuel du pro)
        AND NOT EXISTS (SELECT 1 FROM public.sale_email_deliveries d WHERE d.kind = 'table' AND d.sale_id = tr.id)
-       AND NOT EXISTS (SELECT 1 FROM public.sale_email_queue q WHERE q.kind = 'table' AND q.sale_id = tr.id AND q.status = 'pending')
+       AND NOT EXISTS (SELECT 1 FROM public.sale_email_queue q WHERE q.kind = 'table' AND q.sale_id = tr.id)  -- en file, partie, abandonnée (alerte de quota) ou refusée : déjà dite
        AND NOT public._is_demo_mail(tr.user_email)
        AND NOT (tr.event_id = ANY (public.demo_event_ids()))
      ORDER BY tr.paid_at

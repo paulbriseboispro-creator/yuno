@@ -8,6 +8,7 @@ import { FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/hooks/useAuth';
 import { deliverCreditNote } from '@/lib/generateCreditNotePDF';
 import type { CreditNoteDoc } from '@/lib/creditNote';
 import type { DocLang } from '@/lib/generateDocuments';
@@ -16,11 +17,13 @@ interface Row { id: string; credit_number: string; amount: number; created_at: s
 
 export function SaleCreditNotes({ kind, id }: { kind: 'ticket' | 'table' | 'order'; id: string | null | undefined }) {
   const { t, language } = useLanguage();
+  const { user } = useAuth();
   const [rows, setRows] = useState<Row[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!id) return;
+    // Sans session, la RPC est fermée (401) : l'invité sans compte passe par le lien de l'e-mail.
+    if (!id || !user) return;
     let live = true;
     supabase.rpc('get_sale_credit_notes', {
       p_ticket_id: kind === 'ticket' ? id : null,
@@ -28,7 +31,7 @@ export function SaleCreditNotes({ kind, id }: { kind: 'ticket' | 'table' | 'orde
       p_order_id: kind === 'order' ? id : null,
     }).then(({ data }) => { if (live && Array.isArray(data)) setRows(data as unknown as Row[]); });
     return () => { live = false; };
-  }, [kind, id]);
+  }, [kind, id, user]);
 
   const download = useCallback(async (row: Row) => {
     setBusy(row.id);
