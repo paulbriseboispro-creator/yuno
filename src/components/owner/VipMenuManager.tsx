@@ -120,6 +120,8 @@ export function VipMenuManager({ venueId, eventId }: VipMenuManagerProps) {
   const [packs, setPacks] = useState<TablePack[]>([]);
   // Réglages club (idée #2 / #3) : vitrine menu dans le tunnel + pré-commande.
   const [menuDisplayMode, setMenuDisplayMode] = useState<'text' | 'visual'>('text');
+  // D17 : un club peut cacher sa carte aux clients (visible par défaut).
+  const [menuVisible, setMenuVisible] = useState(true);
 
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEligibilityDialog, setShowEligibilityDialog] = useState(false);
@@ -158,15 +160,15 @@ export function VipMenuManager({ venueId, eventId }: VipMenuManagerProps) {
     setLoading(true);
 
     try {
-      // Carte d'un club (venue_id) ou d'une soirée sans club (event_id). Les réglages de vitrine du
-      // club (visibilité, précommande, Mode Live) ne sont plus lus : la carte s'affiche toujours (D8).
+      // Carte d'un club (venue_id) ou d'une soirée sans club (event_id). Le club choisit si sa carte
+      // est montrée aux clients (D17, visible par défaut) ; le Mode Live reste éteint avec le bar.
       const itemsQuery = supabase.from('vip_menu_items').select('*');
       const [itemsRes, eligRes, zonesRes, packsRes, venueRes] = await Promise.all([
         (eventMode ? itemsQuery.eq('event_id', scopeId) : itemsQuery.eq('venue_id', scopeId)).order('category').order('position'),
         eventMode ? Promise.resolve({ data: [] as VipMenuEligibility[] }) : supabase.from('vip_menu_eligibility').select('*'),
         eventMode ? Promise.resolve({ data: [] as TableZone[] }) : supabase.from('table_zones').select('id, name, color').eq('venue_id', scopeId),
         eventMode ? Promise.resolve({ data: [] as TablePack[] }) : supabase.from('table_packs').select('id, name, zone_id').eq('venue_id', scopeId),
-        eventMode ? Promise.resolve({ data: null }) : supabase.from('venues').select('vip_menu_display_mode').eq('id', scopeId).single(),
+        eventMode ? Promise.resolve({ data: null }) : supabase.from('venues').select('vip_menu_display_mode, vip_menu_visibility').eq('id', scopeId).single(),
       ]);
       if (itemsRes.error) throw itemsRes.error;
 
@@ -176,6 +178,7 @@ export function VipMenuManager({ venueId, eventId }: VipMenuManagerProps) {
       setPacks(packsRes.data || []);
       if (venueRes.data) {
         setMenuDisplayMode((venueRes.data.vip_menu_display_mode as 'text' | 'visual') || 'text');
+        setMenuVisible(venueRes.data.vip_menu_visibility !== 'hidden');
       }
     } catch (error) {
       console.error('Error fetching VIP menu data:', error);
@@ -399,6 +402,16 @@ export function VipMenuManager({ venueId, eventId }: VipMenuManagerProps) {
     else toast.success(tt('Affichage de la carte mis à jour', 'Menu display updated', 'Visualización de la carta actualizada'));
   };
 
+  const saveMenuVisible = async (on: boolean) => {
+    const prev = menuVisible;
+    setMenuVisible(on);
+    const { data, error } = await supabase.from('venues')
+      .update({ vip_menu_visibility: on ? 'full' : 'hidden', vip_preorder_enabled: on })
+      .eq('id', scopeId).select('id');
+    if (error || !data || data.length === 0) { setMenuVisible(prev); toast.error(t('common.error')); }
+    else toast.success(on ? t('tblb.menu.shownToast') : t('tblb.menu.hiddenToast'));
+  };
+
   const DISPLAY_OPTS: { m: 'text' | 'visual'; label: string; desc: string }[] = [
     { m: 'text', label: tt('Liste écrite', 'Written list', 'Lista escrita'), desc: tt('Carte compacte en texte.', 'Compact text menu.', 'Carta compacta en texto.') },
     { m: 'visual', label: tt('Page visuelle', 'Visual page', 'Página visual'), desc: tt('Bouton « Voir la carte » avec photos des bouteilles.', '"View the menu" button with bottle photos.', 'Botón "Ver la carta" con fotos de botellas.') },
@@ -425,6 +438,15 @@ export function VipMenuManager({ venueId, eventId }: VipMenuManagerProps) {
       <div className="rounded-xl border border-border/60 bg-card/40 p-4 space-y-4">
         <p className="text-xs text-muted-foreground">{t(eventMode ? 'tblb.menu.eventHint' : 'tblb.menu.venueHint')}</p>
         {!eventMode && (
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium">{t('tblb.menu.showToggle')}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{t('tblb.menu.showToggleHint')}</p>
+            </div>
+            <Switch checked={menuVisible} onCheckedChange={saveMenuVisible} aria-label={t('tblb.menu.showToggle')} />
+          </div>
+        )}
+        {!eventMode && menuVisible && (
           <div>
             <p className="text-sm font-medium mb-2">{tt('Comment afficher la carte', 'How to show the menu', 'Cómo mostrar la carta')}</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

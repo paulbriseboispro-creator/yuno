@@ -92,13 +92,18 @@ SET search_path TO 'public'
 AS $$
   SELECT COALESCE(jsonb_agg(jsonb_build_object(
            'id', m.id, 'name', m.name, 'description', m.description, 'category', m.category, 'brand', m.brand,
-           'volume_cl', m.volume_cl, 'price', m.price, 'image_url', m.image_url,
+           'volume_cl', m.volume_cl,
+           -- « Sans les prix » choisi par le club : la carte se montre, pas les prix.
+           'price', CASE WHEN v.vip_menu_visibility = 'no_prices' THEN NULL ELSE m.price END, 'image_url', m.image_url,
            'needs_mixer', m.needs_mixer, 'max_mixers', m.max_mixers, 'position', m.position
          ) ORDER BY m.position NULLS LAST, m.created_at), '[]'::jsonb)
     FROM public._table_menu_scope(p_event_id) s
+    LEFT JOIN public.venues v ON v.id = s.venue_id
     JOIN public.vip_menu_items m
       ON m.is_active
-     AND ((s.venue_id IS NOT NULL AND m.venue_id = s.venue_id) OR (s.event_id IS NOT NULL AND m.event_id = s.event_id));
+     AND ((s.venue_id IS NOT NULL AND m.venue_id = s.venue_id) OR (s.event_id IS NOT NULL AND m.event_id = s.event_id))
+   -- D17 : un club qui cache sa carte n'en montre aucune (la carte d'une soirée sans club se montre toujours).
+   WHERE s.venue_id IS NULL OR v.vip_menu_visibility IS DISTINCT FROM 'hidden';
 $$;
 
 -- Validation d'une précommande : rend les lignes RELUES en base ({id, name, quantity, unit_price}) et le total, ou lève
@@ -125,6 +130,13 @@ BEGIN
 
   SELECT * INTO v_scope FROM public._table_menu_scope(p_event_id);
   IF NOT FOUND OR (v_scope.venue_id IS NULL AND v_scope.event_id IS NULL) THEN
+    RAISE EXCEPTION 'invalid_preorder:no_menu' USING ERRCODE = 'YU020';
+  END IF;
+  -- D17 : précommande refusée quand le club a caché sa carte ou coupé la précommande.
+  IF v_scope.venue_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM public.venues v
+     WHERE v.id = v_scope.venue_id AND v.vip_menu_visibility <> 'hidden' AND v.vip_preorder_enabled
+  ) THEN
     RAISE EXCEPTION 'invalid_preorder:no_menu' USING ERRCODE = 'YU020';
   END IF;
 

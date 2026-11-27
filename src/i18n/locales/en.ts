@@ -17636,6 +17636,10 @@ const en: Record<string, string> = {
   "tblm.preorder.nightTitle": "Bottle pre-orders on {n} table(s)",
   "tblm.preorder.toCollect": "{amount} to collect on site",
   "tblm.preorder.toCollectLabel": "To collect on site",
+  "tblb.menu.showToggle": "Show the menu to customers",
+  "tblb.menu.showToggleHint": "When a customer books a table, they see your bottles and can pre-order them, paid at the club.",
+  "tblb.menu.shownToast": "Menu shown to customers",
+  "tblb.menu.hiddenToast": "Menu hidden from customers",
 };
 
 export default en;
